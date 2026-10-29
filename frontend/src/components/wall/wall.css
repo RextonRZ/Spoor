@@ -2,7 +2,15 @@
 .sp-wall { display: flex; flex-direction: column; gap: 10px; outline: none; }
 .sp-wall:fullscreen { background: #000; padding: 10px; justify-content: center; }
 .sp-wall-grid { display: grid; gap: 4px; background: #000; border-radius: 10px; overflow: hidden; padding: 4px; }
-.sp-wall-tile { position: relative; margin: 0; aspect-ratio: 16 / 9; background: #07080a; overflow: hidden; }
+.sp-wall-tile { position: relative; margin: 0; aspect-ratio: 16 / 9; background: #07080a; overflow: hidden; cursor: zoom-in; }
+.sp-wall-tile:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* one tile enlarged, the rest as a strip underneath */
+.sp-wall-grid[data-focus] .sp-wall-tile[data-focused] { grid-column: 1 / -1; order: -1; cursor: zoom-out; }
+.sp-wall-grid[data-focus] .sp-wall-tile:not([data-focused]) .sp-wall-cap .sp-muted,
+.sp-wall-grid[data-focus] .sp-wall-tile:not([data-focused]) .sp-wall-cap .sp-chip,
+.sp-wall-grid[data-focus] .sp-wall-tile:not([data-focused]) .sp-wall-empty .sp-caption { display: none; }
+.sp-wall-grid[data-focus] .sp-wall-tile:not([data-focused]) .sp-wall-cap { font-size: 10.5px; padding: 2px 5px; }
+.sp-wall-grid[data-focus] .sp-wall-tile:not([data-focused]) .sp-wall-empty { font-size: 11px; padding: 4px 4px 18px; }
 .sp-wall-tile video { width: 100%; height: 100%; object-fit: contain; display: block; background: #000; }
 .sp-wall-cap { position: absolute; left: 0; right: 0; bottom: 0; display: flex; gap: 8px; align-items: center; padding: 4px 8px;
   font-size: 12px; background: linear-gradient(transparent, rgba(0, 0, 0, 0.72)); color: var(--ink-strong); pointer-events: none; }
@@ -18,7 +26,8 @@
 .sp-wall-time { font-size: 12.5px; color: var(--ink); }
 .sp-wall:fullscreen .sp-wall-grid { width: min(100%, calc((100vh - 90px) * 16 / 9)); margin: 0 auto; }
 @media (max-width: 640px) {
-  .sp-wall-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .sp-wall-grid:not([data-focus]) { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .sp-wall-grid[data-focus] { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
   .sp-wall-cap { font-size: 10.5px; gap: 5px; padding: 3px 5px; }
   .sp-wall-cap .sp-muted { display: none; }
   .sp-wall-empty { padding: 6px 6px 22px; font-size: 11.5px; }

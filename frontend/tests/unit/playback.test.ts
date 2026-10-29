@@ -42,11 +42,11 @@ test("frame time on the case timeline = recorded start + pts", () => {
   assert.equal(frameUtcMs({ pts_ms: pts10, start_utc: null }, 3), null);
 });
 
-test("wall sync: clips outside their own span show no footage, grid is 1, 2x2 or 3x3", () => {
+test("wall sync: clips outside their own span show no footage; adaptive grid without empty slots", () => {
   assert.equal(wallLocalTime(5, 2, 30), 3);
   assert.equal(wallLocalTime(1, 2, 30), null);
   assert.equal(wallLocalTime(40, 2, 30), null);
-  assert.deepEqual([1, 2, 4, 5, 9].map(wallColumns), [1, 2, 2, 3, 3]);
+  assert.deepEqual([1, 2, 3, 4, 5, 6, 7, 9].map(wallColumns), [1, 2, 3, 2, 3, 3, 3, 3]);
 });
 
 test("manifest parsing keeps inputs only and refuses unsafe ids", () => {

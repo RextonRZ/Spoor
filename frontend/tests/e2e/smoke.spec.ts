@@ -170,3 +170,18 @@ test("camera wall: synchronized tiles from imported footage, honest states, no t
   }
   expect(urls.filter((u) => TRUTH.test(u))).toEqual([]);
 });
+
+test("camera wall: click enlarges one tile, the rest become a strip; click again restores", async ({ page }) => {
+  const caseId = await firstCase(page);
+  await page.goto(`/wall?case=${caseId}`);
+  const tiles = page.locator(".sp-wall-tile");
+  await expect(tiles.first()).toBeVisible();
+  const n = await tiles.count();
+  await tiles.nth(0).click();
+  await expect(page.locator(".sp-wall-tile[data-focused]")).toHaveCount(1);
+  const big = await tiles.nth(0).boundingBox();
+  const small = n > 1 ? await tiles.nth(1).boundingBox() : null;
+  if (small) expect(big!.width).toBeGreaterThan(small.width * 1.5);
+  await tiles.nth(0).click();
+  await expect(page.locator(".sp-wall-tile[data-focused]")).toHaveCount(0);
+});

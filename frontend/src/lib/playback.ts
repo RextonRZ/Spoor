@@ -66,7 +66,10 @@ export function wallLocalTime(t: number, offsetS: number, durationS: number): nu
   return local < 0 || local > durationS ? null : local;
 }
 
-/** Grid for a camera wall page: 1, 2x2 or 3x3 tiles (review 007 #1). */
+/** Grid for a camera wall page with no empty slots where possible (review 008 Q1): 1, 2 or 3 in a row; 4 = 2x2;
+ * 5-6 = 3x2; 7-9 = 3x3. */
 export function wallColumns(n: number): 1 | 2 | 3 {
-  return n <= 1 ? 1 : n <= 4 ? 2 : 3;
+  if (n <= 1) return 1;
+  if (n === 2 || n === 4) return 2;
+  return 3;
 }

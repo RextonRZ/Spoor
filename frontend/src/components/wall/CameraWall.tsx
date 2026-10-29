@@ -32,6 +32,10 @@ export default function CameraWall({ tiles, title }: { tiles: WallTile[]; title:
   const pages = Math.max(1, Math.ceil(tiles.length / PAGE));
   const shown = tiles.slice(page * PAGE, page * PAGE + PAGE);
   const cols = wallColumns(shown.length);
+  // Click a tile to enlarge it; the others shrink to a strip underneath (review 008 Q1). Click again / Esc to restore.
+  const [focus, setFocus] = useState<string | null>(null);
+  const focused = focus && shown.some((t) => t.key === focus) ? focus : null;
+  const strip = Math.max(1, Math.min(shown.length - 1, 8));
   const videos = useRef(new Map<string, HTMLVideoElement>());
   const [spans, setSpans] = useState<Record<string, { start: number; duration: number }>>({});
   const clockRef = useRef<Clock>({ playing: false, t: 0 });
@@ -108,15 +112,21 @@ export default function CameraWall({ tiles, title }: { tiles: WallTile[]; title:
   const seek = (t: number) => setClock({ playing: clockRef.current.playing, t });
   const turn = (p: number) => {
     setClock({ ...clockRef.current, playing: false });
+    setFocus(null);
     setPage(p);
   };
 
   return (
     <div className="sp-wall" ref={wallRef} data-cols={cols} data-ready={ready > 0}
-      onKeyDown={(e) => { if (e.key === " " && (e.target as HTMLElement).tagName !== "BUTTON") { e.preventDefault(); toggle(); } }}>
-      <div className="sp-wall-grid" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }} aria-label={title}>
+      onKeyDown={(e) => {
+        if (e.key === "Escape" && focused) setFocus(null);
+        if (e.key === " " && (e.target as HTMLElement).tagName !== "BUTTON") { e.preventDefault(); toggle(); }
+      }}>
+      <div className="sp-wall-grid" data-focus={focused ? "true" : undefined} aria-label={title}
+        style={{ gridTemplateColumns: `repeat(${focused ? strip : cols}, minmax(0, 1fr))` }}>
         {shown.map((tile) => (
-          <Tile key={tile.key} tile={tile} report={report} register={register} />
+          <Tile key={tile.key} tile={tile} report={report} register={register} focused={focused === tile.key}
+            onSelect={() => setFocus((f) => (f === tile.key ? null : tile.key))} />
         ))}
       </div>
       <div className="sp-wall-bar" role="group" aria-label="Wall playback">
@@ -150,8 +160,8 @@ export default function CameraWall({ tiles, title }: { tiles: WallTile[]; title:
   );
 }
 
-function Tile({ tile, register, report }: { tile: WallTile; report: (key: string, start: number, duration: number) => void;
-  register: (key: string, el: HTMLVideoElement | null) => void }) {
+function Tile({ tile, register, report, focused, onSelect }: { tile: WallTile; focused: boolean; onSelect: () => void;
+  report: (key: string, start: number, duration: number) => void; register: (key: string, el: HTMLVideoElement | null) => void }) {
   const videoRef = useCallback((el: HTMLVideoElement | null) => register(tile.key, el), [register, tile.key]);
   const pb = useResource<Playback>(tile.mediaId ? `/v1/media/${tile.mediaId}/playback` : null);
   const [failed, setFailed] = useState(false);
@@ -163,7 +173,11 @@ function Tile({ tile, register, report }: { tile: WallTile; report: (key: string
     if (start !== null && duration > 0) report(tile.key, start, duration);
   }, [start, duration, report, tile.key]);
   return (
-    <figure className="sp-wall-tile" data-state={!tile.mediaId ? "empty" : failed ? "error" : data ? "ready" : "loading"}>
+    <figure className="sp-wall-tile" data-state={!tile.mediaId ? "empty" : failed ? "error" : data ? "ready" : "loading"}
+      data-focused={focused ? "true" : undefined} role="button" tabIndex={0} aria-pressed={focused}
+      aria-label={`${tile.camera}${tile.osd ? ` ${tile.osd}` : ""}: ${focused ? "show all cameras" : "enlarge"}`}
+      onClick={onSelect}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onSelect(); } }}>
       {tile.mediaId && data && !failed && (
         <video ref={videoRef} src={signedUrl(data.url)} muted playsInline preload="auto"
           aria-label={`${tile.camera} original footage (working proxy)`}

@@ -180,7 +180,13 @@ test("camera wall (review 007 #1): synchronized case footage, and the honest sta
   await page.waitForTimeout(3000);
   await page.getByTestId("wall-play").click();
   await page.waitForTimeout(800);
-  await shot(page, info, "20_camera_wall");
+  await page.evaluate(() => { window.scrollTo(0, 0); document.getElementById("main")?.scrollTo(0, 0); });
+  await shot(page, info, "20_camera_wall", true); // whole page from the top: header + wall + controls (review 008 P2 #2)
+  await page.locator(".sp-wall-tile").nth(1).click();
+  await expect(page.locator(".sp-wall-tile[data-focused]")).toHaveCount(1);
+  await page.waitForTimeout(800);
+  await page.evaluate(() => { window.scrollTo(0, 0); document.getElementById("main")?.scrollTo(0, 0); });
+  await shot(page, info, "25_camera_wall_enlarged", true);
   await page.goto("/wall?scenario=S2");
   await expect(page.getByText(/not written yet|not in the manifest|Renders not produced yet/).first()).toBeVisible();
   await shot(page, info, "21_camera_wall_no_renders");
