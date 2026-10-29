@@ -2,6 +2,7 @@
  * Screen recording of the signature interaction (PRD §19.3) on the real no-key stack, then the trace renderer on a
  * route-mocked TEST FIXTURE (banner visible). Output: Playwright webm, converted by scripts/make-recording.mjs.
  */
+import { writeFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 import { FIXTURE_BANNER, traceFixture } from "../fixtures/trace-fixture";
 
@@ -31,6 +32,9 @@ async function caption(page: Page, text: string) {
 test("signature interaction", async ({ page }) => {
   await page.request.post("/api/session", { data: { role: "investigator" } });
   await page.addInitScript(CLICK_RING);
+  const t0 = Date.now(); // the page video starts with the page; cuts below are seconds from here
+  const cuts: [number, number][] = [];
+  const sec = () => (Date.now() - t0) / 1000;
   const cases = await (await page.request.get("/api/spoor/v1/cases")).json();
   const id = cases[0].case.case_id as string;
 
@@ -38,7 +42,10 @@ test("signature interaction", async ({ page }) => {
   await caption(page, "No-key mode: real inputs only (synthetic footage, simulated scan log)");
   await page.waitForTimeout(1800);
   await page.getByRole("link", { name: /Where did parcel/ }).first().click();
+  let cutFrom = sec() + 0.6;
   await page.locator('.sp-scene[data-ready="true"]').waitFor({ timeout: 120_000 });
+  await page.waitForTimeout(800);
+  cuts.push([cutFrom, sec() - 0.3]); // no dead air while the 3D scene loads
   await caption(page, "Where did the parcel go?");
   await page.waitForTimeout(1500);
   await page.getByTestId("where-did-it-go").click();
@@ -76,6 +83,7 @@ test("signature interaction", async ({ page }) => {
       media: { media_id: cam07.media.media_id, sha256: cam07.media.sha256, kind: "original", flags: [] },
       frame_url: fa.frame_url, annotated_frame_url: fa.frame_url, asset_label: "original" } });
   });
+  cutFrom = sec();
   await page.reload();
   await page.evaluate((t) => {
     const b = document.createElement("div");
@@ -84,7 +92,10 @@ test("signature interaction", async ({ page }) => {
     document.body.appendChild(b);
   }, FIXTURE_BANNER);
   await page.locator('.sp-scene[data-ready="true"]').waitFor({ timeout: 120_000 });
+  await page.waitForTimeout(1500); // auto-frame to the trace finishes
   await caption(page, "Green solid = observed; amber dashed = hypothesis; grey = unknown, no path");
+  await page.waitForTimeout(300);
+  cuts.push([cutFrom, sec() - 0.3]);
   await page.waitForTimeout(3000);
   await page.getByRole("button", { name: "2D plan" }).click();
   await page.waitForTimeout(2000);
@@ -94,4 +105,5 @@ test("signature interaction", async ({ page }) => {
   await page.getByRole("button", { name: /Unknown interval/ }).click();
   await caption(page, "The unknown interval: solid never bridges it");
   await page.waitForTimeout(2500);
+  writeFileSync("test-results/recording-cuts.json", JSON.stringify(cuts));
 });

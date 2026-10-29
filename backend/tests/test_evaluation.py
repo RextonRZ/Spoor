@@ -146,3 +146,158 @@ def test_change_detection_baseline_finds_when_region_changes(tmp_path, room):
     pred = variants.variant_cd(sc, d, tmp_path / "work", variants.Backends())
     assert pred.status == "answered" and pred.last_seen_zone == "zone_shelf_a"
     assert abs((pred.last_seen_utc - T0).total_seconds() - 1.4) <= 0.1
+
+
+# --- parcel-hub no-key evaluator (QUEUE F3) -------------------------------------------------------------------------
+
+TRUTH_MARKERS = ("events_truth", "flow_truth", "render_truth", "build/truth", "build\truth", "scenario_card")
+
+
+def test_runtime_and_web_app_never_reference_truth_files():
+    """The runtime package and the web app source may not even name evaluator-only truth files."""
+    for base in (ROOT / "backend" / "src" / "spoor", ROOT / "frontend" / "src"):
+        for path in base.rglob("*"):
+            if path.suffix in (".py", ".ts", ".tsx", ".json") and path.is_file():
+                text = path.read_text(encoding="utf-8", errors="ignore")
+                assert not any(m in text for m in TRUTH_MARKERS), path
+
+
+def test_hub_predict_phase_cannot_see_truth():
+    from spoor_eval import hub
+
+    params = inspect.signature(hub.predict).parameters
+    assert not any("truth" in p for p in params)
+    assert "truth" not in inspect.getsource(hub.predict).split('"""')[-1]  # body never opens a truth path
+    seed = (ROOT / "frontend" / "scripts" / "seed_nokey.py").read_text(encoding="utf-8")
+    assert "def guard" in seed and "render_truth" in seed  # the loader refuses truth paths
+
+
+def test_hub_scoring_rules():
+    from spoor_eval.hub import HubPrediction, HubTruth, aggregate, score
+
+    pred = HubPrediction(parcel="CTX1", case_id="case_x", status="abstained", last_seen_time="2026-10-28T14:32:10+08:00",
+                         last_seen_event="divert_confirm", last_seen_device="SP-DIV-C03", last_seen_class="fixed_scan",
+                         later_location_claims=0, left_area="unknown", no_coverage_intervals=1, answer="", latency_s=0.1)
+    truth = HubTruth("CTX1", "divert_confirm", "2026-10-28T14:32:10.400+08:00", (44.1, 20.5), 1.0, "Z06", True, [])
+    s = score(pred, truth)
+    assert s["last_seen_correct"] and s["abstention_correct"] and not s["false_left_hub"]
+    seen = score(pred, HubTruth("CTX1", "divert_confirm", "2026-10-28T14:32:10+08:00", None, None, None, True, ["CAM_10"]))
+    assert seen["abstention"].startswith("missed") and not seen["abstention_correct"]
+    wrong = score(pred.__class__(**{**pred.__dict__, "last_seen_event": "tunnel_read", "left_area": "yes"}), truth)
+    assert not wrong["last_seen_correct"] and wrong["false_left_hub"]
+    agg = aggregate([s, seen, wrong])
+    assert agg["n_cases"] == 3 and agg["false_left_hub"] == 1 and agg["abstention_missed_visible"] == 1
+
+
+# --- review 007 #4: D scenarios are the headline when renders and reference data exist -----------------------------
+
+
+def _manifest(tmp_path: Path, entries: dict[str, bool]) -> tuple[Path, Path]:
+    """entries: scenario -> has renders. Reference files are written for S0, S1, S3 only."""
+    scen = tmp_path / "ml" / "evaluation" / "scenarios"
+    scen.mkdir(parents=True)
+    ref = tmp_path / "ref"
+    ref.mkdir()
+    items = []
+    for sc, rendered in entries.items():
+        clips = tmp_path / "renders" / sc
+        clips.mkdir(parents=True)
+        if rendered:
+            (clips / "CAM_10.mp4").write_bytes(b"x")
+        items.append({"scenario": sc, "title": f"title {sc}", "parcel": f"CTX{sc}", "subject_kind": "parcel",
+                      "clips": f"../../../renders/{sc}", "scans": f"../../../scans_{sc}.jsonl",
+                      "clip_start": "2026-10-28T14:32:07+08:00"})  # fmt: skip
+    for sc in ("S0", "S1", "S3"):
+        suf = "" if sc == "S0" else f"_{sc}"
+        for name in (f"scenario_{sc}.json", f"events_truth{suf}.jsonl", f"flow_truth{suf}.json"):
+            (ref / name).write_text("{}", encoding="utf-8")
+    (scen / "manifest.json").write_text(json.dumps(items), encoding="utf-8")
+    return scen / "manifest.json", ref
+
+
+def test_hub_plan_needs_renders_and_reference_data(tmp_path):
+    from spoor_eval.hub import plan_suite
+
+    manifest, ref = _manifest(tmp_path, {"S0": True, "S1": True, "S2": True, "S3": False})
+    plan = plan_suite(manifest, ref)
+    assert [e["scenario"] for e in plan["eligible"]] == ["S1"]
+    why = {s["scenario"]: s["reason"] for s in plan["skipped"]}
+    assert why["S2"].startswith("reference data not written") and why["S3"] == "renders not produced yet"
+    assert why["S4"] == why["S5"] == "not in the manifest"
+    assert plan["control"]["scenario"] == "S0"
+    assert all(s["reason"] == "scenario manifest not written yet" for s in plan_suite(tmp_path / "none.json", ref)["skipped"])
+
+
+def _fake_phase(monkeypatch, calls):
+    from spoor_eval import hub
+
+    def predict(**kw):
+        calls.append("predict")
+        subj = kw.get("subjects") or [("CTX_A", "parcel")]
+        return {"predictions": [hub.HubPrediction(parcel=s, case_id="c", status="abstained",
+                                                  last_seen_time="2026-10-28T14:32:10+08:00", last_seen_event="tunnel_read",
+                                                  last_seen_device="SP-TUNNEL", last_seen_class="fixed_scan",
+                                                  later_location_claims=0, left_area="unknown", no_coverage_intervals=None,
+                                                  answer="", latency_s=0.0, subject_kind=k) for s, k in subj],
+                "clip_cameras": ["CAM_10"], "spec": {}, "scans_not_imported": {}, "clip_seconds": 30.0}  # fmt: skip
+
+    def load_truth(truth_dir, parcels, **kw):
+        calls.append("truth")
+        return {p: hub.HubTruth(p, "divert_confirm", "2026-10-28T14:32:20+08:00", (40.0, 20.0), 0.1, "Z06", True,
+                                ["CAM_10"]) for p in parcels}  # fmt: skip
+
+    monkeypatch.setattr(hub, "predict", predict)
+    monkeypatch.setattr(hub, "load_truth", load_truth)
+    monkeypatch.setattr(hub, "_clip_seconds", lambda d: 30.0)
+    return hub
+
+
+def test_hub_headline_prefers_scenarios_and_predicts_first(tmp_path, monkeypatch):
+    calls: list[str] = []
+    hub = _fake_phase(monkeypatch, calls)
+    manifest, ref = _manifest(tmp_path, {"S0": True, "S1": True, "S3": True})
+    res = hub.run_hub(scans=tmp_path / "s.jsonl", clips=tmp_path, spec=tmp_path / "spec.json", truth_dir=ref,
+                      clip_start="2026-10-28T14:32:07+08:00", scenario="control_flow", out_dir=tmp_path / "out",
+                      manifest=manifest)  # fmt: skip
+    assert calls == ["predict"] * 3 + ["truth"] * 3  # S1, S3, control: every prediction before any reference file
+    assert res["headline"]["source"] == "scenarios" and res["headline"]["caveat"] is None
+    assert res["headline"]["scenarios"] == ["S1", "S3"] and {c["scenario"] for c in res["cases"]} == {"S1", "S3"}
+    assert res["aggregate"]["last_seen_accuracy"] == 0.0  # the scenarios can fail; here they do
+    assert [s["name"] for s in res["suites"]] == ["scenarios", "control_flow"]
+    assert json.loads((tmp_path / "out" / "latest.json").read_text())["headline"]["source"] == "scenarios"
+
+
+def test_hub_headline_falls_back_to_control_with_caveat(tmp_path, monkeypatch):
+    calls: list[str] = []
+    hub = _fake_phase(monkeypatch, calls)
+    manifest, ref = _manifest(tmp_path, {"S1": False, "S2": True})
+    res = hub.run_hub(scans=tmp_path / "s.jsonl", clips=tmp_path, spec=tmp_path / "spec.json", truth_dir=ref,
+                      clip_start="2026-10-28T14:32:07+08:00", scenario="control_flow", out_dir=tmp_path / "out",
+                      manifest=manifest)  # fmt: skip
+    assert res["headline"]["source"] == "control_flow" and "prove little" in res["headline"]["caveat"]
+    assert "S1: renders not produced yet" in res["headline"]["caveat"]
+    assert "S3, S4, S5: not in the manifest" in res["headline"]["caveat"]
+    assert [s["name"] for s in res["suites"]] == ["control_flow"]
+
+
+def test_hub_container_subject_without_track_is_not_scored_for_abstention(tmp_path):
+    from spoor_eval.hub import HubPrediction, load_truth, score
+
+    (tmp_path / "events_truth_S4.jsonl").write_text("\n".join(json.dumps(r) for r in [
+        {"event": "container_close", "container_id": "RC-7", "true_time": "2026-10-28T14:32:09+08:00"},
+        {"event": "rfid_read", "container_id": "RC-7", "true_time": "2026-10-28T14:32:15+08:00"},
+        {"event": "tunnel_read", "parcel_id": "CTX9", "true_time": "2026-10-28T14:32:01+08:00"}]), encoding="utf-8")
+    (tmp_path / "flow_truth_S4.json").write_text(json.dumps({"t0": "2026-10-28T14:32:07+08:00", "fps": 10,
+                                                             "parcels": []}), encoding="utf-8")  # fmt: skip
+    spec = {"building": {"footprint_m": [60, 40]}, "zones": [], "cameras": []}
+    t = load_truth(tmp_path, ["RC-7"], spec=spec, clip_cameras=[], clip_start="2026-10-28T14:32:07+08:00",
+                   scenario="S4")["RC-7"]  # fmt: skip
+    assert t.last_event == "rfid_read" and not t.track_known and t.inside_building is None
+    pred = HubPrediction(parcel="RC-7", case_id="c", status="abstained", last_seen_time="2026-10-28T14:32:15+08:00",
+                         last_seen_event="rfid_read", last_seen_device="SP-DOCK", last_seen_class="fixed_scan",
+                         later_location_claims=0, left_area="yes", no_coverage_intervals=None, answer="", latency_s=0.0,
+                         subject_kind="container")  # fmt: skip
+    s = score(pred, t)
+    assert s["last_seen_correct"] and s["abstention"].startswith("claimed") and not s["false_left_hub"]
+    s2 = score(HubPrediction(**{**pred.__dict__, "left_area": "unknown"}), t)
+    assert s2["abstention"].startswith("not scored") and not s2["abstention_correct"]

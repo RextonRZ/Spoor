@@ -13,6 +13,8 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { floorFootprint, frustumCorners, siteToRenderer, type Vec3 } from "@/lib/frames";
 import { HUB, centroid, hubZone, scanPoint, type HubCamera } from "@/lib/hub";
 import { buildTrace } from "@/lib/trace";
+import { routeLink, surfaceHeight } from "@/lib/topology";
+import type { ReplayPoint } from "@/lib/types";
 import { fmtTime } from "@/lib/time";
 import { useWorkspace } from "./context";
 
@@ -130,9 +132,18 @@ function onTop(o: THREE.Object3D) {
   if (m) { m.depthTest = false; m.transparent = true; }
 }
 
-function Arrow({ from, to }: { from: [number, number]; to: [number, number] }) {
-  const a = r3([from[0], from[1], 0.12]);
-  const b = r3([to[0], to[1], 0.12]);
+const LOOP = HUB.machines.loop;
+const CHUTES = HUB.machines.chutes;
+/** Draw height of an observation: its own z when the backend gives one, else the surface under its floor point. */
+function zOf(p: ReplayPoint): number {
+  const ry = p.renderer_xyz_y_up?.[1] ?? 0;
+  return ry > 0.01 ? ry : surfaceHeight(LOOP, CHUTES, p.floor_xy_m!);
+}
+const at3 = (p: ReplayPoint) => r3([p.floor_xy_m![0], p.floor_xy_m![1], zOf(p)]);
+
+function Arrow({ from, to }: { from: ReplayPoint; to: ReplayPoint }) {
+  const a = at3(from);
+  const b = at3(to);
   const dir = b.clone().sub(a).normalize();
   const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
   return (
@@ -143,6 +154,28 @@ function Arrow({ from, to }: { from: [number, number]; to: [number, number] }) {
   );
 }
 
+/** Amber dashed hypothesis, routed along known conveyance. Points are memoised: drei's Line rebuilds its geometry
+ * when the points array changes, and a rebuilt geometry loses the dash distances until the next layout pass. */
+function HypothesisRoute({ from, to, onSelect }: { from: ReplayPoint; to: ReplayPoint; onSelect: () => void }) {
+  const pts = useMemo(() => routeLink(LOOP, CHUTES, from.floor_xy_m!, to.floor_xy_m!).points
+    .map((q) => r3([q[0], q[1], surfaceHeight(LOOP, CHUTES, q) + 0.45])), [from, to]);
+  const ref = useRef<{ computeLineDistances: () => void } | null>(null);
+  const invalidate = useThree((st) => st.invalidate);
+  useEffect(() => {
+    // the geometry is attached after drei's own layout effect ran, so compute dash distances once more here
+    const id = requestAnimationFrame(() => { ref.current?.computeLineDistances(); invalidate(); });
+    return () => cancelAnimationFrame(id);
+  }, [pts, invalidate]);
+  return (
+    <group>
+      {/* dark backing so the amber dashes read against the yellow loop guarding */}
+      <Line points={pts} color="#140f05" lineWidth={8} onUpdate={(o: THREE.Object3D) => { onTop(o); o.renderOrder = 9; }} />
+      <Line ref={ref as never} points={pts} color="#fbbf24" lineWidth={4} onUpdate={(o: THREE.Object3D) => { onTop(o); o.renderOrder = 11; }}
+        dashed dashSize={0.6} gapSize={0.4} onClick={(e) => { e.stopPropagation(); onSelect(); }} />
+    </group>
+  );
+}
+
 function TraceLines() {
   const { replay, select, selection, mode, focusOn } = useWorkspace();
   const traces = useMemo(() => (replay.data?.objects ?? []).map(buildTrace), [replay.data]);
@@ -150,7 +183,10 @@ function TraceLines() {
   useEffect(() => {
     // Frame the observed trace once when it first arrives (Object / All modes); never re-frame on every refresh.
     if (mode === "people" || framed.current === replay.data) return;
-    const pts = traces.flatMap((t) => [...t.solid.flatMap((r) => r.points), ...t.singles]).map((p) => p.floor_xy_m!);
+    const pts = traces.flatMap((t) => [
+      ...[...t.solid.flatMap((r) => r.points), ...t.singles].map((p) => p.floor_xy_m!),
+      ...t.dashed.flatMap((d) => routeLink(LOOP, CHUTES, d.from.floor_xy_m!, d.to.floor_xy_m!).points),
+    ]);
     if (!pts.length) return;
     framed.current = replay.data;
     const xs = pts.map((p) => p[0]);
@@ -160,13 +196,12 @@ function TraceLines() {
     focusOn([cx, cy], Math.max(8, Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) / 2 + 4));
   }, [traces, mode, replay.data, focusOn]);
   if (mode === "people") return null;
-  const lift = 0.12;
   return (
     <group>
       {traces.map((t, ti) => (
         <group key={ti}>
           {t.solid.map((run) => (
-            <Line key={run.key} points={run.points.map((p) => r3([p.floor_xy_m![0], p.floor_xy_m![1], lift]))}
+            <Line key={run.key} points={run.points.map(at3)}
               color="#4ade80" lineWidth={5} onUpdate={onTop}
               onClick={(e) => {
                 e.stopPropagation();
@@ -175,7 +210,7 @@ function TraceLines() {
                 let best = run.points[0];
                 let bd = Infinity;
                 for (const p of run.points) {
-                  const d = r3([p.floor_xy_m![0], p.floor_xy_m![1], lift]).distanceTo(hit);
+                  const d = at3(p).distanceTo(hit);
                   if (d < bd) { bd = d; best = p; }
                 }
                 select({ kind: "observation", observationId: best.observation_id });
@@ -183,19 +218,17 @@ function TraceLines() {
           ))}
           {t.solid.map((run) => {
             const n = run.points.length;
-            return <Arrow key={`a${run.key}`} from={run.points[n - 2].floor_xy_m!} to={run.points[n - 1].floor_xy_m!} />;
+            return <Arrow key={`a${run.key}`} from={run.points[n - 2]} to={run.points[n - 1]} />;
           })}
           {t.dashed.map((d) => (
-            <Line key={d.key} points={[r3([d.from.floor_xy_m![0], d.from.floor_xy_m![1], lift]),
-              r3([d.to.floor_xy_m![0], d.to.floor_xy_m![1], lift])]} color="#fbbf24" lineWidth={3} onUpdate={onTop}
-              dashed dashSize={0.5} gapSize={0.35}
-              onClick={(e) => { e.stopPropagation(); select({ kind: "observation", observationId: d.to.observation_id }); }} />
+            <HypothesisRoute key={d.key} from={d.from} to={d.to}
+              onSelect={() => select({ kind: "observation", observationId: d.to.observation_id })} />
           ))}
           {[...t.solid.flatMap((r) => r.points), ...t.singles].filter((p) => p.uncertainty_radius_m).map((p) => {
             const sel = selection?.kind === "observation" && selection.observationId === p.observation_id;
             if (!sel) return null;
             return (
-              <mesh key={p.observation_id} position={r3([p.floor_xy_m![0], p.floor_xy_m![1], 0.08])} rotation={[-Math.PI / 2, 0, 0]}>
+              <mesh key={p.observation_id} position={r3([p.floor_xy_m![0], p.floor_xy_m![1], zOf(p) - 0.02])} rotation={[-Math.PI / 2, 0, 0]}>
                 <ringGeometry args={[Math.max(0.05, p.uncertainty_radius_m! - 0.06), p.uncertainty_radius_m!, 48]} />
                 <meshBasicMaterial color="#60a5fa" transparent opacity={0.9} />
               </mesh>

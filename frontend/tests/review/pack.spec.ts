@@ -169,3 +169,49 @@ test("FIXTURE: trace renderer with observed, hypothesis and unknown", async ({ p
   await page.getByRole("button", { name: /Unknown interval/ }).click();
   await shotPane(page, info, "fx_19_timeline_gap", ".sp-ws-time");
 });
+
+test("camera wall (review 007 #1): synchronized case footage, and the honest state before scenario renders exist", async ({ page }, info) => {
+  const id = await caseId(page);
+  await page.goto(`/wall?case=${id}`);
+  const videos = page.locator(".sp-wall-tile video");
+  await expect(videos.first()).toBeVisible();
+  await expect.poll(() => videos.first().evaluate((v: HTMLVideoElement) => v.readyState)).toBeGreaterThan(1);
+  await page.getByTestId("wall-play").click();
+  await page.waitForTimeout(3000);
+  await page.getByTestId("wall-play").click();
+  await page.waitForTimeout(800);
+  await shot(page, info, "20_camera_wall");
+  await page.goto("/wall?scenario=S2");
+  await expect(page.getByText(/not written yet|not in the manifest|Renders not produced yet/).first()).toBeVisible();
+  await shot(page, info, "21_camera_wall_no_renders");
+});
+
+test("source panel context playback (review 007 #1)", async ({ page }, info) => {
+  const id = await caseId(page);
+  await page.goto(`/cases/${id}`);
+  await mobileTab(page, info, "Case");
+  await page.getByTestId("where-did-it-go").click();
+  await mobileTab(page, info, "Source");
+  const frame = page.locator("#source-panel .sp-frame").first();
+  await expect(frame.locator(".sp-frame-img img")).toBeVisible();
+  await frame.getByTestId("play-clip").click();
+  await expect(frame.locator("video")).toBeVisible();
+  await page.waitForTimeout(2500);
+  await shotPane(page, info, "22_source_context_playing", "#source-panel");
+  await frame.getByTestId("pause-clip").click();
+  await expect(frame.locator(".sp-frame-img img").last()).toBeVisible();
+  await page.waitForTimeout(1500);
+  await shotPane(page, info, "23_source_paused_exact_frame", "#source-panel");
+});
+
+test("operator evaluation: headline source and caveat (review 007 #4)", async ({ page }, info) => {
+  await role(page, "site_admin");
+  await page.goto("/operator");
+  const head = page.getByTestId("eval-headline-source");
+  await expect(head).toBeVisible();
+  await head.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(600);
+  const panel = page.locator("section[aria-labelledby='ev-h']");
+  if (isMobile(info)) await shot(page, info, "24_operator_evaluation_headline");
+  else await panel.screenshot({ path: `review_pack/${info.project.name}/24_operator_evaluation_headline.png` });
+});

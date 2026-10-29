@@ -65,6 +65,7 @@ export default function CasesPage() {
                         <span className="sp-caption">{c.case.target_description} · opened {fmtDate(c.case.created_at)}{" "}
                           {fmtTime(c.case.created_at, false)} {TZ_LABEL}</span>
                       </span>
+                      {c.footage_kinds?.includes("synthetic_test") && <span className="sp-chip sp-chip-sim">synthetic</span>}
                       <span className={c.report_status === "approved" ? "sp-chip sp-chip-safe" : "sp-chip"}>
                         {c.report_status ? `report ${c.report_status}` : "no report"}
                       </span>

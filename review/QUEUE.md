@@ -71,9 +71,9 @@ Rexton's ask: "set up the frontend everything". Build the real app, not a mock-u
       about, its own clips + scan-log slice), chosen from the scenario card, never from truth. Cases list shows scenario name + "synthetic".
 - [ ] F2 §19.3 "new evidence added": once B3 clips exist, record the real flow — investigate with 2 cameras, import a 3rd camera
       clip in Operator, re-run, show the diff. Replace the fixture part of the recording where real data now exists.
-- [ ] F3 Evaluation harness (`ml/evaluation`): evaluator-only code may read `build/truth/` (runtime never). Score Spoor's
+- [x] F3 Evaluation harness (`ml/evaluation`): evaluator-only code may read `build/truth/` (runtime never). Score Spoor's
       no-key answers per scenario: last-seen correctness, correct abstention ("unknown"/"no coverage"), no false "left the hub".
       Results shown on the Operator page. Keep the import boundary tested (runtime package can't import the evaluator).
-- [ ] F4 Demo path doc `docs/DEMO_SCRIPT.md`: 3-minute walkthrough on the real app (which case, which clicks, what each screen
+- [x] F4 Demo path doc `docs/DEMO_SCRIPT.md`: 3-minute walkthrough on the real app (which case, which clicks, what each screen
       proves), updated to the parcel hub. Mark every step that needs an API key so Rexton knows what changes once keys are in.
-- [ ] F5 Review 005 P2 polish (hypothesis routing along conveyance, trace height, no dead air in the recording).
+- [x] F5 Review 005 P2 polish (hypothesis routing along conveyance, trace height, no dead air in the recording).

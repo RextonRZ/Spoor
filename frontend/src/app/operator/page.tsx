@@ -335,8 +335,112 @@ function EvaluationPanel({ admin }: { admin: boolean }) {
         {ev.error && <ErrorState error={ev.error} what="evaluation results" onRetry={ev.reload} />}
         {ev.data && (ev.data.status === "no_results"
           ? <Empty title="No evaluation run yet">{String(ev.data.note ?? "")}</Empty>
+          : ev.data.kind === "hub_no_key" ? <HubEvaluation r={ev.data as unknown as HubEval} />
           : <pre className="sp-mono" style={{ whiteSpace: "pre-wrap", margin: 0 }}>{JSON.stringify(ev.data, null, 2).slice(0, 4000)}</pre>)}
       </div>
     </section>
+  );
+}
+
+type HubAggregate = { n_cases: number; last_seen_accuracy: number | null; median_last_seen_time_error_s: number | null;
+  abstained_after_last_scan: number; abstention_correct: number; abstention_missed_visible: number; false_left_hub: number };
+type HubCase = { parcel: string; scenario?: string; title?: string; last_seen_correct: boolean; last_seen_time_error_s: number | null;
+  pred_last_event: string | null; truth_last_event: string | null; abstention: string; false_left_hub: boolean };
+interface HubSuite {
+  name: "scenarios" | "control_flow";
+  scenario: string;
+  inputs: { scan_log: string; clips: string[]; clips_note?: string };
+  aggregate: HubAggregate;
+  cases: HubCase[];
+}
+
+interface HubEval {
+  run_at: string;
+  scenario: string;
+  variant: string;
+  inputs: { scan_log: string; clips: string[]; clips_note?: string };
+  aggregate: HubAggregate;
+  cases: HubCase[];
+  /** review 007 #4: which suite the headline comes from; absent in results written before it */
+  headline?: { source: "scenarios" | "control_flow"; label: string; caveat: string | null; scenarios: string[];
+    waiting: { scenario: string; reason: string }[] };
+  suites?: HubSuite[];
+  truth_read_by: string;
+  note: string;
+}
+
+const pct = (v: number | null) => (v === null ? "not measured" : `${Math.round(v * 100)} %`);
+
+function HubStats({ a, size = 18 }: { a: HubAggregate; size?: number }) {
+  return (
+    <dl className="sp-row sp-wrap" style={{ gap: 28, margin: 0 }}>
+      {[["Cases", String(a.n_cases)], ["Last seen correct", pct(a.last_seen_accuracy)],
+        ["Median time error", a.median_last_seen_time_error_s === null ? "not measured" : `${a.median_last_seen_time_error_s.toFixed(1)} s`],
+        ["Abstained after last scan", `${a.abstained_after_last_scan} / ${a.n_cases}`],
+        ["Abstention correct", String(a.abstention_correct)], ["Visible but unanalysed", String(a.abstention_missed_visible)],
+        ["False left the hub", String(a.false_left_hub)]].map(([k, v]) => (
+        <div key={k}><dt className="sp-micro">{k}</dt><dd className="sp-num sp-strong" style={{ margin: "2px 0 0", fontSize: size }}>{v}</dd></div>
+      ))}
+    </dl>
+  );
+}
+
+/** Parcel-hub evaluation of the no-key answers (ml/evaluation/spoor_eval/hub.py). Truth was read by the evaluator only.
+ * Headline = the D scenarios (S1-S5) when they have renders and reference data; otherwise the control flow, with its
+ * caveat on screen (review 007 #4). */
+function HubEvaluation({ r }: { r: HubEval }) {
+  const a = r.aggregate;
+  const [all, setAll] = useState(false);
+  const rows = all ? r.cases : r.cases.slice(0, 8);
+  const fromScenarios = r.headline?.source === "scenarios";
+  const others = (r.suites ?? []).slice(1);
+  const caveat = r.headline ? r.headline.caveat
+    : "Control flow: the scan log is the sorter's own (the WCS is the reference clock), so last seen 100 % and a 0.0 s median error are expected and prove little.";
+  const showScenario = r.cases.some((c) => c.scenario);
+  return (
+    <div className="sp-stack">
+      <div className="sp-row sp-wrap" style={{ gap: 8 }}>
+        <span className={fromScenarios ? "sp-chip sp-chip-safe" : "sp-chip sp-chip-warn"} data-testid="eval-headline-source">
+          headline: {fromScenarios ? `D scenarios ${r.headline!.scenarios.join(", ")}` : "control flow (fallback)"}</span>
+        <span className="sp-caption">{r.scenario} · {r.variant} · run {fmtTime(r.run_at, false)} · scan log {r.inputs.scan_log} ·
+          clips {r.inputs.clips.join(", ") || "none"}</span>
+      </div>
+      {caveat && <div className="sp-state sp-state-warn" role="note" style={{ fontSize: 12.5 }}>{caveat}</div>}
+      <HubStats a={a} />
+      <div className="sp-tablewrap">
+        <table className="sp-table">
+          <thead><tr>{showScenario && <th>Scenario</th>}<th>Subject</th><th>Last seen</th><th>Spoor vs truth event</th><th className="num">Time error</th><th>After the last scan</th><th>Left hub claim</th></tr></thead>
+          <tbody>{rows.map((c) => (
+            <tr key={`${c.scenario ?? ""}${c.parcel}`}>
+              {showScenario && <td title={c.title}>{c.scenario}{c.title ? ` · ${c.title}` : ""}</td>}
+              <td className="sp-mono">{c.parcel}</td>
+              <td><span className={c.last_seen_correct ? "sp-chip sp-chip-safe" : "sp-chip sp-chip-alert"}>{c.last_seen_correct ? "correct" : "wrong"}</span></td>
+              <td>{c.pred_last_event ?? "none"} / {c.truth_last_event ?? "none"}</td>
+              <td className="num">{c.last_seen_time_error_s === null ? "n/a" : `${c.last_seen_time_error_s.toFixed(1)} s`}</td>
+              <td>{c.abstention}</td>
+              <td>{c.false_left_hub ? <span className="sp-chip sp-chip-alert">false claim</span> : "none"}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </div>
+      {r.cases.length > 8 && <button className="sp-btn sp-btn-sm" style={{ alignSelf: "stretch" }} onClick={() => setAll(!all)}>
+        {all ? "Show fewer" : `Show all ${r.cases.length}`}</button>}
+      {others.map((s) => (
+        <details key={s.name} className="sp-stack" style={{ gap: 8 }}>
+          <summary className="sp-strong" style={{ cursor: "pointer" }}>
+            {s.name === "control_flow" ? "Control flow (sanity check)" : s.scenario}: {s.aggregate.n_cases} cases, last seen {pct(s.aggregate.last_seen_accuracy)}
+          </summary>
+          <HubStats a={s.aggregate} size={15} />
+          {s.name === "control_flow" && <p className="sp-caption" style={{ margin: 0 }}>Expected to be near perfect: the sorter&apos;s clock is the reference clock. Proves the plumbing, not the method.</p>}
+        </details>
+      ))}
+      {!fromScenarios && r.headline?.waiting.length ? (
+        <p className="sp-caption" style={{ margin: 0 }}>Waiting for: {Object.entries(r.headline.waiting.reduce<Record<string, string[]>>((acc, w) => {
+          (acc[w.reason] ??= []).push(w.scenario);
+          return acc;
+        }, {})).map(([reason, ids]) => `${ids.join(", ")} (${reason})`).join(" · ")}</p>
+      ) : null}
+      <p className="sp-caption" style={{ margin: 0 }}>{r.note} {r.inputs.clips_note ? `Clips: ${r.inputs.clips_note}.` : ""} Ground truth was read by the {r.truth_read_by}; the app and backend never read it.</p>
+    </div>
   );
 }

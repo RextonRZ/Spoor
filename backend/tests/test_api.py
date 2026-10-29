@@ -325,6 +325,18 @@ def test_workspace_read_routes(ready):
                  headers=h("t-inv"))  # fmt: skip
     assert late.status_code == 404
 
+    # Context playback (review 007 #1): the original's frame table, a signed byte-range stream of its working proxy.
+    pb = c.get(f"/v1/media/{up['media_id']}/playback", headers=h("t-inv")).json()
+    assert pb["proxy_media_id"] == up["proxy_media_id"] and pb["frame_count"] == len(pb["pts_ms"]) == up["frames"]
+    assert "not an observation" in pb["label"] and pb["start_utc"] is not None
+    full = c.get(pb["url"])
+    assert full.status_code == 200 and full.headers["content-type"] == "video/mp4" and full.content[4:8] == b"ftyp"
+    part = c.get(pb["url"], headers={"Range": "bytes=0-99"})
+    assert part.status_code == 206 and len(part.content) == 100
+    assert c.get(pb["url"].replace("sig=", "sig=0")).status_code == 403
+    assert c.get(f"/v1/media/{up['proxy_media_id']}/playback", headers=h("t-inv")).status_code == 400
+    assert c.get(f"/v1/media/{up['media_id']}/playback", headers=h("t-out")).status_code == 403
+
     listed = c.get("/v1/cases", headers=h("t-inv")).json()
     assert listed[0]["case"]["case_id"] == case_id and listed[0]["report_status"] is None
     assert c.get("/v1/cases", params={"site_id": "site_demo"}, headers=h("t-out")).status_code == 403

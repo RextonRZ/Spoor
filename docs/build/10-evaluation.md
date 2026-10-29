@@ -29,3 +29,24 @@ baseline? Report wins **and** losses.
 Code: `ml/evaluation/spoor_eval/` (`schema`, `metrics`, `variants`, `run`). Tests: `backend/tests/test_evaluation.py`.
 Inputs (`scenarios/`) and labels (`ground_truth/`) are separate files; predictions are produced before labels are
 loaded; a test fails if runtime code mentions the evaluation package. Dataset format: `ml/evaluation/datasets/README.md`.
+
+## Parcel hub, no-key answers (2026-10-30, QUEUE F3)
+
+`ml/evaluation/spoor_eval/hub.py` + `ml/evaluation/run_hub.py`. Phase 1 runs the real backend in-process (TestClient, no
+model keys) on inputs only (hub_spec, synthetic clips, `events_scan_simulated.jsonl` through the same loader as the web
+seed) and creates one input case per identified parcel. Phase 2 reads evaluator-only truth
+(`assets/hub/build/truth/events_truth.jsonl`, `flow_truth.json`) after every prediction exists. Scores: last-seen event +
+time, abstention after the last scan (correct / "missed: visible on CAM_x, needs SAM"), false "left the hub".
+Results go to `<DATA_DIR>/evaluation/latest.json` and show on the Operator page. Boundary tests in
+`backend/tests/test_evaluation.py`: the runtime package and `frontend/src` never name truth files; `predict()` has no
+truth argument. Run: `cd backend && uv run python ../ml/evaluation/run_hub.py --out ../frontend/.local/backend-data/evaluation`.
+
+**Headline (review 007 #4).** On the control flow "last seen 100 %, median 0.0 s" is expected (the scan log is the
+sorter's own clock) and proves little. `run_hub` therefore reads `ml/evaluation/scenarios/manifest.json` and scores the D
+scenarios S1–S5 that have BOTH renders (`CAM_*.mp4` in the scenario's clips folder) and evaluator files
+(`scenario_<S>.json`, `events_truth_<S>.jsonl`, `flow_truth_<S>.json`), one input case per scenario subject (the
+manifest's waybill or cage id, an input). Those are the headline. The control flow (the S0 renders once they exist,
+else the QA clips) runs as a sanity check and becomes the headline only as a fallback, with the caveat written into
+`latest.json` and shown on the Operator page, plus the reason each scenario is still waiting. All predictions run before
+any evaluator file is opened (tested). Container subjects (S4 roll cage) are scored on last seen; abstention is "not
+scored" when the reference data has no track for them.

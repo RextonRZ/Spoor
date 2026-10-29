@@ -69,6 +69,10 @@ export function Shell({ children }: { children: ReactNode }) {
           ))}
         </nav>
         <p className="sp-micro sp-navgroup">Showcase</p>
+        <Link href={caseId ? `/wall?case=${caseId}` : "/wall"} className="sp-nav" aria-current={path.startsWith("/wall") ? "page" : undefined}
+          title="Camera wall">
+          <Icon.camera /><span className="sp-nav-label">Camera wall</span>
+        </Link>
         <Link href="/operator" className="sp-nav" aria-current={path.startsWith("/operator") ? "page" : undefined}
           title="Operator">
           <Icon.operator /><span className="sp-nav-label">Operator</span>

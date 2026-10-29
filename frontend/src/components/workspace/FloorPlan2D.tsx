@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { floorFootprint } from "@/lib/frames";
 import { HUB, centroid, hubZone, scanPoint } from "@/lib/hub";
 import { buildTrace } from "@/lib/trace";
+import { routeLink } from "@/lib/topology";
 import { fmtTime } from "@/lib/time";
 import { useWorkspace } from "./context";
 
@@ -76,8 +77,10 @@ export default function FloorPlan2D() {
                 onKeyDown={(e) => e.key === "Enter" && select({ kind: "observation", observationId: r.points[0].observation_id })} />
             ))}
             {t.dashed.map((d) => (
-              <line key={d.key} data-ev="hypothesis" x1={sx(d.from.floor_xy_m![0])} y1={sy(d.from.floor_xy_m![1])} x2={sx(d.to.floor_xy_m![0])}
-                y2={sy(d.to.floor_xy_m![1])} stroke="#fbbf24" strokeWidth={0.35} strokeDasharray="0.8 0.5" />
+              <polyline key={d.key} data-ev="hypothesis" fill="none" stroke="#fbbf24" strokeWidth={0.35} strokeDasharray="0.8 0.5"
+                points={pts(routeLink(HUB.machines.loop, HUB.machines.chutes, d.from.floor_xy_m!, d.to.floor_xy_m!).points)}>
+                <title>Hypothesis: a possible link, drawn along the conveyance; not observed</title>
+              </polyline>
             ))}
           </g>
         ))}

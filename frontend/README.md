@@ -10,6 +10,7 @@ simulated in their place.
 npm install
 npm run setup:local      # once: random demo tokens -> .local/users.json + .env.local (never committed)
 npm run backend          # FastAPI on :8000, no Meta/Baseten keys, AGENT_BACKEND=none, data in .local/backend-data
+                         # (npm run backend:keys = same data, keys from backend/.env; seed first in no-key mode)
 npm run seed             # real inputs only: hub_spec site + cameras, QA clips (SYNTHETIC mark), scan_simulated log, one case
 npm run dev              # http://localhost:3000
 ```
@@ -32,7 +33,20 @@ photo-eye pulses (`bag_drop` in the simulated log) have no identity and are impo
 | `npm run gen:hub` | `assets/hub/hub_spec.json` -> `src/data/hub.generated.json` (site plan, cameras, scan points) |
 | `npm run export:hub` | copies `assets/hub/build/hub_dressed.blend` to %TEMP% and exports `public/hub.glb` headless (no people, no animated parcels, decimated, Draco). Never writes a .blend |
 
-Nothing in the frontend or the seed reads `render_truth.*`, `flow_truth.json` or `assets/hub/build/truth/`.
+Nothing in the frontend or the seed reads `render_truth.*`, `flow_truth.json`, `assets/hub/build/truth/` or a scenario
+card. Scenario inputs come from `ml/evaluation/scenarios/manifest.json` and `<S>/case_input.json` only.
+
+## Evaluation, scenarios, new-evidence recording
+
+| Command | What |
+|---|---|
+| `cd ../backend && uv run python ../ml/evaluation/run_hub.py` | scores the no-key answers against evaluator-only truth; headline = D scenarios S1–S5 that have renders + truth (one case per scenario subject), else the control flow with an on-screen caveat; result on the Operator page |
+| `npm run seed -- --scenarios <manifest.json>` | one input case per rendered scenario (QUEUE F1) |
+| `/wall` (sidebar: Camera wall) | synchronized 2x2 / 3x3 camera wall of a scenario's clips (review 007 #1): scenarios from `ml/evaluation/scenarios/manifest.json` + `<S>/case_input.json` only; a tile plays the backend media whose SHA-256 equals the render file, else says "render not produced yet" / "rendered, not imported". `?case=<id>` shows a case's imported footage. `SPOOR_SCENARIO_MANIFEST` overrides the manifest path |
+| Source panel ▶ Play | plays the clip around the selected time (3 s pre-roll) through its H.264 working proxy; the frame counter follows the original's frame table and Pause loads the exact original frame. Still labelled "context, not an observation" |
+| `SPOOR_NEW_CLIP=… SPOOR_NEW_CLIP_CAMERA=cam_CAM_11 npx playwright test --config playwright.review.config.ts --project new-evidence` | records the real "new evidence added" flow (QUEUE F2) |
+
+To reset the demo data: stop `npm run backend`, delete `.local/backend-data`, start it again, `npm run seed`.
 
 ## Tests
 

@@ -93,7 +93,7 @@ test("trace contract on a route-mocked FIXTURE: solid never bridges the grey gap
   await page.getByRole("button", { name: "2D plan" }).click();
   const solids = page.locator('polyline[data-ev="observed"]');
   await expect(solids).toHaveCount(2);
-  await expect(page.locator('line[data-ev="hypothesis"]')).toHaveCount(1);
+  await expect(page.locator('[data-ev="hypothesis"]')).toHaveCount(1);
   const gap = { start: Date.UTC(2026, 9, 28, 6, 32, 14), end: Date.UTC(2026, 9, 28, 6, 32, 22) };
   for (const el of await solids.all()) {
     const from = Date.parse((await el.getAttribute("data-from"))!);
@@ -124,4 +124,49 @@ test("operator, graph and report pages load with explicit states", async ({ page
   await expect(page.getByText(/None verified/)).toBeVisible();
   await page.goto(`/cases/${caseId}/report`);
   await expect(page.getByRole("heading", { name: "Versions" })).toBeVisible();
+});
+
+test("context playback: play runs the clip, pause lands on an exact original frame, still not an observation", async ({ page }) => {
+  const caseId = await firstCase(page);
+  await page.goto(`/cases/${caseId}`);
+  await page.getByTestId("where-did-it-go").click();
+  const frame = page.locator("#source-panel .sp-frame").first();
+  const counter = frame.locator(".sp-num").first();
+  await expect(counter).toHaveText(/frame \d+ \/ \d+/);
+  const selected = Number(/frame (\d+)/.exec((await counter.textContent()) ?? "")![1]);
+  await frame.getByTestId("play-clip").click();
+  await expect(frame.locator("video")).toBeVisible();
+  await expect(frame.getByText(/Context playback around the selected time/)).toBeVisible();
+  await expect(frame.getByText(/Not an observation/)).toBeVisible();
+  await page.waitForTimeout(2500);
+  await frame.getByTestId("pause-clip").click();
+  await expect(frame.locator("video")).toHaveCount(0);
+  const paused = Number(/frame (\d+)/.exec((await counter.textContent()) ?? "")![1]);
+  expect(paused).toBeGreaterThanOrEqual(selected - 31); // pre-roll is 3 s at 10 fps
+  const img = frame.locator(".sp-frame-img img").last();
+  await expect(img).toHaveAttribute("alt", new RegExp(`frame ${paused}$`));
+  await expect.poll(async () => img.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBeGreaterThan(100);
+});
+
+test("camera wall: synchronized tiles from imported footage, honest states, no truth requests", async ({ page }) => {
+  const urls = watchRequests(page);
+  const caseId = await firstCase(page);
+  const idx = await (await page.request.get("/api/scenarios")).json();
+  expect(JSON.stringify(idx)).not.toMatch(/expected_answer|scenario_card|truth/);
+  await page.goto(`/wall?case=${caseId}`);
+  await expect(page.getByRole("heading", { name: "Camera wall" })).toBeVisible();
+  const videos = page.locator(".sp-wall-tile video");
+  await expect(videos.first()).toBeVisible();
+  await expect.poll(() => videos.first().evaluate((v: HTMLVideoElement) => v.readyState)).toBeGreaterThan(0);
+  await page.getByTestId("wall-play").click();
+  await page.waitForTimeout(2000);
+  await page.getByTestId("wall-play").click();
+  const times = await videos.evaluateAll((vs) => vs.map((v) => (v as HTMLVideoElement).currentTime));
+  expect(times[0]).toBeGreaterThan(0.5);
+  for (const t of times) expect(Math.abs(t - times[0])).toBeLessThan(0.05); // one wall clock
+  if (!idx.found) {
+    await page.goto("/wall?scenario=S2");
+    await expect(page.getByText(/not written yet|not in the manifest/).first()).toBeVisible();
+  }
+  expect(urls.filter((u) => TRUTH.test(u))).toEqual([]);
 });

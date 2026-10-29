@@ -2,12 +2,15 @@
 /**
  * Synchronized source panel (PRD §19.2 #5): the exact original frame behind any event, with an annotated-derivative
  * toggle when a model observation exists. Context frames (what a camera showed at a scan time) are labelled as
- * context, never as observations of the parcel.
+ * context, never as observations of the parcel. Play/pause (review 007 #1) plays the clip around the selected time
+ * through its working proxy; the frame counter follows the ORIGINAL's frame table and a pause lands on, and loads, the
+ * exact original frame.
  */
 import { describeScan, HUB_FLOW } from "@/lib/scans";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, signedUrl, useResource } from "@/lib/api";
 import { camId, hubCamera, scanPoint } from "@/lib/hub";
+import { frameAtMediaTime, frameUtcMs, prerollStart, seekTimeFor, type Playback } from "@/lib/playback";
 import { fmtDuration, fmtTime, fmtUncertainty, toMs, TZ_LABEL } from "@/lib/time";
 import type { CameraRow, EvidenceView, FrameAt, MediaRow, ParcelScan, ScanRow } from "@/lib/types";
 import { Empty, ErrorState, Loading, ModeChip, SimulatedChip, Unavailable } from "@/components/ui";
@@ -106,14 +109,20 @@ function CameraSource({ cameraId, time }: { cameraId: string; time: number }) {
     recordingKind={m?.recording_kind} sha={m?.media.sha256} context />;
 }
 
-/** One original frame at a normalized time, with frame stepping. */
+/** Seconds of context played before the selected frame when Play starts there. */
+const PREROLL_S = 3;
+
+/** One original frame at a normalized time, with frame stepping and context playback. */
 function FrameViewer({ mediaId, time, title, recordingKind, sha, context }: { mediaId: string; time: number; title: string;
   recordingKind?: string; sha?: string; context?: boolean }) {
   const iso = new Date(time).toISOString();
   const at = useResource<FrameAt>(`/v1/media/${mediaId}/frame-at?time=${encodeURIComponent(iso)}`);
+  const pb = useResource<Playback>(`/v1/media/${mediaId}/playback`);
   const [offset, setOffset] = useState(0);
   const [stepped, setStepped] = useState<{ idx: number; url: string } | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [play, setPlay] = useState<{ from: number } | null>(null);
+  const [liveIdx, setLiveIdx] = useState<number | null>(null);
   const idx = at.data ? Math.max(0, Math.min(at.data.frame_count - 1, at.data.frame_index + offset)) : null;
   const fresh = at.data && idx === at.data.frame_index ? at.data.frame_url : stepped && stepped.idx === idx ? stepped.url : null;
   const [lastUrl, setLastUrl] = useState<string | null>(null);
@@ -126,35 +135,139 @@ function FrameViewer({ mediaId, time, title, recordingKind, sha, context }: { me
       .catch((e) => live && setErr(String(e.message ?? e)));
     return () => { live = false; };
   }, [at.data, idx, mediaId]);
+
+  const shownIdx = play ? (liveIdx ?? play.from) : idx;
+  const startPlay = () => {
+    if (!at.data || idx === null || !pb.data) return;
+    const from = offset === 0 ? prerollStart(pb.data.pts_ms, idx, PREROLL_S) : idx;
+    setLiveIdx(from);
+    setPlay({ from });
+  };
+  /** Stop on the frame the player last presented; the original of that exact frame is then loaded. */
+  const stopAt = (frame: number) => {
+    if (!at.data) return;
+    setPlay(null);
+    setLiveIdx(null);
+    setOffset(frame - at.data.frame_index);
+  };
+  const frameTime = pb.data && shownIdx !== null ? frameUtcMs(pb.data, shownIdx) : null;
+  const atSelected = !!at.data && shownIdx === at.data.frame_index;
+
   return (
-    <div className="sp-frame">
+    <div className="sp-frame" data-playing={play ? "true" : "false"}>
       <div className="sp-row" style={{ justifyContent: "space-between" }}>
         <span className="sp-strong" style={{ fontWeight: 600 }}>{title}</span>
-        <span className="sp-chip">original</span>
+        <span className="sp-chip">{play ? "playing · working proxy" : "original"}</span>
       </div>
       {at.loading && <div className="sp-skel" style={{ aspectRatio: "16 / 9" }} />}
       {at.error && <ErrorState error={at.error} what="the frame" onRetry={at.reload} />}
-      {url && <FrameImage src={signedUrl(url)} alt={`${title}, frame ${idx}`} onExpired={() => at.reload()} />}
+      {play && pb.data ? (
+        <ContextVideo pb={pb.data} from={play.from} onFrame={setLiveIdx} onEnd={stopAt} onExpired={() => pb.reload()}
+          label={`${title}, context playback`} />
+      ) : url && <FrameImage src={signedUrl(url)} alt={`${title}, frame ${idx}`} onExpired={() => at.reload()} />}
       {err && <p className="sp-caption" role="alert">{err}</p>}
-      {at.data && idx !== null && (
+      {at.data && idx !== null && shownIdx !== null && (
         <>
           <div className="sp-row sp-wrap" style={{ gap: 6 }}>
-            <button className="sp-btn sp-btn-sm" onClick={() => setOffset((o) => o - 1)} disabled={idx <= 0} aria-label="Previous frame">◀ frame</button>
-            <span className="sp-num" style={{ fontSize: 12 }}>frame {idx} / {at.data.frame_count - 1}</span>
-            <button className="sp-btn sp-btn-sm" onClick={() => setOffset((o) => o + 1)} disabled={idx >= at.data.frame_count - 1} aria-label="Next frame">frame ▶</button>
+            {play ? (
+              <button className="sp-btn sp-btn-sm sp-btn-primary" onClick={() => stopAt(liveIdx ?? play.from)} data-testid="pause-clip"
+                aria-label="Pause on the current frame">❚❚ Pause</button>
+            ) : (
+              <button className="sp-btn sp-btn-sm" onClick={startPlay} disabled={!pb.data} data-testid="play-clip"
+                aria-label={offset === 0 ? `Play the clip from ${PREROLL_S} s before the selected time` : "Play the clip from this frame"}
+                title={pb.error ? pb.error.message : undefined}>▶ Play</button>
+            )}
+            <button className="sp-btn sp-btn-sm" onClick={() => setOffset((o) => o - 1)} disabled={!!play || idx <= 0} aria-label="Previous frame">◀ frame</button>
+            <span className="sp-num" style={{ fontSize: 12 }} aria-live={play ? "off" : "polite"}>frame {shownIdx} / {at.data.frame_count - 1}</span>
+            <button className="sp-btn sp-btn-sm" onClick={() => setOffset((o) => o + 1)} disabled={!!play || idx >= at.data.frame_count - 1} aria-label="Next frame">frame ▶</button>
+            {!play && offset !== 0 && <button className="sp-btn sp-btn-sm sp-btn-ghost" onClick={() => setOffset(0)}>Back to selected frame</button>}
           </div>
           <dl className="sp-kv">
+            <dt>Frame time</dt><dd className="sp-num">{frameTime === null ? "…" : `${fmtTime(frameTime)} ${TZ_LABEL}`}{atSelected ? " (selected)" : ""}</dd>
             <dt>Media</dt><dd className="sp-mono">{mediaId}</dd>
             {sha && <><dt>SHA-256</dt><dd className="sp-mono">{sha.slice(0, 16)}…</dd></>}
             <dt>Footage</dt><dd>{recordingKind === "synthetic_test" ? "synthetic test footage (SYNTHETIC mark burned in)" : recordingKind ?? "unknown"}</dd>
             <dt>Clock</dt><dd>{fmtUncertainty(at.data.time_uncertainty_ms)} on this clip&apos;s start time</dd>
           </dl>
           {context && (
-            <p className="sp-caption">Context frame at the selected time. Not an observation: nothing has been detected in it.
-              Annotated derivative: none.</p>
+            <p className="sp-caption">{play ? `Context playback around the selected time (from ${PREROLL_S} s before). `
+              : atSelected ? "Context frame at the selected time. "
+              : `Context frame, ${Math.abs(offset)} frame${Math.abs(offset) === 1 ? "" : "s"} ${offset < 0 ? "before" : "after"} the selected time. `}
+              Not an observation: nothing has been detected in it. {play ? "Pause shows the original frame." : "Annotated derivative: none."}</p>
           )}
         </>
       )}
+    </div>
+  );
+}
+
+/** Plays a clip's working proxy from frame `from` and reports each presented frame as an ORIGINAL frame index
+ * (requestVideoFrameCallback media time -> original pts table; currentTime polling where the callback is missing). */
+function ContextVideo({ pb, from, onFrame, onEnd, onExpired, label }: { pb: Playback; from: number; label: string;
+  onFrame: (i: number) => void; onEnd: (i: number) => void; onExpired: () => void }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const cb = useRef({ onFrame, onEnd });
+  const [retried, setRetried] = useState(false);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    cb.current = { onFrame, onEnd };
+  });
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    let live = true;
+    let handle = 0;
+    let raf = 0;
+    let last = from;
+    const report = (mediaTime: number) => {
+      const i = frameAtMediaTime(pb.pts_ms, mediaTime);
+      if (i !== last) {
+        last = i;
+        cb.current.onFrame(i);
+      }
+    };
+    const onVideoFrame = (_now: number, meta: VideoFrameCallbackMetadata) => {
+      if (!live) return;
+      report(meta.mediaTime);
+      handle = v.requestVideoFrameCallback(onVideoFrame);
+    };
+    const poll = () => {
+      if (!live) return;
+      report(v.currentTime);
+      raf = requestAnimationFrame(poll);
+    };
+    // Play only after the seek to the start frame has completed, so no frame from before it is ever reported.
+    const go = () => {
+      if (!live) return;
+      void v.play().catch(() => {});
+      if ("requestVideoFrameCallback" in v) handle = v.requestVideoFrameCallback(onVideoFrame);
+      else raf = requestAnimationFrame(poll);
+    };
+    const start = () => {
+      v.addEventListener("seeked", go, { once: true });
+      v.currentTime = seekTimeFor(pb.pts_ms, from);
+    };
+    const ended = () => cb.current.onEnd(last);
+    if (v.readyState >= 1) start();
+    else v.addEventListener("loadedmetadata", start, { once: true });
+    v.addEventListener("ended", ended);
+    return () => {
+      live = false;
+      v.removeEventListener("loadedmetadata", start);
+      v.removeEventListener("seeked", go);
+      v.removeEventListener("ended", ended);
+      if (handle && "cancelVideoFrameCallback" in v) v.cancelVideoFrameCallback(handle);
+      cancelAnimationFrame(raf);
+      v.pause();
+    };
+  }, [pb, from]);
+  return (
+    <div className="sp-frame-img">
+      <video ref={ref} src={signedUrl(pb.url)} muted playsInline preload="auto" aria-label={label}
+        style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
+        onError={() => { if (!retried) { setRetried(true); onExpired(); } else setFailed(true); }} />
+      {failed && <div className="sp-state sp-state-error" role="alert" style={{ position: "absolute", inset: 8 }}>
+        The clip could not be played. Pause to return to the original frame.</div>}
     </div>
   );
 }
@@ -189,6 +302,9 @@ function ObservationSource({ id }: { id: string }) {
   const { caseId, caps } = useWorkspace();
   const ev = useResource<EvidenceView>(`/v1/cases/${caseId}/evidence/${id}`);
   const [annotated, setAnnotated] = useState(false);
+  const pb = useResource<Playback>(ev.data ? `/v1/media/${ev.data.media.media_id}/playback` : null);
+  const [play, setPlay] = useState<number | null>(null);
+  const [liveIdx, setLiveIdx] = useState<number | null>(null);
   if (ev.loading) return <Loading label="Loading evidence" />;
   if (ev.error) return <ErrorState error={ev.error} what="this evidence" onRetry={ev.reload} />;
   const e = ev.data!;
@@ -205,8 +321,28 @@ function ObservationSource({ id }: { id: string }) {
         <button role="tab" aria-selected={!annotated} onClick={() => setAnnotated(false)}>Original</button>
         <button role="tab" aria-selected={annotated} onClick={() => setAnnotated(true)}>Annotated derivative</button>
       </div>
-      <FrameImage key={annotated ? "a" : "o"} src={signedUrl(annotated ? e.annotated_frame_url : e.frame_url)}
-        alt={annotated ? "Annotated derivative of the source frame" : "Original source frame"} onExpired={() => ev.reload()} />
+      {play !== null && pb.data ? (
+        <ContextVideo pb={pb.data} from={play} onFrame={setLiveIdx} onEnd={() => { setPlay(null); setLiveIdx(null); }}
+          onExpired={() => pb.reload()} label="Context playback around the observed frame" />
+      ) : (
+        <FrameImage key={annotated ? "a" : "o"} src={signedUrl(annotated ? e.annotated_frame_url : e.frame_url)}
+          alt={annotated ? "Annotated derivative of the source frame" : "Original source frame"} onExpired={() => ev.reload()} />
+      )}
+      {o.source_frame && (
+        <div className="sp-row sp-wrap" style={{ gap: 6 }}>
+          {play === null ? (
+            <button className="sp-btn sp-btn-sm" disabled={!pb.data} data-testid="play-clip"
+              onClick={() => { const from = prerollStart(pb.data!.pts_ms, o.source_frame!.frame_index, PREROLL_S); setLiveIdx(from); setPlay(from); }}>
+              ▶ Play around this frame</button>
+          ) : (
+            <button className="sp-btn sp-btn-sm sp-btn-primary" data-testid="pause-clip" onClick={() => { setPlay(null); setLiveIdx(null); }}>
+              ❚❚ Stop, back to the observed frame</button>
+          )}
+          {play !== null && <span className="sp-num" style={{ fontSize: 12 }}>frame {liveIdx ?? play}</span>}
+        </div>
+      )}
+      {play !== null && <p className="sp-caption" style={{ margin: 0 }}>The observation is frame {o.source_frame?.frame_index} only. The playback
+        around it is context, not an observation.</p>}
       <dl className="sp-kv">
         <dt>Camera</dt><dd>{camId.toHub(o.camera_id)}</dd>
         <dt>Frame</dt><dd className="sp-num">{o.source_frame?.frame_index} · pts {o.source_frame?.pts_ms} ms</dd>

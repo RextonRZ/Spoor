@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, status
-from fastapi.responses import HTMLResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import AwareDatetime, BaseModel, Field, ValidationError
 
@@ -76,6 +76,7 @@ from spoor.store import (
 )
 from spoor.store.parcels import (
     container_chain,
+    container_scans,
     facility_visit,
     graded_last_seen,
     resolve_identity,
@@ -310,6 +311,42 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
             raise HTTPException(404, str(e)) from e
         return Response(png, media_type="image/png", headers={"Cache-Control": "private, max-age=60",
                                                                "X-Spoor-Asset-Kind": m.kind.value})
+
+    @app.get("/v1/media/{media_id}/playback")
+    def playback(media_id: str, p: User) -> dict:
+        """Context playback of an ORIGINAL clip (review 007 #1). The browser plays the clip's H.264 working proxy, which
+        ingest checked frame for frame against the original (same frame count, timestamps within tolerance). Frame
+        indices and pts are the original's; a paused player shows the original frame through the frame routes."""
+        m = get_or_404(MediaAsset, media_id)
+        p.require_site(m.site_id)
+        if m.kind.value != "original":
+            raise HTTPException(400, "play an original clip; its working proxy is chosen here")
+        if svc.store.is_invalid(media_id):
+            raise HTTPException(410, "this clip was purged")
+        r = load_result(svc.media, media_id)
+        covs = svc.store.find(CameraCoverage, media_id=media_id)
+        exp, sig = svc.signer.sign(f"playback/{r.proxy.media_id}")
+        audit(p, "playback_link", media_id, proxy=r.proxy.media_id)
+        return {"media_id": media_id, "camera_id": m.camera_id, "proxy_media_id": r.proxy.media_id,
+                "url": f"/v1/signed/playback/{r.proxy.media_id}?exp={exp}&sig={sig}", "expires": exp,
+                "pts_ms": r.original_frames.pts_ms, "frame_count": len(r.original_frames.pts_ms),
+                "start_utc": covs[-1].start_utc.isoformat() if covs else None,
+                "time_uncertainty_ms": covs[-1].time_uncertainty_ms if covs else None,
+                "sha256": m.sha256, "proxy_sha256": r.proxy.sha256,
+                "label": "playback of the working proxy (same frames as the original); context, not an observation"}  # fmt: skip
+
+    @app.get("/v1/signed/playback/{media_id}")
+    def signed_playback(media_id: str, exp: int, sig: str) -> FileResponse:
+        """Byte-range stream of a working proxy (video elements seek with Range requests)."""
+        svc.signer.check(f"playback/{media_id}", exp, sig)
+        m = get_or_404(MediaAsset, media_id)
+        if m.kind.value != "working_derivative":
+            raise HTTPException(404, "only working proxies are streamed")
+        path = asset_path(svc.media, m)
+        if not path.exists():
+            raise HTTPException(404, "proxy file not found (purged?)")
+        return FileResponse(path, media_type="video/mp4", headers={"Cache-Control": "private, max-age=60",
+                                                                    "X-Spoor-Asset-Kind": m.kind.value})
 
     @app.get("/v1/signed/annotated/{observation_id}")
     def signed_annotated(observation_id: str, exp: int, sig: str) -> Response:
@@ -677,6 +714,10 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
             raise HTTPException(422, "unknown identifier scheme") from e
         keys = resolve_identity(svc.store, {ident.key})
         timeline = scans_for(svc.store, keys)
+        if ident.scheme.value == "container":  # a cage/bag subject appears in container-level scans
+            known = {t.scan.scan_event_id for t in timeline.scans}
+            timeline.scans = sorted([*timeline.scans, *(t for t in container_scans(svc.store, ident.key)
+                                                       if t.scan.scan_event_id not in known)], key=lambda t: t.t)
         here = [t for t in timeline.scans if t.scan.site_id == site_id]
         visit = facility_visit(svc.store, site_id, keys, now=now(), sla=timedelta(hours=sla_hours))
         chain = container_chain(svc.store, ident.key, here[-1].t) if here else []
@@ -951,9 +992,12 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
             for c in svc.store.find(Case, site_id=s):
                 head = svc.store.head_revision(c.case_id)
                 reports = svc.store.find(ReportRecord, case_id=c.case_id)
+                kinds = sorted({svc.store.get(MediaAuthorization, m.authorization_id).recording_kind
+                                for cam in c.camera_ids for m in svc.store.find(MediaAsset, camera_id=cam, kind="original")})
                 out.append({"case": c.model_dump(mode="json"),
                             "revision_at": head.at.isoformat() if head else None,
-                            "report_status": reports[-1].status if reports else None})  # fmt: skip
+                            "report_status": reports[-1].status if reports else None,
+                            "footage_kinds": kinds})  # fmt: skip
         return sorted(out, key=lambda r: r["case"]["created_at"], reverse=True)
 
     @app.get("/v1/cases/{case_id}/last-seen")

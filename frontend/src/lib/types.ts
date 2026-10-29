@@ -91,6 +91,7 @@ export interface CaseListRow {
   case: Case;
   revision_at: string | null;
   report_status: "draft" | "approved" | null;
+  footage_kinds?: string[];
 }
 
 export interface VisibilitySpan {

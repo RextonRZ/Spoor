@@ -1,7 +1,8 @@
 /**
  * Server-side proxy to the Spoor FastAPI backend. The browser never sees a bearer token: the token for the active
  * demo role (cookie `spoor_role`) is added here from server-only env vars (.env.local, see scripts/setup-local.mjs).
- * Only /v1/* and /healthz are forwarded. Streaming bodies (SSE job events, PNG frames) pass straight through.
+ * Only /v1/* and /healthz are forwarded. Streaming bodies (SSE job events, PNG frames, byte ranges of a playback proxy)
+ * pass straight through; Range requests and their 206 headers are forwarded so video elements can seek.
  */
 import { cookies } from "next/headers";
 import type { NextRequest } from "next/server";
@@ -32,8 +33,10 @@ async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[]
   headers.set("Authorization", `Bearer ${token}`);
   const ct = req.headers.get("content-type");
   if (ct) headers.set("content-type", ct);
-  const accept = req.headers.get("accept");
-  if (accept) headers.set("accept", accept);
+  for (const h of ["accept", "range", "if-range"]) {
+    const v = req.headers.get(h);
+    if (v) headers.set(h, v);
+  }
   let upstream: Response;
   try {
     upstream = await fetch(url, {
@@ -47,7 +50,8 @@ async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[]
     return Response.json({ detail: "Spoor backend is not reachable. Start it with: npm run backend" }, { status: 502 });
   }
   const out = new Headers();
-  for (const h of ["content-type", "cache-control", "x-spoor-asset-kind", "content-disposition"]) {
+  for (const h of ["content-type", "cache-control", "x-spoor-asset-kind", "content-disposition", "content-range",
+    "accept-ranges", "content-length", "etag", "last-modified"]) {
     const v = upstream.headers.get(h);
     if (v) out.set(h, v);
   }
@@ -61,3 +65,4 @@ async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[]
 export const GET = forward;
 export const POST = forward;
 export const DELETE = forward;
+export const HEAD = forward;

@@ -83,3 +83,31 @@ test("solid runs never bridge an unknown interval or an unplaced point", () => {
   assert.equal(t.dashed.length, 1);
   assert.ok(solidNeverBridgesGaps(t));
 });
+
+import { loopLength, loopPoint, loopProject, routeLink, surfaceHeight } from "../../src/lib/topology.ts";
+
+const LOOP = { south_y: 11, north_y: 19, radius: 4, west_cx: 28, east_cx: 50, cy: 15, deck_height: 1.5 };
+const CHUTES = [{ id: "C02", x: 47.1, mouth_y: 19.6, end_y: 20.9, width: 1 }];
+
+test("loop arc length runs counter-clockwise: south straight eastbound, north straight westbound", () => {
+  assert.ok(Math.abs(loopLength(LOOP) - (44 + 8 * Math.PI)) < 1e-9);
+  assert.deepEqual(loopPoint(LOOP, 1), [29, 11]);
+  const north = loopPoint(LOOP, 22 + 4 * Math.PI + 1);
+  assert.ok(Math.abs(north[0] - 49) < 1e-9 && north[1] === 19);
+  assert.ok(loopProject(LOOP, [40, 11]).dist < 0.05);
+});
+
+test("hypothesis link from the south straight to a chute follows the loop, never cuts through the middle", () => {
+  const r = routeLink(LOOP, CHUTES, [40, 11], [47.1, 20.4]);
+  assert.equal(r.via, "loop → chute C02");
+  assert.ok(Math.max(...r.points.map((p) => p[0])) > 53.5); // goes round the east end
+  const insideLoop = r.points.some(([x, y]) => x > 29 && x < 49 && y > 11.5 && y < 18.5);
+  assert.equal(insideLoop, false);
+  assert.deepEqual(routeLink(LOOP, CHUTES, [5, 5], [10, 5]).via, "straight");
+});
+
+test("trace height follows the surface: deck on the loop, chute lip in a chute, floor elsewhere", () => {
+  assert.equal(surfaceHeight(LOOP, CHUTES, [35, 11]), 1.55);
+  assert.equal(surfaceHeight(LOOP, CHUTES, [47.1, 20.2]), 1.0);
+  assert.equal(surfaceHeight(LOOP, CHUTES, [10, 30]), 0.12);
+});

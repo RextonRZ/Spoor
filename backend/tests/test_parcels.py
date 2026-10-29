@@ -12,6 +12,7 @@ from pydantic import ValidationError
 
 from spoor.contracts import (
     AssociationStatus,
+    Case,
     ClockDomain,
     ClockSync,
     EvidenceLabel,
@@ -281,3 +282,20 @@ def test_bag_lifecycle_and_bag_into_cage_are_container_scans(hub):
     with pytest.raises(ValidationError):  # a lifecycle scan still needs its container
         ScanEvent(scan_event_id="scan_x1", site_id="site_test", source_type="scan_simulated", import_batch="b",
                   event_kind="container_opened", device_time_utc=at(0), device_id="d", device_kind="handheld")
+
+
+def test_container_subject_last_seen_comes_from_container_scans(hub, room, now):
+    """S4-style case: the subject is a roll cage. Its last confident sighting is the cage's own loaded scan."""
+    rows = [
+        {"identifiers": [bag("BAG-1")], "event_kind": "container_add", "container": bag("RC-942"),
+         "container_type": "cage", "device_time_utc": at(0), "device_id": "SP-CAGE-E", "device_kind": "handheld"},
+        {"event_kind": "container_loaded", "container": bag("RC-942"), "parent_container": bag("TRL-D09"),
+         "device_time_utc": at(30), "device_id": "SP-LOAD-D09", "device_kind": "handheld"},
+    ]  # fmt: skip
+    load(hub, rows)
+    hub.put(Case(case_id="case_cage", site_id="site_test", question="Which truck did cage RC-942 go onto?",
+                 target_description="roll cage RC-942", created_by="ivy", created_at=now))
+    hub.put(ObjectInstance(object_instance_id="objinst_cage", case_id="case_cage", label="roll cage RC-942",
+                           identifiers=[bag("RC-942")], created_by="ivy", created_at=now))  # fmt: skip
+    g = graded_last_seen(hub, "objinst_cage")
+    assert g.last_confident is not None and g.last_confident.where.endswith("SP-LOAD-D09")

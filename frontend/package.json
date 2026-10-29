@@ -11,11 +11,12 @@
     "gen:hub": "node scripts/gen-hub-data.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test:unit": "node --test --experimental-strip-types tests/unit/geometry.test.ts",
+    "test:unit": "node --test --experimental-strip-types tests/unit/geometry.test.ts tests/unit/playback.test.ts",
     "test:e2e": "playwright test",
     "review-pack": "playwright test --config playwright.review.config.ts && node scripts/make-recording.mjs",
     "setup:local": "node scripts/setup-local.mjs",
     "backend": "node scripts/backend.mjs",
+    "backend:keys": "node scripts/backend.mjs --keys",
     "seed": "uv run --project ../backend python scripts/seed_nokey.py",
     "export:hub": "node scripts/export-hub.mjs"
   },

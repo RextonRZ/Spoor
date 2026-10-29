@@ -14,7 +14,7 @@ async function audit(page: Page) {
   return bad.map((v) => `${v.id}: ${v.nodes.slice(0, 3).map((n) => n.target.join(" ")).join(" | ")}`);
 }
 
-for (const path of ["/", "/operator"]) {
+for (const path of ["/", "/operator", "/wall"]) {
   test(`a11y ${path}`, async ({ page }) => {
     await page.goto(path);
     await page.waitForLoadState("networkidle");

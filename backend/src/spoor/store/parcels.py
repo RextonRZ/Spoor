@@ -303,7 +303,11 @@ def graded_last_seen(store: EvidenceStore, object_instance_id: str) -> GradedLas
     confident: list[Sighting] = []
     leads: list[Sighting] = []
     timeline = scans_for(store, keys, resolve=False) if keys else ScanTimeline([], keys)
-    for ts in timeline.scans:
+    # A container subject (e.g. a roll cage) is named in container-level scans, not as an identifier (S4 "which truck").
+    seen_ids = {ts.scan.scan_event_id for ts in timeline.scans}
+    own = [ts for k in sorted(keys) if k.startswith("container:") for ts in container_scans(store, k)
+           if ts.scan.scan_event_id not in seen_ids]  # fmt: skip
+    for ts in sorted([*timeline.scans, *own], key=lambda t: t.t):
         s = ts.scan
         if s.read_outcome.value != "read":
             continue
