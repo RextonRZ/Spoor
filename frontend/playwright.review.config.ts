@@ -5,6 +5,7 @@ const args = ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"];
 export default defineConfig({
   testDir: "tests/review",
   timeout: 300_000,
+  expect: { timeout: 30_000 },
   workers: 1,
   reporter: [["list"]],
   use: { baseURL: "http://localhost:3000", launchOptions: { args } },

@@ -36,8 +36,7 @@ STATIONS = [
     # QA 2026-10-30: every Rocketbox "work" clip mimed at nothing (no surface under the hands): removed. Station work
     # (induction, docks, chutes, bag opening) is done by flow-driven IK workers instead (stations.py).
     # the cage checker: clipboard against the cage's destination card (right front post)
-    dict(role="cages", cage=(["S08", "S07", "S09"], "tag"), clip="documents_check", avatar="Female_Adult_06",
-         vest="orange", open=True, device="clipboard"),
+    # (the cage checker is now stations.Ambient: contact toolkit, true facing)
 ]
 
 _templates, _clips, _clip_rest, _retargeted, _mats, _pending_props = {}, {}, {}, {}, {}, {}

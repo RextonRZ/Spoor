@@ -9,7 +9,7 @@ export type Value = string
 export type CheckDigitValid = (boolean | null)
 export type Identifiers = ParcelIdentifier[]
 export type ReadOutcome = ("read" | "no_read" | "no_solve" | "multi_read")
-export type ScanEventKind = ("arrived_facility" | "inducted" | "tunnel_read" | "return_inducted" | "tunnel_no_read" | "sort_assigned" | "divert_confirmed" | "recirculated" | "exception_diverted" | "manual_encoded" | "relabeled" | "damage_hold" | "missort_detected" | "container_add" | "container_closed" | "container_remove" | "container_loaded" | "departed_facility" | "case_opened" | "case_closed")
+export type ScanEventKind = ("arrived_facility" | "inducted" | "tunnel_read" | "return_inducted" | "tunnel_no_read" | "sort_assigned" | "divert_confirmed" | "recirculated" | "exception_diverted" | "manual_encoded" | "relabeled" | "damage_hold" | "missort_detected" | "container_opened" | "container_add" | "container_closed" | "container_remove" | "container_loaded" | "departed_facility" | "case_opened" | "case_closed")
 export type RawCode = (string | null)
 /**
  * Stored as data, never prompts

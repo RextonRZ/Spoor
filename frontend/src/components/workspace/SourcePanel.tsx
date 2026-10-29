@@ -4,6 +4,7 @@
  * toggle when a model observation exists. Context frames (what a camera showed at a scan time) are labelled as
  * context, never as observations of the parcel.
  */
+import { describeScan, HUB_FLOW } from "@/lib/scans";
 import { useEffect, useState } from "react";
 import { api, signedUrl, useResource } from "@/lib/api";
 import { camId, hubCamera, scanPoint } from "@/lib/hub";
@@ -54,7 +55,7 @@ function ScanSource({ scanId }: { scanId: string }) {
     <div className="sp-stack">
       <div className="sp-row sp-wrap" style={{ gap: 6 }}>
         <span className="sp-swatch" style={{ borderTop: "3px double var(--ev-scan)" }} aria-hidden />
-        <span className="sp-h3">{scan.event_kind.replace(/_/g, " ")}</span>
+        <span className="sp-h3">{describeScan(scan).title}</span>
         {isLast && <span className="sp-chip" style={{ background: "#f3f5f7", color: "#111" }}>last confirmed</span>}
         {scan.source_type === "scan_simulated" && <SimulatedChip kind="scan_simulated" />}
       </div>
@@ -63,7 +64,8 @@ function ScanSource({ scanId }: { scanId: string }) {
         <dt>Clock</dt><dd>{scan.synced ? fmtUncertainty(scan.time_uncertainty_ms) : "device time; scanner clock not synchronized"}</dd>
         <dt>Read point</dt><dd>{sp ? `${sp.id} (${sp.device_kind.replace("_", " ")})` : scan.device_id}</dd>
         <dt>Zone</dt><dd>{scan.zone_id ?? "not recorded"}</dd>
-        <dt>Proves</dt><dd>the parcel ID was read at this read point. It does not show where the parcel went next.</dd>
+        <dt>Proves</dt><dd>{describeScan(scan).proves}</dd>
+        <dt>Hub flow</dt><dd className="sp-muted">{HUB_FLOW}</dd>
       </dl>
       <hr className="sp-divider" />
       <p className="sp-micro">Cameras that see this read point</p>
@@ -113,7 +115,10 @@ function FrameViewer({ mediaId, time, title, recordingKind, sha, context }: { me
   const [stepped, setStepped] = useState<{ idx: number; url: string } | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const idx = at.data ? Math.max(0, Math.min(at.data.frame_count - 1, at.data.frame_index + offset)) : null;
-  const url = at.data && idx === at.data.frame_index ? at.data.frame_url : stepped && stepped.idx === idx ? stepped.url : null;
+  const fresh = at.data && idx === at.data.frame_index ? at.data.frame_url : stepped && stepped.idx === idx ? stepped.url : null;
+  const [lastUrl, setLastUrl] = useState<string | null>(null);
+  if (fresh && fresh !== lastUrl) setLastUrl(fresh);
+  const url = fresh ?? lastUrl;
   useEffect(() => {
     if (!at.data || idx === null || idx === at.data.frame_index) return;
     let live = true;
@@ -158,13 +163,22 @@ function FrameImage({ src, alt, onExpired }: { src: string; alt: string; onExpir
   const [st, setSt] = useState<{ src: string; s: "ok" | "error" } | null>(null);
   const state = st && st.src === src ? st.s : "loading";
   const setState = (s: "ok" | "error") => setSt({ src, s });
+  const [lastOk, setLastOk] = useState<string | null>(null);
   const [retried, setRetried] = useState(false);
+  // While the next frame loads, the previous frame stays visible (dimmed) instead of a black box (review 004 #7).
+  const showPrev = state === "loading" && lastOk && lastOk !== src;
   return (
     <div className="sp-frame-img" data-state={state}>
+      {showPrev && (
+        // eslint-disable-next-line @next/next/no-img-element -- previous evidence frame kept while the next loads
+        <img src={lastOk!} alt="" aria-hidden style={{ position: "absolute", inset: 0, opacity: 0.45 }} />
+      )}
       {/* eslint-disable-next-line @next/next/no-img-element -- signed, short-lived evidence frames: no optimizer cache */}
-      <img src={src} alt={alt} onLoad={() => setState("ok")} decoding="async"
+      <img src={src} alt={alt} decoding="async" style={{ position: "relative", opacity: state === "ok" ? 1 : 0 }}
+        onLoad={() => { setState("ok"); setLastOk(src); }}
         onError={() => { if (!retried) { setRetried(true); onExpired(); } else setState("error"); }} />
-      {state === "loading" && <div className="sp-skel" style={{ position: "absolute", inset: 0 }} aria-hidden />}
+      {state === "loading" && !showPrev && <div className="sp-skel" style={{ position: "absolute", inset: 0 }} aria-hidden />}
+      {state === "loading" && <span className="sp-frame-loading" role="status">Loading frame</span>}
       {state === "error" && <div className="sp-state sp-state-error" role="alert" style={{ position: "absolute", inset: 8 }}>
         Frame could not be loaded. The link may have expired.</div>}
     </div>

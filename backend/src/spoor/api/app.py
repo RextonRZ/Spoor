@@ -690,7 +690,10 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
                        "time_uncertainty_ms": t.unc_ms, "device_id": t.scan.device_id,
                        "device_kind": t.scan.device_kind.value, "station_id": t.scan.station_id,
                        "zone_id": t.scan.read_point_zone_id, "late_upload": t.late_upload,
-                       "source_type": t.scan.source_type.value} for t in timeline.scans if t.scan.site_id == site_id],
+                       "source_type": t.scan.source_type.value, "read_outcome": t.scan.read_outcome.value,
+                       "raw_code": t.scan.raw_code, "raw_description": t.scan.raw_description,
+                       "sort_destination_actual": t.scan.sort_destination_actual}
+                      for t in timeline.scans if t.scan.site_id == site_id],
             "container_chain": [{"container": m.parent_key, "since": m.valid_from.isoformat(),
                                  "until": m.valid_to.isoformat() if m.valid_to else None, "basis": m.basis,
                                  "label": "estimated"} for m in chain],
@@ -934,6 +937,7 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
                          "read_outcome": s.read_outcome.value, "identity_keys": s.identity_keys,
                          "device_id": s.device_id, "device_kind": s.device_kind.value, "station_id": s.station_id,
                          "zone_id": s.read_point_zone_id, "sort_destination_actual": s.sort_destination_actual,
+                         "raw_code": s.raw_code, "raw_description": s.raw_description,
                          "source_type": s.source_type.value, "import_batch": s.import_batch})  # fmt: skip
         return {"total": len(rows), "scans": rows[: max(1, min(limit, 20000))]}
 

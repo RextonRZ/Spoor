@@ -595,9 +595,9 @@ machines:
     - - 5.0
       - 28.0
     - - 5.0
-      - 11.1
+      - 10.85
     - - 9.2
-      - 11.1
+      - 10.85
     height: 1.0
   - id: induction
     kind: belt
@@ -883,6 +883,27 @@ circulation:
     - 58.2
     - 33.2
     purpose: W6 <-> W2 across the east lane
+  - id: ZX5
+    rect_m:
+    - 32.2
+    - 33.2
+    - 33.9
+    - 36.6
+    purpose: cage staging -> doors D07/D08 across the lane (roll cages)
+  - id: ZX6
+    rect_m:
+    - 40.2
+    - 33.2
+    - 41.9
+    - 36.6
+    purpose: doors D09/D10 -> cage staging (empty cages back)
+  - id: ZX7
+    rect_m:
+    - 44.2
+    - 33.2
+    - 45.9
+    - 36.6
+    purpose: cage staging -> doors D11/D12 across the lane (roll cages)
   fire_exits:
   - *id001
   - *id002

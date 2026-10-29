@@ -53,7 +53,7 @@ class SceneBoundary extends Component<{ fallback: ReactNode; children: ReactNode
 }
 
 function Workspace() {
-  const { selection } = useWorkspace();
+  const { selection, mode, caps } = useWorkspace();
   const [chosenView, setView] = useState<"3d" | "plan" | null>(null);
   const hasWebgl = useSyncExternalStore(noop, webglAvailable, () => null);
   const view = chosenView ?? (hasWebgl === null ? null : hasWebgl ? "3d" : "plan");
@@ -103,6 +103,11 @@ function Workspace() {
             </SceneBoundary>
           )}
           {view === "plan" && <FloorPlan2D />}
+          {mode !== "object" && !caps.data?.sam && (
+            <div className="sp-scene-note" role="status" style={{ bottom: 48 }}>
+              No anonymous person tracks: person segmentation needs SAM (no API key).{mode === "all" ? " Showing the parcel only." : ""}
+            </div>
+          )}
         </div>
       </section>
       <section className="sp-ws-right sp-panel" data-pane="source agent" aria-label="Source and agent" id="source-panel">

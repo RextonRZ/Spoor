@@ -139,7 +139,7 @@ CONVEYORS = [
 ] + [  # fmt: skip
     # the collector turns east into a slow accumulation (feed) belt that stops at its end; inductors stand between
     # it and the induction belt, take parcels off the queue and place them label-up into gaps (stations.py)
-    {"id": "collector", "kind": "belt", "path": [[5.0, 28.0], [5.0, 11.1], [9.2, 11.1]], "height": 1.0},
+    {"id": "collector", "kind": "belt", "path": [[5.0, 28.0], [5.0, 10.85], [9.2, 10.85]], "height": 1.0},
     {"id": "induction", "kind": "belt", "path": [[5.6, 9.5], [17.5, 9.5]], "height": 1.0},
     {"id": "tunnel_line", "kind": "belt", "path": [[17.5, 9.5], [23.0, 9.5]], "height": DECK},
     {"id": "merge", "kind": "belt", "path": [[23.0, 9.5], [27.6, 9.5], [30.0, 11.0]], "height": DECK},
@@ -180,6 +180,9 @@ ZEBRAS = [  # where people cross the forklift lane
     ("ZX2", (15.9, 1.6, 17.1, 5.4), "W1 <-> XO-2 south foot"),
     ("ZX3", (55.2, 23.2, 58.2, 24.4), "W3 <-> W2 across the east lane"),
     ("ZX4", (55.2, 32.0, 58.2, 33.2), "W6 <-> W2 across the east lane"),
+    ("ZX5", (32.2, 33.2, 33.9, 36.6), "cage staging -> doors D07/D08 across the lane (roll cages)"),
+    ("ZX6", (40.2, 33.2, 41.9, 36.6), "doors D09/D10 -> cage staging (empty cages back)"),
+    ("ZX7", (44.2, 33.2, 45.9, 36.6), "cage staging -> doors D11/D12 across the lane (roll cages)"),
 ]
 CIRCULATION_REALISM = {
     "walkways": "100 mm yellow edge lines, worn through at forklift turns; walking-man stencils every ~10 m",

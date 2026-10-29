@@ -3,7 +3,8 @@
  * One canonical timeline (PRD §19.2 #3): normalized time, every lane carrying its own clock trust. Camera lanes show
  * coverage with their sync uncertainty as hatched ends; unverified clocks are flagged, never silently trusted.
  */
-import { useMemo } from "react";
+import { describeScan } from "@/lib/scans";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { camId, scanPoint } from "@/lib/hub";
 import { fmtDuration, fmtTime, toMs, TZ_LABEL } from "@/lib/time";
 import { Icon, Loading } from "@/components/ui";
@@ -11,19 +12,29 @@ import { clockWarning, useWorkspace } from "./context";
 
 export default function Timeline() {
   const ws = useWorkspace();
-  const { range, playhead, setPlayhead, parcel, siteScans, cameras, replay, state, select, selection, domains } = ws;
+  const { range, playhead, setPlayhead, parcel, siteScans, cameras, replay, state, select, selection, domains, sensors } = ws;
   const span = range ? range.end - range.start : 1;
   const pct = (t: number) => `${(((t - (range?.start ?? 0)) / span) * 100).toFixed(3)}%`;
   const caseKeys = new Set((state.data?.objects[0]?.object.identifiers ?? []).map((i) => `${i.scheme}:${i.value}`));
 
+  const axisRef = useRef<HTMLDivElement>(null);
+  const [axisW, setAxisW] = useState(800);
+  useEffect(() => {
+    const el = axisRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setAxisW(el.clientWidth));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [range]);
   const ticks = useMemo(() => {
     if (!range) return [];
+    const maxTicks = Math.max(2, Math.floor(axisW / 78));
     const steps = [1000, 2000, 5000, 10000, 15000, 30000, 60000, 120000, 300000, 600000];
-    const step = steps.find((s) => span / s <= 9) ?? 600000;
+    const step = steps.find((s) => span / s <= maxTicks) ?? 600000;
     const out: number[] = [];
     for (let t = Math.ceil(range.start / step) * step; t <= range.end; t += step) out.push(t);
     return out;
-  }, [range, span]);
+  }, [range, span, axisW]);
 
   const camLanes = (cameras.data ?? []).filter((c) => c.coverage.length > 0);
   const scanDomain = domains.data?.find((d) => d.domain.name === "clkd_wcs");
@@ -72,7 +83,7 @@ export default function Timeline() {
       </div>
       <div className="sp-tl-grid">
         <div className="sp-tl-label" aria-hidden />
-        <div className="sp-tl-axis" aria-hidden>
+        <div className="sp-tl-axis" aria-hidden ref={axisRef}>
           {ticks.map((t) => <span key={t} style={{ left: pct(t) }}>{fmtTime(t, false)}</span>)}
         </div>
 
@@ -93,8 +104,8 @@ export default function Timeline() {
             return (
               <button key={s.scan_event_id} className="sp-tl-scan" data-selected={sel || undefined}
                 style={{ left: pct(toMs(s.time)) }}
-                aria-label={`${s.event_kind.replace(/_/g, " ")} at ${fmtTime(s.time)} by ${s.device_id}${s.synced ? "" : ", clock not synchronized"}`}
-                title={`${s.event_kind} · ${s.device_id} · ${fmtTime(s.time)}`}
+                aria-label={`${describeScan(s).title} at ${fmtTime(s.time)} by ${s.device_id}${s.synced ? "" : ", clock not synchronized"}`}
+                title={`${describeScan(s).title} · ${s.device_id} · ${fmtTime(s.time)}`}
                 onClick={() => select({ kind: "scan", scanId: s.scan_event_id })}>
                 <span aria-hidden />
               </button>
@@ -112,6 +123,19 @@ export default function Timeline() {
           ))}
         </div>
 
+        {(sensors.data?.length ?? 0) > 0 && (
+          <>
+            <div className="sp-tl-label"><span className="sp-strong">Chute photo-eyes</span>
+              <span className="sp-caption">no identity · simulated</span></div>
+            <div className="sp-tl-lane sp-tl-lane-thin" role="group" aria-label="Chute photo-eye pulses, simulated, no identity">
+              {sensors.data!.filter((e) => range && Date.parse(e.device_time_utc) >= range.start && Date.parse(e.device_time_utc) <= range.end)
+                .map((e) => (
+                  <span key={e.sensor_event_id} className="sp-tl-tick sp-tl-eye" style={{ left: pct(Date.parse(e.device_time_utc)) }}
+                    title={`${e.device_id} · ${fmtTime(e.device_time_utc)} · something passed the photo-eye (no identity)`} />
+                ))}
+            </div>
+          </>
+        )}
         {camLanes.map((c) => {
           const hubId = camId.toHub(c.camera.camera_id);
           const warn = clockWarning(c.clock_sync);

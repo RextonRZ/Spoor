@@ -291,7 +291,7 @@ def _obs_ids(claim) -> list[str]:
 def compose_answer(answers: list[ObjectAnswer], outcomes: list[HypothesisOutcome], request_ids: list[str]) -> str:
     lines = []
     for a in answers:
-        lines.append(f"[{a.label}] {a.last_seen_text}.")
+        lines.append(f"[{a.label}] {a.last_seen_text.rstrip('.')}.")
         if a.observed_moves:
             lines.append("  Observed movement (continuous tracking): " + "; ".join(a.observed_moves) + ".")
         blind = [u for u in a.unobserved if u["reason"] == "no_camera_coverage"]

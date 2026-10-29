@@ -25,24 +25,24 @@ end to end on the backend — without any API keys.** Keys, Meta API runs and an
 
 ## C. Frontend (do this while renders run) — PRD §19, §23, docs/build/12-frontend.md
 Rexton's ask: "set up the frontend everything". Build the real app, not a mock-up.
-- [ ] C1 `frontend/`: Next.js (App Router) + TypeScript + React Three Fiber + drei. TS types generated from the
+- [x] C1 `frontend/`: Next.js (App Router) + TypeScript + React Three Fiber + drei. TS types generated from the
       backend JSON Schemas (step 01). Site Z-up → renderer Y-up from the backend transform (step 03).
-- [ ] C2 Hub model for the web: export `hub_dressed.blend` → `frontend/public/hub.glb` by script (no people,
+- [x] C2 Hub model for the web: export `hub_dressed.blend` → `frontend/public/hub.glb` by script (no people,
       decimated, Draco/meshopt, target < 25 MB, same object IDs/zone IDs as hub_spec). Camera frusta and
       coverage from hub_spec/calibration. 2D floor-plan fallback from the plan SVG.
-- [ ] C3 Surfaces §19.2: case overview · 3D scene · one timeline with clock-drift warnings · movement trace
+- [x] C3 Surfaces §19.2: case overview · 3D scene · one timeline with clock-drift warnings · movement trace
       (object / anonymous people / all) · source panel (original vs annotated) · evidence graph ·
       agent panel (real job events over SSE; no fake typing) · report review/export · operator page (§23).
-- [ ] C4 Signature interaction §19.3 against the real backend: green solid = observed, amber dashed =
+- [x] C4 Signature interaction §19.3 against the real backend: green solid = observed, amber dashed =
       hypothesis, grey = unknown gap; solid never bridges a gap; click a segment → exact source frame.
-- [ ] C5 No-key mode: the backend runs with no Meta keys. Feed it real inputs only (cameras, calibration,
+- [x] C5 No-key mode: the backend runs with no Meta keys. Feed it real inputs only (cameras, calibration,
       synthetic clips as media, `scan_simulated` log through the import route). Where a model step would run,
       the UI shows an honest "analysis unavailable — no API key" state. **Never** fabricate tracks/answers,
       and the runtime **never** reads `render_truth.*`, `flow_truth.json` or anything under `build/truth/`.
-- [ ] C6 Design bar §19.5: restrained, evidence-first, dark-neutral canvas, clear contrast (WCAG AA), keyboard
+- [x] C6 Design bar §19.5: restrained, evidence-first, dark-neutral canvas, clear contrast (WCAG AA), keyboard
       navigation, reduced motion, explicit loading/error states, fictional names only. Works at 1440×900
       and 390×844.
-- [ ] C7 Review pack: Playwright screenshots of every surface at both sizes + a ≤ 60 s screen recording of the
+- [x] C7 Review pack: Playwright screenshots of every surface at both sizes + a ≤ 60 s screen recording of the
       signature interaction → request. Add `frontend` tests (typecheck, lint, a Playwright smoke test).
 
 ## D. Scenarios
@@ -65,3 +65,15 @@ Rexton's ask: "set up the frontend everything". Build the real app, not a mock-u
 ~33 GB free at start. If free space drops below 15 GB, clear **only regenerable files**, in this order:
 1. image sequences already encoded to mp4, 2. `*.blend1` backups, 3. `__pycache__`, old `qa/_frames`, superseded QA mp4s,
 4. npm/pip caches. Never delete Rexton's own files (screenshots, downloads, source assets). Log what you removed and how much.
+
+## F. Frontend agent — next (added by reviewer 03:45, after block C approval)
+- [ ] F1 Per-scenario input cases: when D renders land, the seed creates one INPUT case per scenario (the parcel the scenario is
+      about, its own clips + scan-log slice), chosen from the scenario card, never from truth. Cases list shows scenario name + "synthetic".
+- [ ] F2 §19.3 "new evidence added": once B3 clips exist, record the real flow — investigate with 2 cameras, import a 3rd camera
+      clip in Operator, re-run, show the diff. Replace the fixture part of the recording where real data now exists.
+- [ ] F3 Evaluation harness (`ml/evaluation`): evaluator-only code may read `build/truth/` (runtime never). Score Spoor's
+      no-key answers per scenario: last-seen correctness, correct abstention ("unknown"/"no coverage"), no false "left the hub".
+      Results shown on the Operator page. Keep the import boundary tested (runtime package can't import the evaluator).
+- [ ] F4 Demo path doc `docs/DEMO_SCRIPT.md`: 3-minute walkthrough on the real app (which case, which clicks, what each screen
+      proves), updated to the parcel hub. Mark every step that needs an API key so Rexton knows what changes once keys are in.
+- [ ] F5 Review 005 P2 polish (hypothesis routing along conveyance, trace height, no dead air in the recording).

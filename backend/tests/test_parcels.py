@@ -260,3 +260,24 @@ def test_container_level_departure_closes_by_inheritance(hub):
                 "device_id": "dock_1", "device_kind": "handheld"}])  # fmt: skip
     v = facility_visit(hub, "site_test", {WB}, now=T0 + timedelta(hours=8))
     assert v.status == "closed_inherited" and "departed facility" in v.notes[-1]
+
+
+def test_bag_lifecycle_and_bag_into_cage_are_container_scans(hub):
+    """Hub log v2: bag_open / bag_close are container lifecycle scans (no parcel identity); a bag put into a roll cage
+    is a container_add whose identifier is the bag, so the bag -> cage link is aggregation evidence, not a parcel read."""
+    rows = [
+        {"event_kind": "container_opened", "container": bag("BAG-C03-0007"), "container_type": "bag",
+         "device_time_utc": at(0), "device_id": "SP-BAG-C03", "device_kind": "handheld", "clock_domain_id": "clkd_handheld"},
+        {"event_kind": "container_closed", "container": bag("BAG-C03-0007"), "container_type": "bag",
+         "device_time_utc": at(60), "device_id": "SP-BAG-C03", "device_kind": "handheld", "clock_domain_id": "clkd_handheld"},
+        {"identifiers": [bag("BAG-C03-0007")], "event_kind": "container_add", "container": bag("CAGE-S04"),
+         "container_type": "cage", "device_time_utc": at(90), "device_id": "SP-CAGE-W", "device_kind": "handheld",
+         "clock_domain_id": "clkd_handheld"},
+    ]  # fmt: skip
+    summary = load(hub, rows)
+    assert len(summary.scans) == 3 and len(summary.memberships_opened) == 1
+    chain = container_chain(hub, "container:BAG-C03-0007", T0 + timedelta(seconds=120))
+    assert [m.parent_key for m in chain] == ["container:CAGE-S04"]
+    with pytest.raises(ValidationError):  # a lifecycle scan still needs its container
+        ScanEvent(scan_event_id="scan_x1", site_id="site_test", source_type="scan_simulated", import_batch="b",
+                  event_kind="container_opened", device_time_utc=at(0), device_id="d", device_kind="handheld")

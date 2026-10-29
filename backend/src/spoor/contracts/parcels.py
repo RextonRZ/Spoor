@@ -110,6 +110,7 @@ class ScanEventKind(StrEnum):
     DAMAGE_HOLD = "damage_hold"
     MISSORT_DETECTED = "missort_detected"
     # containers
+    CONTAINER_OPENED = "container_opened"  # e.g. a new bag hung on a chute frame (container lifecycle, no parcel)
     CONTAINER_ADD = "container_add"
     CONTAINER_CLOSED = "container_closed"
     CONTAINER_REMOVE = "container_remove"
@@ -124,7 +125,7 @@ class ScanEventKind(StrEnum):
 VISIT_OPENING = frozenset({ScanEventKind.ARRIVED_FACILITY, ScanEventKind.INDUCTED, ScanEventKind.TUNNEL_READ,
                            ScanEventKind.RETURN_INDUCTED})  # fmt: skip
 VISIT_CLOSING = frozenset({ScanEventKind.DEPARTED_FACILITY, ScanEventKind.CONTAINER_LOADED})
-CONTAINER_KINDS = frozenset({ScanEventKind.CONTAINER_ADD, ScanEventKind.CONTAINER_CLOSED,
+CONTAINER_KINDS = frozenset({ScanEventKind.CONTAINER_OPENED, ScanEventKind.CONTAINER_ADD, ScanEventKind.CONTAINER_CLOSED,
                              ScanEventKind.CONTAINER_REMOVE, ScanEventKind.CONTAINER_LOADED})  # fmt: skip
 
 

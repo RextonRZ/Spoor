@@ -1,5 +1,6 @@
 "use client";
 /** Case overview (PRD §19.2 #1): question, last confirmed observation, unknowns, next evidence, report state. */
+import { describeScan } from "@/lib/scans";
 import Link from "next/link";
 import { camId, hubCamera, scanPoint } from "@/lib/hub";
 import { fmtTime, fmtUncertainty, toMs, TZ_LABEL } from "@/lib/time";
@@ -66,9 +67,9 @@ export function CaseOverview() {
         <p className="sp-micro" id="lc-h">Last confirmed</p>
         {lastSeen.loading ? <Loading lines={2} /> : lc ? (
           <div style={{ marginTop: 6 }}>
-            <div className="sp-strong" style={{ fontWeight: 600 }}>{lc.label === "observed" ? "Observed" : "Estimated"}: {CLASS_LABEL[lc.class]}</div>
+            <div className="sp-strong" style={{ fontWeight: 600 }}>{lc.label === "observed" ? "Observed" : "Estimated"}: {scan ? describeScan(scan).card : CLASS_LABEL[lc.class]}</div>
             <div className="sp-num" style={{ fontSize: 13 }}>{fmtTime(lc.time)} {TZ_LABEL}</div>
-            <div className="sp-caption">{sp ? `${sp.id} · ${sp.events}` : lc.where} · {fmtUncertainty(lc.time_uncertainty_ms)}</div>
+            <div className="sp-caption">{scan ? describeScan(scan).title : lc.where} · {sp?.id ?? lc.where} · {fmtUncertainty(lc.time_uncertainty_ms)}</div>
           </div>
         ) : <p className="sp-muted" style={{ margin: "6px 0 0" }}>Not confirmed by any scan or observation.</p>}
         {leads.length > 0 && (

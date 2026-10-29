@@ -32,6 +32,9 @@ ap.add_argument("--samples", type=int, default=4)
 ap.add_argument("--repeat", type=int, default=2)
 ap.add_argument("--save", default="")
 ap.add_argument("--area-shadows", type=int, default=0)  # 1: every LED area light casts shadows (~52 s/frame)
+ap.add_argument("--floor-mul", type=float, default=1.0)  # darken the floor's base colour (mid-grey epoxy)
+ap.add_argument("--floor-rough", type=float, default=0.6)
+ap.add_argument("--floor-spec", type=float, default=0.3)
 ap.add_argument("--spots", type=float, default=0.45)  # keep the high-bay spots (fixtures hidden) as the shadow
 #                                                       casters, at this fraction of their power; 0 = off
 args = ap.parse_args(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else [])
@@ -142,6 +145,39 @@ def lighten(name, rgb, factor, metal=None, rough=None):
     return True
 
 
+def darken(name, mul):
+    """Multiply a material's base colour (texture kept): the hall floor reads mid-grey epoxy, darker than walls."""
+    m = bpy.data.materials.get(name)
+    if m is None or not m.use_nodes:
+        return False
+    nt = m.node_tree
+    b = next((n for n in nt.nodes if n.type == "BSDF_PRINCIPLED"), None)
+    link = next((lk for lk in nt.links if lk.to_socket == b.inputs["Base Color"]), None)
+    mix = nt.nodes.new("ShaderNodeMix")
+    mix.data_type, mix.blend_type = "RGBA", "MULTIPLY"
+    mix.inputs["Factor"].default_value = 1.0
+    mix.inputs["B"].default_value = (mul, mul, mul, 1)
+    if link:
+        nt.links.new(link.from_socket, mix.inputs["A"])
+    else:
+        mix.inputs["A"].default_value = b.inputs["Base Color"].default_value
+    nt.links.new(mix.outputs["Result"], b.inputs["Base Color"])
+    # worn epoxy is semi-matte: roughness at least 0.6 and a weaker specular, so the LED rows don't mirror in it
+    rl = next((lk for lk in nt.links if lk.to_socket == b.inputs["Roughness"]), None)
+    mx = nt.nodes.new("ShaderNodeMath")
+    mx.operation = "MAXIMUM"
+    mx.inputs[1].default_value = args.floor_rough
+    if rl:
+        nt.links.new(rl.from_socket, mx.inputs[0])
+    else:
+        mx.inputs[0].default_value = b.inputs["Roughness"].default_value
+    nt.links.new(mx.outputs["Value"], b.inputs["Roughness"])
+    if "Specular IOR Level" in b.inputs:
+        b.inputs["Specular IOR Level"].default_value = args.floor_spec
+    return True
+
+
+floor_dark = darken("floor_epoxy_concrete", args.floor_mul)
 painted = {n: lighten(n, rgb, f, metal, rough) for n, rgb, f, metal, rough in (
     ("cladding_steel", (0.86, 0.87, 0.88), 0.78, 0.1, 0.5),  # walls + roof sheet: white-painted profile
     ("painted_frame", (0.78, 0.79, 0.8), 0.7, 0.15, None),  # trusses, purlins, frames: light grey
@@ -209,7 +245,7 @@ def cull_people(cam, margin=0.15):
             o.hide_render = not vis
 
 
-print(json.dumps({"led_area_lights": len(lights), "row_w": args.row_w, "painted": painted,
+print(json.dumps({"led_area_lights": len(lights), "row_w": args.row_w, "painted": painted, "floor_dark": floor_dark,
                   "exposure": scene.view_settings.exposure}), flush=True)
 for cid in [c.strip() for c in args.cams.split(",") if c.strip()]:
     cam = bpy.data.objects[cid]

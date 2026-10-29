@@ -31,6 +31,11 @@ QA.mkdir(parents=True, exist_ok=True)
 SPEC = json.loads((HUB / "hub_spec.json").read_text(encoding="utf-8"))
 WORKERS_JSON = json.loads((HUB / "build" / "truth" / "workers.json").read_text(encoding="utf-8"))
 ROLE = {w["name"]: w["role"] for w in WORKERS_JSON["workers"]}
+for _pre, _role in (("worker_dock_", "dock"), ("worker_induct_", "induction"), ("worker_cage_", "cages"),
+                    ("worker_bag_", "chutes"), ("worker_walk_", "walk")):  # station workers (stations.py, flow stage)
+    for _o in bpy.data.objects:
+        if _o.type == "ARMATURE" and _o.name.startswith(_pre):
+            ROLE.setdefault(_o.name, _role)
 F0, F1, PLAN_FPS = 1, 300, 10
 SAMPLE = 4  # every 4th body vertex for clipping tests
 
@@ -157,9 +162,12 @@ def is_static(o):
         return False
     if o.name.startswith("worker_"):  # their stools / HMIs / dock boxes are static; held props are not
         return o.parent is None
-    p = o.parent
-    while p is not None:
-        if p.type == "ARMATURE" and p.name.startswith("worker_"):
+    p = o
+    while p is not None:  # animated things (flow parcels, rolling cages, swapped bags) are not static geometry:
+        ad = p.animation_data  # a frame-1 snapshot of them only produced false "inside" flags
+        if ad and (ad.action or len(ad.nla_tracks)):
+            return False
+        if p is not o and p.type == "ARMATURE" and p.name.startswith("worker_"):
             return False
         p = p.parent
     return True

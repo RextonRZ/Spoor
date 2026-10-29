@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 import { useResource } from "@/lib/api";
 import { scanPoint } from "@/lib/hub";
 import { toMs } from "@/lib/time";
+import type { SensorEvent } from "@/contracts/generated";
 import type {
   Capabilities, CameraRow, CaseState, ClockDomainRow, LastSeenRow, MediaRow, ParcelLookup, Replay, ReportRow, ScanRow,
 } from "@/lib/types";
@@ -34,6 +35,7 @@ interface Ctx {
   domains: ReturnType<typeof useResource<ClockDomainRow[]>>;
   siteScans: ReturnType<typeof useResource<{ total: number; scans: ScanRow[] }>>;
   reports: ReturnType<typeof useResource<ReportRow[]>>;
+  sensors: ReturnType<typeof useResource<SensorEvent[]>>;
   caps: ReturnType<typeof useResource<Capabilities>>;
   range: { start: number; end: number } | null;
   playhead: number | null;
@@ -68,6 +70,7 @@ export function WorkspaceProvider({ caseId, children }: { caseId: string; childr
   const media = useResource<MediaRow[]>(siteId ? `/v1/sites/${siteId}/media` : null);
   const domains = useResource<ClockDomainRow[]>(siteId ? `/v1/sites/${siteId}/clock-domains` : null);
   const reports = useResource<ReportRow[]>(`/v1/cases/${caseId}/reports`);
+  const sensors = useResource<SensorEvent[]>(siteId ? `/v1/sites/${siteId}/sensor-events` : null);
   const caps = useResource<Capabilities>("/v1/capabilities");
 
   const range = useMemo(() => {
@@ -121,7 +124,7 @@ export function WorkspaceProvider({ caseId, children }: { caseId: string; childr
   }, [state, replay, lastSeen, parcel, reports, cameras, media]);
 
   const value: Ctx = {
-    caseId, siteId, state, replay, lastSeen, parcel, cameras, media, domains, siteScans, reports, caps, range,
+    caseId, siteId, state, replay, lastSeen, parcel, cameras, media, domains, siteScans, reports, sensors, caps, range,
     playhead, setPlayhead, selection, select, mode, setMode, focus, focusOn, litCameras, setLitCameras, reloadAll,
   };
   return <WorkspaceCtx.Provider value={value}>{children}</WorkspaceCtx.Provider>;

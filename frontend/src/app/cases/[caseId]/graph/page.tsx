@@ -3,6 +3,7 @@
  * Evidence graph (PRD §19.2 #6): sources -> evidence -> hypotheses -> findings, with counter-evidence. Built only
  * from stored records; an empty column says why it is empty instead of being filled with placeholders.
  */
+import { describeScan } from "@/lib/scans";
 import Link from "next/link";
 import { Fragment, use, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useResource } from "@/lib/api";
@@ -49,8 +50,8 @@ export default function GraphPage({ params }: { params: Promise<{ caseId: string
     for (const s of parcel.data?.scans ?? []) {
       const b = batchOf.get(s.scan_event_id) ?? "scan log";
       batches.add(b);
-      nodes.push({ id: s.scan_event_id, col: "evidence", tone: "scan", title: s.event_kind.replace(/_/g, " "),
-        sub: `${s.device_id} · ${fmtTime(s.time)}`, detail: [["Kind", "scan (identity read)"], ["Device", s.device_id],
+      nodes.push({ id: s.scan_event_id, col: "evidence", tone: "scan", title: describeScan(s).title,
+        sub: `${s.device_id} · ${fmtTime(s.time)}`, detail: [["Kind", describeScan(s).card], ["Proves", describeScan(s).proves], ["Device", s.device_id],
           ["Time", `${fmtTime(s.time)} ${TZ_LABEL}`], ["Clock", s.synced ? "synchronized" : "device time, not synchronized"],
           ["Source", s.source_type], ["ID", s.scan_event_id]] });
       edges.push({ from: `batch:${b}`, to: s.scan_event_id, kind: "derived" });

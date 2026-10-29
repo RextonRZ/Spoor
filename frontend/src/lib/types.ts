@@ -83,6 +83,8 @@ export interface ScanRow {
   sort_destination_actual: string | null;
   source_type: string;
   import_batch: string;
+  raw_code?: string | null;
+  raw_description?: string | null;
 }
 
 export interface CaseListRow {
@@ -213,6 +215,10 @@ export interface ParcelScan {
   zone_id: string | null;
   late_upload: boolean;
   source_type: string;
+  read_outcome?: string;
+  raw_code?: string | null;
+  raw_description?: string | null;
+  sort_destination_actual?: string | null;
 }
 
 export interface ParcelLookup {

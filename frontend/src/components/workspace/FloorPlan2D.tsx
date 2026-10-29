@@ -1,5 +1,6 @@
 "use client";
 /** 2D floor-plan fallback (PRD §19.4): same site-plan data and trace contract as the 3D scene, as accessible SVG. */
+import { describeScan } from "@/lib/scans";
 import { useMemo } from "react";
 import { floorFootprint } from "@/lib/frames";
 import { HUB, centroid, hubZone, scanPoint } from "@/lib/hub";
@@ -86,7 +87,7 @@ export default function FloorPlan2D() {
           const xy = sp ? [sp.position_m[0], sp.position_m[1]] : z ? centroid(z.polygons[0]) : null;
           if (!xy) return null;
           const sel = selection?.kind === "scan" && selection.scanId === s.scan_event_id;
-          const label = `${s.event_kind.replace(/_/g, " ")} at ${fmtTime(s.time)}`;
+          const label = `${describeScan(s).title} at ${fmtTime(s.time)}`;
           return (
             <g key={s.scan_event_id} role="button" tabIndex={0} aria-label={`Scan: ${label}. Open source.`}
               onClick={() => select({ kind: "scan", scanId: s.scan_event_id })} style={{ cursor: "pointer" }}

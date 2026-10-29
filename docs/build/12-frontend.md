@@ -26,3 +26,18 @@ PRD default stack 🧭: Next.js + React + TypeScript, Three.js / React Three Fib
 - `GET /v1/cases/{id}/evidence/{obs_id}` → signed frame/clip URL (step 09)
 - Generated TS types from `packages/contracts/schemas` (step 01)
 - Site Z-up → renderer Y-up transform (step 03)
+
+## Status — built in no-key mode (2026-10-30, QUEUE block C)
+
+Rexton's ask "set up the frontend everything" (review/QUEUE.md C1–C7) superseded the hold above. Code: `frontend/`
+(run instructions in `frontend/README.md`). Next.js 16 App Router + TypeScript + React Three Fiber/drei.
+
+- Types generated from `backend/schemas` (`npm run gen:types`); site→renderer matrix served by the backend
+  (`/v1/capabilities.site_to_renderer`) and pinned by a unit test.
+- `public/hub.glb` exported by script from a temp copy of `hub_dressed.blend`; frusta/footprints from hub_spec's mounting
+  plan (labelled approximate); 2D SVG plan fallback.
+- Surfaces: cases, workspace (case overview · 3D/2D scene · timeline with clock warnings · movement trace modes · source
+  panel original/annotated · agent panel over SSE), evidence graph, report review/export, operator page.
+- Backend additions (read-only): `/v1/me`, `/v1/capabilities`, site/camera/media/clock-domain/scan lists,
+  `/v1/media/{id}/frame-at`, `/v1/cases`, `/v1/cases/{id}/last-seen`, `/v1/cases/{id}/reports`.
+- No-key seed (`frontend/scripts/seed_nokey.py`) loads only real inputs through the API; it never reads truth files.

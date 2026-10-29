@@ -45,8 +45,8 @@ export default function CasesPage() {
         {sites.error && <div style={{ marginTop: 12 }}><ErrorState error={sites.error} what="the site" onRetry={sites.reload} /></div>}
       </section>
 
-      <div style={{ display: "grid", gap: 20, gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))" }}>
-        <section aria-labelledby="cases-h" className="sp-panel" style={{ gridColumn: "span 2 / auto" }}>
+      <div className="sp-home-grid">
+        <section aria-labelledby="cases-h" className="sp-panel">
           <div className="sp-panel-head"><h2 className="sp-h3" id="cases-h">Open cases</h2>
             <span className="sp-muted" style={{ fontSize: 12 }}>{cases.data?.length ?? 0} total</span></div>
           <div className="sp-panel-body">
@@ -77,7 +77,9 @@ export default function CasesPage() {
         </section>
         <NewCase siteId={site?.site_id} cameras={cams.data ?? []} />
       </div>
-      <style>{`.sp-caserow{display:flex;align-items:center;gap:12px;padding:12px 6px;text-decoration:none;border-radius:10px}
+      <style>{`.sp-home-grid{display:grid;gap:20px;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr)}
+        @media (max-width: 900px){.sp-home-grid{grid-template-columns:minmax(0,1fr)}}
+        .sp-caserow{display:flex;align-items:center;gap:12px;padding:12px 6px;text-decoration:none;border-radius:10px}
         .sp-caserow:hover{background:color-mix(in srgb, var(--accent) 6%, var(--surface-2))}`}</style>
     </div>
   );

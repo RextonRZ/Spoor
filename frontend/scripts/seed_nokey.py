@@ -106,6 +106,38 @@ def mark_synthetic(src: Path, out_dir: Path) -> Path:
     return out
 
 
+def photo_eye_csv(lines: list[str]) -> tuple[str, int]:
+    """bag_drop pulses (no parcel ID, no bag ID) -> simulated photo-eye SensorEvents: corroboration, never identity
+    (review 004, answer to 002 Q2)."""
+    import csv
+    import io
+
+    buf = io.StringIO()
+    w = csv.writer(buf, lineterminator=chr(10))
+    w.writerow(["device_id", "kind", "value", "zone_id", "device_time_utc", "clock_quality", "source"])
+    n = 0
+    for line in lines:
+        if not line.strip():
+            continue
+        r = json.loads(line)
+        if r["event"] != "bag_drop" or r.get("parcel_id"):
+            continue
+        zone = "zone_Z07" if r["chute"] == "REJECT" else "zone_Z06"
+        w.writerow([f"chute:{r['chute']}:photo-eye", "motion_trigger", "true", zone, r["time"],
+                    "sorter WCS clock, not fitted", "simulated"])
+        n += 1
+    return buf.getvalue(), n
+
+
+def handheld_point(points: dict, r: dict, prefix: str) -> dict | None:
+    """The read point of a handheld record: its own scan_point, else the chute's point for bag scans."""
+    if r.get("scan_point") in points:
+        return points[r["scan_point"]]
+    if r.get("chute") and f"{prefix}{r['chute']}" in points:
+        return points[f"{prefix}{r['chute']}"]
+    return None
+
+
 def convert_scans(lines: list[str], domain_ids: dict[str, str], spec: dict) -> tuple[list[dict], dict]:
     """Translate the hub's simulated log into Spoor ScanEvent rows. Field meanings only; no values invented."""
     points = {p["id"]: p for p in spec["scan_points"]}
@@ -116,8 +148,10 @@ def convert_scans(lines: list[str], domain_ids: dict[str, str], spec: dict) -> t
         r = json.loads(line)
         ev, pid = r["event"], r.get("parcel_id")
         ids = [{"scheme": "carrier_waybill", "value": pid}] if pid else []
-        base = {"device_time_utc": r["time"], "record_time_utc": r["time"], "raw_code": ev,
-                "clock_domain_id": domain_ids.get("clkd_wcs")}  # fmt: skip
+        # `time` is the DEVICE clock of the record's own clock domain; handhelds upload later (`received_time`).
+        # Ground-truth seconds (`t_s`, removed in log v2) are never used.
+        base = {"device_time_utc": r["time"], "record_time_utc": r.get("received_time") or r["time"], "raw_code": ev,
+                "clock_domain_id": domain_ids.get(r.get("clock_domain") or "clkd_wcs")}  # fmt: skip
         if ev in ("tunnel_read", "tunnel_no_read"):
             sp = points["SP-TUNNEL"]
             row = {**base, "event_kind": ev, "read_outcome": "read" if ev == "tunnel_read" else "no_read",
@@ -136,6 +170,27 @@ def convert_scans(lines: list[str], domain_ids: dict[str, str], spec: dict) -> t
                    "device_kind": "sorter_plc", "station_id": sp["id"], "read_point_zone_id": f"zone_{sp['zone']}",
                    "sort_destination_actual": r["chute"], "divert_confirmed": True,
                    "raw_description": f"carrier {r.get('carrier')}"}  # fmt: skip
+        elif ev == "recirculate_chute_full":  # sorter could not discharge: target chute full, item stays on the loop
+            sp = points.get(r.get("scan_point")) or points[f"SP-DIV-{r['chute']}"]
+            row = {**base, "event_kind": "recirculated", "identifiers": ids, "read_outcome": "read" if pid else "no_read",
+                   "device_id": sp["id"], "device_kind": "sorter_plc", "station_id": sp["id"],
+                   "read_point_zone_id": f"zone_{sp['zone']}", "sort_destination_assigned": r["chute"],
+                   "divert_confirmed": False, "reason_code": "chute_full",
+                   "raw_description": f"carrier {r.get('carrier')}"}  # fmt: skip
+        elif ev in ("bag_open", "bag_close"):  # container lifecycle at a chute: a bag scan, never a parcel read
+            sp = handheld_point(points, r, "SP-BAG-")
+            row = {**base, "event_kind": "container_opened" if ev == "bag_open" else "container_closed",
+                   "container": {"scheme": "container", "value": r["bag_id"]}, "container_type": "bag",
+                   "device_id": sp["id"] if sp else r.get("device_id", "handheld"), "device_kind": "handheld",
+                   "station_id": sp["id"] if sp else None, "read_point_zone_id": f"zone_{sp['zone']}" if sp else None,
+                   "raw_description": f"bag {r['bag_id']}" + (f" on chute {r['chute']}" if r.get("chute") else "")}  # fmt: skip
+        elif ev == "container_add" and r.get("item_kind") == "bag":  # bag into roll cage: aggregation evidence
+            sp = handheld_point(points, r, "SP-CAGE-")
+            row = {**base, "event_kind": "container_add", "identifiers": [{"scheme": "container", "value": r["item_id"]}],
+                   "container": {"scheme": "container", "value": r["container_id"]}, "container_type": "cage",
+                   "device_id": sp["id"] if sp else r.get("device_id", "handheld"), "device_kind": "handheld",
+                   "station_id": sp["id"] if sp else None, "read_point_zone_id": f"zone_{sp['zone']}" if sp else None,
+                   "raw_description": f"bag {r['item_id']} into {r['container_id']}"}  # fmt: skip
         elif ev == "reject_bin" and not pid:
             sp = points["SP-DIV-REJECT"]
             row = {**base, "event_kind": "exception_diverted", "read_outcome": "no_read", "identifiers": [],
@@ -153,7 +208,7 @@ def convert_scans(lines: list[str], domain_ids: dict[str, str], spec: dict) -> t
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--clips", default=str(REPO / "assets/hub/build/qa/cctv"))
+    ap.add_argument("--clips", default=str(FRONT / ".local/clips"), help="dir of CAM_XX.mp4 (synthetic renders)")
     ap.add_argument("--clip-start", default=DEFAULT_CLIP_START)
     ap.add_argument("--scans", default=str(REPO / "assets/hub/build/sim/events_scan_simulated.jsonl"))
     ap.add_argument("--spec", default=str(REPO / "assets/hub/hub_spec.json"))
@@ -180,10 +235,16 @@ def main() -> None:
     site = {"site_id": SITE_ID, "name": "CONTOH Express Klang Valley hub (fictional)",
             "measurement_method": "design plan of a fictional hub (assets/hub/hub_spec.json); not surveyed",
             "floors": [{"floor_id": FLOOR_ID, "name": "Ground", "outline_m": outline}], "zones": zones}  # fmt: skip
-    admin.post("/v1/sites", json=site).raise_for_status()
-    print("site", SITE_ID, len(zones), "zones")
+    if admin.get(f"/v1/sites/{SITE_ID}").status_code == 200:
+        print("site exists; re-running imports only (scan import is idempotent)")
+    else:
+        admin.post("/v1/sites", json=site).raise_for_status()
+        print("site", SITE_ID, len(zones), "zones")
 
+    have = {c["camera"]["camera_id"] for c in admin.get(f"/v1/sites/{SITE_ID}/cameras").json()}
     for c in spec["cameras"]:
+        if f"cam_{c['id']}" in have:
+            continue
         cam = {"camera_id": f"cam_{c['id']}", "site_id": SITE_ID, "floor_id": FLOOR_ID,
                "name": f"{c['id']} {c['osd_label']}", "resolution_wh_px": c["resolution"],
                "position_m": [*c["position_m"], c["height_m"]], "position_measured": False,
@@ -245,14 +306,15 @@ def main() -> None:
     r.raise_for_status()
     print("scans", r.json(), "not imported:", skipped)
 
-    if args.case_parcel == "auto":  # an operator choice of INPUT case, made from the scan log only (PRD §23)
+    auto = args.case_parcel == "auto"
+    if auto:  # an operator choice of INPUT case, made from the scan log only (PRD §23)
         counts: dict[str, int] = {}
         for row in rows:
             for i in row.get("identifiers", []):
                 counts[i["value"]] = counts.get(i["value"], 0) + 1
         args.case_parcel = max(sorted(counts), key=lambda k: counts[k])
     cases = inv.get("/v1/cases").json()
-    if not any(c["case"]["target_description"].endswith(args.case_parcel) for c in cases):
+    if not (auto and cases) and not any(c["case"]["target_description"].endswith(args.case_parcel) for c in cases):
         t0 = datetime.fromisoformat(args.clip_start)
         body = {"site_id": SITE_ID, "question": f"Where did parcel {args.case_parcel} go after its last scan?",
                 "target_description": f"parcel {args.case_parcel}",
@@ -262,6 +324,12 @@ def main() -> None:
                 "identifiers": [{"scheme": "carrier_waybill", "value": args.case_parcel}]}  # fmt: skip
         r = inv.post("/v1/cases", json=body).raise_for_status().json()
         print("case", r["case"]["case_id"])
+        csv_text, n = photo_eye_csv(lines)
+        if n:
+            imp = admin.post(f"/v1/cases/{r['case']['case_id']}/evidence/import", data={"batch": "hub_sim_photo_eyes"},
+                             files={"file": ("photo_eyes.csv", csv_text.encode(), "text/csv")}).raise_for_status().json()
+            print("photo-eye pulses imported as simulated sensor events:", len(imp["imported"]))
+            skipped.pop("bag_drop", None)
     (local / "seed_report.json").write_text(json.dumps({"scans_not_imported": skipped, "clips": [c.name for c in clips]},
                                                        indent=1), encoding="utf-8")  # fmt: skip
 

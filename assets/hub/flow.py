@@ -153,8 +153,8 @@ B["tunnel"] = Belt("tunnel", [(17.5, 9.5, 1.5), (23.0, 9.5, 1.5)], 1.5, "merge")
 B["induction"] = Belt("induction", [(5.6, 9.5, 1.0), (17.5, 9.5, 1.0)], 1.5, "tunnel")
 # the collector turns east into a slow accumulation belt that stops at its end plate; the inductors take parcels off
 # that queue (stations.Inductors) - nothing passes from feed to induction by itself
-B["feed"] = Belt("feed", [(5.0, 11.1, 1.0), (9.2, 11.1, 1.0)], 0.5, None)
-B["collector"] = Belt("collector", [(5.0, 28.0, 1.0), (5.0, 11.1, 1.0)], 1.2, "feed",
+B["feed"] = Belt("feed", [(5.0, 10.85, 1.0), (9.2, 10.85, 1.0)], 0.5, None)
+B["collector"] = Belt("collector", [(5.0, 28.0, 1.0), (5.0, 10.85, 1.0)], 1.2, "feed",
                       entry={"boom_D05": 28.0 - 23.0, "boom_D02": 28.0 - 11.0})
 B["boom_D05"] = Belt("boom_D05", [(-1.15, 23.0, 0.97), (5.0, 23.0, 1.0)], 0.8, "collector")  # from the boom nose
 B["boom_D02"] = Belt("boom_D02", [(-1.15, 11.0, 0.97), (5.0, 11.0, 1.0)], 0.8, "collector")
@@ -267,6 +267,7 @@ class Parcel:
         self.ob = None
         self.meta = dict(kind=self.kind, dims_m=list(self.dims), body=self.body, chute=self.dest)
         self.half = max(self.dims[:2]) / 2
+        self.lat = 0.0  # across the belt (+ = left of travel)
         self.belt, self.s = None, 0.0
         self.state = "belt"  # belt | merge_wait | carrier | divert | chute | bag
         self.car = None
@@ -311,8 +312,13 @@ def _next_k():
     return _k_station[0]
 
 
-ST = stations.Docks(dict(seed=args.seed, DT=DT, F0=F0, F1=F1, B=B, BOX_DIMS=BOX_DIMS, Parcel=Parcel, next_k=_next_k))
+ST = stations.Docks(dict(seed=args.seed, DT=DT, F0=F0, F1=F1, B=B, BOX_DIMS=BOX_DIMS, Parcel=Parcel, next_k=_next_k,
+                         parcels=parcels))
 IND = stations.Inductors(dict(seed=args.seed, DT=DT, F0=F0, F1=F1, B=B))
+BAG = stations.BagChange(dict(seed=args.seed, DT=DT, F0=F0, F1=F1))
+OPEN = stations.BagOpener(dict(seed=args.seed, DT=DT, F0=F0, F1=F1, B=B, Parcel=Parcel, next_k=_next_k,
+                               parcels=parcels))  # C07's full bag is changed in the window
+_bag_reset = [False]
 
 # ------------------------------------------------------------------------------------------------ simulate
 car_s0 = [k * PITCH for k in range(N_CAR)]
@@ -325,16 +331,7 @@ for step in range(steps + 1):
     t = -args.preroll + step * DT
     # 1. spawn at the boom tips (inside the lorries)
     for bn in ("boom_D05", "boom_D02"):
-        if bn in ST.belts and t >= -1e-6:  # the unloaders' cartons, at their release frames
-            for pk in ST.spawns(bn, t):
-                p = pk.parcel
-                p.belt, p.s = bn, max(pk.s - B[bn].speed * DT, 0.0)  # the belt step below moves it onto pk.s
-                if not B[bn].free_at(p.s, p.half):  # (checked where it is put: the belt step follows)
-                    print(f"WARN station release onto an occupied nose: {bn} t={t:.1f} at s={pk.s:.2f} "
-                          f"items={[(round(q.s, 2), q.k, getattr(q, 'station', None) is not None) for q in B[bn].items if q.s < 1.5]}",
-                          flush=True)
-                B[bn].items.append(p)
-                parcels.append(p)
+        if bn in ST.belts and t >= ST.start_t:  # from here on the unloaders put every carton on the boom
             continue
         rate = ST.preroll_rate(bn) if bn in ST.belts else args.rate
         if t >= next_spawn[bn] and B[bn].free_at(0.15, 0.3):
@@ -369,6 +366,8 @@ for step in range(steps + 1):
             if nxt.free_at(s_in, p.half):
                 belt.items.remove(p)
                 p.belt, p.s = belt.nxt, s_in
+                if belt.nxt == "feed":  # the feed's side guide keeps parcels on the operator-side edge
+                    p.lat = -min(0.21, 0.37 - p.half)
                 nxt.items.append(p)
                 if belt.nxt == "merge":
                     pass
@@ -392,7 +391,13 @@ for step in range(steps + 1):
                         ev(t, "tunnel_no_read", scan_point="SP-TUNNEL",
                            dims_mm=[int(x * 1000 + rnd.gauss(0, 4)) for x in (w, d, h)],
                            weight_g=int(kg * 1000 * rnd.uniform(0.98, 1.02)), photo=f"tunnel_{p.k:03d}.png")
-    # 2b. inductors work the feed queue (stopped parcels only)
+    for p in B["induction"].items:  # set down on the near half, centred by the guides within ~1.5 m
+        p.lat *= 0.9
+    for p in B["tunnel"].items:
+        p.lat = 0.0
+    # 2b. unloaders (docks) and inductors (feed queue, stopped parcels only)
+    ST.step(t)
+    OPEN.step(t)
     IND.step(t, [p for p in B["feed"].items if abs(p.s - feed_before.get(id(p), -9.0)) < 1e-6])
     # 3. merge onto the first empty carrier passing the merge point
     for p in [q for q in B["merge"].items if q.state == "merge_wait"]:
@@ -404,6 +409,9 @@ for step in range(steps + 1):
                 B["merge"].items.remove(p)
                 ev(t, "induct_to_carrier", parcel=p if p.read else None, scan_point="SP-INDUCT", carrier=k + 1)
                 break
+    if not _bag_reset[0] and not BAG.chute_closed(t):  # new empty bag hung: fill starts again from the bottom
+        bag_fill[stations.BAG_CHUTE] = 0
+        _bag_reset[0] = True
     # 4. carriers: divert at the target chute (north straight, moving west)
     for k in range(N_CAR):
         p = car_load[k]
@@ -412,7 +420,13 @@ for step in range(steps + 1):
         s_prev = (car_s0[k] + V_LOOP * (t - DT)) % L_LOOP
         s_k = (car_s0[k] + V_LOOP * t) % L_LOOP
         cs = CHUTE_S[p.target]
-        if (s_prev < cs <= s_k) or (s_prev > s_k and (cs > s_prev or cs <= s_k)):
+        passing = (s_prev < cs <= s_k) or (s_prev > s_k and (cs > s_prev or cs <= s_k))
+        if passing and p.target == stations.BAG_CHUTE and BAG.chute_closed(t):
+            # the chute's bag is full (stack light red): the sorter does not divert, the parcel goes round again
+            ev(t, "recirculate_chute_full", parcel=p if p.read else None, scan_point=f"SP-DIV-{p.target}",
+               carrier=k + 1, chute=p.target)
+            continue
+        if passing:
             car_load[k] = None
             p.state, p.car = "divert", None
             c = CHUTES[p.target]
@@ -438,6 +452,8 @@ for step in range(steps + 1):
         for p in parcels:
             if p.state in ("belt", "merge_wait"):
                 pos, yaw = B[p.belt].at(p.s)
+                if p.lat:
+                    pos = pos + Vector((-math.sin(yaw), math.cos(yaw), 0.0)) * p.lat
                 p.track[f] = (pos.copy(), yaw + p.yaw_off)
             elif p.state == "carrier":
                 x, y, hd = loop_at(car_s0[p.car] + V_LOOP * t)
@@ -462,8 +478,30 @@ for step in range(steps + 1):
                 p.state = "bag"
                 p.rest = (p.anim[-1][1].copy(), p.anim[-1][2])
 
+# bag change at C07 (handheld scans, simulated): bag closed + its ID, bag into a roll cage, new bag opened on the chute
+_bt = BAG.T
+_bag_full_id = f"BAG-{stations.BAG_CHUTE}-{rnd.randint(1000, 9999)}"
+_bag_new_id = f"BAG-{stations.BAG_CHUTE}-{rnd.randint(1000, 9999)}"
+_cage_id = f"RC-{rnd.randint(100, 999)}"
+ev(_bt["lift"], "bag_close", scan_point=f"SP-BAG-{stations.BAG_CHUTE}", chute=stations.BAG_CHUTE, bag_id=_bag_full_id,
+   device="handheld")
+ev(_bt["released"], "container_add", scan_point="SP-CAGE-E", container_id=_cage_id, item_id=_bag_full_id,
+   item_kind="bag", device="handheld")
+ev(_bt["clip_new"], "bag_open", scan_point=f"SP-BAG-{stations.BAG_CHUTE}", chute=stations.BAG_CHUTE,
+   bag_id=_bag_new_id, device="handheld")
+BAG_TRUTH = dict(chute=stations.BAG_CHUTE, full_bag_id=_bag_full_id, new_bag_id=_bag_new_id, cage_id=_cage_id,
+                 cage_bay=stations.BAG_CAGE_BAY, times_s={k: round(v, 2) for k, v in _bt.items()},
+                 contents_note="parcels sorted to C07 before t=-40 s (pre-roll, not individually tracked) + the "
+                               "static bag contents of the build; no flow parcel entered this bag in the window")
 # inductors: parcels in the hands at the end; tracks while held
 IND.finish()
+ST.finish()
+OPEN.finish()
+for p, tr in OPEN.pile_tracks().items():  # bench parcels: on the bench, then in the hands, then the collector
+    for f_, pose in tr.items():
+        p.track.setdefault(f_, (pose[0].copy(), pose[1]))
+    if p not in parcels:
+        parcels.append(p)
 for p, tr in IND.held_tracks().items():
     for f, (pos, yaw) in tr.items():
         p.track[f] = (pos.copy(), yaw)
@@ -556,6 +594,14 @@ if people_coll.name not in sc.collection.children:
     sc.collection.children.link(people_coll)
 station_report = ST.build(sc, people_coll, range(F0, F1 + 1), wall_mesh)
 station_report["induction"] = IND.build(sc, people_coll, range(F0, F1 + 1))
+station_report["cages"] = stations.CagePushers(dict(seed=args.seed, DT=DT, F0=F0, F1=F1)).build(
+    sc, people_coll, range(F0, F1 + 1), SPEC)
+station_report["walkers"] = stations.Walkers(dict(DT=DT, F0=F0, F1=F1)).build(sc, people_coll, range(F0, F1 + 1))
+station_report["bagging"] = BAG.build(sc, people_coll, range(F0, F1 + 1), SPEC)
+station_report["bag_opening_cut"] = stations._cut_region(sc, ["parcels_static_merged"], 6.2, 8.0, 19.0, 22.0, 0.85, 1.6)
+station_report["bag_opening"] = OPEN.build(sc, people_coll, range(F0, F1 + 1))
+station_report["ambient"] = stations.Ambient(dict(seed=args.seed, DT=DT, F0=F0, F1=F1)).build(sc, people_coll,
+                                                                                             range(F0, F1 + 1))
 sc.frame_set(F0)
 print("STATIONS " + json.dumps(station_report), flush=True)
 
@@ -563,15 +609,41 @@ print("STATIONS " + json.dumps(station_report), flush=True)
 (BUILD / "truth" / "flow_truth.json").write_text(json.dumps(
     {"note": "render-side truth; Spoor never reads this", "fps": FPS, "frames": [F0, F1], "t0": T_START.isoformat(),
      "loop_speed_mps": V_LOOP, "parcels": truth, "truck_walls": WALL_TRUTH,
-     "station_workers": station_report}), encoding="utf-8")
+     "station_workers": station_report, "bag_change": BAG_TRUTH}), encoding="utf-8")
 (BUILD / "sim").mkdir(exist_ok=True)
-with open(BUILD / "sim" / "events_scan_simulated.jsonl", "w", encoding="utf-8") as fh:
+# device clocks (render side: render_truth.json, evaluator-only): every record carries the time ITS device wrote
+# (sorter / tunnel PLC = the WCS reference clock; handhelds = the fleet clock, uploaded in batches). The true time
+# goes to build/truth/events_truth.jsonl only - the log Spoor imports has no true time in it.
+_RT = json.loads((HUB / "render_truth.json").read_text(encoding="utf-8"))
+_HH, _WCS = _RT["handheld_fleet"], _RT["wcs"]
+
+
+def _domain(e):
+    sp = e.get("scan_point") or ""
+    return "clkd_handheld" if sp.startswith(("SP-BAG", "SP-CAGE", "SP-IN-", "SP-REWORK", "SP-OVERSIZE", "SP-LOAD")) \
+        else "clkd_wcs"
+
+
+with open(BUILD / "sim" / "events_scan_simulated.jsonl", "w", encoding="utf-8") as fh, \
+        open(BUILD / "truth" / "events_truth.jsonl", "w", encoding="utf-8") as ft:
     for e in sorted(events, key=lambda e: e["t_s"]):
         q = e.pop("_p")
         if q is not None and q.ob is None:
             continue  # its parcel was never materialised (pre-roll only)
         e["parcel_id"] = q.meta.get("parcel_id") if q is not None else None
+        e.pop("device", None)
+        t_true = e.pop("t_s")
+        dom = _domain(e)
+        off = (_HH if dom == "clkd_handheld" else _WCS).get("clock_offset_s", 0.0)
+        e["time"] = (T_START + timedelta(seconds=t_true + off)).isoformat(timespec="milliseconds")
+        e["clock_domain"] = dom
+        if dom == "clkd_handheld":  # handhelds upload in batches: the hub system receives the record later
+            e["received_time"] = (T_START + timedelta(seconds=t_true + off + 60 * _HH.get("batch_upload_delay_min", 0)
+                                                      + rnd.uniform(5, 90))).isoformat(timespec="seconds")
         fh.write(json.dumps(e) + "\n")
+        ft.write(json.dumps({"event": e["event"], "parcel_id": e["parcel_id"], "true_t_s": t_true,
+                             "true_time": (T_START + timedelta(seconds=t_true)).isoformat(timespec="milliseconds"),
+                             "logged_time": e["time"], "clock_domain": dom}) + "\n")
 moving = sum(1 for p in parcels if p.ob is not None and any((p.track[f][0] - p.track[min(p.track)][0]).length > 0.01
                                                              for f in p.track))
 on_loop_f1 = sum(1 for p in parcels if p.ob is not None and 1 in p.track and abs(p.track[1][0].z - DECK) < 0.05)
@@ -580,5 +652,7 @@ print("FLOW " + json.dumps({"belt_points_without_surface": GAPS, "parcels": kept
                             "events_by_kind": {k: sum(1 for e in events if e['event'] == k) for k in
                                                sorted({e['event'] for e in events})},
                             "bag_fill": {k: v for k, v in bag_fill.items() if v}}), flush=True)
+sc.render.fps = FPS  # the station workers' FBX template imports reset it to 30
+sc.frame_start, sc.frame_end = F0, F1
 if args.save:
     bpy.ops.wm.save_as_mainfile(filepath=str(Path(args.save).resolve()), compress=True)

@@ -13,6 +13,13 @@ async function shot(page: Page, info: TestInfo, name: string, full = false) {
   await page.screenshot({ path: `review_pack/${info.project.name}/${name}.png`, fullPage: full || isMobile(info) });
 }
 
+/** Desktop shows every pane at once, so pane states are captured as element shots (one file per distinct state). */
+async function shotPane(page: Page, info: TestInfo, name: string, selector: string) {
+  if (isMobile(info)) return shot(page, info, name);
+  await page.waitForTimeout(400);
+  await page.locator(selector).first().screenshot({ path: `review_pack/${info.project.name}/${name}.png` });
+}
+
 async function role(page: Page, r: "investigator" | "reviewer" | "site_admin") {
   await page.request.post("/api/session", { data: { role: r } });
 }
@@ -23,8 +30,9 @@ async function caseId(page: Page) {
 }
 
 async function waitScene(page: Page) {
-  if (await page.locator(".sp-scene").count()) {
-    await page.locator('.sp-scene[data-ready="true"]').waitFor({ timeout: 120_000 }).catch(() => {});
+  const scene = page.locator(".sp-scene");
+  if (await scene.waitFor({ state: "attached", timeout: 30_000 }).then(() => true, () => false)) {
+    await page.locator('.sp-scene[data-ready="true"]').waitFor({ state: "attached", timeout: 120_000 }).catch(() => {});
   }
   await page.waitForTimeout(2500);
 }
@@ -63,10 +71,10 @@ test("workspace: overview, last confirmed, plan, people mode, timeline, frame st
   await mobileTab(page, info, "Source");
   await expect(page.locator(".sp-frame-img img").first()).toBeVisible();
   await page.waitForTimeout(1500);
-  await shot(page, info, "04_source_context_frame");
+  await shotPane(page, info, "04_source_context_frame", "#source-panel");
   await page.getByRole("button", { name: "Next frame" }).first().click();
   await page.waitForTimeout(1500);
-  await shot(page, info, "05_source_frame_stepped");
+  await shotPane(page, info, "05_source_frame_stepped", "#source-panel");
   await mobileTab(page, info, "Scene");
   await page.getByRole("button", { name: "2D plan" }).click();
   await shot(page, info, "06_workspace_2d_plan");
@@ -76,10 +84,10 @@ test("workspace: overview, last confirmed, plan, people mode, timeline, frame st
   await shot(page, info, "07_trace_people_mode");
   await mobileTab(page, info, "Case");
   await page.getByRole("button", { name: "Object", exact: true }).click();
-  await shot(page, info, "08_case_overview");
+  await shotPane(page, info, "08_case_overview", ".sp-ws-left");
   await mobileTab(page, info, "Timeline");
   await page.locator("summary", { hasText: /clock warning/ }).click();
-  await shot(page, info, "09_timeline_clock_warnings");
+  await shotPane(page, info, "09_timeline_clock_warnings", ".sp-ws-time");
 });
 
 test("agent panel: real job events and answer", async ({ page }, info) => {
@@ -156,7 +164,8 @@ test("FIXTURE: trace renderer with observed, hypothesis and unknown", async ({ p
   await mobileTab(page, info, "Source");
   await expect(page.getByText(/Observed · TEST FIXTURE/)).toBeVisible();
   await page.waitForTimeout(1500);
-  await shot(page, info, "fx_18_segment_source");
+  await shotPane(page, info, "fx_18_segment_source", "#source-panel");
   await mobileTab(page, info, "Timeline");
-  await shot(page, info, "fx_19_timeline_gap");
+  await page.getByRole("button", { name: /Unknown interval/ }).click();
+  await shotPane(page, info, "fx_19_timeline_gap", ".sp-ws-time");
 });

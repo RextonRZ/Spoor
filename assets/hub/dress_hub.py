@@ -477,6 +477,9 @@ wall_grime()
 _src_cache = {}
 
 
+MODEL_UNIT_FIX = {"steel_frame_shelves_01": 0.1}
+
+
 def prop(model_id, x, y, rot_deg=0.0, z=0.0, scale=1.0, radius=0.4, allow_on_walkway=False):
     """Place a Poly Haven glTF (imported once, then linked copies). Refuses spots on walkways / the lane."""
     if not allow_on_walkway and not clear(x, y, radius):
@@ -505,6 +508,9 @@ def prop(model_id, x, y, rot_deg=0.0, z=0.0, scale=1.0, radius=0.4, allow_on_wal
     holder, parts = _src_cache[model_id]
     root = bpy.data.objects.new(f"{model_id}_{len(dress.objects)}", None)
     dress.objects.link(root)
+    # unit fixes: the Poly Haven steel_frame_shelves_01 glTF imports 10x too large (21.4 m tall, measured;
+    # its sibling _02 is 2.14 m) - QA review 004 Q1
+    scale *= MODEL_UNIT_FIX.get(model_id, 1.0)
     root.location, root.rotation_euler, root.scale = (x, y, z), (0, 0, math.radians(rot_deg)), (scale,) * 3
     mapping = {holder: root}
     for o in parts:  # copy the hierarchy, sharing mesh data
@@ -543,13 +549,9 @@ prop("korean_fire_extinguisher_01", 59.65, 29.0, 180, radius=0.0, allow_on_walkw
 # yard
 for x, y, r in ((28.0, 49.0, 0), (50.0, 49.0, 0), (-14.0, 31.0, 90)):
     prop("concrete_road_barrier", x, y, r, z=-1.2)
-# cardboard boxes: on benches, beside pallets, staged at outbound doors, by chute ends
-spots = [(random.uniform(6.4, 7.8), random.uniform(19.2, 26.8), 0.9) for _ in range(5)]
-spots += [(random.uniform(8.2, 15.0), random.uniform(5.2, 6.3), 0.0) for _ in range(3)]
-spots += [(random.uniform(26.0, 52.0), random.uniform(36.8, 38.6), 0.0) for _ in range(6)]
-spots += [(random.uniform(30.5, 49.0), random.uniform(21.7, 22.1), 0.0) for _ in range(3)]
-for x, y, z in spots:
-    prop("cardboard_box_01", x, y, random.uniform(0, 360), z=z, scale=random.uniform(0.55, 1.1), radius=0.2)
+# (no loose unlabelled cartons: every parcel-like object in the hub is a registered, labelled parcel - QA review
+# 001 #4: random floor cartons are false leads for Spoor. The one deliberate dropped parcel is in build_hub.py)
+_ = [random.random() for _ in range(5 * 2 + 3 * 2 + 6 * 2 + 3 * 2 + 17 * 2)]  # keep the dress RNG stream unchanged
 
 # procedural clutter: standing fans, overhead cable tray, torn tape, wrapped pallets at the outbound queue
 clutter = {}

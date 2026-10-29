@@ -722,6 +722,69 @@ for i, (x, y, t) in enumerate(LS):
             loop_items["steel"].append(mat_aabb(px - 0.06, py - 0.06, 0, px + 0.06, py + 0.06, DECK - 0.35))
 boxes("loop_deck_rails", loop_items, C["Machines"])
 
+
+# machine guarding round the loop's walkable sides (QA review 001 #5; reference dpd_t068 / t075): 2.0 m galvanised
+# mesh panels between 60 mm yellow posts, 0.5 m out from the deck. North side stays open (chutes + bagging aisle);
+# the merge belt passes through a gap at the south-west; the XO-1 stair passes over the fence (it is ~3 m up there).
+# A yellow-framed access gate (padlocked) on the south side. E-stop boxes every ~10 m on the posts, 3 stack lights.
+def fence_runs():
+    sy, ny, wcx, ecx, r = (LOOP[k] for k in ("south_y", "north_y", "west_cx", "east_cx", "radius"))
+    off = r + 0.62 + 0.5  # loop centreline radius + half deck + clearance
+    cy = (sy + ny) / 2
+    runs = [[(30.4, sy - 1.12), (ecx, sy - 1.12)]]  # south: from just east of the merge belt
+    east = [(ecx + off * math.cos(a), cy + off * math.sin(a)) for a in [math.radians(d) for d in range(-90, 91, 15)]]
+    runs.append(east[:-1] + [(ecx + 0.6, ny + 1.0)])  # round the east curve up to the chute row
+    west = [(wcx + off * math.cos(a), cy + off * math.sin(a)) for a in [math.radians(d) for d in range(90, 271, 15)]]
+    runs.append([(wcx - 0.6, ny + 1.0)] + west[1:-2])  # west curve, stops clear of the merge belt (240 deg)
+    return runs
+
+
+fence = {"steel": [], "yellow": [], "black": [], "red": []}
+fence_bm = bmesh.new()
+post_pts = []
+for run in fence_runs():
+    for (ax, ay), (bx, by) in zip(run, run[1:]):
+        seg_len = math.hypot(bx - ax, by - ay)
+        n = max(1, int(round(seg_len / 2.0)))
+        for k in range(n):
+            x0, y0 = ax + (bx - ax) * k / n, ay + (by - ay) * k / n
+            x1, y1 = ax + (bx - ax) * (k + 1) / n, ay + (by - ay) * (k + 1) / n
+            post_pts.append((x0, y0))
+            gate = abs(x0 - 36.0) < 1.0 and abs(y0 - (LOOP["south_y"] - 1.12)) < 0.01
+            segs = [((x0, y0, 0.05), (x1, y1, 0.05), 0.012), ((x0, y0, 2.0), (x1, y1, 2.0), 0.012),
+                    ((x0, y0, 1.0), (x1, y1, 1.0), 0.008)]  # frame rails
+            m = int(math.hypot(x1 - x0, y1 - y0) / 0.1)
+            segs += [((x0 + (x1 - x0) * j / m, y0 + (y1 - y0) * j / m, 0.05),
+                      (x0 + (x1 - x0) * j / m, y0 + (y1 - y0) * j / m, 2.0), 0.0018) for j in range(1, m)]
+            segs += [((x0, y0, z), (x1, y1, z), 0.0018) for z in [0.05 + 0.1 * j for j in range(1, 20)]]
+            tubes_into(fence_bm, segs, 0, sides=4)
+            if gate:  # access gate: yellow frame inside the panel (hinge + latch stiles, top rail) + padlock
+                ga, gb = min(x0, x1) + 0.08, max(x0, x1) - 0.08
+                fence["yellow"] += [mat_aabb(ga - 0.02, y0 - 0.02, 0.08, ga + 0.02, y0 + 0.02, 1.95),
+                                    mat_aabb(gb - 0.02, y0 - 0.02, 0.08, gb + 0.02, y0 + 0.02, 1.95),
+                                    mat_aabb(ga, y0 - 0.02, 1.91, gb, y0 + 0.02, 1.95)]
+                fence["black"].append(mat_aabb(gb - 0.06, y0 - 0.06, 1.0, gb - 0.02, y0 - 0.02, 1.08))
+    post_pts.append(run[-1])
+for i, (px, py) in enumerate(post_pts):
+    fence["yellow"].append(mat_aabb(px - 0.03, py - 0.03, 0.0, px + 0.03, py + 0.03, 2.05))
+    if i % 5 == 2:  # e-stop box (yellow) with a red mushroom head, on the aisle side of the post
+        fence["yellow"].append(mat_aabb(px - 0.06, py - 0.1, 1.05, px + 0.06, py - 0.03, 1.2))
+        fence["red"].append(mat_aabb(px - 0.025, py - 0.125, 1.11, px + 0.025, py - 0.1, 1.15))
+me = bpy.data.meshes.new("loop_fence_mesh")
+fence_bm.to_mesh(me)
+fence_bm.free()
+me.materials.append(M["steel"])
+fob = bpy.data.objects.new("loop_fence_mesh", me)
+C["Machines"].objects.link(fob)
+boxes("loop_fence_posts", fence, C["Machines"])
+# stack lights on the loop (green lit = running): at the merge, at XO-1, on the east curve
+for k, (lx, ly) in enumerate(((30.6, LOOP["south_y"] - 1.12), (40.6, LOOP["south_y"] - 1.12),
+                              (LOOP["east_cx"] + LOOP["radius"] + 1.12, (LOOP["south_y"] + LOOP["north_y"]) / 2))):
+    boxes(f"loop_stacklight_{k}", {"steel": [mat_aabb(lx - 0.015, ly - 0.015, 2.05, lx + 0.015, ly + 0.015, 2.3)],
+                                   "lamp_green": [mat_aabb(lx - 0.04, ly - 0.04, 2.3, lx + 0.04, ly + 0.04, 2.38)],
+                                   "lamp_off": [mat_aabb(lx - 0.04, ly - 0.04, 2.38, lx + 0.04, ly + 0.04, 2.54)]},
+          C["Machines"])
+
 # carriers: 850 x 440 mm belts at 700 mm pitch; the 260 mm between them is the cover plate (deck top)
 carrier_src = boxes("carrier_src", {"carrier": [mat_aabb(-0.22, -0.425, -0.06, 0.22, 0.425, -0.02)],
                                     "belt": [mat_aabb(-0.2, -0.41, -0.02, 0.2, 0.41, 0.0)]}, C["Machines"])
@@ -926,7 +989,8 @@ def roll_cage(name, x, y, rot=0.0, fill="full", gate="closed", tag=True, padlock
         return x + lx * ca - ly * sa, y + lx * sa + ly * ca
     if gate:
         gx, gy = world(-0.36, -0.40)
-        g = place(GATE_MESH, f"{name}_gate", (gx, gy, 0.0), rot + (0.0 if gate == "closed" else -random.uniform(1.6, 2.0)),
+        # an open gate swings flat against the side (hinge stop ~90 deg): wider went through the side mesh (QA 001 #3)
+        g = place(GATE_MESH, f"{name}_gate", (gx, gy, 0.0), rot + (0.0 if gate == "closed" else -random.uniform(1.48, 1.56)),
                   collection=C["Fixtures"])
         if coat:
             g.material_slots[0].link = "OBJECT"
@@ -975,12 +1039,13 @@ for i, bay in enumerate(FX["cage_bays"]):
                                      0.004)]  # corner marks only
     if random.random() < 0.85:
         roll_cage(f"cage_{bay['id']}", bx + s / 2 + random.uniform(-0.15, 0.15), by + s / 2 + random.uniform(-0.15, 0.15),
-                  random.uniform(-0.08, 0.08) + (0.25 if i == 7 else 0),
+                  random.uniform(-0.06, 0.06),  # parked square in its bay (QA 001 #3)
                   fill=random.choices(["empty", "half", "full", "parcels"], weights=[15, 20, 15, 50])[0],
                   gate="open" if random.random() < 0.15 else "closed")
 for k in range(18):  # nested empty cages in Z11, outside the blind corner
     roll_cage(f"cage_empty_{k:02d}", 17.0 + 0.95 * (k % 6), 34.0 + 1.6 * (k // 6), 0.0, fill="empty", gate=None, tag=False)
-for k, (qx, qy) in enumerate(((32.2, 37.9), (33.8, 37.9), (40.2, 37.9), (41.8, 37.9))):  # loaded, waiting at D08 / D10
+# loaded, waiting at D08 / D10, either side of the door's centre lane (the pushers bring cages up the middle)
+for k, (qx, qy) in enumerate(((31.55, 37.9), (34.55, 37.9), (39.55, 37.9), (42.45, 37.9))):
     roll_cage(f"cage_outbound_queue_{k}", qx, qy, math.pi + random.uniform(-0.1, 0.1), fill="full")
 # locked damage-hold cage south of the exception bench (clear of walkway W3 at y 23.2–24.4)
 roll_cage("cage_damaged_hold", 24.0, 20.55, 0.06, fill="half", padlock=True)
@@ -1318,7 +1383,9 @@ parcels("reject_crate", [(29.3 + random.uniform(-0.2, 0.2), 22.1 + random.unifor
 parcels("exception_bench", [(random.uniform(23.8, 27.8), random.uniform(21.3, 22.5), 0.9) for _ in range(6)])
 # parcels on the floor where workers pick them up (mixamo_workers 'Picking Up Object' bends to the floor): the
 # overflow pile beside the induction belt and one that missed the C04 bag
-parcels("floor_spill", [(12.7, 10.25, 0.0), (12.95, 10.55, 0.0), (12.65, 10.7, 0.0), (44.2, 21.12, 0.0)])
+# ONE deliberate floor parcel (registered, tagged): it missed the C04 bag and lies by the frame - realistic mess,
+# not a false lead (QA review 001 #4)
+parcel("floor_spill_000", 44.2, 21.12, 0.0, tags=["dropped_on_floor"])
 # scenario 5 look-alike pair: same mailer, colour, size and sticker, side by side on bag-opening bench 2; only the
 # labels differ (tile 30 -> C12 Kuching, tile 31 -> C03 Ipoh). Both IDs are in the scenario truth, nowhere else.
 for k, (tile, (lx, ly)) in enumerate(((30, (7.05, 25.15)), (31, (7.15, 25.62)))):

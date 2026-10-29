@@ -34,7 +34,7 @@
 /* source */
 .sp-frame { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--hairline);
   border-radius: 10px; background: var(--surface-2); margin-bottom: 10px; }
-.sp-frame-img { position: relative; aspect-ratio: 16 / 9; background: #000; border-radius: 6px; overflow: hidden; }
+.sp-frame-img { position: relative; aspect-ratio: 16 / 9; background: var(--surface); border-radius: 6px; overflow: hidden; }
 .sp-frame-img img { width: 100%; height: 100%; object-fit: contain; display: block; }
 .sp-answer { white-space: pre-wrap; font: 12.5px/1.55 var(--mono); color: var(--ink-strong); margin: 0; padding: 10px;
   border-radius: 8px; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--hairline); }
@@ -101,4 +101,8 @@
   border: 1px solid var(--hairline-strong); color: var(--ink-strong); }
 .sp-scene-labels .sp-chip[data-tone="sel"] { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
 .sp-scene-labels .sp-chip[data-tone="cam"] { background: rgba(169, 155, 255, 0.2); color: #e4dfff; }
-.sp-scene-labels .sp-chip[data-tone="last"] { background: #f3f5f7; color: #111; transform: translate(-50%, 8px); }
+.sp-scene-labels .sp-chip[data-tone="last"] { background: #f3f5f7; color: #111; transform: translate(-50%, 0); }
+.sp-leader { position: absolute; width: 1px; background: rgba(226, 232, 238, 0.55); }
+
+.sp-tl-eye { background: rgba(96, 165, 250, 0.7); height: 10px; top: 8px; }
+.sp-frame-loading { position: absolute; right: 8px; top: 8px; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--material-bg); border: 1px solid var(--hairline); }

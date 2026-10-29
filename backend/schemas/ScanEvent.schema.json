@@ -93,6 +93,7 @@
         "relabeled",
         "damage_hold",
         "missort_detected",
+        "container_opened",
         "container_add",
         "container_closed",
         "container_remove",

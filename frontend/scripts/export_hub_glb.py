@@ -75,6 +75,23 @@ for o in bpy.data.objects:
     if o.type == "MESH" and o.data.shape_keys and o.data.shape_keys.animation_data:
         o.data.shape_keys.animation_data_clear()
 
+# --- 2b. walls: the cladding node tree does not survive glTF export (it falls back to a dark maroon factor), so the
+# web copy gets a plain light material close to the white-walled CCTV look (review 004 #4).
+wall_mat = bpy.data.materials.new("web_wall_light")
+if hasattr(wall_mat, "use_nodes"):
+    wall_mat.use_nodes = True
+bsdf = next((n for n in wall_mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None) if wall_mat.node_tree else None
+if bsdf is not None:
+    bsdf.inputs["Base Color"].default_value = (0.78, 0.78, 0.76, 1.0)
+    bsdf.inputs["Roughness"].default_value = 0.85
+wall_mat.diffuse_color = (0.78, 0.78, 0.76, 1.0)
+for o in bpy.data.objects:
+    if o.type == "MESH" and o.name in {"wall_N", "wall_S", "wall_E", "wall_W"}:
+        o.data = o.data.copy()
+        o.data.materials.clear()
+        o.data.materials.append(wall_mat)
+        report.setdefault("material_overrides", []).append(o.name)
+
 # --- 3. zone tags ----------------------------------------------------------------------------------------------
 ZONES = []
 for z in SPEC["zones"]:  # Z14 (yard) is a dict of named parts; the rest are single polygons
