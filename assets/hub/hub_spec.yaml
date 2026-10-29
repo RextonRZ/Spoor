@@ -1,0 +1,4520 @@
+meta:
+  name: Spoor demo parcel hub (fictional), Klang Valley
+  status: 2D plan v2 — owner approved with changes 2026-10-28; changes applied, no Blender yet
+  frame: metres; X east, Y north, Z up; origin SW outside corner
+  scale_of_svg: 1:200
+  look: 'PosLaju IPC look (single cross-belt loop, steel cladding) at Skynet Hounslow size (compact, chutes on one side)
+    — DEFAULT: the owner''s look choice was left blank'
+  brand: CONTOH Express (fictional; 'contoh' = 'sample' in Malay) — owner-approved 2026-10-28
+  footage_label: synthetic footage of a fictional hub
+  generator: assets/hub/build_hub_plan.py
+building:
+  footprint_m:
+  - 60.0
+  - 40.0
+  eaves_m: 11.0
+  structure: steel portal frame
+  flow: 'L-flow: inbound west wall, outbound north wall'
+  columns:
+  - - 0.0
+    - 0.0
+  - - 0.0
+    - 40.0
+  - - 12.0
+    - 0.0
+  - - 12.0
+    - 40.0
+  - - 24.0
+    - 0.0
+  - - 24.0
+    - 40.0
+  - - 36.0
+    - 0.0
+  - - 36.0
+    - 40.0
+  - - 48.0
+    - 0.0
+  - - 48.0
+    - 40.0
+  - - 60.0
+    - 0.0
+  - - 60.0
+    - 40.0
+  - - 12.0
+    - 25.0
+  - - 24.0
+    - 25.0
+  - - 36.0
+    - 25.0
+  - - 48.0
+    - 25.0
+  - - 0.0
+    - 20.0
+  - - 60.0
+    - 20.0
+  doors:
+  - id: D01
+    board: '01'
+    kind: dock
+    wall: W
+    centre:
+    - 0.0
+    - 7.0
+    width: 3.0
+    height: 3.0
+    dock_height: 1.2
+  - id: D02
+    board: '02'
+    kind: dock
+    wall: W
+    centre:
+    - 0.0
+    - 11.0
+    width: 3.0
+    height: 3.0
+    dock_height: 1.2
+  - id: D03
+    board: '03'
+    kind: dock
+    wall: W
+    centre:
+    - 0.0
+    - 15.0
+    width: 3.0
+    height: 3.0
+    dock_height: 1.2
+  - id: D04
+    board: '04'
+    kind: dock
+    wall: W
+    centre:
+    - 0.0
+    - 19.0
+    width: 3.0
+    height: 3.0
+    dock_height: 1.2
+  - id: D05
+    board: '05'
+    kind: dock
+    wall: W
+    centre:
+    - 0.0
+    - 23.0
+    width: 3.0
+    height: 3.0
+    dock_height: 1.2
+  - id: D06
+    board: '06'
+    kind: dock
+    wall: W
+    centre:
+    - 0.0
+    - 27.0
+    width: 3.0
+    height: 3.0
+    dock_height: 1.2
+  - id: D07
+    board: '07'
+    kind: dock
+    wall: N
+    centre:
+    - 29.0
+    - 40.0
+    width: 3.0
+    height: 3.0
+    dock_height: 1.2
+  - id: D08
+    board: 08
+    kind: dock
+    wall: N
+    centre:
+    - 33.0
+    - 40.0
+    width: 3.0
+    height: 3.0
+    dock_height: 1.2
+  - id: D09
+    board: 09
+    kind: dock
+    wall: N
+    centre:
+    - 37.0
+    - 40.0
+    width: 3.0
+    height: 3.0
+    dock_height: 1.2
+  - id: D10
+    board: '10'
+    kind: dock
+    wall: N
+    centre:
+    - 41.0
+    - 40.0
+    width: 3.0
+    height: 3.0
+    dock_height: 1.2
+  - id: D11
+    board: '11'
+    kind: dock
+    wall: N
+    centre:
+    - 45.0
+    - 40.0
+    width: 3.0
+    height: 3.0
+    dock_height: 1.2
+  - id: D12
+    board: '12'
+    kind: dock
+    wall: N
+    centre:
+    - 49.0
+    - 40.0
+    width: 3.0
+    height: 3.0
+    dock_height: 1.2
+  - id: STAFF-1
+    kind: staff
+    wall: E
+    centre:
+    - 60.0
+    - 12.0
+    width: 1.0
+    height: 2.1
+    dock_height: 0.0
+    sign: lit green running-man 'KELUAR' (exit) sign above the door
+  - &id001
+    id: FE-1
+    kind: fire_exit
+    wall: S
+    centre:
+    - 30.0
+    - 0.0
+    width: 1.0
+    height: 2.1
+    dock_height: 0.0
+    sign: lit green running-man 'KELUAR' (exit) sign above the door
+    hardware: push bar, opens outward, alarmed
+  - &id002
+    id: FE-2
+    kind: fire_exit
+    wall: S
+    centre:
+    - 46.0
+    - 0.0
+    width: 1.0
+    height: 2.1
+    dock_height: 0.0
+    sign: lit green running-man 'KELUAR' (exit) sign above the door
+    hardware: push bar, opens outward, alarmed
+  - &id003
+    id: FE-3
+    kind: fire_exit
+    wall: E
+    centre:
+    - 60.0
+    - 28.0
+    width: 1.0
+    height: 2.1
+    dock_height: 0.0
+    sign: lit green running-man 'KELUAR' (exit) sign above the door
+    hardware: push bar, opens outward, alarmed
+zones:
+- id: Z01
+  name: Inbound dock (telescopic conveyors)
+  kind: dock
+  polygon_m:
+  - - 0.2
+    - 4.0
+  - - 5.6
+    - 4.0
+  - - 5.6
+    - 30.0
+  - - 0.2
+    - 30.0
+  size_m:
+  - 5.4
+  - 26.0
+  realism:
+    wear: tyre marks and oil stains at each door; dock plates scuffed bare at the edges
+    clutter: torn stretch wrap, a crooked roll cage, empty sacks kicked against the wall
+    signs: rigid metal number boards 01–06 (white on dark blue) above the doors, 'PENERIMAAN / RECEIVING' over the row;
+      'AWAS - KENDERAAN' (caution vehicles)
+    lighting: 'brightest zone: open doors spill hard daylight (overcast HDRI); 5000 K high-bays inside'
+- id: Z02
+  name: Bag opening
+  kind: work
+  polygon_m:
+  - - 5.6
+    - 17.0
+  - - 13.0
+    - 17.0
+  - - 13.0
+    - 29.0
+  - - 5.6
+    - 29.0
+  size_m:
+  - 7.4
+  - 12.0
+  realism:
+    wear: cut-tie offcuts and scuffed floor around benches
+    clutter: pile of opened woven sacks, a bin of cable ties, a box cutter on each bench
+    signs: '''BUKA BEG DI SINI'' (open bags here) board'
+    lighting: high-bay grid, one light 10% dimmer
+- id: Z03
+  name: Induction
+  kind: work
+  polygon_m:
+  - - 5.6
+    - 6.5
+  - - 17.5
+    - 6.5
+  - - 17.5
+    - 12.5
+  - - 5.6
+    - 12.5
+  size_m:
+  - 11.9
+  - 6.0
+  realism:
+    wear: anti-fatigue mats worn through where inductors stand
+    clutter: a standing fan, a stool, a few parcels waiting beside the belt
+    signs: '''LABEL MENGHADAP ATAS'' (label facing up) above the belt'
+    lighting: even high-bays
+- id: Z04
+  name: Scan tunnel (DWS)
+  kind: machine
+  polygon_m:
+  - - 17.5
+    - 7.5
+  - - 23.0
+    - 7.5
+  - - 23.0
+    - 11.5
+  - - 17.5
+    - 11.5
+  size_m:
+  - 5.5
+  - 4.0
+  realism:
+    wear: fingerprints and tape residue on the tunnel housing
+    clutter: cable trays to a control cabinet
+    signs: machine number plate 'DWS-01' (fictional)
+    lighting: white LED light bars glowing inside the tunnel mouth
+- id: Z05
+  name: Cross-belt loop (one raised level)
+  kind: machine
+  polygon_m:
+  - - 23.0
+    - 6.5
+  - - 54.6
+    - 6.5
+  - - 54.6
+    - 19.5
+  - - 23.0
+    - 19.5
+  size_m:
+  - 31.6
+  - 13.0
+  realism:
+    wear: galvanised frame dulled; scuffs on guard rails at forklift height
+    clutter: maintenance walkway inside the loop, a ladder, a spare carrier on the floor
+    signs: '''DILARANG MASUK - ZON MESIN'' (no entry - machine zone)'
+    lighting: high-bays; loop shadows the floor
+- id: Z06
+  name: Chutes + bagging (C01–C12)
+  kind: work
+  polygon_m:
+  - - 30.0
+    - 19.5
+  - - 49.6
+    - 19.5
+  - - 49.6
+    - 24.6
+  - - 30.0
+    - 24.6
+  size_m:
+  - 19.6
+  - 5.1
+  realism:
+    wear: polished chute ends; bag-frame feet scuffed
+    clutter: full sacks waiting to be tied, spare empty sacks hung on frames
+    signs: destination boards above each chute (Pulau Pinang, Johor Bahru, Kuching...)
+    lighting: high-bays; chutes cast stripes of shadow
+- id: Z07
+  name: Reject chute (no-read / exception)
+  kind: machine
+  polygon_m:
+  - - 28.6
+    - 19.5
+  - - 30.0
+    - 19.5
+  - - 30.0
+    - 22.4
+  - - 28.6
+    - 22.4
+  size_m:
+  - 1.4
+  - 2.9
+  realism:
+    wear: dented chute end
+    clutter: a blue crate of rework parcels under the chute
+    signs: red 'REJECT / NO READ' board
+    lighting: as Z06
+- id: Z08
+  name: Exception bench (rework / relabel / damage hold)
+  kind: work
+  polygon_m:
+  - - 23.0
+    - 20.0
+  - - 28.6
+    - 20.0
+  - - 28.6
+    - 24.6
+  - - 23.0
+    - 24.6
+  size_m:
+  - 5.6
+  - 4.6
+  realism:
+    wear: label backing paper on the floor
+    clutter: label printer, tape guns, one LOCKED roll cage for damaged parcels
+    signs: '''BARANG ROSAK'' (damaged goods) on the locked cage'
+    lighting: fluorescent task light over the bench
+- id: Z09
+  name: Oversize / non-conveyable area
+  kind: work
+  polygon_m:
+  - - 5.6
+    - 0.2
+  - - 17.5
+    - 0.2
+  - - 17.5
+    - 6.5
+  - - 5.6
+    - 6.5
+  size_m:
+  - 11.9
+  - 6.3
+  realism:
+    wear: pallet-jack wheel tracks
+    clutter: stretch-wrapped pallets, big boxes, a hand pallet jack
+    signs: yellow floor box 'OVERSIZE'
+    lighting: even high-bays
+- id: Z10
+  name: Cage staging
+  kind: staging
+  polygon_m:
+  - - 24.0
+    - 25.2
+  - - 53.0
+    - 25.2
+  - - 53.0
+    - 32.4
+  - - 24.0
+    - 32.4
+  size_m:
+  - 29.0
+  - 7.2
+  realism:
+    wear: faded yellow bay lines, bay numbers half rubbed off
+    clutter: roll cages in numbered bays, some half full; one cage parked crooked
+    signs: bay numbers S01..S20 painted on the floor
+    lighting: high-bays, slightly uneven
+- id: Z11
+  name: Empty cage / bag store (inside corner of the L)
+  kind: store
+  polygon_m:
+  - - 0.2
+    - 30.0
+  - - 24.0
+    - 30.0
+  - - 24.0
+    - 39.8
+  - - 0.2
+    - 39.8
+  size_m:
+  - 23.8
+  - 9.8
+  realism:
+    wear: dust in corners, faded lines
+    clutter: empty cages nested tightly, folded sacks on steel shelves
+    signs: '''SANGKAR KOSONG'' (empty cages)'
+    lighting: one high-bay off — darkest corner of the hall
+- id: Z12
+  name: Outbound dock
+  kind: dock
+  polygon_m:
+  - - 24.0
+    - 32.4
+  - - 54.0
+    - 32.4
+  - - 54.0
+    - 39.8
+  - - 24.0
+    - 39.8
+  size_m:
+  - 30.0
+  - 7.4
+  realism:
+    wear: tyre marks, oil stains at doors, dock plate edges bare
+    clutter: cages queued at each door, a pallet jack
+    signs: rigid metal number boards 07–12 above the doors, 'PENGHANTARAN / DISPATCH' over the row
+    lighting: daylight from open doors; cooler/brighter than the hall
+- id: Z13
+  name: Supervisor office
+  kind: office
+  polygon_m:
+  - - 54.6
+    - 0.2
+  - - 59.8
+    - 0.2
+  - - 59.8
+    - 6.0
+  - - 54.6
+    - 6.0
+  size_m:
+  - 5.2
+  - 5.8
+  realism:
+    wear: scuffed door
+    clutter: desk, monitor, paperwork
+    signs: '''PEJABAT PENYELIA'' (supervisor office)'
+    lighting: mounted fluorescent lights; glass wall facing the floor
+- id: Z14
+  name: Truck yard (outside west + north walls)
+  kind: yard
+  polygon_m:
+    west:
+    - - -18.0
+      - 0.0
+    - - 0.0
+      - 0.0
+    - - 0.0
+      - 34.0
+    - - -18.0
+      - 34.0
+    north:
+    - - 20.0
+      - 40.0
+    - - 60.0
+      - 40.0
+    - - 60.0
+      - 58.0
+    - - 20.0
+      - 58.0
+  size_m: null
+  realism:
+    wear: patched asphalt, oil stains
+    clutter: cones, concrete barriers, a parked lorry
+    signs: fictional brand on lorries
+    lighting: overcast daylight HDRI
+blind_corner:
+  id: BLIND_NW
+  zone: Z11
+  polygon:
+  - - 0.2
+    - 33.6
+  - - 15.2
+    - 33.6
+  - - 15.2
+    - 39.8
+  - - 0.2
+    - 39.8
+  why: inside corner of the L-flow, behind 3 m sack racks (entrance gap at x 13.4–15.2 facing south); no camera is aimed
+    here and the racks block oblique views
+  used_by: 'scenario ''removal into blind spot'': last seen entering Z11 from Z10; Spoor must say ''no coverage'''
+machines:
+  loop:
+    south_y: 11.0
+    north_y: 19.0
+    radius: 4.0
+    west_cx: 28.0
+    east_cx: 50.0
+    cy: 15.0
+    direction: south straight eastbound, north straight westbound (counter-clockwise from above)
+    deck_height: 1.5
+    carrier: 850 x 440 mm at 700 mm pitch (FORTNA option 2)
+    speed_mps: 2.0
+    speed_note: 'owner cap 2.0 m/s: 0.2 m per frame at 10 fps, well under one 0.7 m carrier pitch, so a tracker never has
+      to guess which carrier a parcel jumped to between frames'
+    length_m: 69.1
+    carriers: 99
+  conveyors:
+  - id: telescopic_D01
+    kind: telescopic
+    path:
+    - - -3.0
+      - 7.0
+    - - 4.4
+      - 7.0
+    height: 1.0
+  - id: telescopic_D02
+    kind: telescopic
+    path:
+    - - -3.0
+      - 11.0
+    - - 4.4
+      - 11.0
+    height: 1.0
+  - id: telescopic_D03
+    kind: telescopic
+    path:
+    - - -3.0
+      - 15.0
+    - - 4.4
+      - 15.0
+    height: 1.0
+  - id: telescopic_D04
+    kind: telescopic
+    path:
+    - - -3.0
+      - 19.0
+    - - 4.4
+      - 19.0
+    height: 1.0
+  - id: telescopic_D05
+    kind: telescopic
+    path:
+    - - -3.0
+      - 23.0
+    - - 4.4
+      - 23.0
+    height: 1.0
+  - id: telescopic_D06
+    kind: telescopic
+    path:
+    - - -3.0
+      - 27.0
+    - - 4.4
+      - 27.0
+    height: 1.0
+  - id: collector
+    kind: belt
+    path:
+    - - 5.0
+      - 28.0
+    - - 5.0
+      - 11.1
+    - - 9.2
+      - 11.1
+    height: 1.0
+  - id: induction
+    kind: belt
+    path:
+    - - 5.6
+      - 9.5
+    - - 17.5
+      - 9.5
+    height: 1.0
+  - id: tunnel_line
+    kind: belt
+    path:
+    - - 17.5
+      - 9.5
+    - - 23.0
+      - 9.5
+    height: 1.5
+  - id: merge
+    kind: belt
+    path:
+    - - 23.0
+      - 9.5
+    - - 27.6
+      - 9.5
+    - - 30.0
+      - 11.0
+    height: 1.5
+  chutes:
+  - id: C01
+    x: 48.6
+    mouth_y: 19.6
+    end_y: 20.9
+    lip_z: 1.0
+    width: 1.0
+    bag_frame_y: 20.6
+  - id: C02
+    x: 47.1
+    mouth_y: 19.6
+    end_y: 20.9
+    lip_z: 1.0
+    width: 1.0
+    bag_frame_y: 20.6
+  - id: C03
+    x: 45.6
+    mouth_y: 19.6
+    end_y: 20.9
+    lip_z: 1.0
+    width: 1.0
+    bag_frame_y: 20.6
+  - id: C04
+    x: 44.1
+    mouth_y: 19.6
+    end_y: 20.9
+    lip_z: 1.0
+    width: 1.0
+    bag_frame_y: 20.6
+  - id: C05
+    x: 42.6
+    mouth_y: 19.6
+    end_y: 20.9
+    lip_z: 1.0
+    width: 1.0
+    bag_frame_y: 20.6
+  - id: C06
+    x: 41.1
+    mouth_y: 19.6
+    end_y: 20.9
+    lip_z: 1.0
+    width: 1.0
+    bag_frame_y: 20.6
+  - id: C07
+    x: 38.3
+    mouth_y: 19.6
+    end_y: 20.9
+    lip_z: 1.0
+    width: 1.0
+    bag_frame_y: 20.6
+  - id: C08
+    x: 36.8
+    mouth_y: 19.6
+    end_y: 20.9
+    lip_z: 1.0
+    width: 1.0
+    bag_frame_y: 20.6
+  - id: C09
+    x: 35.3
+    mouth_y: 19.6
+    end_y: 20.9
+    lip_z: 1.0
+    width: 1.0
+    bag_frame_y: 20.6
+  - id: C10
+    x: 33.8
+    mouth_y: 19.6
+    end_y: 20.9
+    lip_z: 1.0
+    width: 1.0
+    bag_frame_y: 20.6
+  - id: C11
+    x: 32.3
+    mouth_y: 19.6
+    end_y: 20.9
+    lip_z: 1.0
+    width: 1.0
+    bag_frame_y: 20.6
+  - id: C12
+    x: 30.8
+    mouth_y: 19.6
+    end_y: 20.9
+    lip_z: 1.0
+    width: 1.0
+    bag_frame_y: 20.6
+  - id: REJECT
+    x: 29.3
+    mouth_y: 19.6
+    end_y: 20.9
+    lip_z: 0.9
+    width: 1.0
+    bag_frame_y: null
+    bin:
+      y:
+      - 20.6
+      - 21.2
+      size_m:
+      - 0.8
+      - 0.6
+      - 0.6
+      what: blue rework bin
+  chute_layout_note: Chutes on ONE side of the loop (north straight) is a deliberate simplification. Real cross-belt loops
+    usually have chutes on both sides, often on two levels. One side keeps the plan readable, puts every chute in one camera
+    row (2 cameras instead of ~4) and keeps one bagging aisle. Spoor's logic does not depend on it.
+  scan_tunnel:
+    zone: Z04
+    box_m:
+    - 2.5
+    - 1.8
+    - 1.6
+    exit_read_point_m:
+    - 22.2
+    - 9.5
+    weigh_section:
+      x_m:
+      - 17.5
+      - 19.0
+      is_scan_point: false
+      why: an in-motion scale reads no barcode and emits no event of its own; the DWS controller tracks the parcel by photo-eye
+        and merges weight + dims into the single tunnel event at SP-TUNNEL (ScanEvent.weight_g / dims_mm)
+      still_filmed: yes — see checks.weigh_section_filmed; the photo-eye merge can pin the wrong weight on parcels running
+        too close together, and video is how you prove that
+  roll_cage_m:
+  - 0.72
+  - 0.8
+  - 1.8
+  max_parcel_m:
+  - 1.0
+  - 0.7
+  - 0.7
+  max_parcel_kg: 30
+circulation:
+  crossovers:
+  - id: XO-1
+    x: 39.7
+    width: 1.2
+    deck_m: 3.3
+    south_stair_y:
+    - 6.6
+    - 10.2
+    bridge_y:
+    - 10.2
+    - 19.6
+    north_stair_y:
+    - 19.6
+    - 23.2
+    crosses: cross-belt loop, both straights; lands in the gap between C06 and C07
+    why: south aisle / office / Z09 to the chutes and bagging aisle without walking round the loop
+  - id: XO-2
+    x: 16.5
+    width: 1.2
+    deck_m: 2.4
+    south_stair_y:
+    - 5.4
+    - 8.0
+    bridge_y:
+    - 8.0
+    - 11.0
+    north_stair_y:
+    - 11.0
+    - 13.6
+    crosses: induction belt (1.0 m high)
+    why: south aisle / Z09 to the bag-opening area, exception bench and chutes (west side)
+  walkways:
+  - id: W1
+    rect_m:
+    - 5.8
+    - 0.4
+    - 54.4
+    - 1.6
+    purpose: 'south wall: Z09, office door, fire exits FE-1 / FE-2, crossover feet'
+  - id: W2
+    rect_m:
+    - 58.5
+    - 6.0
+    - 59.7
+    - 39.6
+    purpose: 'east wall: office, staff door, FE-3, outbound dock'
+  - id: W3
+    rect_m:
+    - 13.2
+    - 23.2
+    - 58.5
+    - 24.4
+    purpose: 'bagging aisle: bag opening <-> exception bench <-> all 12 chutes <-> east aisle'
+  - id: W4
+    rect_m:
+    - 15.9
+    - 13.6
+    - 17.1
+    - 23.2
+    purpose: crossover XO-2 north foot up to W3
+  - id: W5
+    rect_m:
+    - 0.4
+    - 28.6
+    - 14.4
+    - 29.8
+    purpose: inbound dock north end <-> bag opening (round the end of the collector belt)
+  - id: W5b
+    rect_m:
+    - 13.2
+    - 24.4
+    - 14.4
+    - 28.6
+    purpose: joins W5 to W3
+  - id: W6
+    rect_m:
+    - 24.0
+    - 32.0
+    - 58.5
+    - 33.2
+    purpose: between cage staging and the forklift lane
+  forklift_lane:
+    centreline_m:
+    - - 9.0
+      - 3.5
+    - - 52.0
+      - 3.5
+    - - 52.0
+      - 8.0
+    - - 56.7
+      - 8.0
+    - - 56.7
+      - 34.9
+    - - 25.5
+      - 34.9
+    width_m: 3.0
+    route: Z09 -> south aisle -> east aisle -> Z12
+  zebra_crossings:
+  - id: ZX1
+    rect_m:
+    - 39.1
+    - 1.6
+    - 40.3
+    - 6.6
+    purpose: W1 <-> XO-1 south foot
+  - id: ZX2
+    rect_m:
+    - 15.9
+    - 1.6
+    - 17.1
+    - 5.4
+    purpose: W1 <-> XO-2 south foot
+  - id: ZX3
+    rect_m:
+    - 55.2
+    - 23.2
+    - 58.2
+    - 24.4
+    purpose: W3 <-> W2 across the east lane
+  - id: ZX4
+    rect_m:
+    - 55.2
+    - 32.0
+    - 58.2
+    - 33.2
+    purpose: W6 <-> W2 across the east lane
+  fire_exits:
+  - *id001
+  - *id002
+  - *id003
+  realism:
+    walkways: 100 mm yellow edge lines, worn through at forklift turns; walking-man stencils every ~10 m
+    lane: yellow-black hazard edge on the lane; 'AWAS FORKLIFT' (caution forklift) signs at each zebra; tyre marks on the
+      turns; a convex mirror at the NE turn (x 56.7, y 34.9)
+    zebras: white-yellow stripes, paint scuffed in the middle
+    crossovers: galvanised stairs and grating, yellow handrails, 'GUNA JAMBATAN' (use the bridge) sign at each foot
+    fire_exits: push-bar doors, lit KELUAR signs, fire-door keep-clear hatching; in some clips FE-2 is propped open with
+      a box (a real-world violation and a theft route)
+flows:
+  main: Z01 telescopic -> collector -> Z03 induction -> Z04 tunnel -> Z05 loop -> Z06 chute -> bag -> Z10 cage -> Z12 truck
+  rework: Z05 no-read -> Z07 reject chute -> Z08 bench (manual encode / relabel) -> walk back -> Z03
+  oversize: Z01 -> Z09 (manual scan SP-OVERSIZE, onto a pallet) -> forklift lane -> Z12 door -> truck (never on the belts)
+  bag_opening: Z01 bag -> Z02 bench (SP-BAGOPEN) -> parcels onto the collector belt -> Z03
+fixtures:
+  benches:
+  - name: bag-opening bench 1
+    rect_m:
+    - 6.2
+    - 19.0
+    - 8.0
+    - 22.0
+    height_m: 0.9
+  - name: bag-opening bench 2
+    rect_m:
+    - 6.2
+    - 24.0
+    - 8.0
+    - 27.0
+    height_m: 0.9
+  - name: exception bench
+    rect_m:
+    - 23.6
+    - 21.2
+    - 28.0
+    - 22.6
+    height_m: 0.9
+  cage_bays:
+  - id: S01
+    sw_corner_m:
+    - 25.0
+    - 26.0
+    size_m: 2.2
+  - id: S02
+    sw_corner_m:
+    - 27.7
+    - 26.0
+    size_m: 2.2
+  - id: S03
+    sw_corner_m:
+    - 30.4
+    - 26.0
+    size_m: 2.2
+  - id: S04
+    sw_corner_m:
+    - 33.1
+    - 26.0
+    size_m: 2.2
+  - id: S05
+    sw_corner_m:
+    - 35.8
+    - 26.0
+    size_m: 2.2
+  - id: S06
+    sw_corner_m:
+    - 38.5
+    - 26.0
+    size_m: 2.2
+  - id: S07
+    sw_corner_m:
+    - 41.2
+    - 26.0
+    size_m: 2.2
+  - id: S08
+    sw_corner_m:
+    - 43.900000000000006
+    - 26.0
+    size_m: 2.2
+  - id: S09
+    sw_corner_m:
+    - 46.6
+    - 26.0
+    size_m: 2.2
+  - id: S10
+    sw_corner_m:
+    - 49.3
+    - 26.0
+    size_m: 2.2
+  - id: S11
+    sw_corner_m:
+    - 25.0
+    - 29.5
+    size_m: 2.2
+  - id: S12
+    sw_corner_m:
+    - 27.7
+    - 29.5
+    size_m: 2.2
+  - id: S13
+    sw_corner_m:
+    - 30.4
+    - 29.5
+    size_m: 2.2
+  - id: S14
+    sw_corner_m:
+    - 33.1
+    - 29.5
+    size_m: 2.2
+  - id: S15
+    sw_corner_m:
+    - 35.8
+    - 29.5
+    size_m: 2.2
+  - id: S16
+    sw_corner_m:
+    - 38.5
+    - 29.5
+    size_m: 2.2
+  - id: S17
+    sw_corner_m:
+    - 41.2
+    - 29.5
+    size_m: 2.2
+  - id: S18
+    sw_corner_m:
+    - 43.900000000000006
+    - 29.5
+    size_m: 2.2
+  - id: S19
+    sw_corner_m:
+    - 46.6
+    - 29.5
+    size_m: 2.2
+  - id: S20
+    sw_corner_m:
+    - 49.3
+    - 29.5
+    size_m: 2.2
+  racks:
+  - rect_m:
+    - 0.2
+    - 33.0
+    - 13.4
+    - 33.6
+    height_m: 3.0
+  - rect_m:
+    - 15.2
+    - 33.0
+    - 15.8
+    - 39.8
+    height_m: 3.0
+  store_shelves_m:
+  - - 16.9
+    - 39.2
+  - - 18.9
+    - 39.2
+  office:
+    zone: Z13
+    wall_height_m: 3.0
+    glass_wall: north
+    door: west wall, onto W1
+sort_plans:
+- version: SP-v1
+  valid_from: scenario start (set per scenario)
+  valid_to: null
+  chutes:
+    C01: Pulau Pinang
+    C02: Kedah / Perlis
+    C03: Perak (Ipoh)
+    C04: Klang
+    C05: Kuala Lumpur
+    C06: Negeri Sembilan
+    C07: Melaka
+    C08: Johor Bahru
+    C09: Pahang (Kuantan)
+    C10: Kelantan / Terengganu
+    C11: Sabah (Kota Kinabalu)
+    C12: Sarawak (Kuching)
+    REJECT: no-read / exception
+clock_domains:
+- id: clkd_wcs
+  kind: wcs_plc
+  devices: induct photo-eye, tunnel, diverts, RFID portals
+- id: clkd_handheld
+  kind: handheld_fleet
+  devices: all handheld scanners (batch sync)
+- id: clkd_cam_01
+  kind: camera
+  devices: CAM_01
+- id: clkd_cam_02
+  kind: camera
+  devices: CAM_02
+- id: clkd_cam_03
+  kind: camera
+  devices: CAM_03
+- id: clkd_cam_04
+  kind: camera
+  devices: CAM_04
+- id: clkd_cam_05
+  kind: camera
+  devices: CAM_05
+- id: clkd_cam_06
+  kind: camera
+  devices: CAM_06
+- id: clkd_cam_07
+  kind: camera
+  devices: CAM_07
+- id: clkd_cam_08
+  kind: camera
+  devices: CAM_08
+- id: clkd_cam_09
+  kind: camera
+  devices: CAM_09
+- id: clkd_cam_10
+  kind: camera
+  devices: CAM_10
+- id: clkd_cam_11
+  kind: camera
+  devices: CAM_11
+- id: clkd_cam_12
+  kind: camera
+  devices: CAM_12
+- id: clkd_cam_13
+  kind: camera
+  devices: CAM_13
+- id: clkd_cam_14
+  kind: camera
+  devices: CAM_14
+- id: clkd_cam_15
+  kind: camera
+  devices: CAM_15
+- id: clkd_cam_16
+  kind: camera
+  devices: CAM_16
+- id: clkd_cam_17
+  kind: camera
+  devices: CAM_17
+- id: clkd_cam_18
+  kind: camera
+  devices: CAM_18
+scan_points:
+- id: SP-IN-S
+  device_kind: handheld
+  zone: Z01
+  position_m:
+  - 3.5
+  - 11.0
+  - 1.1
+  clock_domain: clkd_handheld
+  events: arrived_facility (bag/parcel unload scan)
+  visible_by:
+  - camera: CAM_01
+    ppm: 109
+- id: SP-IN-N
+  device_kind: handheld
+  zone: Z01
+  position_m:
+  - 3.5
+  - 23.0
+  - 1.1
+  clock_domain: clkd_handheld
+  events: arrived_facility
+  visible_by:
+  - camera: CAM_02
+    ppm: 135
+- id: SP-BAGOPEN
+  device_kind: handheld
+  zone: Z02
+  position_m:
+  - 7.5
+  - 23.0
+  - 1.1
+  clock_domain: clkd_handheld
+  events: container_remove (bag opened)
+  visible_by:
+  - camera: CAM_03
+    ppm: 199
+- id: SP-INDUCT
+  device_kind: sorter_plc
+  zone: Z03
+  position_m:
+  - 12.0
+  - 9.5
+  - 1.1
+  clock_domain: clkd_wcs
+  events: inducted (photo-eye)
+  visible_by:
+  - camera: CAM_01
+    ppm: 141
+  - camera: CAM_04
+    ppm: 108
+- id: SP-TUNNEL
+  device_kind: tunnel
+  zone: Z04
+  position_m:
+  - 22.2
+  - 9.5
+  - 1.7
+  clock_domain: clkd_wcs
+  events: tunnel_read / tunnel_no_read (read point = tunnel exit); weight + dims from the weigh section are merged into
+    this one event
+  visible_by:
+  - camera: CAM_05
+    ppm: 277
+  - camera: CAM_06
+    ppm: 153
+- id: SP-OVERSIZE
+  device_kind: handheld
+  zone: Z09
+  position_m:
+  - 11.0
+  - 3.5
+  - 1.1
+  clock_domain: clkd_handheld
+  events: inducted (manual, non-conveyable)
+  visible_by:
+  - camera: CAM_04
+    ppm: 117
+- id: SP-DIV-C01
+  device_kind: sorter_plc
+  zone: Z06
+  position_m:
+  - 48.6
+  - 19.8
+  - 1.7
+  clock_domain: clkd_wcs
+  events: divert_confirmed
+  visible_by:
+  - camera: CAM_10
+    ppm: 163
+- id: SP-DIV-C02
+  device_kind: sorter_plc
+  zone: Z06
+  position_m:
+  - 47.1
+  - 19.8
+  - 1.7
+  clock_domain: clkd_wcs
+  events: divert_confirmed
+  visible_by:
+  - camera: CAM_10
+    ppm: 160
+- id: SP-DIV-C03
+  device_kind: sorter_plc
+  zone: Z06
+  position_m:
+  - 45.6
+  - 19.8
+  - 1.7
+  clock_domain: clkd_wcs
+  events: divert_confirmed
+  visible_by:
+  - camera: CAM_10
+    ppm: 156
+- id: SP-DIV-C04
+  device_kind: sorter_plc
+  zone: Z06
+  position_m:
+  - 44.1
+  - 19.8
+  - 1.7
+  clock_domain: clkd_wcs
+  events: divert_confirmed
+  visible_by:
+  - camera: CAM_10
+    ppm: 153
+- id: SP-DIV-C05
+  device_kind: sorter_plc
+  zone: Z06
+  position_m:
+  - 42.6
+  - 19.8
+  - 1.7
+  clock_domain: clkd_wcs
+  events: divert_confirmed
+  visible_by:
+  - camera: CAM_10
+    ppm: 150
+  - camera: CAM_13
+    ppm: 134
+- id: SP-DIV-C06
+  device_kind: sorter_plc
+  zone: Z06
+  position_m:
+  - 41.1
+  - 19.8
+  - 1.7
+  clock_domain: clkd_wcs
+  events: divert_confirmed
+  visible_by:
+  - camera: CAM_10
+    ppm: 147
+  - camera: CAM_13
+    ppm: 124
+- id: SP-DIV-C07
+  device_kind: sorter_plc
+  zone: Z06
+  position_m:
+  - 38.3
+  - 19.8
+  - 1.7
+  clock_domain: clkd_wcs
+  events: divert_confirmed
+  visible_by:
+  - camera: CAM_11
+    ppm: 124
+  - camera: CAM_13
+    ppm: 108
+- id: SP-DIV-C08
+  device_kind: sorter_plc
+  zone: Z06
+  position_m:
+  - 36.8
+  - 19.8
+  - 1.7
+  clock_domain: clkd_wcs
+  events: divert_confirmed
+  visible_by:
+  - camera: CAM_11
+    ppm: 130
+  - camera: CAM_13
+    ppm: 101
+- id: SP-DIV-C09
+  device_kind: sorter_plc
+  zone: Z06
+  position_m:
+  - 35.3
+  - 19.8
+  - 1.7
+  clock_domain: clkd_wcs
+  events: divert_confirmed
+  visible_by:
+  - camera: CAM_11
+    ppm: 137
+  - camera: CAM_13
+    ppm: 95
+- id: SP-DIV-C10
+  device_kind: sorter_plc
+  zone: Z06
+  position_m:
+  - 33.8
+  - 19.8
+  - 1.7
+  clock_domain: clkd_wcs
+  events: divert_confirmed
+  visible_by:
+  - camera: CAM_11
+    ppm: 144
+  - camera: CAM_13
+    ppm: 89
+- id: SP-DIV-C11
+  device_kind: sorter_plc
+  zone: Z06
+  position_m:
+  - 32.3
+  - 19.8
+  - 1.7
+  clock_domain: clkd_wcs
+  events: divert_confirmed
+  visible_by:
+  - camera: CAM_11
+    ppm: 152
+- id: SP-DIV-C12
+  device_kind: sorter_plc
+  zone: Z06
+  position_m:
+  - 30.8
+  - 19.8
+  - 1.7
+  clock_domain: clkd_wcs
+  events: divert_confirmed
+  visible_by:
+  - camera: CAM_11
+    ppm: 162
+- id: SP-DIV-REJECT
+  device_kind: sorter_plc
+  zone: Z07
+  position_m:
+  - 29.3
+  - 19.8
+  - 1.7
+  clock_domain: clkd_wcs
+  events: divert_confirmed
+  visible_by:
+  - camera: CAM_09
+    ppm: 324
+  - camera: CAM_11
+    ppm: 173
+- id: SP-BAG-C01
+  device_kind: handheld
+  zone: Z06
+  position_m:
+  - 48.6
+  - 21.9
+  - 1.1
+  clock_domain: clkd_handheld
+  events: container_add (parcel into bag)
+  visible_by:
+  - camera: CAM_07
+    ppm: 67
+  - camera: CAM_10
+    ppm: 183
+- id: SP-BAG-C02
+  device_kind: handheld
+  zone: Z06
+  position_m:
+  - 47.1
+  - 21.9
+  - 1.1
+  clock_domain: clkd_handheld
+  events: container_add (parcel into bag)
+  visible_by:
+  - camera: CAM_07
+    ppm: 67
+  - camera: CAM_10
+    ppm: 178
+- id: SP-BAG-C03
+  device_kind: handheld
+  zone: Z06
+  position_m:
+  - 45.6
+  - 21.9
+  - 1.1
+  clock_domain: clkd_handheld
+  events: container_add (parcel into bag)
+  visible_by:
+  - camera: CAM_07
+    ppm: 66
+  - camera: CAM_10
+    ppm: 174
+  - camera: CAM_11
+    ppm: 108
+- id: SP-BAG-C04
+  device_kind: handheld
+  zone: Z06
+  position_m:
+  - 44.1
+  - 21.9
+  - 1.1
+  clock_domain: clkd_handheld
+  events: container_add (parcel into bag)
+  visible_by:
+  - camera: CAM_07
+    ppm: 66
+  - camera: CAM_10
+    ppm: 170
+  - camera: CAM_11
+    ppm: 113
+- id: SP-BAG-C05
+  device_kind: handheld
+  zone: Z06
+  position_m:
+  - 42.6
+  - 21.9
+  - 1.1
+  clock_domain: clkd_handheld
+  events: container_add (parcel into bag)
+  visible_by:
+  - camera: CAM_07
+    ppm: 66
+  - camera: CAM_10
+    ppm: 166
+  - camera: CAM_11
+    ppm: 118
+  - camera: CAM_13
+    ppm: 143
+- id: SP-BAG-C06
+  device_kind: handheld
+  zone: Z06
+  position_m:
+  - 41.1
+  - 21.9
+  - 1.1
+  clock_domain: clkd_handheld
+  events: container_add (parcel into bag)
+  visible_by:
+  - camera: CAM_10
+    ppm: 162
+  - camera: CAM_13
+    ppm: 131
+- id: SP-BAG-C07
+  device_kind: handheld
+  zone: Z06
+  position_m:
+  - 38.3
+  - 21.9
+  - 1.1
+  clock_domain: clkd_handheld
+  events: container_add (parcel into bag)
+  visible_by:
+  - camera: CAM_07
+    ppm: 65
+  - camera: CAM_10
+    ppm: 155
+  - camera: CAM_11
+    ppm: 136
+  - camera: CAM_13
+    ppm: 113
+- id: SP-BAG-C08
+  device_kind: handheld
+  zone: Z06
+  position_m:
+  - 36.8
+  - 21.9
+  - 1.1
+  clock_domain: clkd_handheld
+  events: container_add (parcel into bag)
+  visible_by:
+  - camera: CAM_07
+    ppm: 64
+  - camera: CAM_10
+    ppm: 152
+  - camera: CAM_11
+    ppm: 143
+  - camera: CAM_13
+    ppm: 106
+- id: SP-BAG-C09
+  device_kind: handheld
+  zone: Z06
+  position_m:
+  - 35.3
+  - 21.9
+  - 1.1
+  clock_domain: clkd_handheld
+  events: container_add (parcel into bag)
+  visible_by:
+  - camera: CAM_07
+    ppm: 64
+  - camera: CAM_10
+    ppm: 149
+  - camera: CAM_11
+    ppm: 151
+  - camera: CAM_13
+    ppm: 99
+- id: SP-BAG-C10
+  device_kind: handheld
+  zone: Z06
+  position_m:
+  - 33.8
+  - 21.9
+  - 1.1
+  clock_domain: clkd_handheld
+  events: container_add (parcel into bag)
+  visible_by:
+  - camera: CAM_07
+    ppm: 64
+  - camera: CAM_09
+    ppm: 224
+  - camera: CAM_11
+    ppm: 161
+- id: SP-BAG-C11
+  device_kind: handheld
+  zone: Z06
+  position_m:
+  - 32.3
+  - 21.9
+  - 1.1
+  clock_domain: clkd_handheld
+  events: container_add (parcel into bag)
+  visible_by:
+  - camera: CAM_07
+    ppm: 63
+  - camera: CAM_09
+    ppm: 257
+  - camera: CAM_11
+    ppm: 171
+  - camera: CAM_12
+    ppm: 219
+  - camera: CAM_13
+    ppm: 88
+- id: SP-BAG-C12
+  device_kind: handheld
+  zone: Z06
+  position_m:
+  - 30.8
+  - 21.9
+  - 1.1
+  clock_domain: clkd_handheld
+  events: container_add (parcel into bag)
+  visible_by:
+  - camera: CAM_07
+    ppm: 63
+  - camera: CAM_09
+    ppm: 301
+  - camera: CAM_11
+    ppm: 183
+  - camera: CAM_12
+    ppm: 227
+  - camera: CAM_13
+    ppm: 83
+- id: SP-REWORK
+  device_kind: handheld
+  zone: Z08
+  position_m:
+  - 25.5
+  - 22.5
+  - 1.1
+  clock_domain: clkd_handheld
+  events: manual_encoded / relabeled / damage_hold
+  visible_by:
+  - camera: CAM_06
+    ppm: 65
+  - camera: CAM_12
+    ppm: 285
+- id: SP-CAGE-W
+  device_kind: handheld
+  zone: Z10
+  position_m:
+  - 31.0
+  - 28.0
+  - 1.1
+  clock_domain: clkd_handheld
+  events: container_add (bag into cage)
+  visible_by:
+  - camera: CAM_13
+    ppm: 107
+- id: SP-CAGE-E
+  device_kind: handheld
+  zone: Z10
+  position_m:
+  - 46.0
+  - 28.0
+  - 1.1
+  clock_domain: clkd_handheld
+  events: container_add (bag into cage)
+  visible_by:
+  - camera: CAM_14
+    ppm: 95
+- id: SP-LOAD-D07
+  device_kind: handheld
+  zone: Z12
+  position_m:
+  - 29.0
+  - 37.5
+  - 1.1
+  clock_domain: clkd_handheld
+  events: container_loaded (cage onto truck)
+  visible_by:
+  - camera: CAM_15
+    ppm: 122
+- id: SP-LOAD-D08
+  device_kind: handheld
+  zone: Z12
+  position_m:
+  - 33.0
+  - 37.5
+  - 1.1
+  clock_domain: clkd_handheld
+  events: container_loaded (cage onto truck)
+  visible_by:
+  - camera: CAM_15
+    ppm: 95
+  - camera: CAM_16
+    ppm: 67
+- id: SP-LOAD-D09
+  device_kind: handheld
+  zone: Z12
+  position_m:
+  - 37.0
+  - 37.5
+  - 1.1
+  clock_domain: clkd_handheld
+  events: container_loaded (cage onto truck)
+  visible_by:
+  - camera: CAM_15
+    ppm: 78
+  - camera: CAM_16
+    ppm: 75
+- id: SP-LOAD-D10
+  device_kind: handheld
+  zone: Z12
+  position_m:
+  - 41.0
+  - 37.5
+  - 1.1
+  clock_domain: clkd_handheld
+  events: container_loaded (cage onto truck)
+  visible_by:
+  - camera: CAM_15
+    ppm: 66
+  - camera: CAM_16
+    ppm: 85
+- id: SP-LOAD-D11
+  device_kind: handheld
+  zone: Z12
+  position_m:
+  - 45.0
+  - 37.5
+  - 1.1
+  clock_domain: clkd_handheld
+  events: container_loaded (cage onto truck)
+  visible_by:
+  - camera: CAM_14
+    ppm: 63
+  - camera: CAM_16
+    ppm: 99
+- id: SP-LOAD-D12
+  device_kind: handheld
+  zone: Z12
+  position_m:
+  - 49.0
+  - 37.5
+  - 1.1
+  clock_domain: clkd_handheld
+  events: container_loaded (cage onto truck)
+  visible_by:
+  - camera: CAM_14
+    ppm: 71
+  - camera: CAM_16
+    ppm: 119
+- id: SP-RFID-D07
+  device_kind: rfid_portal
+  zone: Z12
+  position_m:
+  - 29.0
+  - 39.4
+  - 1.5
+  clock_domain: clkd_wcs
+  events: departed_facility (cage RFID, can cross-read)
+  visible_by:
+  - camera: CAM_15
+    ppm: 110
+- id: SP-RFID-D08
+  device_kind: rfid_portal
+  zone: Z12
+  position_m:
+  - 33.0
+  - 39.4
+  - 1.5
+  clock_domain: clkd_wcs
+  events: departed_facility (cage RFID, can cross-read)
+  visible_by:
+  - camera: CAM_15
+    ppm: 88
+- id: SP-RFID-D09
+  device_kind: rfid_portal
+  zone: Z12
+  position_m:
+  - 37.0
+  - 39.4
+  - 1.5
+  clock_domain: clkd_wcs
+  events: departed_facility (cage RFID, can cross-read)
+  visible_by:
+  - camera: CAM_15
+    ppm: 73
+  - camera: CAM_16
+    ppm: 70
+  - camera: CAM_17
+    ppm: 109
+- id: SP-RFID-D10
+  device_kind: rfid_portal
+  zone: Z12
+  position_m:
+  - 41.0
+  - 39.4
+  - 1.5
+  clock_domain: clkd_wcs
+  events: departed_facility (cage RFID, can cross-read)
+  visible_by:
+  - camera: CAM_15
+    ppm: 63
+  - camera: CAM_16
+    ppm: 79
+- id: SP-RFID-D11
+  device_kind: rfid_portal
+  zone: Z12
+  position_m:
+  - 45.0
+  - 39.4
+  - 1.5
+  clock_domain: clkd_wcs
+  events: departed_facility (cage RFID, can cross-read)
+  visible_by:
+  - camera: CAM_16
+    ppm: 91
+- id: SP-RFID-D12
+  device_kind: rfid_portal
+  zone: Z12
+  position_m:
+  - 49.0
+  - 39.4
+  - 1.5
+  clock_domain: clkd_wcs
+  events: departed_facility (cage RFID, can cross-read)
+  visible_by:
+  - camera: CAM_14
+    ppm: 68
+  - camera: CAM_16
+    ppm: 108
+cameras:
+- id: CAM_01
+  zone: Z01
+  question: Which truck and bag did the parcel arrive in (doors 01–03)?
+  detail_target: observe
+  target_ppm: 62
+  position_m:
+  - 7.5
+  - 2.0
+  height_m: 5.0
+  heading_deg: 100
+  tilt_down_deg: 40
+  hfov_deg: 103.0
+  vfov_deg: 58.0
+  resolution:
+  - 2688
+  - 1520
+  fps: 10
+  mount: south wall bracket / truss drop-pole
+  duty_area_m:
+    x:
+    - 0.2
+    - 5.6
+    y:
+    - 4.0
+    - 18.0
+    parcel_height_m: 1.0
+  duty_covered_at_target: 1.0
+  far_edge:
+    point_m:
+    - 0.3
+    - 17.6
+    ppm: 70
+  meets_target: true
+  view_fractions:
+    floor: 0.807
+    wall: 0.08
+    roof: 0.0
+    outside: 0.092
+    near_block: 0.0
+    object: 0.021
+    duty_fill: 0.33
+  view_constraint:
+    max_wall: 0.25
+  view_constraint_met: true
+  clock_domain: clkd_cam_01
+  osd_label: DOCK 01-03
+  realism:
+    codec: 'H.265, ~2 Mbps at 2688 x 1520 / 15 fps (low bitrate: smeared static background), keyframe every 30 frames'
+    noise: sensor grain before encoding, stronger in dark corners; temporal denoise ghosting on moving people
+    lens: mild barrel distortion + vignette + soft edges (2.8 mm wide lens); exact k1 per camera in render_truth.yaml
+    exposure: 'auto exposure: dims and shifts white balance when a door opens (1–2 s)'
+    osd: camera name + date/time burned in top-left, from the camera's OWN drifting clock
+    clock: own offset and drift per camera — evaluator-only values in render_truth.yaml; Spoor must estimate them
+    defect: dome smudge
+- id: CAM_02
+  zone: Z01
+  question: Which truck and bag did the parcel arrive in (doors 04–06)?
+  detail_target: observe
+  target_ppm: 62
+  position_m:
+  - 6.5
+  - 31.5
+  height_m: 5.0
+  heading_deg: 215
+  tilt_down_deg: 45
+  hfov_deg: 103.0
+  vfov_deg: 58.0
+  resolution:
+  - 2688
+  - 1520
+  fps: 10
+  mount: truss drop-pole
+  duty_area_m:
+    x:
+    - 0.2
+    - 5.6
+    y:
+    - 16.0
+    - 30.0
+    parcel_height_m: 1.0
+  duty_covered_at_target: 1.0
+  far_edge:
+    point_m:
+    - 0.3
+    - 16.4
+    ppm: 85
+  meets_target: true
+  view_fractions:
+    floor: 0.5
+    wall: 0.19
+    roof: 0.0
+    outside: 0.054
+    near_block: 0.232
+    object: 0.024
+    duty_fill: 0.342
+  view_constraint: null
+  view_constraint_met: true
+  clock_domain: clkd_cam_02
+  osd_label: DOCK 04-06
+  realism:
+    codec: 'H.265, ~2 Mbps at 2688 x 1520 / 15 fps (low bitrate: smeared static background), keyframe every 30 frames'
+    noise: sensor grain before encoding, stronger in dark corners; temporal denoise ghosting on moving people
+    lens: mild barrel distortion + vignette + soft edges (2.8 mm wide lens); exact k1 per camera in render_truth.yaml
+    exposure: auto exposure on door openings
+    osd: camera name + date/time burned in top-left, from the camera's OWN drifting clock
+    clock: own offset and drift per camera — evaluator-only values in render_truth.yaml; Spoor must estimate them
+- id: CAM_03
+  zone: Z02
+  question: Did every parcel from the opened bag reach the belt?
+  detail_target: recognise
+  target_ppm: 125
+  position_m:
+  - 11.5
+  - 23.0
+  height_m: 5.0
+  heading_deg: 175
+  tilt_down_deg: 60
+  hfov_deg: 103.0
+  vfov_deg: 58.0
+  resolution:
+  - 2688
+  - 1520
+  fps: 10
+  mount: truss drop-pole
+  duty_area_m:
+    x:
+    - 5.6
+    - 9.5
+    y:
+    - 17.5
+    - 28.5
+    parcel_height_m: 1.0
+  duty_covered_at_target: 1.0
+  far_edge:
+    point_m:
+    - 5.7
+    - 28.2
+    ppm: 162
+  meets_target: true
+  view_fractions:
+    floor: 0.875
+    wall: 0.0
+    roof: 0.0
+    outside: 0.0
+    near_block: 0.122
+    object: 0.003
+    duty_fill: 0.405
+  view_constraint: null
+  view_constraint_met: true
+  clock_domain: clkd_cam_03
+  osd_label: BAG OPENING
+  realism:
+    codec: 'H.265, ~2 Mbps at 2688 x 1520 / 15 fps (low bitrate: smeared static background), keyframe every 30 frames'
+    noise: sensor grain before encoding, stronger in dark corners; temporal denoise ghosting on moving people
+    lens: mild barrel distortion + vignette + soft edges (2.8 mm wide lens); exact k1 per camera in render_truth.yaml
+    exposure: fixed per camera
+    osd: camera name + date/time burned in top-left, from the camera's OWN drifting clock
+    clock: own offset and drift per camera — evaluator-only values in render_truth.yaml; Spoor must estimate them
+- id: CAM_04
+  zone: Z03
+  question: Was the parcel put on the belt, and when (incl. oversize manual scan)?
+  detail_target: observe
+  target_ppm: 62
+  position_m:
+  - 18.5
+  - 3.0
+  height_m: 7.0
+  heading_deg: 160
+  tilt_down_deg: 50
+  hfov_deg: 103.0
+  vfov_deg: 58.0
+  resolution:
+  - 2688
+  - 1520
+  fps: 10
+  mount: truss drop-pole
+  duty_area_m:
+    x:
+    - 5.6
+    - 17.5
+    y:
+    - 2.0
+    - 12.5
+    parcel_height_m: 1.0
+  duty_covered_at_target: 0.96
+  far_edge:
+    point_m:
+    - 5.9
+    - 12.2
+    ppm: 75
+  meets_target: true
+  view_fractions:
+    floor: 0.643
+    wall: 0.292
+    roof: 0.0
+    outside: 0.0
+    near_block: 0.036
+    object: 0.03
+    duty_fill: 0.417
+  view_constraint: null
+  view_constraint_met: true
+  clock_domain: clkd_cam_04
+  osd_label: INDUCTION
+  realism:
+    codec: 'H.265, ~2 Mbps at 2688 x 1520 / 15 fps (low bitrate: smeared static background), keyframe every 30 frames'
+    noise: sensor grain before encoding, stronger in dark corners; temporal denoise ghosting on moving people
+    lens: mild barrel distortion + vignette + soft edges (2.8 mm wide lens); exact k1 per camera in render_truth.yaml
+    exposure: fixed per camera
+    osd: camera name + date/time burned in top-left, from the camera's OWN drifting clock
+    clock: own offset and drift per camera — evaluator-only values in render_truth.yaml; Spoor must estimate them
+- id: CAM_05
+  zone: Z04
+  question: Which parcel left the tunnel at the scan time? (clock anchor for the WCS)
+  detail_target: recognise
+  target_ppm: 125
+  position_m:
+  - 26.0
+  - 7.0
+  height_m: 3.5
+  heading_deg: 110
+  tilt_down_deg: 45
+  hfov_deg: 103.0
+  vfov_deg: 58.0
+  resolution:
+  - 2688
+  - 1520
+  fps: 10
+  mount: truss drop-pole
+  duty_area_m:
+    x:
+    - 21.5
+    - 27.6
+    y:
+    - 8.0
+    - 11.0
+    parcel_height_m: 1.7
+  duty_covered_at_target: 0.99
+  far_edge:
+    point_m:
+    - 21.7
+    - 10.9
+    ppm: 217
+  meets_target: true
+  view_fractions:
+    floor: 0.56
+    wall: 0.0
+    roof: 0.0
+    outside: 0.0
+    near_block: 0.411
+    object: 0.03
+    duty_fill: 0.565
+  view_constraint: null
+  view_constraint_met: true
+  clock_domain: clkd_cam_05
+  osd_label: SCAN TUNNEL EXIT
+  realism:
+    codec: 'H.265, ~2 Mbps at 2688 x 1520 / 15 fps (low bitrate: smeared static background), keyframe every 30 frames'
+    noise: sensor grain before encoding, stronger in dark corners; temporal denoise ghosting on moving people
+    lens: mild barrel distortion + vignette + soft edges (2.8 mm wide lens); exact k1 per camera in render_truth.yaml
+    exposure: fixed per camera
+    osd: camera name + date/time burned in top-left, from the camera's OWN drifting clock
+    clock: own offset and drift per camera — evaluator-only values in render_truth.yaml; Spoor must estimate them
+- id: CAM_06
+  zone: Z05
+  question: Did a parcel fall off or get stuck between carriers (west curve, merge)?
+  detail_target: observe
+  target_ppm: 62
+  position_m:
+  - 29.0
+  - 5.0
+  height_m: 6.5
+  heading_deg: 95
+  tilt_down_deg: 45
+  hfov_deg: 103.0
+  vfov_deg: 58.0
+  resolution:
+  - 2688
+  - 1520
+  fps: 10
+  mount: truss drop-pole
+  duty_area_m:
+    x:
+    - 23.0
+    - 35.0
+    y:
+    - 6.5
+    - 20.0
+    parcel_height_m: 1.7
+  duty_covered_at_target: 0.91
+  far_edge:
+    point_m:
+    - 23.3
+    - 19.7
+    ppm: 76
+  meets_target: true
+  view_fractions:
+    floor: 0.613
+    wall: 0.0
+    roof: 0.0
+    outside: 0.0
+    near_block: 0.06
+    object: 0.327
+    duty_fill: 0.586
+  view_constraint: null
+  view_constraint_met: true
+  clock_domain: clkd_cam_06
+  osd_label: SORTER WEST
+  realism:
+    codec: 'H.265, ~2 Mbps at 2688 x 1520 / 15 fps (low bitrate: smeared static background), keyframe every 30 frames'
+    noise: sensor grain before encoding, stronger in dark corners; temporal denoise ghosting on moving people
+    lens: mild barrel distortion + vignette + soft edges (2.8 mm wide lens); exact k1 per camera in render_truth.yaml
+    exposure: fixed per camera
+    osd: camera name + date/time burned in top-left, from the camera's OWN drifting clock
+    clock: own offset and drift per camera — evaluator-only values in render_truth.yaml; Spoor must estimate them
+    rolling_shutter: slight skew on fast carriers
+- id: CAM_07
+  zone: Z05
+  question: Did a parcel fall off or get stuck between carriers (middle straights)?
+  detail_target: observe
+  target_ppm: 62
+  position_m:
+  - 39.0
+  - 5.0
+  height_m: 8.5
+  heading_deg: 95
+  tilt_down_deg: 50
+  hfov_deg: 103.0
+  vfov_deg: 58.0
+  resolution:
+  - 2688
+  - 1520
+  fps: 10
+  mount: truss drop-pole
+  duty_area_m:
+    x:
+    - 33.0
+    - 45.5
+    y:
+    - 6.5
+    - 20.0
+    parcel_height_m: 1.7
+  duty_covered_at_target: 0.95
+  far_edge:
+    point_m:
+    - 33.3
+    - 19.0
+    ppm: 74
+  meets_target: true
+  view_fractions:
+    floor: 0.589
+    wall: 0.003
+    roof: 0.0
+    outside: 0.0
+    near_block: 0.027
+    object: 0.381
+    duty_fill: 0.488
+  view_constraint:
+    min_roof: 0.05
+  view_constraint_met: false
+  clock_domain: clkd_cam_07
+  osd_label: SORTER MID
+  realism:
+    codec: 'H.265, ~2 Mbps at 2688 x 1520 / 15 fps (low bitrate: smeared static background), keyframe every 30 frames'
+    noise: sensor grain before encoding, stronger in dark corners; temporal denoise ghosting on moving people
+    lens: mild barrel distortion + vignette + soft edges (2.8 mm wide lens); exact k1 per camera in render_truth.yaml
+    exposure: fixed per camera
+    osd: camera name + date/time burned in top-left, from the camera's OWN drifting clock
+    clock: own offset and drift per camera — evaluator-only values in render_truth.yaml; Spoor must estimate them
+    rolling_shutter: slight skew on fast carriers
+- id: CAM_08
+  zone: Z05
+  question: Did a parcel fall off or get stuck between carriers (east curve)?
+  detail_target: observe
+  target_ppm: 62
+  position_m:
+  - 49.0
+  - 5.0
+  height_m: 6.5
+  heading_deg: 85
+  tilt_down_deg: 45
+  hfov_deg: 103.0
+  vfov_deg: 58.0
+  resolution:
+  - 2688
+  - 1520
+  fps: 10
+  mount: truss drop-pole
+  duty_area_m:
+    x:
+    - 43.5
+    - 54.6
+    y:
+    - 6.5
+    - 20.0
+    parcel_height_m: 1.7
+  duty_covered_at_target: 0.92
+  far_edge:
+    point_m:
+    - 54.3
+    - 19.7
+    ppm: 76
+  meets_target: true
+  view_fractions:
+    floor: 0.583
+    wall: 0.095
+    roof: 0.0
+    outside: 0.006
+    near_block: 0.06
+    object: 0.256
+    duty_fill: 0.545
+  view_constraint: null
+  view_constraint_met: true
+  clock_domain: clkd_cam_08
+  osd_label: SORTER EAST
+  realism:
+    codec: 'H.265, ~2 Mbps at 2688 x 1520 / 15 fps (low bitrate: smeared static background), keyframe every 30 frames'
+    noise: sensor grain before encoding, stronger in dark corners; temporal denoise ghosting on moving people
+    lens: mild barrel distortion + vignette + soft edges (2.8 mm wide lens); exact k1 per camera in render_truth.yaml
+    exposure: fixed per camera
+    osd: camera name + date/time burned in top-left, from the camera's OWN drifting clock
+    clock: own offset and drift per camera — evaluator-only values in render_truth.yaml; Spoor must estimate them
+    rolling_shutter: slight skew on fast carriers
+    mount_defect: tilted 1.5 deg (horizon slightly off)
+- id: CAM_09
+  zone: Z07
+  question: Which no-read parcel came out of the reject chute?
+  detail_target: recognise
+  target_ppm: 125
+  position_m:
+  - 29.4
+  - 24.4
+  height_m: 3.5
+  heading_deg: 315
+  tilt_down_deg: 55
+  hfov_deg: 103.0
+  vfov_deg: 58.0
+  resolution:
+  - 2688
+  - 1520
+  fps: 10
+  mount: truss drop-pole
+  duty_area_m:
+    x:
+    - 28.4
+    - 30.4
+    y:
+    - 19.6
+    - 22.8
+    parcel_height_m: 1.2
+  duty_covered_at_target: 1.0
+  far_edge:
+    point_m:
+    - 30.3
+    - 19.7
+    ppm: 256
+  meets_target: true
+  view_fractions:
+    floor: 0.711
+    wall: 0.0
+    roof: 0.0
+    outside: 0.0
+    near_block: 0.289
+    object: 0.0
+    duty_fill: 0.298
+  view_constraint: null
+  view_constraint_met: true
+  clock_domain: clkd_cam_09
+  osd_label: REJECT CHUTE
+  realism:
+    codec: 'H.265, ~2 Mbps at 2688 x 1520 / 15 fps (low bitrate: smeared static background), keyframe every 30 frames'
+    noise: sensor grain before encoding, stronger in dark corners; temporal denoise ghosting on moving people
+    lens: mild barrel distortion + vignette + soft edges (2.8 mm wide lens); exact k1 per camera in render_truth.yaml
+    exposure: fixed per camera
+    osd: camera name + date/time burned in top-left, from the camera's OWN drifting clock
+    clock: own offset and drift per camera — evaluator-only values in render_truth.yaml; Spoor must estimate them
+- id: CAM_10
+  zone: Z06
+  question: Which bag did the parcel go into (C01–C06)?
+  detail_target: observe
+  target_ppm: 62
+  position_m:
+  - 44.5
+  - 26.6
+  height_m: 5.5
+  heading_deg: 260
+  tilt_down_deg: 55
+  hfov_deg: 103.0
+  vfov_deg: 58.0
+  resolution:
+  - 2688
+  - 1520
+  fps: 10
+  mount: truss drop-pole / column (48, 25)
+  duty_area_m:
+    x:
+    - 39.5
+    - 49.8
+    y:
+    - 19.4
+    - 25.0
+    parcel_height_m: 1.2
+  duty_covered_at_target: 0.94
+  far_edge:
+    point_m:
+    - 41.8
+    - 19.5
+    ppm: 137
+  meets_target: true
+  view_fractions:
+    floor: 0.673
+    wall: 0.0
+    roof: 0.0
+    outside: 0.0
+    near_block: 0.134
+    object: 0.193
+    duty_fill: 0.583
+  view_constraint: null
+  view_constraint_met: true
+  clock_domain: clkd_cam_10
+  osd_label: CHUTES C01-C06
+  realism:
+    codec: 'H.265, ~2 Mbps at 2688 x 1520 / 15 fps (low bitrate: smeared static background), keyframe every 30 frames'
+    noise: sensor grain before encoding, stronger in dark corners; temporal denoise ghosting on moving people
+    lens: mild barrel distortion + vignette + soft edges (2.8 mm wide lens); exact k1 per camera in render_truth.yaml
+    exposure: fixed per camera
+    osd: camera name + date/time burned in top-left, from the camera's OWN drifting clock
+    clock: own offset and drift per camera — evaluator-only values in render_truth.yaml; Spoor must estimate them
+- id: CAM_11
+  zone: Z06
+  question: Which bag did the parcel go into (C07–C12)?
+  detail_target: observe
+  target_ppm: 62
+  position_m:
+  - 30.5
+  - 26.0
+  height_m: 5.5
+  heading_deg: 295
+  tilt_down_deg: 50
+  hfov_deg: 103.0
+  vfov_deg: 58.0
+  resolution:
+  - 2688
+  - 1520
+  fps: 10
+  mount: truss drop-pole / column (36, 25)
+  duty_area_m:
+    x:
+    - 29.8
+    - 40.6
+    y:
+    - 19.4
+    - 25.0
+    parcel_height_m: 1.2
+  duty_covered_at_target: 0.86
+  far_edge:
+    point_m:
+    - 40.3
+    - 19.5
+    ppm: 110
+  meets_target: false
+  view_fractions:
+    floor: 0.548
+    wall: 0.0
+    roof: 0.0
+    outside: 0.0
+    near_block: 0.229
+    object: 0.223
+    duty_fill: 0.491
+  view_constraint: null
+  view_constraint_met: true
+  clock_domain: clkd_cam_11
+  osd_label: CHUTES C07-C12
+  realism:
+    codec: 'H.265, ~2 Mbps at 2688 x 1520 / 15 fps (low bitrate: smeared static background), keyframe every 30 frames'
+    noise: sensor grain before encoding, stronger in dark corners; temporal denoise ghosting on moving people
+    lens: mild barrel distortion + vignette + soft edges (2.8 mm wide lens); exact k1 per camera in render_truth.yaml
+    exposure: fixed per camera
+    osd: camera name + date/time burned in top-left, from the camera's OWN drifting clock
+    clock: own offset and drift per camera — evaluator-only values in render_truth.yaml; Spoor must estimate them
+- id: CAM_12
+  zone: Z08
+  question: Was it relabelled at the bench, and with what?
+  detail_target: recognise
+  target_ppm: 125
+  position_m:
+  - 26.0
+  - 25.6
+  height_m: 3.5
+  heading_deg: 280
+  tilt_down_deg: 50
+  hfov_deg: 103.0
+  vfov_deg: 58.0
+  resolution:
+  - 2688
+  - 1520
+  fps: 10
+  mount: column (24, 25)
+  duty_area_m:
+    x:
+    - 23.0
+    - 28.6
+    y:
+    - 20.0
+    - 24.6
+    parcel_height_m: 1.0
+  duty_covered_at_target: 0.99
+  far_edge:
+    point_m:
+    - 28.5
+    - 20.1
+    ppm: 189
+  meets_target: true
+  view_fractions:
+    floor: 0.744
+    wall: 0.0
+    roof: 0.0
+    outside: 0.0
+    near_block: 0.22
+    object: 0.036
+    duty_fill: 0.476
+  view_constraint: null
+  view_constraint_met: true
+  clock_domain: clkd_cam_12
+  osd_label: EXCEPTION BENCH
+  realism:
+    codec: 'H.265, ~2 Mbps at 2688 x 1520 / 15 fps (low bitrate: smeared static background), keyframe every 30 frames'
+    noise: sensor grain before encoding, stronger in dark corners; temporal denoise ghosting on moving people
+    lens: mild barrel distortion + vignette + soft edges (2.8 mm wide lens); exact k1 per camera in render_truth.yaml
+    exposure: fixed per camera
+    osd: camera name + date/time burned in top-left, from the camera's OWN drifting clock
+    clock: own offset and drift per camera — evaluator-only values in render_truth.yaml; Spoor must estimate them
+- id: CAM_13
+  zone: Z10
+  question: Which cage did the bag go into, and where did the cage go (west half)?
+  detail_target: observe
+  target_ppm: 62
+  position_m:
+  - 40.0
+  - 31.0
+  height_m: 7.0
+  heading_deg: 225
+  tilt_down_deg: 50
+  hfov_deg: 103.0
+  vfov_deg: 58.0
+  resolution:
+  - 2688
+  - 1520
+  fps: 10
+  mount: column (36, 25) / truss drop-pole
+  duty_area_m:
+    x:
+    - 24.0
+    - 39.5
+    y:
+    - 25.2
+    - 32.4
+    parcel_height_m: 1.0
+  duty_covered_at_target: 0.97
+  far_edge:
+    point_m:
+    - 24.4
+    - 25.4
+    ppm: 75
+  meets_target: true
+  view_fractions:
+    floor: 0.804
+    wall: 0.0
+    roof: 0.0
+    outside: 0.0
+    near_block: 0.003
+    object: 0.193
+    duty_fill: 0.381
+  view_constraint:
+    min_roof: 0.05
+  view_constraint_met: false
+  clock_domain: clkd_cam_13
+  osd_label: CAGE STAGING W
+  realism:
+    codec: 'H.265, ~2 Mbps at 2688 x 1520 / 15 fps (low bitrate: smeared static background), keyframe every 30 frames'
+    noise: sensor grain before encoding, stronger in dark corners; temporal denoise ghosting on moving people
+    lens: mild barrel distortion + vignette + soft edges (2.8 mm wide lens); exact k1 per camera in render_truth.yaml
+    exposure: fixed per camera
+    osd: camera name + date/time burned in top-left, from the camera's OWN drifting clock
+    clock: own offset and drift per camera — evaluator-only values in render_truth.yaml; Spoor must estimate them
+- id: CAM_14
+  zone: Z10
+  question: Which cage did the bag go into, and where did the cage go (east half)? Also films fire exit FE-3.
+  detail_target: observe
+  target_ppm: 62
+  position_m:
+  - 58.8
+  - 25.6
+  height_m: 7.0
+  heading_deg: 130
+  tilt_down_deg: 45
+  hfov_deg: 103.0
+  vfov_deg: 58.0
+  resolution:
+  - 2688
+  - 1520
+  fps: 10
+  mount: truss drop-pole (east aisle)
+  duty_area_m:
+    x:
+    - 37.5
+    - 53.0
+    y:
+    - 25.2
+    - 32.4
+    parcel_height_m: 1.0
+  duty_covered_at_target: 1.0
+  far_edge:
+    point_m:
+    - 37.9
+    - 32.2
+    ppm: 62
+  meets_target: true
+  view_fractions:
+    floor: 0.682
+    wall: 0.286
+    roof: 0.0
+    outside: 0.009
+    near_block: 0.0
+    object: 0.024
+    duty_fill: 0.19
+  view_constraint: null
+  view_constraint_met: true
+  clock_domain: clkd_cam_14
+  osd_label: CAGE STAGING E
+  realism:
+    codec: 'H.265, ~2 Mbps at 2688 x 1520 / 15 fps (low bitrate: smeared static background), keyframe every 30 frames'
+    noise: sensor grain before encoding, stronger in dark corners; temporal denoise ghosting on moving people
+    lens: mild barrel distortion + vignette + soft edges (2.8 mm wide lens); exact k1 per camera in render_truth.yaml
+    exposure: fixed per camera
+    osd: camera name + date/time burned in top-left, from the camera's OWN drifting clock
+    clock: own offset and drift per camera — evaluator-only values in render_truth.yaml; Spoor must estimate them
+- id: CAM_15
+  zone: Z12
+  question: Which cage went onto which truck (doors 07–09)?
+  detail_target: observe
+  target_ppm: 62
+  position_m:
+  - 24.4
+  - 31.0
+  height_m: 5.0
+  heading_deg: 45
+  tilt_down_deg: 30
+  hfov_deg: 103.0
+  vfov_deg: 58.0
+  resolution:
+  - 2688
+  - 1520
+  fps: 10
+  mount: column bracket / truss drop-pole
+  duty_area_m:
+    x:
+    - 24.0
+    - 39.5
+    y:
+    - 32.4
+    - 39.8
+    parcel_height_m: 1.2
+  duty_covered_at_target: 0.98
+  far_edge:
+    point_m:
+    - 39.1
+    - 39.6
+    ppm: 66
+  meets_target: true
+  view_fractions:
+    floor: 0.604
+    wall: 0.342
+    roof: 0.0
+    outside: 0.051
+    near_block: 0.0
+    object: 0.003
+    duty_fill: 0.551
+  view_constraint:
+    max_near_block: 0.1
+    min_duty_fill: 0.55
+  view_constraint_met: true
+  clock_domain: clkd_cam_15
+  osd_label: DOCK 07-09
+  realism:
+    codec: 'H.265, ~2 Mbps at 2688 x 1520 / 15 fps (low bitrate: smeared static background), keyframe every 30 frames'
+    noise: sensor grain before encoding, stronger in dark corners; temporal denoise ghosting on moving people
+    lens: mild barrel distortion + vignette + soft edges (2.8 mm wide lens); exact k1 per camera in render_truth.yaml
+    exposure: auto exposure on door openings
+    osd: camera name + date/time burned in top-left, from the camera's OWN drifting clock
+    clock: own offset and drift per camera — evaluator-only values in render_truth.yaml; Spoor must estimate them
+- id: CAM_16
+  zone: Z12
+  question: Which cage went onto which truck (doors 10–12)?
+  detail_target: observe
+  target_ppm: 62
+  position_m:
+  - 54.5
+  - 31.0
+  height_m: 5.0
+  heading_deg: 125
+  tilt_down_deg: 40
+  hfov_deg: 103.0
+  vfov_deg: 58.0
+  resolution:
+  - 2688
+  - 1520
+  fps: 10
+  mount: wall bracket
+  duty_area_m:
+    x:
+    - 38.5
+    - 54.0
+    y:
+    - 32.4
+    - 39.8
+    parcel_height_m: 1.2
+  duty_covered_at_target: 1.0
+  far_edge:
+    point_m:
+    - 38.9
+    - 39.6
+    ppm: 73
+  meets_target: true
+  view_fractions:
+    floor: 0.738
+    wall: 0.199
+    roof: 0.0
+    outside: 0.06
+    near_block: 0.0
+    object: 0.003
+    duty_fill: 0.417
+  view_constraint: null
+  view_constraint_met: true
+  clock_domain: clkd_cam_16
+  osd_label: DOCK 10-12
+  realism:
+    codec: 'H.265, ~2 Mbps at 2688 x 1520 / 15 fps (low bitrate: smeared static background), keyframe every 30 frames'
+    noise: sensor grain before encoding, stronger in dark corners; temporal denoise ghosting on moving people
+    lens: mild barrel distortion + vignette + soft edges (2.8 mm wide lens); exact k1 per camera in render_truth.yaml
+    exposure: auto exposure on door openings
+    osd: camera name + date/time burned in top-left, from the camera's OWN drifting clock
+    clock: own offset and drift per camera — evaluator-only values in render_truth.yaml; Spoor must estimate them
+    defect: spider web on dome (some clips)
+- id: CAM_17
+  zone: Z14
+  question: Which truck came and left, and when (outbound yard)? Trucks only — no plates/faces.
+  detail_target: detect
+  target_ppm: 25
+  position_m:
+  - 22.0
+  - 40.4
+  height_m: 6.0
+  heading_deg: 50
+  tilt_down_deg: 35
+  hfov_deg: 103.0
+  vfov_deg: 58.0
+  resolution:
+  - 2688
+  - 1520
+  fps: 10
+  mount: outside north wall
+  duty_area_m:
+    x:
+    - 24.0
+    - 54.0
+    y:
+    - 40.5
+    - 52.0
+    parcel_height_m: 1.5
+  duty_covered_at_target: 1.0
+  far_edge:
+    point_m:
+    - 53.2
+    - 51.7
+    ppm: 41
+  meets_target: true
+  view_fractions:
+    floor: 0.006
+    wall: 0.036
+    roof: 0.0
+    outside: 0.905
+    near_block: 0.048
+    object: 0.006
+    duty_fill: 0.009
+  view_constraint: null
+  view_constraint_met: true
+  clock_domain: clkd_cam_17
+  osd_label: YARD NORTH
+  realism:
+    codec: 'H.265, ~2 Mbps at 2688 x 1520 / 15 fps (low bitrate: smeared static background), keyframe every 30 frames'
+    noise: sensor grain before encoding, stronger in dark corners; temporal denoise ghosting on moving people
+    lens: mild barrel distortion + vignette + soft edges (2.8 mm wide lens); exact k1 per camera in render_truth.yaml
+    exposure: outdoor; would switch to IR B/W only in a night scenario
+    osd: camera name + date/time burned in top-left, from the camera's OWN drifting clock
+    clock: own offset and drift per camera — evaluator-only values in render_truth.yaml; Spoor must estimate them
+- id: CAM_18
+  zone: AISLE_S
+  question: Which forklift carried which pallet along the south aisle (oversize route), and who used FE-1 / FE-2?
+  detail_target: detect
+  target_ppm: 25
+  position_m:
+  - 53.0
+  - 6.2
+  height_m: 5.0
+  heading_deg: 225
+  tilt_down_deg: 35
+  hfov_deg: 103.0
+  vfov_deg: 58.0
+  resolution:
+  - 2688
+  - 1520
+  fps: 10
+  mount: truss drop-pole
+  duty_area_m:
+    x:
+    - 17.5
+    - 54.4
+    y:
+    - 0.4
+    - 6.4
+    parcel_height_m: 1.2
+  duty_covered_at_target: 0.96
+  far_edge:
+    point_m:
+    - 18.4
+    - 0.6
+    ppm: 42
+  meets_target: true
+  view_fractions:
+    floor: 0.533
+    wall: 0.411
+    roof: 0.0
+    outside: 0.006
+    near_block: 0.027
+    object: 0.024
+    duty_fill: 0.839
+  view_constraint: null
+  view_constraint_met: true
+  clock_domain: clkd_cam_18
+  osd_label: SOUTH AISLE
+  realism:
+    codec: 'H.265, ~2 Mbps at 2688 x 1520 / 15 fps (low bitrate: smeared static background), keyframe every 30 frames'
+    noise: sensor grain before encoding, stronger in dark corners; temporal denoise ghosting on moving people
+    lens: mild barrel distortion + vignette + soft edges (2.8 mm wide lens); exact k1 per camera in render_truth.yaml
+    exposure: daylight bloom when FE-2 is propped open
+    osd: camera name + date/time burned in top-left, from the camera's OWN drifting clock
+    clock: own offset and drift per camera — evaluator-only values in render_truth.yaml; Spoor must estimate them
+    defect: 'long view down the aisle: soft far end'
+assets:
+- zone: shell
+  item: Wall + roof cladding
+  source: Box Profile Metal Sheet
+  url: https://polyhaven.com/a/box_profile_metal_sheet
+  licence: CC0
+  status: found
+  credit: Poly Haven
+- zone: shell
+  item: Cladding alt.
+  source: Corrugated Steel 005
+  url: https://ambientcg.com/view?id=CorrugatedSteel005
+  licence: CC0
+  status: found
+  credit: ambientCG
+- zone: shell
+  item: Painted steel (columns, rails)
+  source: Painted Metal 016 / 006
+  url: https://ambientcg.com/view?id=PaintedMetal016
+  licence: CC0
+  status: found
+  credit: ambientCG
+- zone: shell
+  item: Floor
+  source: Smooth Concrete Floor (low roughness for epoxy look)
+  url: https://polyhaven.com/a/smooth_concrete_floor
+  licence: CC0
+  status: found
+  credit: Poly Haven
+- zone: shell
+  item: Floor alt.
+  source: Concrete 047 A
+  url: https://ambientcg.com/view?id=Concrete047A
+  licence: CC0
+  status: found
+  credit: ambientCG
+- zone: shell
+  item: Floor markings
+  source: Road Lines 001 (reference) + built decal
+  url: https://ambientcg.com/view?id=RoadLines001
+  licence: CC0
+  status: found
+  credit: ambientCG
+- zone: shell
+  item: Dock door shutter
+  source: Rolling Shutter
+  url: https://sketchfab.com/3d-models/rolling-shutter-bd01deecf45d4b429e97c0cb23116f06
+  licence: CC BY 4.0
+  status: found
+  credit: Origicube
+- zone: shell
+  item: Shutter texture
+  source: Painted Metal Shutter
+  url: https://polyhaven.com/a/painted_metal_shutter
+  licence: CC0
+  status: found
+  credit: Poly Haven
+- zone: shell
+  item: Steel frame reference
+  source: Metal Frame of the Warehouse
+  url: https://sketchfab.com/3d-models/metal-frame-of-the-warehouse-05937c3272b548dfaef68b2094a97786
+  licence: CC BY 4.0
+  status: found (reference)
+  credit: vkmd24
+- zone: shell
+  item: Columns + trusses
+  source: I-beam profiles
+  url: null
+  licence: null
+  status: build
+  credit: null
+- zone: shell
+  item: Dock plate / leveller
+  source: flat steel plate
+  url: null
+  licence: null
+  status: build
+  credit: null
+- zone: shell
+  item: High-bay LED lights
+  source: disc + emission
+  url: null
+  licence: null
+  status: build
+  credit: null
+- zone: shell
+  item: Outside light
+  source: Overcast Industrial Courtyard (HDRI)
+  url: https://polyhaven.com/a/overcast_industrial_courtyard
+  licence: CC0
+  status: found
+  credit: Poly Haven
+- zone: shell
+  item: Outside light alt.
+  source: Factory Yard (HDRI)
+  url: https://polyhaven.com/a/factory_yard
+  licence: CC0
+  status: found
+  credit: Poly Haven
+- zone: shell
+  item: Inside light reference
+  source: Empty Warehouse 01 (HDRI)
+  url: https://polyhaven.com/a/empty_warehouse_01
+  licence: CC0
+  status: found (reference)
+  credit: Poly Haven
+- zone: shell
+  item: Fire extinguisher
+  source: Korean Fire Extinguisher 01
+  url: https://polyhaven.com/a/korean_fire_extinguisher_01
+  licence: CC0
+  status: found
+  credit: Poly Haven
+- zone: shell
+  item: Wet floor sign
+  source: simple folded sign
+  url: null
+  licence: null
+  status: build
+  credit: null
+- zone: shell
+  item: Crossover stairs + bridge (XO-1, XO-2)
+  source: steel stair, grating deck, yellow handrails
+  url: null
+  licence: null
+  status: build
+  credit: null
+- zone: shell
+  item: Fire exit doors + KELUAR signs
+  source: push-bar door + emissive green sign
+  url: null
+  licence: null
+  status: build
+  credit: null
+- zone: shell
+  item: Walkway / forklift lane / zebra markings
+  source: floor decals
+  url: null
+  licence: null
+  status: build
+  credit: null
+- zone: shell
+  item: Convex safety mirror
+  source: chrome sphere cap on a bracket
+  url: null
+  licence: null
+  status: build
+  credit: null
+- zone: Z01
+  item: Telescopic conveyor
+  source: 2–3 nested belt sections
+  url: null
+  licence: null
+  status: build
+  credit: null
+- zone: Z01
+  item: Belt surface
+  source: Rubber 001
+  url: https://ambientcg.com/view?id=Rubber001
+  licence: CC0
+  status: found
+  credit: ambientCG
+- zone: Z02
+  item: Bag-opening bench
+  source: Steel Frame Shelves 01
+  url: https://polyhaven.com/a/steel_frame_shelves_01
+  licence: CC0
+  status: found
+  credit: Poly Haven
+- zone: Z03
+  item: Straight belts
+  source: Belt Conveyor
+  url: https://sketchfab.com/3d-models/belt-conveyor-b789d1fda888440387ae7750c852ade3
+  licence: CC BY 4.0
+  status: found
+  credit: jemi_inovasi
+- zone: Z03
+  item: Straight belts alt.
+  source: Simple rubber conveyor
+  url: https://sketchfab.com/3d-models/simple-rubber-conveyor-0819b51c59c3407cb98f0e2c75029e30
+  licence: CC BY 4.0
+  status: found
+  credit: scailman
+- zone: Z03
+  item: Belt modules alt.
+  source: Conveyor Modular Pack
+  url: https://sketchfab.com/3d-models/conveyor-modular-pack-bf86b7433e824efeba77166d01f5e368
+  licence: CC BY 4.0
+  status: found
+  credit: chaschinkaa
+- zone: Z04
+  item: Scan tunnel (DWS)
+  source: sheet-metal box + light bars + weigh section
+  url: null
+  licence: null
+  status: build
+  credit: null
+- zone: Z04
+  item: Roller section
+  source: Industrial Conveyer Roller (modular)
+  url: https://sketchfab.com/3d-models/industrial-conveyer-roller-modular-4736d0c18e7047969639988883f0ad56
+  licence: CC BY 4.0
+  status: found
+  credit: parabatharva4
+- zone: Z04
+  item: Curve into the loop
+  source: Curved conveyor belt system
+  url: https://sketchfab.com/3d-models/curved-conveyor-belt-system-39ff85715a134cd2a09f6e78a9dce232
+  licence: CC BY 4.0
+  status: found
+  credit: ooowedyn
+- zone: Z05
+  item: Cross-belt loop
+  source: curve path + repeated carrier (Array + Curve)
+  url: null
+  licence: null
+  status: build
+  credit: null
+- zone: Z05
+  item: Loop frame
+  source: Galvanized Sheet Metal
+  url: https://polyhaven.com/a/galvanized_sheet_metal
+  licence: CC0
+  status: found
+  credit: Poly Haven
+- zone: Z06
+  item: Chutes
+  source: 'bent plane + solidify (refs: SF Chute, chute 3D)'
+  url: null
+  licence: null
+  status: build
+  credit: null
+- zone: Z06
+  item: Chute reference
+  source: Chute
+  url: https://sketchfab.com/3d-models/chute-98d4616410b347439ed0f7457424fec3
+  licence: CC BY 4.0
+  status: found (reference)
+  credit: Amine115
+- zone: Z06
+  item: Chute reference
+  source: chute 3D
+  url: https://sketchfab.com/3d-models/chute-3d-d5202c88124f41bdad4b6cf9ef61d03b
+  licence: CC BY 4.0
+  status: found (reference)
+  credit: marcosprojetos
+- zone: Z06
+  item: Bag frame
+  source: steel tube frame + sack
+  url: null
+  licence: null
+  status: build
+  credit: null
+- zone: Z06
+  item: Sacks
+  source: Compost Bags (shape) / Cement Bag
+  url: https://polyhaven.com/a/compost_bags
+  licence: CC0
+  status: found
+  credit: Poly Haven
+- zone: Z06
+  item: Sacks alt.
+  source: big bag, großer Sack
+  url: https://sketchfab.com/3d-models/big-bag-groer-sack-8db0bd844c68446ca0afcaf32078aaa7
+  licence: CC BY 4.0
+  status: found
+  credit: frtmngl
+- zone: Z06
+  item: Mail bag
+  source: Mail Bag
+  url: https://sketchfab.com/3d-models/mail-bag-1310de4c577b4e17ace4e2cafd6fdf97
+  licence: CC BY 4.0
+  status: found
+  credit: TiesG
+- zone: Z06
+  item: Handheld scanners
+  source: Handheld Barcode Scanner with Keypad
+  url: https://sketchfab.com/3d-models/handheld-barcode-scanner-with-keypad-79d132dc44b344f7a019921e1b31c1b6
+  licence: CC BY 4.0
+  status: found
+  credit: cygnos
+- zone: Z07
+  item: Reject chute + crate
+  source: built chute + crate
+  url: null
+  licence: null
+  status: build
+  credit: null
+- zone: Z08
+  item: Exception desk
+  source: Metal Office Desk
+  url: https://polyhaven.com/a/metal_office_desk
+  licence: CC0
+  status: found
+  credit: Poly Haven
+- zone: Z08
+  item: Tool cart
+  source: Tool Cart
+  url: https://polyhaven.com/a/tool_cart
+  licence: CC0
+  status: found
+  credit: Poly Haven
+- zone: Z08
+  item: Cabinet
+  source: Drawer Cabinet
+  url: https://polyhaven.com/a/drawer_cabinet
+  licence: CC0
+  status: found
+  credit: Poly Haven
+- zone: Z08
+  item: Label printer
+  source: small box with paper slot
+  url: null
+  licence: null
+  status: build
+  credit: null
+- zone: Z09
+  item: Pallets
+  source: Euro Pallet
+  url: https://sketchfab.com/3d-models/euro-pallet-a38a3c7ac5894db6957bebcd400a7e75
+  licence: CC BY 4.0
+  status: found
+  credit: jkvarel1701
+- zone: Z09
+  item: Pallets alt.
+  source: Plastic Pallet
+  url: https://sketchfab.com/3d-models/plastic-pallet-0699da1b0dd04c13b5c6731c8dda75d1
+  licence: CC BY 4.0
+  status: found
+  credit: billyNG
+- zone: Z09
+  item: Hand pallet jack
+  source: Hand pallet jack
+  url: https://sketchfab.com/3d-models/hand-pallet-jack-9db0a4f5bd6e4b35b46f86ff272387c1
+  licence: CC BY 4.0
+  status: found
+  credit: Cry11y
+- zone: Z09
+  item: Electric pallet jack
+  source: Electric Pallet Jack with Controls
+  url: https://sketchfab.com/3d-models/electric-pallet-jack-with-controls-acc0b7593fc9469f9ee3fd5949cd6909
+  licence: CC BY 4.0
+  status: found
+  credit: cygnos
+- zone: Z10
+  item: Roll cage 0.72 x 0.80 x 1.80 m
+  source: tube frame + Fence 006 mesh
+  url: https://ambientcg.com/view?id=Fence006
+  licence: CC0
+  status: build (+ found texture)
+  credit: ambientCG
+- zone: Z11
+  item: Folded-sack shelves
+  source: Steel Frame Shelves 02 / 03
+  url: https://polyhaven.com/a/steel_frame_shelves_02
+  licence: CC0
+  status: found
+  credit: Poly Haven
+- zone: Z13
+  item: Office chair
+  source: Plastic Monobloc Chair 01
+  url: https://polyhaven.com/a/plastic_monobloc_chair_01
+  licence: CC0
+  status: found
+  credit: Poly Haven
+- zone: Z13
+  item: Computer desk + monitor
+  source: Computer Desk and Monitor
+  url: https://sketchfab.com/3d-models/computer-desk-and-monitor-cdb5226d2c3a4fc89e9b422307f81ce5
+  licence: CC BY 4.0
+  status: found
+  credit: limlam
+- zone: Z13
+  item: Office lights
+  source: Mounted Fluorescent Lights
+  url: https://polyhaven.com/a/mounted_fluorescent_lights
+  licence: CC0
+  status: found
+  credit: Poly Haven
+- zone: Z14
+  item: Barriers
+  source: Concrete Road Barrier / 02
+  url: https://polyhaven.com/a/concrete_road_barrier
+  licence: CC0
+  status: found
+  credit: Poly Haven
+- zone: Z14
+  item: Cones
+  source: Traffic Cones
+  url: https://sketchfab.com/3d-models/traffic-cones-822f8e30bad4469e808b8c32d9c8aa10
+  licence: CC BY 4.0
+  status: found
+  credit: hgowl22
+- zone: Z14
+  item: Cone alt.
+  source: Traffic Cone
+  url: https://sketchfab.com/3d-models/traffic-cone-e9c9c21db7c44c4fb901e0c55bb86934
+  licence: CC BY 4.0
+  status: found
+  credit: MrScanMan
+- zone: Z14
+  item: Bollards
+  source: steel cylinders
+  url: null
+  licence: null
+  status: build
+  credit: null
+- zone: Z14
+  item: Lorry (3–5 t box)
+  source: Box Truck [Game Asset]
+  url: https://sketchfab.com/3d-models/box-truck-game-asset-959e25ad21014bcf9066d3f6f7e7ecb2
+  licence: CC BY 4.0
+  status: 'found (check: no real badges)'
+  credit: jsabbott
+- zone: Z14
+  item: Lorry alt.
+  source: Lorry
+  url: https://sketchfab.com/3d-models/lorry-3fb4343374304f51ae190d2a3625a302
+  licence: CC BY 4.0
+  status: 'found (check: no real badges)'
+  credit: businessyuen
+- zone: Z14
+  item: Lorry alt.
+  source: Lorry / Truck (with cargo container)
+  url: https://sketchfab.com/3d-models/lorry-truck-with-cargo-container-f3651bc895224e6199eace68efa14144
+  licence: CC BY 4.0
+  status: 'found (check: no real badges)'
+  credit: SRI_LABS
+- zone: Z14
+  item: Trailer (linehaul)
+  source: Truck Trailer FREE
+  url: https://sketchfab.com/3d-models/truck-trailer-free-575958a53e3d4e9f8bcfb1ee2cef67bf
+  licence: CC BY 4.0
+  status: found
+  credit: NLM-Group
+- zone: Z14
+  item: Delivery van
+  source: European Delivery Van (remove maker badges)
+  url: https://sketchfab.com/3d-models/european-delivery-van-0b2f1ad95a79419f9a092420024d329c
+  licence: CC BY 4.0
+  status: found
+  credit: evan.hiltz
+- zone: all
+  item: CCTV bullet (hooded)
+  source: Security Camera 02
+  url: https://polyhaven.com/a/security_camera_02
+  licence: CC0
+  status: found
+  credit: Poly Haven
+- zone: all
+  item: CCTV wall mount
+  source: Security Camera 01
+  url: https://polyhaven.com/a/security_camera_01
+  licence: CC0
+  status: found
+  credit: Poly Haven
+- zone: all
+  item: CCTV dome
+  source: Dome Camera [FREE]
+  url: https://sketchfab.com/3d-models/dome-camera-free-ab8d2a64d3894deba9af23203ba0368d
+  licence: CC BY 4.0
+  status: found
+  credit: MiguelNevesRamos
+- zone: props
+  item: Cardboard boxes
+  source: Cardboard Box 01
+  url: https://polyhaven.com/a/cardboard_box_01
+  licence: CC0
+  status: found
+  credit: Poly Haven
+- zone: props
+  item: Cardboard boxes (sizes)
+  source: Cardboard Boxes Pack - Taped, 100 Sizes
+  url: https://sketchfab.com/3d-models/cardboard-boxes-set-16-sizes-e2bfa6f3822241a49553b44c55ef3082
+  licence: CC BY 4.0
+  status: found
+  credit: alex-human
+- zone: props
+  item: Cardboard texture
+  source: Cardboard 001 / 004
+  url: https://ambientcg.com/view?id=Cardboard001
+  licence: CC0
+  status: found
+  credit: ambientCG
+- zone: props
+  item: Poly flyers
+  source: cloth-sim pillow, several sizes
+  url: null
+  licence: null
+  status: build
+  credit: null
+- zone: props
+  item: Shipping labels 10 x 15 cm
+  source: 'decal: fictional brand, fake barcode'
+  url: null
+  licence: null
+  status: build
+  credit: null
+- zone: props
+  item: Forklift (electric)
+  source: Forklift Truck
+  url: https://sketchfab.com/3d-models/forklift-truck-1567f5f71c1a40eebe487b1b8f570250
+  licence: CC BY 4.0
+  status: 'found (licence confirmed in the .glb metadata: CC-BY-4.0)'
+  credit: Kray Ewan (sketchfab.com/kraysdzine)
+- zone: props
+  item: Forklift alt.
+  source: forklift
+  url: https://sketchfab.com/3d-models/forklift-4438235cea46432aa9ce0c6bdacbc848
+  licence: CC BY 4.0
+  status: not used (Forklift Truck chosen)
+  credit: leoxx300
+- zone: people
+  item: Workers (realistic)
+  source: Construction Worker in Safety Vest
+  url: https://sketchfab.com/3d-models/construction-worker-in-safety-vest-0ee4e54dc78b45f9bb7e26fb0d000f7e
+  licence: CC BY 4.0
+  status: found (rigged on Mixamo; decimated to 30k tris; shirt / vest colour variants)
+  credit: Nitoktris (sketchfab.com/mr.sinankaba)
+- zone: people
+  item: Workers (rigged)
+  source: Worker Man Rigged
+  url: https://sketchfab.com/3d-models/worker-man-rigged-ca5d218c51e04c3ba96929dbe8f9b68e
+  licence: CC BY 4.0
+  status: not used (unclothed base body; kept out of renders)
+  credit: aayushbhattarai
+- zone: people
+  item: Workers (CC0 base)
+  source: Quaternius Universal Base Characters
+  url: https://quaternius.com/packs/universalbasecharacters.html
+  licence: CC0
+  status: not used (Rocketbox chosen)
+  credit: Quaternius
+- zone: people
+  item: 'Workers (crowd): 8 adults + 24 clips'
+  source: Microsoft Rocketbox avatars and animations
+  url: https://github.com/microsoft/Microsoft-Rocketbox
+  licence: MIT
+  status: found
+  credit: Microsoft (Rocketbox)
+- zone: signs
+  item: Dock door number font
+  source: Barlow Condensed Bold
+  url: https://github.com/jpt/barlow
+  licence: OFL 1.1
+  status: found
+  credit: The Barlow Project Authors
+assets_excluded:
+- name: Dome Security Camera
+  url: https://sketchfab.com/3d-models/dome-security-camera-a5c49eefb2564c76b09aba0dc7a4d203
+  licence_found: CC BY-NC
+  reason: non-commercial
+- name: Loading dock
+  url: https://sketchfab.com/3d-models/loading-dock-84a7db0502a34121a0d2c8e481345b08
+  licence_found: CC BY-NC-SA
+  reason: non-commercial
+- name: Loading Docks
+  url: https://sketchfab.com/3d-models/loading-docks-da3471de4c7740aab2af9a06ef3c25b3
+  licence_found: CC BY-NC-SA
+  reason: non-commercial
+- name: Office Chair
+  url: https://sketchfab.com/3d-models/office-chair-95160ce5a52f4e379f66527d2735d96c
+  licence_found: CC BY-NC
+  reason: non-commercial
+- name: Bollards
+  url: https://sketchfab.com/3d-models/bollards-b5ae04dfd20b404f8a3d2e887f997c8b
+  licence_found: Sketchfab Free Standard
+  reason: not CC0 / CC BY
+- name: '[CC0] Free Cardboard Box'
+  url: https://sketchfab.com/3d-models/cc0-free-cardboard-box-e7a46c7b163c477296a3986323ccc826
+  licence_found: Sketchfab Free Standard
+  reason: title says CC0 but the licence field is Free Standard
+- name: Nissan Caravan Detailed 3D Van Model
+  url: https://sketchfab.com/3d-models/nissan-caravan-detailed-3d-van-model-bfddc35e8b40441cbaa291ef0b120935
+  licence_found: Sketchfab Free Standard
+  reason: not CC0 / CC BY; real brand
+- name: Steel Beam A
+  url: https://sketchfab.com/3d-models/steel-beam-a-3e20dd0a445f4ce49aa6495d08641f19
+  licence_found: Sketchfab Free Standard
+  reason: not CC0 / CC BY (I-beams are built instead)
+- name: Container Trailer Chassis
+  url: https://sketchfab.com/3d-models/container-trailer-chassis-4179e400ef464b958bcf8416e11f87df
+  licence_found: CC BY-SA
+  reason: ShareAlike; CC BY alternative exists
+- name: Wooden Pallets - CC0 Game Asset
+  url: https://sketchfab.com/3d-models/wooden-pallets-cc0-game-asset-a9f841eab92b460f939a115dab968351
+  licence_found: CC BY-SA
+  reason: title says CC0 but licence is BY-SA; CC BY alternatives exist
+- name: Workbench
+  url: https://sketchfab.com/3d-models/workbench-1f749d9458d7497e956991033ba827e2
+  licence_found: CC BY-SA
+  reason: ShareAlike; Poly Haven CC0 alternative exists
+- name: Wet Floor Sign 01 (Poly Haven)
+  url: https://polyhaven.com/a/wet_floor_sign_01
+  licence_found: —
+  reason: not found on Poly Haven; built instead
+assets_other_terms:
+- name: 'Mixamo animations: walk, carry box, lift box, idle, push cart'
+  url: https://www.mixamo.com
+  terms: Adobe Mixamo terms (free with an Adobe account; not CC)
+  use: animate the two CC BY workers in renders; raw FBX stay in assets/hub/build/third_party/mixamo/ (gitignored)
+assumptions:
+- id: A1
+  item: Building footprint
+  value: 60 x 40 m, demo scale
+  why: pack assumption; small enough for ~18 cameras; real Malaysian hubs are 6–10x bigger
+- id: A2
+  item: Column grid
+  value: 12 m bays along X; interior column line at Y = 25 m (spans 25 m + 15 m)
+  why: 'owner-approved pushback: keeps columns out of the sorter and chutes and gives camera mounts between bagging and
+    staging'
+- id: A3
+  item: Eaves height
+  value: 11 m
+  why: within the pack's 10–12 m (a Shah Alam shed lists 12 m clear)
+- id: A4
+  item: Dock doors
+  value: 3.0 x 3.0 m, centres 4.0 m apart, dock height 1.2 m
+  why: centre spacing within Blue Giant's 3.7–4.3 m; opening and dock height are assumptions; leveller plate covers lorry/trailer
+    deck differences
+- id: A5
+  item: Sorter deck height
+  value: 1.5 m
+  why: 'owner-approved: chutes need enough drop (1.5 -> 1.0 m over 2 m) to slide convincingly'
+- id: A6
+  item: Loop size
+  value: straights 22 m, radius 4 m, length 69.1 m (~99 carriers at 0.7 m)
+  why: radius per FORTNA minimum; length chosen for 12 chutes + reject on one side (Skynet Hounslow-style, chutes one side)
+- id: A18
+  item: Bag frame
+  value: 1.0 x 0.8 m, rim 0.9 m; chutes 1.3 m long, lip 1.0 m
+  why: no published size found; sized so each chute lip sits 0.1 m above the rim over the bag mouth at a 19° slope (cardboard
+    on steel slides from ~17°), leaving a 1.8 m bagging aisle before walkway W3
+- id: A7
+  item: Chute width / pitch
+  value: 1.0 m wide at 1.5 m pitch; 2.8 m gap between C06 and C07
+  why: width owner-approved (max parcel 1.0 x 0.7 x 0.7 m); pitch cut from 1.6 to 1.5 m so a crossover (XO-1) can land between
+    C06 and C07 while C12 still clears the reject chute
+- id: A8
+  item: Camera poses
+  value: searched per camera
+  why: height / yaw / tilt picked by a search over real mount points (column, drop-pole, wall bracket) to cover each camera's
+    duty area at its PPM target, with occlusion — not guessed
+- id: A14
+  item: Crossovers
+  value: 1.2 m wide; deck 3.3 m over the loop, 2.4 m over the induction belt; stairs ~42°
+  why: deck = carrier/belt height + 0.7 m max parcel + 0.2 m structure + clearance; industrial stairs stay at or under 45°
+- id: A15
+  item: Fire exits
+  value: 3 x 1.0 m push-bar doors (FE-1, FE-2 south; FE-3 east) + staff door
+  why: positions per owner; egress distances NOT checked against Malaysian UBBL / Bomba rules — fictional hub, not a compliant
+    design
+- id: A16
+  item: Walkways and forklift lane
+  value: walkways 1.2 m; one forklift lane 3.0 m; 4 zebra crossings
+  why: common warehouse practice, no Malaysian source; lane keeps >= 0.5 m from the loop guard
+- id: A17
+  item: Supervisor office
+  value: 5.2 x 5.8 m (was 5.2 x 8.8 m)
+  why: shortened so the forklift lane can pass between the office and the loop's east curve
+- id: A13
+  item: Sack racks
+  value: 3.0 m high around the NW store
+  why: screen the deliberate blind corner; steel racking of folded sacks and nested empty cages is normal in hubs
+- id: A9
+  item: Floor lines
+  value: 100 mm yellow
+  why: pack assumption
+- id: A10
+  item: Labels
+  value: 10 x 15 cm
+  why: the common 4 x 6 in thermal shipping-label size (industry standard, not a measured Malaysian figure)
+- id: A11
+  item: Truck yard depth
+  value: 18 m outside each dock wall
+  why: room for a 12 m lorry plus manoeuvring; assumption
+- id: A12
+  item: Camera spec
+  value: 2688 x 1520, 103.0 x 58.0 deg; sensor up to 15 fps, recorded at 10 fps
+  why: sensor figures copied from a real 4MP 2.8 mm dome datasheet (brand kept off the model); recording at 10 fps is an
+    owner decision to fit the render budget and is common NVR practice
+checks:
+  scan_points_visible:
+    pass: true
+    failed: []
+  handoff_overlap:
+    pass: true
+    failed: []
+    detail:
+    - handoff: Z01 south <-> north
+      point_a:
+      - 3.0
+      - 17.0
+      - 1.0
+      point_b:
+      - 3.0
+      - 17.0
+      - 1.0
+      side_a:
+      - CAM_01
+      side_b:
+      - CAM_02
+      pass: true
+    - handoff: Z02 bench -> collector belt
+      point_a:
+      - 5.2
+      - 22.0
+      - 1.0
+      point_b:
+      - 5.2
+      - 22.0
+      - 1.0
+      side_a:
+      - CAM_03
+      side_b:
+      - CAM_02
+      pass: true
+    - handoff: Z01 collector -> Z03 induction
+      point_a:
+      - 5.6
+      - 9.5
+      - 1.0
+      point_b:
+      - 5.6
+      - 9.5
+      - 1.0
+      side_a:
+      - CAM_01
+      side_b:
+      - CAM_04
+      pass: true
+    - handoff: Z09 oversize -> Z03 (same camera)
+      point_a:
+      - 12.0
+      - 6.5
+      - 1.0
+      point_b:
+      - 12.0
+      - 6.5
+      - 1.0
+      side_a:
+      - CAM_04
+      side_b:
+      - CAM_04
+      pass: true
+    - handoff: Z03 -> Z04 -> loop (closed tunnel, bridged by SP-TUNNEL)
+      point_a:
+      - 19.4
+      - 9.5
+      - 1.0
+      point_b:
+      - 22.1
+      - 9.5
+      - 1.7
+      side_a:
+      - CAM_04
+      side_b:
+      - CAM_05
+      pass: true
+    - handoff: Z04 exit -> Z05 merge
+      point_a:
+      - 27.6
+      - 9.5
+      - 1.7
+      point_b:
+      - 27.6
+      - 9.5
+      - 1.7
+      side_a:
+      - CAM_05
+      side_b:
+      - CAM_06
+      pass: true
+    - handoff: Z05 west <-> middle (south straight)
+      point_a:
+      - 34.0
+      - 11.0
+      - 1.7
+      point_b:
+      - 34.0
+      - 11.0
+      - 1.7
+      side_a:
+      - CAM_06
+      side_b:
+      - CAM_07
+      pass: true
+    - handoff: Z05 west <-> middle (north straight)
+      point_a:
+      - 34.0
+      - 19.0
+      - 1.7
+      point_b:
+      - 34.0
+      - 19.0
+      - 1.7
+      side_a:
+      - CAM_06
+      side_b:
+      - CAM_07
+      pass: true
+    - handoff: Z05 middle <-> east (south straight)
+      point_a:
+      - 44.5
+      - 11.0
+      - 1.7
+      point_b:
+      - 44.5
+      - 11.0
+      - 1.7
+      side_a:
+      - CAM_07
+      side_b:
+      - CAM_08
+      pass: true
+    - handoff: Z05 middle <-> east (north straight)
+      point_a:
+      - 44.5
+      - 19.0
+      - 1.7
+      point_b:
+      - 44.5
+      - 19.0
+      - 1.7
+      side_a:
+      - CAM_07
+      side_b:
+      - CAM_08
+      pass: true
+    - handoff: Z05 -> Z06 divert into C01 (rail hides 0.6 m; bridged by SP-DIV-C01)
+      point_a:
+      - 48.6
+      - 19.0
+      - 1.8
+      point_b:
+      - 48.6
+      - 19.8
+      - 1.7
+      side_a:
+      - CAM_08
+      side_b:
+      - CAM_10
+      pass: true
+    - handoff: Z05 -> Z06 divert into C12 (bridged by SP-DIV-C12)
+      point_a:
+      - 30.799999999999997
+      - 19.0
+      - 1.8
+      point_b:
+      - 30.799999999999997
+      - 19.8
+      - 1.7
+      side_a:
+      - CAM_06
+      - CAM_07
+      side_b:
+      - CAM_11
+      pass: true
+    - handoff: Z06 C06 | C07 boundary (XO-1 foot)
+      point_a:
+      - 39.7
+      - 23.8
+      - 1.1
+      point_b:
+      - 39.7
+      - 23.8
+      - 1.1
+      side_a:
+      - CAM_10
+      side_b:
+      - CAM_11
+      pass: true
+    - handoff: Z05 -> Z07 divert into reject (bridged by SP-DIV-REJECT)
+      point_a:
+      - 29.3
+      - 19.0
+      - 1.8
+      point_b:
+      - 29.3
+      - 19.8
+      - 1.7
+      side_a:
+      - CAM_06
+      side_b:
+      - CAM_09
+      pass: true
+    - handoff: Z07 -> Z08 crate to bench
+      point_a:
+      - 28.4
+      - 22.0
+      - 1.0
+      point_b:
+      - 28.4
+      - 22.0
+      - 1.0
+      side_a:
+      - CAM_09
+      side_b:
+      - CAM_12
+      pass: true
+    - handoff: Z08 -> Z03 walk back to induction
+      point_a:
+      - 21.0
+      - 13.5
+      - 1.0
+      point_b:
+      - 21.0
+      - 13.5
+      - 1.0
+      side_a:
+      - CAM_06
+      side_b:
+      - CAM_05
+      pass: true
+    - handoff: Z06 -> Z10 bags carried to cages (west)
+      point_a:
+      - 34.0
+      - 25.6
+      - 1.0
+      point_b:
+      - 34.0
+      - 25.6
+      - 1.0
+      side_a:
+      - CAM_11
+      - CAM_09
+      side_b:
+      - CAM_13
+      pass: true
+    - handoff: Z06 -> Z10 bags carried to cages (east)
+      point_a:
+      - 46.0
+      - 25.6
+      - 1.0
+      point_b:
+      - 46.0
+      - 25.6
+      - 1.0
+      side_a:
+      - CAM_10
+      side_b:
+      - CAM_14
+      pass: true
+    - handoff: Z10 west <-> east
+      point_a:
+      - 38.5
+      - 29.0
+      - 1.0
+      point_b:
+      - 38.5
+      - 29.0
+      - 1.0
+      side_a:
+      - CAM_13
+      side_b:
+      - CAM_14
+      pass: true
+    - handoff: Z10 -> Z12 cages to doors (west)
+      point_a:
+      - 32.0
+      - 33.0
+      - 1.0
+      point_b:
+      - 32.0
+      - 33.0
+      - 1.0
+      side_a:
+      - CAM_13
+      side_b:
+      - CAM_15
+      pass: true
+    - handoff: Z10 -> Z12 cages to doors (east)
+      point_a:
+      - 46.0
+      - 33.0
+      - 1.0
+      point_b:
+      - 46.0
+      - 33.0
+      - 1.0
+      side_a:
+      - CAM_14
+      side_b:
+      - CAM_16
+      pass: true
+    - handoff: Z12 door 12 -> Z14 yard (through the door)
+      point_a:
+      - 49.0
+      - 39.5
+      - 1.5
+      point_b:
+      - 49.0
+      - 40.9
+      - 1.5
+      side_a:
+      - CAM_16
+      side_b:
+      - CAM_17
+      pass: true
+  reject_chute_camera:
+    pass: true
+    cameras_at_recognise:
+    - CAM_09
+    - CAM_11
+    - CAM_12
+  dock_doors_inside_angled:
+    pass: true
+    failed: []
+    detail:
+    - door: D01
+      viewers:
+      - camera: CAM_01
+        angle_off_normal_deg: 34
+        dock_camera: true
+      glare_risk: []
+      pass: true
+    - door: D02
+      viewers:
+      - camera: CAM_01
+        angle_off_normal_deg: 50
+        dock_camera: true
+      glare_risk: []
+      pass: true
+    - door: D03
+      viewers:
+      - camera: CAM_01
+        angle_off_normal_deg: 60
+        dock_camera: true
+      glare_risk: []
+      pass: true
+    - door: D04
+      viewers:
+      - camera: CAM_01
+        angle_off_normal_deg: 66
+        dock_camera: true
+      - camera: CAM_02
+        angle_off_normal_deg: 63
+        dock_camera: true
+      glare_risk: []
+      pass: true
+    - door: D05
+      viewers:
+      - camera: CAM_02
+        angle_off_normal_deg: 53
+        dock_camera: true
+      glare_risk: []
+      pass: true
+    - door: D06
+      viewers:
+      - camera: CAM_02
+        angle_off_normal_deg: 35
+        dock_camera: true
+      glare_risk: []
+      pass: true
+    - door: D07
+      viewers:
+      - camera: CAM_15
+        angle_off_normal_deg: 27
+        dock_camera: true
+      glare_risk: []
+      pass: true
+    - door: D08
+      viewers:
+      - camera: CAM_15
+        angle_off_normal_deg: 44
+        dock_camera: true
+      glare_risk: []
+      pass: true
+    - door: D09
+      viewers:
+      - camera: CAM_15
+        angle_off_normal_deg: 54
+        dock_camera: true
+      - camera: CAM_16
+        angle_off_normal_deg: 63
+        dock_camera: true
+      glare_risk: []
+      pass: true
+    - door: D10
+      viewers:
+      - camera: CAM_15
+        angle_off_normal_deg: 62
+        dock_camera: true
+      - camera: CAM_16
+        angle_off_normal_deg: 56
+        dock_camera: true
+      glare_risk: []
+      pass: true
+    - door: D11
+      viewers:
+      - camera: CAM_14
+        angle_off_normal_deg: 44
+        dock_camera: false
+      - camera: CAM_15
+        angle_off_normal_deg: 66
+        dock_camera: true
+      - camera: CAM_16
+        angle_off_normal_deg: 47
+        dock_camera: true
+      glare_risk: []
+      pass: true
+    - door: D12
+      viewers:
+      - camera: CAM_14
+        angle_off_normal_deg: 34
+        dock_camera: false
+      - camera: CAM_15
+        angle_off_normal_deg: 70
+        dock_camera: true
+      - camera: CAM_16
+        angle_off_normal_deg: 31
+        dock_camera: true
+      glare_risk: []
+      pass: true
+  blind_corner:
+    pass: true
+    fraction_seen: 0.0
+    approach_seen_by:
+    - CAM_13
+  walkways_clear:
+    pass: true
+    conflicts: []
+  forklift_lane_clear:
+    pass: true
+    conflicts: []
+    walkway_crossings:
+    - walkway: W3
+      zebra: ZX3
+    - walkway: W6
+      zebra: ZX4
+    route: Z09 -> south aisle -> east aisle -> outbound dock Z12
+    width_m: 3.0
+  crossovers:
+    pass: true
+    detail:
+    - id: XO-1
+      clearance_over_max_parcel_m: 0.9
+      feet_on_walkway:
+      - true
+      - true
+      stair_angle_deg: 43
+    - id: XO-2
+      clearance_over_max_parcel_m: 0.5
+      feet_on_walkway:
+      - true
+      - true
+      stair_angle_deg: 43
+  chutes_reachable:
+    pass: true
+    bad: []
+    note: every bag frame faces a bagging aisle 1.2–2.5 m deep that opens onto W3
+    aisle_depth_m:
+    - 1.8
+  chute_lips_over_bag_mouths:
+    pass: true
+    failed: []
+    detail:
+    - chute: C01
+      lip_y: 20.9
+      mouth_y:
+      - 20.6
+      - 21.400000000000002
+      lip_above_rim_m: 0.1
+      slope_deg: 19.1
+      pass: true
+    - chute: C02
+      lip_y: 20.9
+      mouth_y:
+      - 20.6
+      - 21.400000000000002
+      lip_above_rim_m: 0.1
+      slope_deg: 19.1
+      pass: true
+    - chute: C03
+      lip_y: 20.9
+      mouth_y:
+      - 20.6
+      - 21.400000000000002
+      lip_above_rim_m: 0.1
+      slope_deg: 19.1
+      pass: true
+    - chute: C04
+      lip_y: 20.9
+      mouth_y:
+      - 20.6
+      - 21.400000000000002
+      lip_above_rim_m: 0.1
+      slope_deg: 19.1
+      pass: true
+    - chute: C05
+      lip_y: 20.9
+      mouth_y:
+      - 20.6
+      - 21.400000000000002
+      lip_above_rim_m: 0.1
+      slope_deg: 19.1
+      pass: true
+    - chute: C06
+      lip_y: 20.9
+      mouth_y:
+      - 20.6
+      - 21.400000000000002
+      lip_above_rim_m: 0.1
+      slope_deg: 19.1
+      pass: true
+    - chute: C07
+      lip_y: 20.9
+      mouth_y:
+      - 20.6
+      - 21.400000000000002
+      lip_above_rim_m: 0.1
+      slope_deg: 19.1
+      pass: true
+    - chute: C08
+      lip_y: 20.9
+      mouth_y:
+      - 20.6
+      - 21.400000000000002
+      lip_above_rim_m: 0.1
+      slope_deg: 19.1
+      pass: true
+    - chute: C09
+      lip_y: 20.9
+      mouth_y:
+      - 20.6
+      - 21.400000000000002
+      lip_above_rim_m: 0.1
+      slope_deg: 19.1
+      pass: true
+    - chute: C10
+      lip_y: 20.9
+      mouth_y:
+      - 20.6
+      - 21.400000000000002
+      lip_above_rim_m: 0.1
+      slope_deg: 19.1
+      pass: true
+    - chute: C11
+      lip_y: 20.9
+      mouth_y:
+      - 20.6
+      - 21.400000000000002
+      lip_above_rim_m: 0.1
+      slope_deg: 19.1
+      pass: true
+    - chute: C12
+      lip_y: 20.9
+      mouth_y:
+      - 20.6
+      - 21.400000000000002
+      lip_above_rim_m: 0.1
+      slope_deg: 19.1
+      pass: true
+    - chute: REJECT
+      lip_y: 20.9
+      mouth_y:
+      - 20.6
+      - 21.2
+      lip_above_rim_m: 0.3
+      slope_deg: 22.9
+      pass: true
+  fire_exits_on_walkway:
+    pass: true
+    failed: []
+    detail:
+    - door: STAFF-1
+      walkway:
+      - W2
+    - door: FE-1
+      walkway:
+      - W1
+    - door: FE-2
+      walkway:
+      - W1
+    - door: FE-3
+      walkway:
+      - W2
+  advisory_fire_exits_filmed:
+    pass: true
+    detail:
+      STAFF-1:
+      - CAM_08
+      FE-1:
+      - CAM_18
+      FE-2:
+      - CAM_18
+      FE-3:
+      - CAM_14
+      - CAM_15
+  advisory_forklift_lane_filmed:
+    pass: true
+    fraction_seen: 0.98
+    unseen_stretches_over_3m: []
+  weigh_section_filmed:
+    pass: true
+    detail:
+      17.6:
+      - CAM_04
+      18.25:
+      - CAM_04
+      18.9:
+      - CAM_04
+    note: not a scan point (see machines.scan_tunnel.weigh_section); filmed anyway
+  advisory_cameras_watch_each_other:
+    pass: false
+    unwatched:
+    - CAM_01
+    - CAM_02
+    - CAM_03
+    - CAM_04
+    - CAM_06
+    - CAM_07
+    - CAM_08
+    - CAM_10
+    - CAM_11
+    - CAM_12
+    - CAM_13
+    - CAM_14
+    - CAM_15
+    - CAM_17
+    - CAM_18
+    note: high-mounted cameras tilted down rarely see each other's mounts; tampering shows up instead as video loss / scene
+      change, which the backend records as a coverage gap
+zone_coverage_fraction:
+  Z01:
+    detect: 1.0
+    observe: 1.0
+  Z02:
+    detect: 0.9
+    observe: 0.88
+  Z03:
+    detect: 0.98
+    observe: 0.97
+  Z04:
+    detect: 0.86
+    observe: 0.78
+  Z05:
+    detect: 0.97
+    observe: 0.97
+  Z06:
+    detect: 0.97
+    observe: 0.97
+  Z07:
+    detect: 1.0
+    observe: 1.0
+  Z08:
+    detect: 1.0
+    observe: 0.99
+  Z09:
+    detect: 1.0
+    observe: 0.97
+  Z10:
+    detect: 1.0
+    observe: 1.0
+  Z12:
+    detect: 1.0
+    observe: 1.0
+known_gaps:
+- where: BLIND_NW
+  kind: deliberate
+  bridged_by: nothing — Spoor must answer 'no coverage'
+- where: inside the scan tunnel (x 19.5–22.0)
+  kind: closed machine
+  bridged_by: SP-TUNNEL event
+- where: 0.6 m between carrier and chute mouth, every chute
+  kind: deck rail hides it
+  bridged_by: SP-DIV-* divert-confirm events
+- where: CAM_01 mount
+  kind: advisory (tamper)
+  bridged_by: video-loss / scene-change
+- where: CAM_02 mount
+  kind: advisory (tamper)
+  bridged_by: video-loss / scene-change
+- where: CAM_03 mount
+  kind: advisory (tamper)
+  bridged_by: video-loss / scene-change
+- where: CAM_04 mount
+  kind: advisory (tamper)
+  bridged_by: video-loss / scene-change
+- where: CAM_06 mount
+  kind: advisory (tamper)
+  bridged_by: video-loss / scene-change
+- where: CAM_07 mount
+  kind: advisory (tamper)
+  bridged_by: video-loss / scene-change
+- where: CAM_08 mount
+  kind: advisory (tamper)
+  bridged_by: video-loss / scene-change
+- where: CAM_10 mount
+  kind: advisory (tamper)
+  bridged_by: video-loss / scene-change
+- where: CAM_11 mount
+  kind: advisory (tamper)
+  bridged_by: video-loss / scene-change
+- where: CAM_12 mount
+  kind: advisory (tamper)
+  bridged_by: video-loss / scene-change
+- where: CAM_13 mount
+  kind: advisory (tamper)
+  bridged_by: video-loss / scene-change
+- where: CAM_14 mount
+  kind: advisory (tamper)
+  bridged_by: video-loss / scene-change
+- where: CAM_15 mount
+  kind: advisory (tamper)
+  bridged_by: video-loss / scene-change
+- where: CAM_17 mount
+  kind: advisory (tamper)
+  bridged_by: video-loss / scene-change
+- where: CAM_18 mount
+  kind: advisory (tamper)
+  bridged_by: video-loss / scene-change
+scenario_support:
+- scenario: Control path
+  zones: Z01→Z03→Z04→Z05→Z06→Z10→Z12
+  evidence_cameras: &id004
+  - CAM_01
+  - CAM_02
+  - CAM_04
+  - CAM_05
+  - CAM_06
+  - CAM_07
+  - CAM_08
+  - CAM_10
+  - CAM_11
+  - CAM_13
+  - CAM_14
+  - CAM_15
+  - CAM_16
+  note: rendered on all cameras
+- scenario: No-read rework (loops, exits at reject chute)
+  zones: Z04→Z05→Z07→Z08→Z03
+  evidence_cameras: &id005
+  - CAM_04
+  - CAM_05
+  - CAM_06
+  - CAM_07
+  - CAM_08
+  - CAM_09
+  - CAM_12
+- scenario: Relabel at exception bench
+  zones: Z08
+  evidence_cameras: &id006
+  - CAM_12
+- scenario: Wrong bag at bagging
+  zones: Z06
+  evidence_cameras: &id007
+  - CAM_10
+  - CAM_11
+- scenario: Left in chute
+  zones: Z06
+  evidence_cameras: &id008
+  - CAM_10
+  - CAM_11
+- scenario: Phantom containment (scanned into bag, left beside it)
+  zones: Z06→Z10
+  evidence_cameras: &id009
+  - CAM_10
+  - CAM_11
+  - CAM_13
+  - CAM_14
+- scenario: Mis-load onto wrong truck (RFID cross-read)
+  zones: Z10→Z12
+  evidence_cameras: &id010
+  - CAM_13
+  - CAM_14
+  - CAM_15
+  - CAM_16
+  - CAM_17
+- scenario: Look-alike pair
+  zones: Z03→Z05
+  evidence_cameras: &id011
+  - CAM_04
+  - CAM_05
+  - CAM_06
+- scenario: Camera outage
+  zones: Z10
+  evidence_cameras: &id012
+  - CAM_13
+  note: CAM_13 rendered with a 20 min video-loss gap
+- scenario: Removal into blind spot
+  zones: Z10→Z11 BLIND_NW
+  evidence_cameras: &id013
+  - CAM_13
+  note: CAM_13 films the approach; nothing inside
+- scenario: Return-to-sender (re-induct with new label)
+  zones: Z01→Z03
+  evidence_cameras: &id014
+  - CAM_01
+  - CAM_02
+  - CAM_04
+  - CAM_05
+- scenario: Mixed up while opening an inbound bag
+  zones: Z02
+  evidence_cameras: &id015
+  - CAM_02
+  - CAM_03
+- scenario: Stuck on the cover plate between carriers
+  zones: Z05
+  evidence_cameras: &id016
+  - CAM_06
+  - CAM_07
+  - CAM_08
+- scenario: Two parcels on one carrier
+  zones: Z04→Z05→Z06
+  evidence_cameras: &id017
+  - CAM_05
+  - CAM_06
+  - CAM_07
+  - CAM_08
+  - CAM_10
+  - CAM_11
+hackathon_mapping:
+  theme_push_the_frontier: a real physical system (loop sorter, reject chute, bag→cage→truck nesting, relabels) that Spoor
+    reconstructs from video + scans, and states where it cannot know (BLIND_NW, camera outage)
+  theme_build_for_your_world: Klang Valley setting, Malay/English signs, chutes to Malaysian destinations, fictional brand
+  impact: every scenario copies a real loss point (no-read, wrong bag, wrong truck, relabel, fall-off, stuck carrier)
+  meta_ai_tooling: look-alikes, occlusion under the raised loop, cross-camera handoffs and the outage scenario need SAM
+    3.1 tracking + Muse Spark reasoning; nothing is generated by Muse Image
+  technical_depth: exact camera poses and parcel paths from Blender → measured tracking/timing/location error; per-camera
+    drifting clocks test fit_clock()
+  demo: the plan supports a cinematic fly-through (separate camera) + multi-camera CCTV wall + 3D path replay
+  rules: CC0 / CC BY only (NC, Free Standard and ShareAlike dropped), fictional brand, no AI-generated models, footage labelled
+    'synthetic footage of a fictional hub'
+render_plan:
+  rule: cameras in play + 2–3 neighbours (3 when <= 4 in play, else 2); control path on all cameras
+  seconds_per_scenario: 30
+  fps: 10
+  scenarios:
+  - scenario: Control path
+    cameras_in_play: *id004
+    neighbours:
+    - CAM_03
+    - CAM_09
+    - CAM_12
+    - CAM_17
+    - CAM_18
+    render:
+    - CAM_01
+    - CAM_02
+    - CAM_03
+    - CAM_04
+    - CAM_05
+    - CAM_06
+    - CAM_07
+    - CAM_08
+    - CAM_09
+    - CAM_10
+    - CAM_11
+    - CAM_12
+    - CAM_13
+    - CAM_14
+    - CAM_15
+    - CAM_16
+    - CAM_17
+    - CAM_18
+    camera_count: 18
+    frames: 5400
+    note: rendered on all cameras
+  - scenario: No-read rework (loops, exits at reject chute)
+    cameras_in_play: *id005
+    neighbours:
+    - CAM_11
+    - CAM_10
+    render:
+    - CAM_04
+    - CAM_05
+    - CAM_06
+    - CAM_07
+    - CAM_08
+    - CAM_09
+    - CAM_10
+    - CAM_11
+    - CAM_12
+    camera_count: 9
+    frames: 2700
+  - scenario: Relabel at exception bench
+    cameras_in_play: *id006
+    neighbours:
+    - CAM_09
+    - CAM_11
+    - CAM_15
+    render:
+    - CAM_09
+    - CAM_11
+    - CAM_12
+    - CAM_15
+    camera_count: 4
+    frames: 1200
+  - scenario: Wrong bag at bagging
+    cameras_in_play: *id007
+    neighbours:
+    - CAM_13
+    - CAM_14
+    - CAM_07
+    render:
+    - CAM_07
+    - CAM_10
+    - CAM_11
+    - CAM_13
+    - CAM_14
+    camera_count: 5
+    frames: 1500
+  - scenario: Left in chute
+    cameras_in_play: *id008
+    neighbours:
+    - CAM_13
+    - CAM_14
+    - CAM_07
+    render:
+    - CAM_07
+    - CAM_10
+    - CAM_11
+    - CAM_13
+    - CAM_14
+    camera_count: 5
+    frames: 1500
+  - scenario: Phantom containment (scanned into bag, left beside it)
+    cameras_in_play: *id009
+    neighbours:
+    - CAM_16
+    - CAM_09
+    - CAM_15
+    render:
+    - CAM_09
+    - CAM_10
+    - CAM_11
+    - CAM_13
+    - CAM_14
+    - CAM_15
+    - CAM_16
+    camera_count: 7
+    frames: 2100
+  - scenario: Mis-load onto wrong truck (RFID cross-read)
+    cameras_in_play: *id010
+    neighbours:
+    - CAM_10
+    - CAM_11
+    render:
+    - CAM_10
+    - CAM_11
+    - CAM_13
+    - CAM_14
+    - CAM_15
+    - CAM_16
+    - CAM_17
+    camera_count: 7
+    frames: 2100
+  - scenario: Look-alike pair
+    cameras_in_play: *id011
+    neighbours:
+    - CAM_07
+    - CAM_01
+    - CAM_09
+    render:
+    - CAM_01
+    - CAM_04
+    - CAM_05
+    - CAM_06
+    - CAM_07
+    - CAM_09
+    camera_count: 6
+    frames: 1800
+  - scenario: Camera outage
+    cameras_in_play: *id012
+    neighbours:
+    - CAM_11
+    - CAM_09
+    - CAM_15
+    render:
+    - CAM_09
+    - CAM_11
+    - CAM_13
+    - CAM_15
+    camera_count: 4
+    frames: 1200
+    note: CAM_13 rendered with a 20 min video-loss gap
+  - scenario: Removal into blind spot
+    cameras_in_play: *id013
+    neighbours:
+    - CAM_11
+    - CAM_09
+    - CAM_15
+    render:
+    - CAM_09
+    - CAM_11
+    - CAM_13
+    - CAM_15
+    camera_count: 4
+    frames: 1200
+    note: CAM_13 films the approach; nothing inside
+  - scenario: Return-to-sender (re-induct with new label)
+    cameras_in_play: *id014
+    neighbours:
+    - CAM_03
+    - CAM_06
+    - CAM_12
+    render:
+    - CAM_01
+    - CAM_02
+    - CAM_03
+    - CAM_04
+    - CAM_05
+    - CAM_06
+    - CAM_12
+    camera_count: 7
+    frames: 2100
+  - scenario: Mixed up while opening an inbound bag
+    cameras_in_play: *id015
+    neighbours:
+    - CAM_01
+    - CAM_15
+    - CAM_12
+    render:
+    - CAM_01
+    - CAM_02
+    - CAM_03
+    - CAM_12
+    - CAM_15
+    camera_count: 5
+    frames: 1500
+  - scenario: Stuck on the cover plate between carriers
+    cameras_in_play: *id016
+    neighbours:
+    - CAM_11
+    - CAM_05
+    - CAM_09
+    render:
+    - CAM_05
+    - CAM_06
+    - CAM_07
+    - CAM_08
+    - CAM_09
+    - CAM_11
+    camera_count: 6
+    frames: 1800
+  - scenario: Two parcels on one carrier
+    cameras_in_play: *id017
+    neighbours:
+    - CAM_09
+    - CAM_13
+    render:
+    - CAM_05
+    - CAM_06
+    - CAM_07
+    - CAM_08
+    - CAM_09
+    - CAM_10
+    - CAM_11
+    - CAM_13
+    camera_count: 8
+    frames: 2400
+  total_frames: 28500
+  all_cameras_every_scenario_would_be: 75600
+  timing:
+    status: 'MEASURED 2026-10-28 on the DRESSED hub (no animated workers / parcels yet: re-time once scenarios exist)'
+    machine: 'laptop: Intel i7-1355U (15 W), Intel Iris Xe integrated GPU, 32 GB RAM; Blender 5.2.3 LTS'
+    seconds_per_frame:
+      measured_steady_state:
+        CAM_01: 8.5
+        CAM_02: 9.3
+        CAM_03: 10.1
+        CAM_04: 9.4
+        CAM_05: 9.7
+        CAM_06: 8.5
+        CAM_07: 8.9
+        CAM_08: 8.6
+        CAM_09: 9.7
+        CAM_10: 9.2
+        CAM_11: 10.2
+        CAM_12: 8.3
+        CAM_13: 16.3
+        CAM_14: 10.1
+        CAM_15: 9.1
+        CAM_16: 7.8
+        CAM_17: 6.0
+        CAM_18: 10.0
+      planning: 9.4
+      settings: EEVEE 2688 x 1520 (full resolution, owner rule), 8 samples, spot high-bays, shadows only from pools the
+        camera sees within 22 m, 5 cm shadow texels, 2 shadow steps, max shadow pool, PNG write; ray tracing costs ~nothing
+        here
+      history: timing-test slice 9.1 s; blockout 5.2 s; dressed (area lights, 16 spp) 11–16 s; spot lights at default 1
+        mm shadow texels 20–51 s; coarse shadows + 22 m cap 7.8–16.3 s
+    hours_for_total: 74.4
+    priority_batch:
+      scenarios: control path + no-read rework, phantom containment, mis-load, blind spot
+      frames: 13500
+      hours: 36.5
+      owner_cap_hours: 40
+      shadow_cuts_needed: false
+      note: no-shadow saves only ~0–10 % per frame now; rule kept in reserve
+    keep_awake: the render script holds SetThreadExecutionState for as long as Blender runs; on AC power this PC already
+      never sleeps (lid must stay open)

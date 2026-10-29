@@ -1,0 +1,51 @@
+[project]
+name = "spoor"
+version = "0.1.0"
+description = "Spoor — evidence-grounded spatial investigation backend"
+authors = [
+    { name = "RZRexton", email = "ooiruizhe@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.162.0",
+    "httpx>=0.28.1",
+    "meta-sam-parser>=0.1.0",
+    "numpy>=2.5.4",
+    "openai>=3.39.0",
+    "opencv-python-headless>=4.12,<5",
+    "pydantic>=2",
+    "pydantic-settings>=2.16.1",
+    "python-multipart>=0.0.32",
+    "scipy>=1.18.1",
+    "sqlalchemy>=2.1.6",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[project.optional-dependencies]
+postgres = [
+    "psycopg[binary]>=3.3.6",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.1,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.17.3",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py313"
+
+[tool.ruff.lint]
+# RUF012: Pydantic copies mutable field defaults per instance, so `x: list[str] = []` is safe on models.
+ignore = ["RUF012"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["C408", "RUF059", "PLC0414"]

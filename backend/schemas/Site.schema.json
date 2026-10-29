@@ -1,0 +1,178 @@
+{
+  "$defs": {
+    "Floor": {
+      "additionalProperties": false,
+      "properties": {
+        "floor_id": {
+          "maxLength": 96,
+          "pattern": "^floor_[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "title": "Floor Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "elevation_m": {
+          "default": 0.0,
+          "title": "Elevation M",
+          "type": "number"
+        },
+        "outline_m": {
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          },
+          "minItems": 3,
+          "title": "Outline M",
+          "type": "array"
+        }
+      },
+      "required": [
+        "floor_id",
+        "name",
+        "outline_m"
+      ],
+      "title": "Floor",
+      "type": "object"
+    },
+    "Zone": {
+      "additionalProperties": false,
+      "properties": {
+        "zone_id": {
+          "maxLength": 96,
+          "pattern": "^zone_[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "title": "Zone Id",
+          "type": "string"
+        },
+        "floor_id": {
+          "maxLength": 96,
+          "pattern": "^floor_[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "title": "Floor Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/ZoneKind"
+        },
+        "polygon_m": {
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          },
+          "minItems": 3,
+          "title": "Polygon M",
+          "type": "array"
+        },
+        "surface_height_m": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Surface Height M"
+        },
+        "measured": {
+          "description": "True if surveyed in the room; False if approximate",
+          "title": "Measured",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "zone_id",
+        "floor_id",
+        "name",
+        "kind",
+        "polygon_m",
+        "measured"
+      ],
+      "title": "Zone",
+      "type": "object"
+    },
+    "ZoneKind": {
+      "enum": [
+        "shelf",
+        "desk",
+        "door",
+        "hallway",
+        "walkway",
+        "other"
+      ],
+      "title": "ZoneKind",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "site_id": {
+      "maxLength": 96,
+      "pattern": "^site_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Site Id",
+      "type": "string"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "frame": {
+      "default": "site_meters_z_up_v1",
+      "title": "Frame",
+      "type": "string"
+    },
+    "measurement_method": {
+      "description": "How dimensions were obtained, e.g. 'tape measure, \u00b12 cm'",
+      "title": "Measurement Method",
+      "type": "string"
+    },
+    "floors": {
+      "items": {
+        "$ref": "#/$defs/Floor"
+      },
+      "minItems": 1,
+      "title": "Floors",
+      "type": "array"
+    },
+    "zones": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Zone"
+      },
+      "title": "Zones",
+      "type": "array"
+    }
+  },
+  "required": [
+    "site_id",
+    "name",
+    "measurement_method",
+    "floors"
+  ],
+  "title": "Site",
+  "type": "object"
+}

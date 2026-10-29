@@ -1,0 +1,73 @@
+{
+  "$defs": {
+    "AssociationStatus": {
+      "description": "Cross-track link status (PRD \u00a714.3 step 8).",
+      "enum": [
+        "verified_same_camera",
+        "scan_bound",
+        "candidate_cross_camera",
+        "human_confirmed",
+        "rejected",
+        "unresolved"
+      ],
+      "title": "AssociationStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Hypothesized link of a track to a provisional physical object. Versioned, never silently merged (\u00a714.3).",
+  "properties": {
+    "object_instance_id": {
+      "maxLength": 96,
+      "pattern": "^objinst_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Object Instance Id",
+      "type": "string"
+    },
+    "track_id": {
+      "maxLength": 96,
+      "pattern": "^trk_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Track Id",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/AssociationStatus"
+    },
+    "signals": {
+      "additionalProperties": {
+        "type": "number"
+      },
+      "description": "appearance/temporal/topology scores",
+      "title": "Signals",
+      "type": "object"
+    },
+    "reason": {
+      "title": "Reason",
+      "type": "string"
+    },
+    "version": {
+      "minimum": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "created_by": {
+      "title": "Created By",
+      "type": "string"
+    }
+  },
+  "required": [
+    "object_instance_id",
+    "track_id",
+    "status",
+    "reason",
+    "version",
+    "created_at",
+    "created_by"
+  ],
+  "title": "TrackAssociation",
+  "type": "object"
+}

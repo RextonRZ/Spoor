@@ -1,0 +1,409 @@
+{
+  "$defs": {
+    "FrameRef": {
+      "additionalProperties": false,
+      "description": "Points at one frame of one media asset; every citation resolves through this (PRD \u00a711.1).",
+      "properties": {
+        "media_id": {
+          "maxLength": 96,
+          "pattern": "^media_[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "title": "Media Id",
+          "type": "string"
+        },
+        "pts_ms": {
+          "description": "Presentation time in the media's own timeline",
+          "minimum": 0,
+          "title": "Pts Ms",
+          "type": "number"
+        },
+        "frame_index": {
+          "minimum": 0,
+          "title": "Frame Index",
+          "type": "integer"
+        },
+        "camera_clock_utc": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Camera Clock Utc"
+        },
+        "normalized_utc": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Normalized Utc"
+        },
+        "sync_id": {
+          "anyOf": [
+            {
+              "maxLength": 96,
+              "pattern": "^sync_[A-Za-z0-9][A-Za-z0-9_-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sync Id"
+        },
+        "time_uncertainty_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Time Uncertainty Ms"
+        }
+      },
+      "required": [
+        "media_id",
+        "pts_ms",
+        "frame_index"
+      ],
+      "title": "FrameRef",
+      "type": "object"
+    },
+    "ModelProvenance": {
+      "additionalProperties": false,
+      "description": "Which model produced something, with what input. `confidence_raw` is only meaningful within this model.",
+      "properties": {
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "model_version": {
+          "title": "Model Version",
+          "type": "string"
+        },
+        "provider": {
+          "title": "Provider",
+          "type": "string"
+        },
+        "request_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Provider response/operation id",
+          "title": "Request Id"
+        },
+        "prompt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Exact prompt sent (noun phrase or prompt tokens)",
+          "title": "Prompt"
+        },
+        "prompt_template_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Template Version"
+        },
+        "cache_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cache Key"
+        }
+      },
+      "required": [
+        "model",
+        "model_version",
+        "provider"
+      ],
+      "title": "ModelProvenance",
+      "type": "object"
+    },
+    "SourceType": {
+      "enum": [
+        "video",
+        "sensor_real",
+        "sensor_simulated",
+        "scan_real",
+        "scan_simulated",
+        "human_annotation"
+      ],
+      "title": "SourceType",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A video- or sensor-derived observation. Never produced from user-facing narrative (PRD \u00a711.2).",
+  "properties": {
+    "observation_id": {
+      "maxLength": 96,
+      "pattern": "^obs_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Observation Id",
+      "type": "string"
+    },
+    "source_type": {
+      "$ref": "#/$defs/SourceType"
+    },
+    "camera_id": {
+      "anyOf": [
+        {
+          "maxLength": 96,
+          "pattern": "^cam_[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Camera Id"
+    },
+    "source_frame": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FrameRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "sensor_event_id": {
+      "anyOf": [
+        {
+          "maxLength": 96,
+          "pattern": "^sens_[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sensor Event Id"
+    },
+    "track_id": {
+      "anyOf": [
+        {
+          "maxLength": 96,
+          "pattern": "^trk_[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Track Id"
+    },
+    "label": {
+      "maxLength": 120,
+      "minLength": 1,
+      "title": "Label",
+      "type": "string"
+    },
+    "bbox_xyxy_px": {
+      "anyOf": [
+        {
+          "maxItems": 4,
+          "minItems": 4,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Bbox Xyxy Px"
+    },
+    "frame_wh_px": {
+      "anyOf": [
+        {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Frame Wh Px"
+    },
+    "mask_asset_id": {
+      "anyOf": [
+        {
+          "maxLength": 96,
+          "pattern": "^media_[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Mask Asset Id"
+    },
+    "floor_contact_uv_px": {
+      "anyOf": [
+        {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Floor Contact Uv Px"
+    },
+    "observed": {
+      "default": true,
+      "title": "Observed",
+      "type": "boolean"
+    },
+    "quality_flags": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Quality Flags",
+      "type": "array"
+    },
+    "provenance": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ModelProvenance"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "confidence_raw": {
+      "anyOf": [
+        {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Confidence Raw"
+    },
+    "confidence_calibrated": {
+      "anyOf": [
+        {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Confidence Calibrated"
+    },
+    "confidence_calibration_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Confidence Calibration Id"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "observation_id",
+    "source_type",
+    "label",
+    "created_at"
+  ],
+  "title": "RawObservation",
+  "type": "object"
+}

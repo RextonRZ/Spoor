@@ -1,0 +1,268 @@
+{
+  "$defs": {
+    "AssetKind": {
+      "description": "Distinguished on every UI surface and export (PRD \u00a77.3).",
+      "enum": [
+        "original",
+        "annotated_derivative",
+        "working_derivative",
+        "estimated_geometry",
+        "illustrative"
+      ],
+      "title": "AssetKind",
+      "type": "string"
+    },
+    "MediaProbe": {
+      "additionalProperties": false,
+      "description": "Facts read from the container by ffprobe, kept verbatim alongside derived flags.",
+      "properties": {
+        "container": {
+          "title": "Container",
+          "type": "string"
+        },
+        "video_codec": {
+          "title": "Video Codec",
+          "type": "string"
+        },
+        "width_px": {
+          "exclusiveMinimum": 0,
+          "title": "Width Px",
+          "type": "integer"
+        },
+        "height_px": {
+          "exclusiveMinimum": 0,
+          "title": "Height Px",
+          "type": "integer"
+        },
+        "rotation_deg": {
+          "default": 0,
+          "title": "Rotation Deg",
+          "type": "integer"
+        },
+        "duration_ms": {
+          "minimum": 0,
+          "title": "Duration Ms",
+          "type": "number"
+        },
+        "avg_fps": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Avg Fps"
+        },
+        "nominal_fps": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nominal Fps"
+        },
+        "variable_frame_rate": {
+          "default": false,
+          "title": "Variable Frame Rate",
+          "type": "boolean"
+        },
+        "frame_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Frame Count"
+        },
+        "time_base": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Time Base"
+        },
+        "has_audio": {
+          "default": false,
+          "title": "Has Audio",
+          "type": "boolean"
+        },
+        "creation_time_utc": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Creation Time Utc"
+        },
+        "flags": {
+          "description": "e.g. non_monotonic_pts, rotated, missing_pts",
+          "items": {
+            "type": "string"
+          },
+          "title": "Flags",
+          "type": "array"
+        }
+      },
+      "required": [
+        "container",
+        "video_codec",
+        "width_px",
+        "height_px",
+        "duration_ms"
+      ],
+      "title": "MediaProbe",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "media_id": {
+      "maxLength": 96,
+      "pattern": "^media_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Media Id",
+      "type": "string"
+    },
+    "site_id": {
+      "maxLength": 96,
+      "pattern": "^site_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Site Id",
+      "type": "string"
+    },
+    "camera_id": {
+      "anyOf": [
+        {
+          "maxLength": 96,
+          "pattern": "^cam_[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Camera Id"
+    },
+    "kind": {
+      "$ref": "#/$defs/AssetKind"
+    },
+    "sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Sha256",
+      "type": "string"
+    },
+    "byte_size": {
+      "exclusiveMinimum": 0,
+      "title": "Byte Size",
+      "type": "integer"
+    },
+    "mime_type": {
+      "title": "Mime Type",
+      "type": "string"
+    },
+    "original_filename": {
+      "description": "Stored as data only; never interpolated into prompts (PRD \u00a77.4)",
+      "title": "Original Filename",
+      "type": "string"
+    },
+    "probe": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MediaProbe"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "parent_media_id": {
+      "anyOf": [
+        {
+          "maxLength": 96,
+          "pattern": "^media_[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Parent Media Id"
+    },
+    "processing_method": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "e.g. ffmpeg command template id",
+      "title": "Processing Method"
+    },
+    "software_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Software Version"
+    },
+    "authorization_id": {
+      "maxLength": 96,
+      "pattern": "^auth_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Authorization Id",
+      "type": "string"
+    },
+    "ingested_at": {
+      "format": "date-time",
+      "title": "Ingested At",
+      "type": "string"
+    },
+    "ingested_by": {
+      "title": "Ingested By",
+      "type": "string"
+    }
+  },
+  "required": [
+    "media_id",
+    "site_id",
+    "kind",
+    "sha256",
+    "byte_size",
+    "mime_type",
+    "original_filename",
+    "authorization_id",
+    "ingested_at",
+    "ingested_by"
+  ],
+  "title": "MediaAsset",
+  "type": "object"
+}

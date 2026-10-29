@@ -1,0 +1,67 @@
+{
+  "additionalProperties": false,
+  "description": "Two identifiers denote the same physical parcel (relabel, manual encode). Without this a relabelled parcel\nappears to vanish while a new one appears from nowhere: exactly the false 'lost parcel' Spoor must not produce.",
+  "properties": {
+    "alias_id": {
+      "maxLength": 96,
+      "pattern": "^alias_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Alias Id",
+      "type": "string"
+    },
+    "from_key": {
+      "title": "From Key",
+      "type": "string"
+    },
+    "to_key": {
+      "title": "To Key",
+      "type": "string"
+    },
+    "linked_by_event_id": {
+      "anyOf": [
+        {
+          "maxLength": 96,
+          "pattern": "^scan_[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Linked By Event Id"
+    },
+    "basis": {
+      "enum": [
+        "relabel_scan",
+        "manual_encode",
+        "human_confirmed",
+        "video_candidate"
+      ],
+      "title": "Basis",
+      "type": "string"
+    },
+    "status": {
+      "default": "active",
+      "enum": [
+        "active",
+        "retracted"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "alias_id",
+    "from_key",
+    "to_key",
+    "basis",
+    "created_at"
+  ],
+  "title": "IdentifierAlias",
+  "type": "object"
+}

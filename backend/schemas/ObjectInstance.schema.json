@@ -1,0 +1,95 @@
+{
+  "$defs": {
+    "IdentifierScheme": {
+      "enum": [
+        "s10",
+        "sscc",
+        "carrier_waybill",
+        "internal",
+        "dl_uri",
+        "container"
+      ],
+      "title": "IdentifierScheme",
+      "type": "string"
+    },
+    "ParcelIdentifier": {
+      "additionalProperties": false,
+      "description": "One identifier on a parcel or container. A parcel can carry several at once (waybill + SSCC + S10).",
+      "properties": {
+        "scheme": {
+          "$ref": "#/$defs/IdentifierScheme"
+        },
+        "value": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Value",
+          "type": "string"
+        },
+        "check_digit_valid": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Check Digit Valid"
+        }
+      },
+      "required": [
+        "scheme",
+        "value"
+      ],
+      "title": "ParcelIdentifier",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A provisional physical object within a case, e.g. 'the blue equipment case'. Tracks link to it only through\nTrackAssociation records; it is never a person (PRD \u00a711.1, \u00a77.2).",
+  "properties": {
+    "object_instance_id": {
+      "maxLength": 96,
+      "pattern": "^objinst_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Object Instance Id",
+      "type": "string"
+    },
+    "case_id": {
+      "title": "Case Id",
+      "type": "string"
+    },
+    "label": {
+      "maxLength": 120,
+      "minLength": 1,
+      "title": "Label",
+      "type": "string"
+    },
+    "identifiers": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ParcelIdentifier"
+      },
+      "title": "Identifiers",
+      "type": "array"
+    },
+    "created_by": {
+      "title": "Created By",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "object_instance_id",
+    "case_id",
+    "label",
+    "created_by",
+    "created_at"
+  ],
+  "title": "ObjectInstance",
+  "type": "object"
+}

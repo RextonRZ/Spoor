@@ -1,0 +1,83 @@
+{
+  "additionalProperties": false,
+  "description": "Points at one frame of one media asset; every citation resolves through this (PRD \u00a711.1).",
+  "properties": {
+    "media_id": {
+      "maxLength": 96,
+      "pattern": "^media_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Media Id",
+      "type": "string"
+    },
+    "pts_ms": {
+      "description": "Presentation time in the media's own timeline",
+      "minimum": 0,
+      "title": "Pts Ms",
+      "type": "number"
+    },
+    "frame_index": {
+      "minimum": 0,
+      "title": "Frame Index",
+      "type": "integer"
+    },
+    "camera_clock_utc": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Camera Clock Utc"
+    },
+    "normalized_utc": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Normalized Utc"
+    },
+    "sync_id": {
+      "anyOf": [
+        {
+          "maxLength": 96,
+          "pattern": "^sync_[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sync Id"
+    },
+    "time_uncertainty_ms": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Time Uncertainty Ms"
+    }
+  },
+  "required": [
+    "media_id",
+    "pts_ms",
+    "frame_index"
+  ],
+  "title": "FrameRef",
+  "type": "object"
+}

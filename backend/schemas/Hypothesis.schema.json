@@ -1,0 +1,139 @@
+{
+  "$defs": {
+    "Actor": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/ActorKind"
+        },
+        "id": {
+          "description": "user id, agent role + request id, or service name",
+          "title": "Id",
+          "type": "string"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Model id when kind == agent",
+          "title": "Model"
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ],
+      "title": "Actor",
+      "type": "object"
+    },
+    "ActorKind": {
+      "enum": [
+        "human",
+        "agent",
+        "verifier_service",
+        "system"
+      ],
+      "title": "ActorKind",
+      "type": "string"
+    },
+    "HypothesisStatus": {
+      "enum": [
+        "proposed",
+        "evaluated",
+        "supported",
+        "contradicted",
+        "insufficient_evidence"
+      ],
+      "title": "HypothesisStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "An explanation under investigation. Its status only changes through HypothesisStatusChange.",
+  "properties": {
+    "hypothesis_id": {
+      "maxLength": 96,
+      "pattern": "^hyp_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Hypothesis Id",
+      "type": "string"
+    },
+    "case_id": {
+      "maxLength": 96,
+      "pattern": "^case_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Case Id",
+      "type": "string"
+    },
+    "claim": {
+      "minLength": 3,
+      "title": "Claim",
+      "type": "string"
+    },
+    "support_observation_ids": {
+      "default": [],
+      "items": {
+        "maxLength": 96,
+        "pattern": "^obs_[A-Za-z0-9][A-Za-z0-9_-]*$",
+        "type": "string"
+      },
+      "title": "Support Observation Ids",
+      "type": "array"
+    },
+    "against_observation_ids": {
+      "default": [],
+      "items": {
+        "maxLength": 96,
+        "pattern": "^obs_[A-Za-z0-9][A-Za-z0-9_-]*$",
+        "type": "string"
+      },
+      "title": "Against Observation Ids",
+      "type": "array"
+    },
+    "missing_evidence": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Missing Evidence",
+      "type": "array"
+    },
+    "status": {
+      "$ref": "#/$defs/HypothesisStatus",
+      "default": "proposed"
+    },
+    "next_action": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Next Action"
+    },
+    "proposed_by": {
+      "$ref": "#/$defs/Actor"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "hypothesis_id",
+    "case_id",
+    "claim",
+    "proposed_by",
+    "created_at"
+  ],
+  "title": "Hypothesis",
+  "type": "object"
+}

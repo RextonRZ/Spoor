@@ -1,0 +1,138 @@
+{
+  "additionalProperties": false,
+  "description": "Offset (and optional drift) from a device clock to the case's normalized timeline (PRD \u00a78.3).\n\nApplies to one camera (`camera_id`) or a whole clock domain (`clock_domain_id`: sorter PLC, handheld fleet, NVR).\nnormalized = device_time + offset_ms + drift_ppm * 1e-6 * (device_time - drift_reference). Never assume synchronous\nfeeds; a fitted sync records its anchors and residuals so the case file can show how time was aligned.",
+  "properties": {
+    "sync_id": {
+      "maxLength": 96,
+      "pattern": "^sync_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Sync Id",
+      "type": "string"
+    },
+    "camera_id": {
+      "anyOf": [
+        {
+          "maxLength": 96,
+          "pattern": "^cam_[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Camera Id"
+    },
+    "clock_domain_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Clock Domain Id"
+    },
+    "offset_ms": {
+      "description": "normalized_time = device_time + offset_ms (+ drift)",
+      "title": "Offset Ms",
+      "type": "number"
+    },
+    "drift_ppm": {
+      "default": 0.0,
+      "title": "Drift Ppm",
+      "type": "number"
+    },
+    "uncertainty_ms": {
+      "minimum": 0,
+      "title": "Uncertainty Ms",
+      "type": "number"
+    },
+    "drift_reference": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Device-clock instant drift is measured from",
+      "title": "Drift Reference"
+    },
+    "valid_from": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Valid From"
+    },
+    "valid_to": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Valid To"
+    },
+    "anchor_event_ids": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Anchor Event Ids",
+      "type": "array"
+    },
+    "residual_ms_p95": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Residual Ms P95"
+    },
+    "method": {
+      "description": "e.g. 'shared clap event at camA f=120 / camB f=133', 'NTP metadata'",
+      "title": "Method",
+      "type": "string"
+    },
+    "anchor_description": {
+      "default": "",
+      "title": "Anchor Description",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "sync_id",
+    "offset_ms",
+    "uncertainty_ms",
+    "method",
+    "created_at"
+  ],
+  "title": "ClockSync",
+  "type": "object"
+}

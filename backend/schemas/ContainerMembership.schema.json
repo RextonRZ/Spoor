@@ -1,0 +1,119 @@
+{
+  "$defs": {
+    "LinkStatus": {
+      "enum": [
+        "active",
+        "closed",
+        "contradicted",
+        "retracted"
+      ],
+      "title": "LinkStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "'child was inside parent from valid_from to valid_to'. Versioned: a change is a new version, history kept.\nLocation inherited through membership is a presumption 'until contradicted' (EPCIS AggregationEvent), shown as\nestimated, never observed.",
+  "properties": {
+    "membership_id": {
+      "maxLength": 96,
+      "pattern": "^cmem_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Membership Id",
+      "type": "string"
+    },
+    "version": {
+      "minimum": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "child_key": {
+      "description": "'<scheme>:<value>' of the parcel or container inside",
+      "title": "Child Key",
+      "type": "string"
+    },
+    "parent_key": {
+      "description": "'container:<value>' of the enclosing container",
+      "title": "Parent Key",
+      "type": "string"
+    },
+    "valid_from": {
+      "format": "date-time",
+      "title": "Valid From",
+      "type": "string"
+    },
+    "valid_to": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Valid To"
+    },
+    "opened_by_event_id": {
+      "anyOf": [
+        {
+          "maxLength": 96,
+          "pattern": "^scan_[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Opened By Event Id"
+    },
+    "closed_by_event_id": {
+      "anyOf": [
+        {
+          "maxLength": 96,
+          "pattern": "^scan_[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Closed By Event Id"
+    },
+    "basis": {
+      "enum": [
+        "scan",
+        "video_observed",
+        "inferred"
+      ],
+      "title": "Basis",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/LinkStatus"
+    },
+    "reason": {
+      "default": "",
+      "title": "Reason",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "membership_id",
+    "version",
+    "child_key",
+    "parent_key",
+    "valid_from",
+    "basis",
+    "status",
+    "created_at"
+  ],
+  "title": "ContainerMembership",
+  "type": "object"
+}

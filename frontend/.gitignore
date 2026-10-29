@@ -1,0 +1,12 @@
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+# local no-key stack: tokens, backend data dir, converted logs (never commit)
+.local/
+.env.local
+test-results/
+playwright-report/
+# review pack media stays local (reviewer reads the folder)
+review_pack/**/*.webm

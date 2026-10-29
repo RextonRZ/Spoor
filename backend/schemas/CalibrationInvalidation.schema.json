@@ -1,0 +1,33 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "calibration_id": {
+      "maxLength": 96,
+      "pattern": "^calib_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Calibration Id",
+      "type": "string"
+    },
+    "reason": {
+      "minLength": 3,
+      "title": "Reason",
+      "type": "string"
+    },
+    "invalidated_at": {
+      "format": "date-time",
+      "title": "Invalidated At",
+      "type": "string"
+    },
+    "invalidated_by": {
+      "title": "Invalidated By",
+      "type": "string"
+    }
+  },
+  "required": [
+    "calibration_id",
+    "reason",
+    "invalidated_at",
+    "invalidated_by"
+  ],
+  "title": "CalibrationInvalidation",
+  "type": "object"
+}

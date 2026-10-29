@@ -1,0 +1,126 @@
+{
+  "$defs": {
+    "Actor": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/ActorKind"
+        },
+        "id": {
+          "description": "user id, agent role + request id, or service name",
+          "title": "Id",
+          "type": "string"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Model id when kind == agent",
+          "title": "Model"
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ],
+      "title": "Actor",
+      "type": "object"
+    },
+    "ActorKind": {
+      "enum": [
+        "human",
+        "agent",
+        "verifier_service",
+        "system"
+      ],
+      "title": "ActorKind",
+      "type": "string"
+    },
+    "FindingStatus": {
+      "enum": [
+        "supported_by_video",
+        "supported_by_sensor",
+        "supported_by_video_and_sensor"
+      ],
+      "title": "FindingStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A verified summary assertion \u2014 investigation support, not a legal finding (PRD \u00a711.2, \u00a722.3).",
+  "properties": {
+    "finding_id": {
+      "maxLength": 96,
+      "pattern": "^finding_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Finding Id",
+      "type": "string"
+    },
+    "case_id": {
+      "maxLength": 96,
+      "pattern": "^case_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Case Id",
+      "type": "string"
+    },
+    "statement": {
+      "minLength": 3,
+      "title": "Statement",
+      "type": "string"
+    },
+    "observation_ids": {
+      "items": {
+        "maxLength": 96,
+        "pattern": "^obs_[A-Za-z0-9][A-Za-z0-9_-]*$",
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Observation Ids",
+      "type": "array"
+    },
+    "spatial_estimate_ids": {
+      "default": [],
+      "items": {
+        "maxLength": 96,
+        "pattern": "^loc_[A-Za-z0-9][A-Za-z0-9_-]*$",
+        "type": "string"
+      },
+      "title": "Spatial Estimate Ids",
+      "type": "array"
+    },
+    "verification_status": {
+      "$ref": "#/$defs/FindingStatus"
+    },
+    "limitations": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "verified_by": {
+      "$ref": "#/$defs/Actor"
+    },
+    "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "finding_id",
+    "case_id",
+    "statement",
+    "observation_ids",
+    "verification_status",
+    "verified_by",
+    "at"
+  ],
+  "title": "VerifiedFinding",
+  "type": "object"
+}

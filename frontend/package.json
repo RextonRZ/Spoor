@@ -1,0 +1,41 @@
+{
+  "name": "spoor-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Spoor investigation workspace (PRD sections 19 and 23). Talks only to the Spoor FastAPI backend.",
+  "scripts": {
+    "dev": "next dev --port 3000",
+    "build": "next build",
+    "start": "next start --port 3000",
+    "gen:types": "node scripts/gen-types.mjs",
+    "gen:hub": "node scripts/gen-hub-data.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test:unit": "node --test --experimental-strip-types tests/unit/geometry.test.ts",
+    "test:e2e": "playwright test",
+    "review-pack": "playwright test --config playwright.review.config.ts",
+    "setup:local": "node scripts/setup-local.mjs",
+    "backend": "node scripts/backend.mjs",
+    "seed": "uv run --project ../backend python scripts/seed_nokey.py",
+    "export:hub": "node scripts/export-hub.mjs"
+  },
+  "dependencies": {
+    "@react-three/drei": "^10.7.9",
+    "@react-three/fiber": "^9.8.2",
+    "next": "^16.4.3",
+    "react": "19.2",
+    "react-dom": "19.2",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^22.20.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/three": "^0.186.0",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.4.3",
+    "json-schema-to-typescript": "^16.0.0",
+    "typescript": "^5.9.3"
+  }
+}

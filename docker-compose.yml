@@ -1,0 +1,34 @@
+# Local launch: `docker compose up --build` (SQLite in the data volume).
+# With Postgres: `docker compose --profile postgres up --build` and set DATABASE_URL in backend/.env to
+#   postgresql+psycopg://spoor:spoor@db:5432/spoor
+services:
+  api:
+    build: ./backend
+    env_file: ./backend/.env
+    environment:
+      DATA_DIR: /data
+      USERS_FILE: /run/secrets/spoor_users
+    volumes:
+      - spoor-data:/data
+    secrets:
+      - spoor_users
+    ports:
+      - "127.0.0.1:8000:8000"
+
+  db:
+    image: postgres:17
+    profiles: ["postgres"]
+    environment:
+      POSTGRES_USER: spoor
+      POSTGRES_PASSWORD: spoor
+      POSTGRES_DB: spoor
+    volumes:
+      - spoor-db:/var/lib/postgresql/data
+
+secrets:
+  spoor_users:
+    file: ./backend/users.json   # git-ignored; see backend/users.example.json
+
+volumes:
+  spoor-data:
+  spoor-db:

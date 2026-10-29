@@ -1,0 +1,197 @@
+{
+  "$defs": {
+    "Actor": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/ActorKind"
+        },
+        "id": {
+          "description": "user id, agent role + request id, or service name",
+          "title": "Id",
+          "type": "string"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Model id when kind == agent",
+          "title": "Model"
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ],
+      "title": "Actor",
+      "type": "object"
+    },
+    "ActorKind": {
+      "enum": [
+        "human",
+        "agent",
+        "verifier_service",
+        "system"
+      ],
+      "title": "ActorKind",
+      "type": "string"
+    },
+    "EvidenceLabel": {
+      "description": "User-visible evidence category for every state and path (PRD \u00a76.2, \u00a718.1).",
+      "enum": [
+        "observed",
+        "estimated",
+        "hypothesized",
+        "unknown",
+        "contradicted"
+      ],
+      "title": "EvidenceLabel",
+      "type": "string"
+    },
+    "ObjectVisibility": {
+      "description": "Object state machine; gaps never collapse into continuous motion (PRD \u00a716.3).",
+      "enum": [
+        "unobserved",
+        "visible",
+        "partially_occluded",
+        "out_of_view",
+        "visible_again"
+      ],
+      "title": "ObjectVisibility",
+      "type": "string"
+    },
+    "TimeWindow": {
+      "additionalProperties": false,
+      "properties": {
+        "start_utc": {
+          "format": "date-time",
+          "title": "Start Utc",
+          "type": "string"
+        },
+        "end_utc": {
+          "format": "date-time",
+          "title": "End Utc",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start_utc",
+        "end_utc"
+      ],
+      "title": "TimeWindow",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A temporal state change or interaction backed by observations (PRD \u00a711.1).",
+  "properties": {
+    "event_id": {
+      "maxLength": 96,
+      "pattern": "^evt_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Event Id",
+      "type": "string"
+    },
+    "case_id": {
+      "maxLength": 96,
+      "pattern": "^case_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Case Id",
+      "type": "string"
+    },
+    "kind": {
+      "description": "e.g. visibility_change, zone_change, contact, door_open",
+      "title": "Kind",
+      "type": "string"
+    },
+    "object_instance_id": {
+      "anyOf": [
+        {
+          "maxLength": 96,
+          "pattern": "^objinst_[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Object Instance Id"
+    },
+    "visibility": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ObjectVisibility"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "zone_id": {
+      "anyOf": [
+        {
+          "maxLength": 96,
+          "pattern": "^zone_[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Zone Id"
+    },
+    "window": {
+      "$ref": "#/$defs/TimeWindow"
+    },
+    "label": {
+      "$ref": "#/$defs/EvidenceLabel"
+    },
+    "observation_ids": {
+      "items": {
+        "maxLength": 96,
+        "pattern": "^obs_[A-Za-z0-9][A-Za-z0-9_-]*$",
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Observation Ids",
+      "type": "array"
+    },
+    "spatial_estimate_ids": {
+      "default": [],
+      "items": {
+        "maxLength": 96,
+        "pattern": "^loc_[A-Za-z0-9][A-Za-z0-9_-]*$",
+        "type": "string"
+      },
+      "title": "Spatial Estimate Ids",
+      "type": "array"
+    },
+    "actor": {
+      "$ref": "#/$defs/Actor"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "event_id",
+    "case_id",
+    "kind",
+    "window",
+    "label",
+    "observation_ids",
+    "actor",
+    "created_at"
+  ],
+  "title": "Event",
+  "type": "object"
+}

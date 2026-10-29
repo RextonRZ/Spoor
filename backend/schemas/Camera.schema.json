@@ -1,0 +1,188 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "camera_id": {
+      "maxLength": 96,
+      "pattern": "^cam_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Camera Id",
+      "type": "string"
+    },
+    "site_id": {
+      "maxLength": 96,
+      "pattern": "^site_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Site Id",
+      "type": "string"
+    },
+    "floor_id": {
+      "maxLength": 96,
+      "pattern": "^floor_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Floor Id",
+      "type": "string"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "resolution_wh_px": {
+      "maxItems": 2,
+      "minItems": 2,
+      "prefixItems": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "integer"
+        }
+      ],
+      "title": "Resolution Wh Px",
+      "type": "array"
+    },
+    "position_m": {
+      "anyOf": [
+        {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Position M"
+    },
+    "position_measured": {
+      "default": false,
+      "title": "Position Measured",
+      "type": "boolean"
+    },
+    "yaw_deg": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Yaw Deg"
+    },
+    "hfov_deg": {
+      "anyOf": [
+        {
+          "exclusiveMaximum": 180,
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Hfov Deg"
+    },
+    "orientation_measured": {
+      "default": false,
+      "title": "Orientation Measured",
+      "type": "boolean"
+    },
+    "fov_polygon_m": {
+      "anyOf": [
+        {
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Fov Polygon M"
+    },
+    "zone_image_regions_px": {
+      "default": {},
+      "patternProperties": {
+        "^zone_[A-Za-z0-9][A-Za-z0-9_-]*$": {
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          },
+          "type": "array"
+        }
+      },
+      "propertyNames": {
+        "maxLength": 96
+      },
+      "title": "Zone Image Regions Px",
+      "type": "object"
+    },
+    "valid_from": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Valid From"
+    },
+    "valid_until": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Valid Until"
+    }
+  },
+  "required": [
+    "camera_id",
+    "site_id",
+    "floor_id",
+    "name",
+    "resolution_wh_px"
+  ],
+  "title": "Camera",
+  "type": "object"
+}

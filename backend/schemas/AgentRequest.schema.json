@@ -1,0 +1,139 @@
+{
+  "$defs": {
+    "AgentRole": {
+      "enum": [
+        "lead",
+        "evidence",
+        "hypothesis",
+        "verifier"
+      ],
+      "title": "AgentRole",
+      "type": "string"
+    },
+    "EvidenceScope": {
+      "additionalProperties": false,
+      "properties": {
+        "camera_ids": {
+          "default": [],
+          "items": {
+            "maxLength": 96,
+            "pattern": "^cam_[A-Za-z0-9][A-Za-z0-9_-]*$",
+            "type": "string"
+          },
+          "title": "Camera Ids",
+          "type": "array"
+        },
+        "window": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TimeWindow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "object_instance_ids": {
+          "default": [],
+          "items": {
+            "maxLength": 96,
+            "pattern": "^objinst_[A-Za-z0-9][A-Za-z0-9_-]*$",
+            "type": "string"
+          },
+          "title": "Object Instance Ids",
+          "type": "array"
+        }
+      },
+      "title": "EvidenceScope",
+      "type": "object"
+    },
+    "TimeWindow": {
+      "additionalProperties": false,
+      "properties": {
+        "start_utc": {
+          "format": "date-time",
+          "title": "Start Utc",
+          "type": "string"
+        },
+        "end_utc": {
+          "format": "date-time",
+          "title": "End Utc",
+          "type": "string"
+        }
+      },
+      "required": [
+        "start_utc",
+        "end_utc"
+      ],
+      "title": "TimeWindow",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "case_id": {
+      "maxLength": 96,
+      "pattern": "^case_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Case Id",
+      "type": "string"
+    },
+    "request_id": {
+      "maxLength": 96,
+      "pattern": "^req_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Request Id",
+      "type": "string"
+    },
+    "role": {
+      "$ref": "#/$defs/AgentRole"
+    },
+    "question": {
+      "title": "Question",
+      "type": "string"
+    },
+    "evidence_scope": {
+      "$ref": "#/$defs/EvidenceScope"
+    },
+    "available_tools": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Available Tools",
+      "type": "array"
+    },
+    "token_budget": {
+      "exclusiveMinimum": 0,
+      "title": "Token Budget",
+      "type": "integer"
+    },
+    "max_steps": {
+      "exclusiveMinimum": 0,
+      "maximum": 50,
+      "title": "Max Steps",
+      "type": "integer"
+    },
+    "deadline": {
+      "format": "date-time",
+      "title": "Deadline",
+      "type": "string"
+    },
+    "output_schema": {
+      "title": "Output Schema",
+      "type": "string"
+    }
+  },
+  "required": [
+    "case_id",
+    "request_id",
+    "role",
+    "question",
+    "evidence_scope",
+    "available_tools",
+    "token_budget",
+    "max_steps",
+    "deadline",
+    "output_schema"
+  ],
+  "title": "AgentRequest",
+  "type": "object"
+}

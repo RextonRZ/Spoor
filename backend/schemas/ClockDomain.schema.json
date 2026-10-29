@@ -1,0 +1,58 @@
+{
+  "additionalProperties": false,
+  "description": "A set of devices that share one clock: the sorter WCS/PLC, the handheld fleet, an NVR, a single camera.",
+  "properties": {
+    "clock_domain_id": {
+      "maxLength": 96,
+      "pattern": "^clkd_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Clock Domain Id",
+      "type": "string"
+    },
+    "site_id": {
+      "maxLength": 96,
+      "pattern": "^site_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Site Id",
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "wcs_plc",
+        "handheld_fleet",
+        "nvr",
+        "camera",
+        "rfid",
+        "other"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "device_ids": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Device Ids",
+      "type": "array"
+    },
+    "camera_ids": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Camera Ids",
+      "type": "array"
+    }
+  },
+  "required": [
+    "clock_domain_id",
+    "site_id",
+    "kind",
+    "name"
+  ],
+  "title": "ClockDomain",
+  "type": "object"
+}

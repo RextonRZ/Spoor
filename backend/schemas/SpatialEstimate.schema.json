@@ -1,0 +1,153 @@
+{
+  "$defs": {
+    "SpatialMode": {
+      "description": "How a position was obtained; every rendered marker carries one (PRD \u00a713.5).",
+      "enum": [
+        "multiview_xyz",
+        "floor_xy",
+        "anchored_height",
+        "zone_only",
+        "image_only",
+        "unknown"
+      ],
+      "title": "SpatialMode",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A position derived from observations, separate from them and always carrying its basis (PRD \u00a711.2).",
+  "properties": {
+    "estimate_id": {
+      "maxLength": 96,
+      "pattern": "^loc_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Estimate Id",
+      "type": "string"
+    },
+    "observation_ids": {
+      "items": {
+        "maxLength": 96,
+        "pattern": "^obs_[A-Za-z0-9][A-Za-z0-9_-]*$",
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Observation Ids",
+      "type": "array"
+    },
+    "spatial_mode": {
+      "$ref": "#/$defs/SpatialMode"
+    },
+    "floor_id": {
+      "anyOf": [
+        {
+          "maxLength": 96,
+          "pattern": "^floor_[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Floor Id"
+    },
+    "floor_xy_m": {
+      "anyOf": [
+        {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Floor Xy M"
+    },
+    "height_m": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Only for anchored_height, from a measured surface",
+      "title": "Height M"
+    },
+    "zone_id": {
+      "anyOf": [
+        {
+          "maxLength": 96,
+          "pattern": "^zone_[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Zone Id"
+    },
+    "uncertainty_radius_m": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Uncertainty Radius M"
+    },
+    "method": {
+      "title": "Method",
+      "type": "string"
+    },
+    "calibration_id": {
+      "anyOf": [
+        {
+          "maxLength": 96,
+          "pattern": "^calib_[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Calibration Id"
+    },
+    "status": {
+      "default": "estimated_not_measured",
+      "title": "Status",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "estimate_id",
+    "observation_ids",
+    "spatial_mode",
+    "method",
+    "created_at"
+  ],
+  "title": "SpatialEstimate",
+  "type": "object"
+}

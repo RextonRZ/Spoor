@@ -1,0 +1,270 @@
+"""Load REAL inputs into a no-key Spoor backend through its HTTP API (QUEUE C5).
+
+    uv run --project ../backend python scripts/seed_nokey.py [--clips ../assets/hub/build/qa/cctv] [--case-parcel ID]
+
+Inputs, all of them things a real site would hand over:
+- the site plan, zones and camera mounting plan from assets/hub/hub_spec.json;
+- synthetic CCTV clips (rendered footage of the fictional hub) as media, each carrying a burned-in SYNTHETIC mark;
+- the hub's simulated scan log (assets/hub/build/sim/events_scan_simulated.jsonl) through the scan import route,
+  labelled `simulated` end to end.
+
+Never read here (and never by the frontend or backend runtime): render_truth.*, flow_truth.json, build/truth/*.
+No tracks, detections, calibrations, clock fits or answers are created: those need a model or a human.
+Camera clocks get an explicit UNVERIFIED sync (declared start time, wide uncertainty) because the upload route
+needs one to place a clip on the timeline; the UI shows it as a clock warning.
+"""
+
+import argparse
+import json
+import math
+import subprocess
+import sys
+import tempfile
+from datetime import datetime, timedelta
+from pathlib import Path
+
+import httpx
+
+HERE = Path(__file__).resolve().parent
+FRONT = HERE.parent
+REPO = FRONT.parent
+FORBIDDEN = ("render_truth", "flow_truth", "/truth/", "\\truth\\")
+
+SITE_ID = "site_contoh_hub"
+FLOOR_ID = "floor_ground"
+# Default recording start for the QA clips: the OSD start time the renders were made with. Declared, not verified.
+DEFAULT_CLIP_START = "2026-10-28T14:32:07+08:00"
+
+
+def guard(path: Path) -> Path:
+    s = str(path).replace("\\", "/")
+    if any(f.replace("\\", "/") in s for f in FORBIDDEN):
+        sys.exit(f"refusing to read evaluator-only file: {path}")
+    return path
+
+
+def load_env() -> dict:
+    env = {}
+    for line in (FRONT / ".env.local").read_text(encoding="utf-8").splitlines():
+        if "=" in line and not line.startswith("#"):
+            k, v = line.split("=", 1)
+            env[k.strip()] = v.strip()
+    return env
+
+
+def zone_polys(z: dict) -> list[tuple[str, list]]:
+    poly = z["polygon_m"]
+    if isinstance(poly, dict):  # Z14 yard has named parts
+        return [(f"zone_{z['id']}" + ("" if i == 0 else f"_{name}"), p) for i, (name, p) in enumerate(poly.items())]
+    return [(f"zone_{z['id']}", poly)]
+
+
+def floor_footprint(cam: dict, max_range_m: float = 45.0, steps: int = 6) -> list[list[float]]:
+    """Approximate floor footprint of a camera's view from its MOUNTING PLAN pose (no occlusion, no lens model)."""
+    x, y = cam["position_m"]
+    h = cam["height_m"]
+    yaw, tilt = math.radians(cam["heading_deg"]), math.radians(cam["tilt_down_deg"])
+    th, tv = math.tan(math.radians(cam["hfov_deg"]) / 2), math.tan(math.radians(cam["vfov_deg"]) / 2)
+    fwd = (math.cos(yaw) * math.cos(tilt), math.sin(yaw) * math.cos(tilt), -math.sin(tilt))
+    right = (math.sin(yaw), -math.cos(yaw), 0.0)
+    up = (right[1] * fwd[2] - right[2] * fwd[1], right[2] * fwd[0] - right[0] * fwd[2],
+          right[0] * fwd[1] - right[1] * fwd[0])  # fmt: skip
+    border = []
+    for i in range(steps):
+        border.append((-1 + 2 * i / steps, -1))
+    for i in range(steps):
+        border.append((1, -1 + 2 * i / steps))
+    for i in range(steps):
+        border.append((1 - 2 * i / steps, 1))
+    for i in range(steps):
+        border.append((-1, 1 - 2 * i / steps))
+    pts = []
+    for u, v in border:
+        d = [fwd[k] + u * th * right[k] + v * tv * up[k] for k in range(3)]
+        n = math.hypot(*d)
+        d = [c / n for c in d]
+        if d[2] < -1e-6:
+            t = h / -d[2]
+            horiz = math.hypot(d[0], d[1]) * t
+            if horiz > max_range_m:
+                t *= max_range_m / horiz
+        else:
+            t = max_range_m / max(math.hypot(d[0], d[1]), 1e-6)
+        pts.append([round(x + d[0] * t, 2), round(y + d[1] * t, 2)])
+    return pts
+
+
+def mark_synthetic(src: Path, out_dir: Path) -> Path:
+    """Copy a clip with a burned-in SYNTHETIC mark if it has none (QA renders are unmarked; final CCTV renders from
+    cctv_look.py already carry 'SYNTHETIC - fictional hub')."""
+    out = out_dir / src.name
+    font = "C\\:/Windows/Fonts/arial.ttf" if sys.platform == "win32" else "DejaVuSans"
+    draw = (f"drawtext=fontfile='{font}':text='SYNTHETIC - fictional hub':x=w-tw-14:y=h-th-12:fontsize=h/30:"
+            "fontcolor=white:box=1:boxcolor=black@0.6:boxborderw=6")
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(src), "-vf", draw, "-c:v", "libx264", "-crf", "20",
+                    "-preset", "veryfast", "-pix_fmt", "yuv420p", "-an", str(out)], check=True)  # fmt: skip
+    return out
+
+
+def convert_scans(lines: list[str], domain_ids: dict[str, str], spec: dict) -> tuple[list[dict], dict]:
+    """Translate the hub's simulated log into Spoor ScanEvent rows. Field meanings only; no values invented."""
+    points = {p["id"]: p for p in spec["scan_points"]}
+    out, skipped = [], {}
+    for line in lines:
+        if not line.strip():
+            continue
+        r = json.loads(line)
+        ev, pid = r["event"], r.get("parcel_id")
+        ids = [{"scheme": "carrier_waybill", "value": pid}] if pid else []
+        base = {"device_time_utc": r["time"], "record_time_utc": r["time"], "raw_code": ev,
+                "clock_domain_id": domain_ids.get("clkd_wcs")}  # fmt: skip
+        if ev in ("tunnel_read", "tunnel_no_read"):
+            sp = points["SP-TUNNEL"]
+            row = {**base, "event_kind": ev, "read_outcome": "read" if ev == "tunnel_read" else "no_read",
+                   "identifiers": ids if ev == "tunnel_read" else [], "device_id": sp["id"], "device_kind": "tunnel",
+                   "station_id": sp["id"], "read_point_zone_id": f"zone_{sp['zone']}",
+                   "dims_mm": r.get("dims_mm"), "weight_g": r.get("weight_g"),
+                   "raw_description": f"tunnel photo {r['photo']}" if r.get("photo") else None}  # fmt: skip
+        elif ev == "induct_to_carrier":
+            sp = points["SP-INDUCT"]
+            row = {**base, "event_kind": "inducted", "identifiers": ids, "read_outcome": "read" if pid else "no_read", "device_id": sp["id"],
+                   "device_kind": "sorter_plc", "station_id": sp["id"], "read_point_zone_id": f"zone_{sp['zone']}",
+                   "raw_description": f"carrier {r.get('carrier')}"}  # fmt: skip
+        elif ev == "divert_confirm":  # without parcel_id: the sorter diverted a parcel it could not identify
+            sp = points.get(r.get("scan_point")) or points[f"SP-DIV-{r['chute']}"]
+            row = {**base, "event_kind": "divert_confirmed", "identifiers": ids, "read_outcome": "read" if pid else "no_read", "device_id": sp["id"],
+                   "device_kind": "sorter_plc", "station_id": sp["id"], "read_point_zone_id": f"zone_{sp['zone']}",
+                   "sort_destination_actual": r["chute"], "divert_confirmed": True,
+                   "raw_description": f"carrier {r.get('carrier')}"}  # fmt: skip
+        elif ev == "reject_bin" and not pid:
+            sp = points["SP-DIV-REJECT"]
+            row = {**base, "event_kind": "exception_diverted", "read_outcome": "no_read", "identifiers": [],
+                   "device_id": f"chute:{r['chute']}", "device_kind": "sorter_plc", "station_id": sp["id"],
+                   "read_point_zone_id": f"zone_{sp['zone']}", "sort_destination_actual": r["chute"],
+                   "raw_description": "parcel without identity dropped into the reject chute"}  # fmt: skip
+        else:
+            # bag_drop: an anonymous chute photo-eye pulse (no parcel ID, no bag ID). Spoor's ScanEvent has no kind
+            # for an event that carries neither identity nor container, so it is reported, not imported.
+            skipped[ev] = skipped.get(ev, 0) + 1
+            continue
+        out.append({k: v for k, v in row.items() if v is not None})
+    return out, skipped
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--clips", default=str(REPO / "assets/hub/build/qa/cctv"))
+    ap.add_argument("--clip-start", default=DEFAULT_CLIP_START)
+    ap.add_argument("--scans", default=str(REPO / "assets/hub/build/sim/events_scan_simulated.jsonl"))
+    ap.add_argument("--spec", default=str(REPO / "assets/hub/hub_spec.json"))
+    ap.add_argument("--case-parcel", default="auto", help="parcel ID, or auto = the parcel with the most reads")
+    args = ap.parse_args()
+
+    env = load_env()
+    api = env.get("SPOOR_API_URL", "http://127.0.0.1:8000")
+    admin = httpx.Client(base_url=api, headers={"Authorization": f"Bearer {env['SPOOR_TOKEN_SITE_ADMIN']}"},
+                         timeout=300)  # fmt: skip
+    inv = httpx.Client(base_url=api, headers={"Authorization": f"Bearer {env['SPOOR_TOKEN_INVESTIGATOR']}"},
+                       timeout=300)  # fmt: skip
+    caps = admin.get("/v1/capabilities").raise_for_status().json()
+    print("capabilities", caps)
+    if caps["sam"] or caps["spark"]:
+        sys.exit("backend has model keys configured; this seed is for no-key mode only")
+
+    spec = json.loads(guard(Path(args.spec)).read_text(encoding="utf-8"))
+    b = spec["building"]
+    W, H = b["footprint_m"]
+    outline = [[-18, 0], [W, 0], [W, 58], [20, 58], [20, H], [0, H], [0, 34], [-18, 34]]  # hall + both yards
+    zones = [{"zone_id": zid, "floor_id": FLOOR_ID, "name": f"{z['id']} {z['name']}", "kind": "other",
+              "polygon_m": poly, "measured": False} for z in spec["zones"] for zid, poly in zone_polys(z)]  # fmt: skip
+    site = {"site_id": SITE_ID, "name": "CONTOH Express Klang Valley hub (fictional)",
+            "measurement_method": "design plan of a fictional hub (assets/hub/hub_spec.json); not surveyed",
+            "floors": [{"floor_id": FLOOR_ID, "name": "Ground", "outline_m": outline}], "zones": zones}  # fmt: skip
+    admin.post("/v1/sites", json=site).raise_for_status()
+    print("site", SITE_ID, len(zones), "zones")
+
+    for c in spec["cameras"]:
+        cam = {"camera_id": f"cam_{c['id']}", "site_id": SITE_ID, "floor_id": FLOOR_ID,
+               "name": f"{c['id']} {c['osd_label']}", "resolution_wh_px": c["resolution"],
+               "position_m": [*c["position_m"], c["height_m"]], "position_measured": False,
+               "yaw_deg": c["heading_deg"], "hfov_deg": c["hfov_deg"], "orientation_measured": False,
+               "fov_polygon_m": floor_footprint(c)}  # fmt: skip
+        admin.post(f"/v1/sites/{SITE_ID}/cameras", json=cam).raise_for_status()
+    print("cameras", len(spec["cameras"]))
+
+    existing = {d["domain"]["name"]: d["domain"]["clock_domain_id"]
+                for d in admin.get(f"/v1/sites/{SITE_ID}/clock-domains").json()}  # fmt: skip
+    domain_ids = {}
+    for d in spec["clock_domains"]:
+        if d["id"] in existing:
+            domain_ids[d["id"]] = existing[d["id"]]
+            continue
+        cams = [f"cam_{c['id']}" for c in spec["cameras"] if c["clock_domain"] == d["id"]]
+        r = admin.post(f"/v1/sites/{SITE_ID}/clock-domains", json={"kind": d["kind"], "name": d["id"],
+                                                                     "camera_ids": cams}).raise_for_status()  # fmt: skip
+        domain_ids[d["id"]] = r.json()["clock_domain_id"]
+    print("clock domains", len(domain_ids), "(no fits: anchors need observed events)")
+
+    clips = sorted(guard(Path(args.clips)).glob("CAM_*.mp4"))
+    with tempfile.TemporaryDirectory() as tmp:
+        for clip in clips:
+            cam_id = f"cam_{clip.stem}"
+            cams = admin.get(f"/v1/sites/{SITE_ID}/cameras").json()
+            mine = next((x for x in cams if x["camera"]["camera_id"] == cam_id), None)
+            if mine is None:
+                print("skip clip without camera", clip.name)
+                continue
+            if mine["coverage"]:
+                print("already ingested", clip.name)
+                continue
+            if mine["clock_sync"] is None:
+                admin.post(f"/v1/cameras/{cam_id}/clock-syncs", json={
+                    "offset_ms": 0, "uncertainty_ms": 5000,
+                    "method": "UNVERIFIED: uploader-declared recording start; no anchor event matched yet",
+                    "anchor_description": "none (no-key mode: anchors need observed events)"}).raise_for_status()
+            marked = mark_synthetic(clip, Path(tmp))
+            meta = {"site_id": SITE_ID, "camera_id": cam_id,
+                    "rights_statement": "Synthetic footage rendered from a fictional hub model; no real people",
+                    "purpose": "Spoor no-key demonstration", "consent_confirmed": True,
+                    "hosted_processing_allowed": False, "retention_days": 30,
+                    "recording_start_camera_time": args.clip_start, "recording_kind": "synthetic_test"}  # fmt: skip
+            with marked.open("rb") as fh:
+                r = admin.post("/v1/media/uploads", data={"meta": json.dumps(meta)},
+                               files={"file": (clip.name, fh, "video/mp4")})  # fmt: skip
+            r.raise_for_status()
+            print("clip", clip.name, r.json()["media_id"], r.json()["frames"], "frames")
+
+    lines = guard(Path(args.scans)).read_text(encoding="utf-8").splitlines()
+    rows, skipped = convert_scans(lines, domain_ids, spec)
+    local = FRONT / ".local"
+    conv = local / "scans_converted.jsonl"
+    conv.write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
+    r = admin.post(f"/v1/sites/{SITE_ID}/scans/import",
+                   data={"batch": "hub_sim_2026-10-28_1432", "source": "simulated"},
+                   files={"file": ("events_scan_simulated.jsonl", conv.read_bytes(), "application/x-ndjson")})
+    r.raise_for_status()
+    print("scans", r.json(), "not imported:", skipped)
+
+    if args.case_parcel == "auto":  # an operator choice of INPUT case, made from the scan log only (PRD §23)
+        counts: dict[str, int] = {}
+        for row in rows:
+            for i in row.get("identifiers", []):
+                counts[i["value"]] = counts.get(i["value"], 0) + 1
+        args.case_parcel = max(sorted(counts), key=lambda k: counts[k])
+    cases = inv.get("/v1/cases").json()
+    if not any(c["case"]["target_description"].endswith(args.case_parcel) for c in cases):
+        t0 = datetime.fromisoformat(args.clip_start)
+        body = {"site_id": SITE_ID, "question": f"Where did parcel {args.case_parcel} go after its last scan?",
+                "target_description": f"parcel {args.case_parcel}",
+                "camera_ids": [f"cam_{c.stem}" for c in clips],
+                "window": {"start_utc": (t0 - timedelta(seconds=5)).isoformat(),
+                           "end_utc": (t0 + timedelta(seconds=40)).isoformat()},
+                "identifiers": [{"scheme": "carrier_waybill", "value": args.case_parcel}]}  # fmt: skip
+        r = inv.post("/v1/cases", json=body).raise_for_status().json()
+        print("case", r["case"]["case_id"])
+    (local / "seed_report.json").write_text(json.dumps({"scans_not_imported": skipped, "clips": [c.name for c in clips]},
+                                                       indent=1), encoding="utf-8")  # fmt: skip
+
+
+if __name__ == "__main__":
+    main()

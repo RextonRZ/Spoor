@@ -1,0 +1,105 @@
+{
+  "$defs": {
+    "Actor": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/ActorKind"
+        },
+        "id": {
+          "description": "user id, agent role + request id, or service name",
+          "title": "Id",
+          "type": "string"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Model id when kind == agent",
+          "title": "Model"
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ],
+      "title": "Actor",
+      "type": "object"
+    },
+    "ActorKind": {
+      "enum": [
+        "human",
+        "agent",
+        "verifier_service",
+        "system"
+      ],
+      "title": "ActorKind",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Immutable snapshot pointer: every change to case state produces a new revision (PRD \u00a711.1).",
+  "properties": {
+    "case_revision_id": {
+      "maxLength": 96,
+      "pattern": "^rev_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Case Revision Id",
+      "type": "string"
+    },
+    "case_id": {
+      "maxLength": 96,
+      "pattern": "^case_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Case Id",
+      "type": "string"
+    },
+    "parent_revision_id": {
+      "anyOf": [
+        {
+          "maxLength": 96,
+          "pattern": "^rev_[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Parent Revision Id"
+    },
+    "actor": {
+      "$ref": "#/$defs/Actor"
+    },
+    "reason": {
+      "title": "Reason",
+      "type": "string"
+    },
+    "changed_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Changed Ids",
+      "type": "array"
+    },
+    "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "case_revision_id",
+    "case_id",
+    "parent_revision_id",
+    "actor",
+    "reason",
+    "changed_ids",
+    "at"
+  ],
+  "title": "CaseRevision",
+  "type": "object"
+}

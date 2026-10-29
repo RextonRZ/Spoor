@@ -1,0 +1,7 @@
+{
+  "tokens": {
+    "replace-with-a-long-random-token-1": {"user_id": "admin", "role": "site_admin", "site_ids": ["site_demo"]},
+    "replace-with-a-long-random-token-2": {"user_id": "investigator", "role": "investigator", "site_ids": ["site_demo"]},
+    "replace-with-a-long-random-token-3": {"user_id": "reviewer", "role": "reviewer", "site_ids": ["site_demo"]}
+  }
+}

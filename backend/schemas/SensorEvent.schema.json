@@ -1,0 +1,107 @@
+{
+  "$defs": {
+    "SensorKind": {
+      "enum": [
+        "door_contact",
+        "weight_delta_kg",
+        "rfid_tag_seen",
+        "motion_trigger"
+      ],
+      "title": "SensorKind",
+      "type": "string"
+    },
+    "SourceType": {
+      "enum": [
+        "video",
+        "sensor_real",
+        "sensor_simulated",
+        "scan_real",
+        "scan_simulated",
+        "human_annotation"
+      ],
+      "title": "SourceType",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Vendor-neutral sensor event (PRD \u00a720). Corroborates; never identifies who or what.",
+  "properties": {
+    "sensor_event_id": {
+      "maxLength": 96,
+      "pattern": "^sens_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Sensor Event Id",
+      "type": "string"
+    },
+    "site_id": {
+      "maxLength": 96,
+      "pattern": "^site_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Site Id",
+      "type": "string"
+    },
+    "source_type": {
+      "$ref": "#/$defs/SourceType"
+    },
+    "device_id": {
+      "title": "Device Id",
+      "type": "string"
+    },
+    "kind": {
+      "$ref": "#/$defs/SensorKind"
+    },
+    "value": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        }
+      ],
+      "title": "Value"
+    },
+    "zone_id": {
+      "anyOf": [
+        {
+          "maxLength": 96,
+          "pattern": "^zone_[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Zone Id"
+    },
+    "device_time_utc": {
+      "format": "date-time",
+      "title": "Device Time Utc",
+      "type": "string"
+    },
+    "clock_quality": {
+      "description": "e.g. 'ntp', 'unsynced', 'manual offset \u00b12s'",
+      "title": "Clock Quality",
+      "type": "string"
+    },
+    "import_batch": {
+      "title": "Import Batch",
+      "type": "string"
+    }
+  },
+  "required": [
+    "sensor_event_id",
+    "site_id",
+    "source_type",
+    "device_id",
+    "kind",
+    "value",
+    "device_time_utc",
+    "clock_quality",
+    "import_batch"
+  ],
+  "title": "SensorEvent",
+  "type": "object"
+}

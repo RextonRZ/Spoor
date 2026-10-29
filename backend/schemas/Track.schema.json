@@ -1,0 +1,135 @@
+{
+  "$defs": {
+    "ModelProvenance": {
+      "additionalProperties": false,
+      "description": "Which model produced something, with what input. `confidence_raw` is only meaningful within this model.",
+      "properties": {
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "model_version": {
+          "title": "Model Version",
+          "type": "string"
+        },
+        "provider": {
+          "title": "Provider",
+          "type": "string"
+        },
+        "request_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Provider response/operation id",
+          "title": "Request Id"
+        },
+        "prompt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Exact prompt sent (noun phrase or prompt tokens)",
+          "title": "Prompt"
+        },
+        "prompt_template_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Template Version"
+        },
+        "cache_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cache Key"
+        }
+      },
+      "required": [
+        "model",
+        "model_version",
+        "provider"
+      ],
+      "title": "ModelProvenance",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Ephemeral per-camera, per-clip track. Not a person's identity and not persistent across cameras (\u00a77.2).",
+  "properties": {
+    "track_id": {
+      "maxLength": 96,
+      "pattern": "^trk_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Track Id",
+      "type": "string"
+    },
+    "camera_id": {
+      "maxLength": 96,
+      "pattern": "^cam_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Camera Id",
+      "type": "string"
+    },
+    "media_id": {
+      "maxLength": 96,
+      "pattern": "^media_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Media Id",
+      "type": "string"
+    },
+    "label": {
+      "title": "Label",
+      "type": "string"
+    },
+    "provider_object_id": {
+      "description": "SAM object id within one response",
+      "title": "Provider Object Id",
+      "type": "string"
+    },
+    "first_frame_index": {
+      "minimum": 0,
+      "title": "First Frame Index",
+      "type": "integer"
+    },
+    "last_frame_index": {
+      "minimum": 0,
+      "title": "Last Frame Index",
+      "type": "integer"
+    },
+    "provenance": {
+      "$ref": "#/$defs/ModelProvenance"
+    }
+  },
+  "required": [
+    "track_id",
+    "camera_id",
+    "media_id",
+    "label",
+    "provider_object_id",
+    "first_frame_index",
+    "last_frame_index",
+    "provenance"
+  ],
+  "title": "Track",
+  "type": "object"
+}

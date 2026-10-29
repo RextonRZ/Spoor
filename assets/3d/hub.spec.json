@@ -1,0 +1,741 @@
+{
+ "meta": {
+  "name": "Spoor demo parcel hub (fictional), Shah Alam",
+  "units": "m",
+  "up": "Z",
+  "frame": "site_meters_z_up_v1",
+  "origin": "south-west outside corner",
+  "width": 40.0,
+  "depth": 24.0,
+  "clear_height": 7.5,
+  "status": "draft plan for owner approval",
+  "fictional": true
+ },
+ "site": {
+  "site_id": "site_demo_hub",
+  "floor_id": "floor_g",
+  "outline": [
+   [
+    0,
+    0
+   ],
+   [
+    40.0,
+    0
+   ],
+   [
+    40.0,
+    24.0
+   ],
+   [
+    0,
+    24.0
+   ]
+  ]
+ },
+ "zones": [
+  {
+   "zone_id": "zone_inbound_dock",
+   "name": "Inbound dock (unload)",
+   "kind": "door",
+   "polygon": [
+    [
+     0.0,
+     3.0
+    ],
+    [
+     6.0,
+     3.0
+    ],
+    [
+     6.0,
+     15.0
+    ],
+    [
+     0.0,
+     15.0
+    ]
+   ]
+  },
+  {
+   "zone_id": "zone_induction",
+   "name": "Induction",
+   "kind": "walkway",
+   "polygon": [
+    [
+     6.0,
+     7.0
+    ],
+    [
+     11.0,
+     7.0
+    ],
+    [
+     11.0,
+     12.0
+    ],
+    [
+     6.0,
+     12.0
+    ]
+   ]
+  },
+  {
+   "zone_id": "zone_scan_tunnel",
+   "name": "Scan tunnel (DWS)",
+   "kind": "other",
+   "polygon": [
+    [
+     11.0,
+     8.5
+    ],
+    [
+     13.5,
+     8.5
+    ],
+    [
+     13.5,
+     10.5
+    ],
+    [
+     11.0,
+     10.5
+    ]
+   ]
+  },
+  {
+   "zone_id": "zone_sorter",
+   "name": "Sorter line",
+   "kind": "other",
+   "polygon": [
+    [
+     13.5,
+     8.8
+    ],
+    [
+     33.0,
+     8.8
+    ],
+    [
+     33.0,
+     10.2
+    ],
+    [
+     13.5,
+     10.2
+    ]
+   ]
+  },
+  {
+   "zone_id": "zone_chutes_north",
+   "name": "Chutes C01-C06",
+   "kind": "shelf",
+   "polygon": [
+    [
+     14.0,
+     10.2
+    ],
+    [
+     32.0,
+     10.2
+    ],
+    [
+     32.0,
+     12.5
+    ],
+    [
+     14.0,
+     12.5
+    ]
+   ]
+  },
+  {
+   "zone_id": "zone_chutes_south",
+   "name": "Chutes C07-C12",
+   "kind": "shelf",
+   "polygon": [
+    [
+     14.0,
+     6.5
+    ],
+    [
+     32.0,
+     6.5
+    ],
+    [
+     32.0,
+     8.8
+    ],
+    [
+     14.0,
+     8.8
+    ]
+   ]
+  },
+  {
+   "zone_id": "zone_noread_lane",
+   "name": "No-read / exception lane",
+   "kind": "other",
+   "polygon": [
+    [
+     33.0,
+     8.0
+    ],
+    [
+     36.0,
+     8.0
+    ],
+    [
+     36.0,
+     11.0
+    ],
+    [
+     33.0,
+     11.0
+    ]
+   ]
+  },
+  {
+   "zone_id": "zone_rework_bench",
+   "name": "Rework & relabel bench",
+   "kind": "desk",
+   "polygon": [
+    [
+     35.5,
+     4.0
+    ],
+    [
+     39.5,
+     4.0
+    ],
+    [
+     39.5,
+     8.0
+    ],
+    [
+     35.5,
+     8.0
+    ]
+   ]
+  },
+  {
+   "zone_id": "zone_damage_hold",
+   "name": "Damage hold cage",
+   "kind": "shelf",
+   "polygon": [
+    [
+     35.5,
+     11.5
+    ],
+    [
+     39.5,
+     11.5
+    ],
+    [
+     39.5,
+     14.0
+    ],
+    [
+     35.5,
+     14.0
+    ]
+   ]
+  },
+  {
+   "zone_id": "zone_bagging",
+   "name": "Bagging (behind north chutes)",
+   "kind": "walkway",
+   "polygon": [
+    [
+     14.0,
+     12.5
+    ],
+    [
+     32.0,
+     12.5
+    ],
+    [
+     32.0,
+     15.0
+    ],
+    [
+     14.0,
+     15.0
+    ]
+   ]
+  },
+  {
+   "zone_id": "zone_cage_staging",
+   "name": "Cage staging",
+   "kind": "walkway",
+   "polygon": [
+    [
+     10.0,
+     15.0
+    ],
+    [
+     30.0,
+     15.0
+    ],
+    [
+     30.0,
+     19.5
+    ],
+    [
+     10.0,
+     19.5
+    ]
+   ]
+  },
+  {
+   "zone_id": "zone_blind_corner",
+   "name": "Staging corner (no camera)",
+   "kind": "walkway",
+   "polygon": [
+    [
+     30.0,
+     15.0
+    ],
+    [
+     35.0,
+     15.0
+    ],
+    [
+     35.0,
+     19.5
+    ],
+    [
+     30.0,
+     19.5
+    ]
+   ]
+  },
+  {
+   "zone_id": "zone_outbound_dock",
+   "name": "Outbound dock (load)",
+   "kind": "door",
+   "polygon": [
+    [
+     8.0,
+     19.5
+    ],
+    [
+     32.0,
+     19.5
+    ],
+    [
+     32.0,
+     24.0
+    ],
+    [
+     8.0,
+     24.0
+    ]
+   ]
+  },
+  {
+   "zone_id": "zone_office",
+   "name": "Supervisor office",
+   "kind": "other",
+   "polygon": [
+    [
+     35.5,
+     18.0
+    ],
+    [
+     40.0,
+     18.0
+    ],
+    [
+     40.0,
+     24.0
+    ],
+    [
+     35.5,
+     24.0
+    ]
+   ]
+  }
+ ],
+ "doors": [
+  {
+   "id": "door_in_1",
+   "wall": "W",
+   "at": 6.0,
+   "width": 3.0,
+   "kind": "dock"
+  },
+  {
+   "id": "door_in_2",
+   "wall": "W",
+   "at": 12.0,
+   "width": 3.0,
+   "kind": "dock"
+  },
+  {
+   "id": "door_out_D1",
+   "wall": "N",
+   "at": 12.0,
+   "width": 3.0,
+   "kind": "dock"
+  },
+  {
+   "id": "door_out_D2",
+   "wall": "N",
+   "at": 20.0,
+   "width": 3.0,
+   "kind": "dock"
+  },
+  {
+   "id": "door_out_D3",
+   "wall": "N",
+   "at": 28.0,
+   "width": 3.0,
+   "kind": "dock"
+  },
+  {
+   "id": "door_staff",
+   "wall": "E",
+   "at": 16.0,
+   "width": 1.0,
+   "kind": "personnel"
+  }
+ ],
+ "conveyors": [
+  {
+   "id": "conv_unload",
+   "path": [
+    [
+     4.5,
+     9.5
+    ],
+    [
+     11.0,
+     9.5
+    ]
+   ],
+   "width": 0.8,
+   "z": 0.8,
+   "kind": "belt"
+  },
+  {
+   "id": "conv_sorter",
+   "path": [
+    [
+     13.5,
+     9.5
+    ],
+    [
+     33.0,
+     9.5
+    ]
+   ],
+   "width": 1.0,
+   "z": 0.9,
+   "kind": "sorter"
+  },
+  {
+   "id": "conv_noread",
+   "path": [
+    [
+     33.0,
+     9.5
+    ],
+    [
+     35.5,
+     9.5
+    ],
+    [
+     35.5,
+     6.5
+    ]
+   ],
+   "width": 0.8,
+   "z": 0.8,
+   "kind": "belt"
+  }
+ ],
+ "chutes": [
+  {
+   "id": "chute_C01",
+   "x": 15.5,
+   "side": "N"
+  },
+  {
+   "id": "chute_C02",
+   "x": 18.5,
+   "side": "N"
+  },
+  {
+   "id": "chute_C03",
+   "x": 21.5,
+   "side": "N"
+  },
+  {
+   "id": "chute_C04",
+   "x": 24.5,
+   "side": "N"
+  },
+  {
+   "id": "chute_C05",
+   "x": 27.5,
+   "side": "N"
+  },
+  {
+   "id": "chute_C06",
+   "x": 30.5,
+   "side": "N"
+  },
+  {
+   "id": "chute_C07",
+   "x": 15.5,
+   "side": "S"
+  },
+  {
+   "id": "chute_C08",
+   "x": 18.5,
+   "side": "S"
+  },
+  {
+   "id": "chute_C09",
+   "x": 21.5,
+   "side": "S"
+  },
+  {
+   "id": "chute_C10",
+   "x": 24.5,
+   "side": "S"
+  },
+  {
+   "id": "chute_C11",
+   "x": 27.5,
+   "side": "S"
+  },
+  {
+   "id": "chute_C12",
+   "x": 30.5,
+   "side": "S"
+  }
+ ],
+ "pillars": [
+  [
+   10.0,
+   6.0
+  ],
+  [
+   10.0,
+   18.0
+  ],
+  [
+   20.0,
+   6.0
+  ],
+  [
+   20.0,
+   18.0
+  ],
+  [
+   30.0,
+   6.0
+  ],
+  [
+   30.0,
+   18.0
+  ],
+  [
+   32.5,
+   16.5
+  ]
+ ],
+ "clock_domains": [
+  {
+   "id": "clkd_wcs",
+   "kind": "wcs_plc",
+   "name": "Sorter control (tunnel + diverts)"
+  },
+  {
+   "id": "clkd_handheld",
+   "kind": "handheld_fleet",
+   "name": "Handheld scanners (batch sync)"
+  },
+  {
+   "id": "clkd_nvr",
+   "kind": "nvr",
+   "name": "CCTV recorder (cameras CAM-01..06)"
+  }
+ ],
+ "scanners": [
+  {
+   "id": "tunnel_1",
+   "kind": "tunnel",
+   "zone": "zone_scan_tunnel",
+   "at": [
+    12.25,
+    9.5
+   ],
+   "domain": "clkd_wcs"
+  },
+  {
+   "id": "sorter_plc",
+   "kind": "sorter_plc",
+   "zone": "zone_sorter",
+   "at": [
+    23.0,
+    9.5
+   ],
+   "domain": "clkd_wcs",
+   "note": "divert confirmations per chute"
+  },
+  {
+   "id": "hh_induct",
+   "kind": "handheld",
+   "zone": "zone_induction",
+   "at": [
+    8.0,
+    10.5
+   ],
+   "domain": "clkd_handheld"
+  },
+  {
+   "id": "hh_rework",
+   "kind": "handheld",
+   "zone": "zone_rework_bench",
+   "at": [
+    37.5,
+    6.0
+   ],
+   "domain": "clkd_handheld"
+  },
+  {
+   "id": "hh_bagging",
+   "kind": "handheld",
+   "zone": "zone_bagging",
+   "at": [
+    23.0,
+    13.5
+   ],
+   "domain": "clkd_handheld"
+  },
+  {
+   "id": "hh_dock",
+   "kind": "handheld",
+   "zone": "zone_outbound_dock",
+   "at": [
+    20.0,
+    21.0
+   ],
+   "domain": "clkd_handheld"
+  }
+ ],
+ "cameras": [
+  {
+   "id": "cam_01",
+   "name": "CAM-01 Inbound dock",
+   "pos": [
+    8.5,
+    3.2,
+    5.0
+   ],
+   "yaw": 150,
+   "tilt": 35,
+   "hfov": 95,
+   "resolution": [
+    1280,
+    720
+   ],
+   "fps": 12.5,
+   "clock_domain": "clkd_nvr"
+  },
+  {
+   "id": "cam_02",
+   "name": "CAM-02 Induction + tunnel exit",
+   "pos": [
+    16.0,
+    4.0,
+    5.0
+   ],
+   "yaw": 125,
+   "tilt": 40,
+   "hfov": 90,
+   "role": "clock anchor: sees parcels leave the scan tunnel",
+   "resolution": [
+    1280,
+    720
+   ],
+   "fps": 12.5,
+   "clock_domain": "clkd_nvr"
+  },
+  {
+   "id": "cam_03",
+   "name": "CAM-03 Sorter west (C01-03, C07-09)",
+   "pos": [
+    14.5,
+    14.5,
+    5.5
+   ],
+   "yaw": -40,
+   "tilt": 45,
+   "hfov": 100,
+   "resolution": [
+    1280,
+    720
+   ],
+   "fps": 12.5,
+   "clock_domain": "clkd_nvr"
+  },
+  {
+   "id": "cam_04",
+   "name": "CAM-04 Sorter east + no-read lane",
+   "pos": [
+    33.5,
+    14.0,
+    5.5
+   ],
+   "yaw": -130,
+   "tilt": 45,
+   "hfov": 100,
+   "resolution": [
+    1280,
+    720
+   ],
+   "fps": 12.5,
+   "clock_domain": "clkd_nvr"
+  },
+  {
+   "id": "cam_05",
+   "name": "CAM-05 Bagging + cage staging",
+   "pos": [
+    10.5,
+    20.5,
+    5.5
+   ],
+   "yaw": -20,
+   "tilt": 40,
+   "hfov": 100,
+   "resolution": [
+    1280,
+    720
+   ],
+   "fps": 12.5,
+   "clock_domain": "clkd_nvr"
+  },
+  {
+   "id": "cam_06",
+   "name": "CAM-06 Outbound docks D1-D3",
+   "pos": [
+    33.0,
+    23.0,
+    5.5
+   ],
+   "yaw": 195,
+   "tilt": 38,
+   "hfov": 95,
+   "resolution": [
+    1280,
+    720
+   ],
+   "fps": 12.5,
+   "clock_domain": "clkd_nvr"
+  }
+ ]
+}

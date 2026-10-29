@@ -1,0 +1,84 @@
+{
+  "additionalProperties": false,
+  "description": "Required before any upload is accepted (PRD \u00a77.1).",
+  "properties": {
+    "authorization_id": {
+      "maxLength": 96,
+      "pattern": "^auth_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Authorization Id",
+      "type": "string"
+    },
+    "site_id": {
+      "maxLength": 96,
+      "pattern": "^site_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Site Id",
+      "type": "string"
+    },
+    "uploader": {
+      "title": "Uploader",
+      "type": "string"
+    },
+    "rights_statement": {
+      "minLength": 10,
+      "title": "Rights Statement",
+      "type": "string"
+    },
+    "purpose": {
+      "minLength": 3,
+      "title": "Purpose",
+      "type": "string"
+    },
+    "consent_confirmed": {
+      "const": true,
+      "description": "Uploader confirms recording rights and that notices/consent are in place",
+      "title": "Consent Confirmed",
+      "type": "boolean"
+    },
+    "hosted_processing_allowed": {
+      "description": "May this footage be sent to hosted model providers (Meta Model API, Baseten)?",
+      "title": "Hosted Processing Allowed",
+      "type": "boolean"
+    },
+    "retention_until": {
+      "format": "date-time",
+      "title": "Retention Until",
+      "type": "string"
+    },
+    "recorded_at": {
+      "format": "date-time",
+      "title": "Recorded At",
+      "type": "string"
+    },
+    "recording_kind": {
+      "anyOf": [
+        {
+          "enum": [
+            "staged_event",
+            "real_incident",
+            "synthetic_test"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Declared by the uploader; drives the provenance label in reports (PRD \u00a727.1)",
+      "title": "Recording Kind"
+    }
+  },
+  "required": [
+    "authorization_id",
+    "site_id",
+    "uploader",
+    "rights_statement",
+    "purpose",
+    "consent_confirmed",
+    "hosted_processing_allowed",
+    "retention_until",
+    "recorded_at"
+  ],
+  "title": "MediaAuthorization",
+  "type": "object"
+}

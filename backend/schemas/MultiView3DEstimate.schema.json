@@ -1,0 +1,137 @@
+{
+  "$defs": {
+    "RigState": {
+      "description": "Calibration state; runtime tools check the state a method requires (PRD \u00a713.4.2).",
+      "enum": [
+        "uncalibrated",
+        "calibrating",
+        "validated_floor_only",
+        "validated_multiview_3d",
+        "invalidated"
+      ],
+      "title": "RigState",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Optional, feature-gated (PRD \u00a713.4). Only valid from a validated multi-view rig.",
+  "properties": {
+    "estimate_id": {
+      "maxLength": 96,
+      "pattern": "^xyz_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Estimate Id",
+      "type": "string"
+    },
+    "target_kind": {
+      "default": "non_identifying_object_landmark",
+      "title": "Target Kind",
+      "type": "string"
+    },
+    "site_xyz_m": {
+      "maxItems": 3,
+      "minItems": 3,
+      "prefixItems": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "number"
+        }
+      ],
+      "title": "Site Xyz M",
+      "type": "array"
+    },
+    "site_frame": {
+      "default": "site_meters_z_up_v1",
+      "title": "Site Frame",
+      "type": "string"
+    },
+    "method": {
+      "default": "calibrated_multiview_triangulation",
+      "title": "Method",
+      "type": "string"
+    },
+    "source_observation_ids": {
+      "items": {
+        "maxLength": 96,
+        "pattern": "^obs_[A-Za-z0-9][A-Za-z0-9_-]*$",
+        "type": "string"
+      },
+      "minItems": 2,
+      "title": "Source Observation Ids",
+      "type": "array"
+    },
+    "correspondence_id": {
+      "maxLength": 96,
+      "pattern": "^corr_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Correspondence Id",
+      "type": "string"
+    },
+    "calibration_ids": {
+      "items": {
+        "maxLength": 96,
+        "pattern": "^calib_[A-Za-z0-9][A-Za-z0-9_-]*$",
+        "type": "string"
+      },
+      "minItems": 2,
+      "title": "Calibration Ids",
+      "type": "array"
+    },
+    "rig_state": {
+      "$ref": "#/$defs/RigState"
+    },
+    "synchronization_id": {
+      "maxLength": 96,
+      "pattern": "^sync_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Synchronization Id",
+      "type": "string"
+    },
+    "reprojection_error_px_by_camera": {
+      "additionalProperties": {
+        "type": "number"
+      },
+      "title": "Reprojection Error Px By Camera",
+      "type": "object"
+    },
+    "uncertainty_3d_m": {
+      "exclusiveMinimum": 0,
+      "title": "Uncertainty 3D M",
+      "type": "number"
+    },
+    "quality_gates_passed": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Quality Gates Passed",
+      "type": "array"
+    },
+    "software_version": {
+      "title": "Software Version",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "estimate_id",
+    "site_xyz_m",
+    "source_observation_ids",
+    "correspondence_id",
+    "calibration_ids",
+    "rig_state",
+    "synchronization_id",
+    "reprojection_error_px_by_camera",
+    "uncertainty_3d_m",
+    "quality_gates_passed",
+    "software_version",
+    "created_at"
+  ],
+  "title": "MultiView3DEstimate",
+  "type": "object"
+}

@@ -1,0 +1,259 @@
+{
+  "$defs": {
+    "RigState": {
+      "description": "Calibration state; runtime tools check the state a method requires (PRD \u00a713.4.2).",
+      "enum": [
+        "uncalibrated",
+        "calibrating",
+        "validated_floor_only",
+        "validated_multiview_3d",
+        "invalidated"
+      ],
+      "title": "RigState",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A versioned image->floor homography. A new calibration is a new record; old ones are kept (PRD \u00a716.4).",
+  "properties": {
+    "calibration_id": {
+      "maxLength": 96,
+      "pattern": "^calib_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Calibration Id",
+      "type": "string"
+    },
+    "camera_id": {
+      "maxLength": 96,
+      "pattern": "^cam_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Camera Id",
+      "type": "string"
+    },
+    "floor_id": {
+      "maxLength": 96,
+      "pattern": "^floor_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Floor Id",
+      "type": "string"
+    },
+    "version": {
+      "minimum": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "rig_state": {
+      "$ref": "#/$defs/RigState"
+    },
+    "homography_image_to_floor": {
+      "maxItems": 3,
+      "minItems": 3,
+      "prefixItems": [
+        {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "type": "array"
+        },
+        {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "type": "array"
+        },
+        {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "type": "array"
+        }
+      ],
+      "title": "Homography Image To Floor",
+      "type": "array"
+    },
+    "image_wh_px": {
+      "anyOf": [
+        {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Frame size the image points refer to",
+      "title": "Image Wh Px"
+    },
+    "fit_image_points_px": {
+      "items": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "number"
+          }
+        ],
+        "type": "array"
+      },
+      "title": "Fit Image Points Px",
+      "type": "array"
+    },
+    "fit_floor_points_m": {
+      "items": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "number"
+          }
+        ],
+        "type": "array"
+      },
+      "title": "Fit Floor Points M",
+      "type": "array"
+    },
+    "holdout_image_points_px": {
+      "default": [],
+      "items": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "number"
+          }
+        ],
+        "type": "array"
+      },
+      "title": "Holdout Image Points Px",
+      "type": "array"
+    },
+    "holdout_floor_points_m": {
+      "default": [],
+      "items": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "number"
+          }
+        ],
+        "type": "array"
+      },
+      "title": "Holdout Floor Points M",
+      "type": "array"
+    },
+    "holdout_error_median_m": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Holdout Error Median M"
+    },
+    "holdout_error_p95_m": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Holdout Error P95 M"
+    },
+    "undistorted": {
+      "default": false,
+      "title": "Undistorted",
+      "type": "boolean"
+    },
+    "method": {
+      "default": "cv2.findHomography RANSAC",
+      "title": "Method",
+      "type": "string"
+    },
+    "software_version": {
+      "title": "Software Version",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "notes": {
+      "default": "",
+      "title": "Notes",
+      "type": "string"
+    }
+  },
+  "required": [
+    "calibration_id",
+    "camera_id",
+    "floor_id",
+    "version",
+    "rig_state",
+    "homography_image_to_floor",
+    "fit_image_points_px",
+    "fit_floor_points_m",
+    "software_version",
+    "created_at"
+  ],
+  "title": "FloorCalibration",
+  "type": "object"
+}

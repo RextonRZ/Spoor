@@ -1,0 +1,63 @@
+"""Event-sourced evidence memory (PRD §16)."""
+
+from .queries import (
+    CONFIRMED as CONFIRMED_STATUSES,
+)
+from .queries import (
+    LastSeen,
+    ObjectState,
+    ObjectView,
+    Span,
+    TrackSegment,
+    Transition,
+    UnobservedInterval,
+    claims_relying_on_inferred_links,
+    coverage_intervals,
+    estimate_for,
+    last_confirmed,
+    latest_associations,
+    object_evidence,
+    site_camera_ids,
+    track_segments,
+    transitions,
+    unobserved_intervals,
+    visibility_timeline,
+    world_state_at,
+)
+from .records import AgentStep, AuditEntry, CostEntry, EvidenceRequest, Invalidation, ReportRecord
+from .repository import ConflictError, DanglingReference, EvidenceStore, StoreError, epoch_ms, utcnow
+
+__all__ = [
+    "CONFIRMED_STATUSES",
+    "AgentStep",
+    "AuditEntry",
+    "ConflictError",
+    "CostEntry",
+    "DanglingReference",
+    "EvidenceRequest",
+    "EvidenceStore",
+    "Invalidation",
+    "LastSeen",
+    "ObjectState",
+    "ObjectView",
+    "ReportRecord",
+    "Span",
+    "StoreError",
+    "TrackSegment",
+    "Transition",
+    "UnobservedInterval",
+    "claims_relying_on_inferred_links",
+    "coverage_intervals",
+    "epoch_ms",
+    "estimate_for",
+    "last_confirmed",
+    "latest_associations",
+    "object_evidence",
+    "site_camera_ids",
+    "track_segments",
+    "transitions",
+    "unobserved_intervals",
+    "utcnow",
+    "visibility_timeline",
+    "world_state_at",
+]

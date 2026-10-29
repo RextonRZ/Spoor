@@ -1,0 +1,499 @@
+{
+  "$defs": {
+    "ContainerType": {
+      "enum": [
+        "bag",
+        "cage",
+        "pallet",
+        "gaylord",
+        "trailer"
+      ],
+      "title": "ContainerType",
+      "type": "string"
+    },
+    "DeviceKind": {
+      "enum": [
+        "tunnel",
+        "dws_static",
+        "sorter_plc",
+        "ship_sorter",
+        "handheld",
+        "rfid_portal"
+      ],
+      "title": "DeviceKind",
+      "type": "string"
+    },
+    "IdentifierScheme": {
+      "enum": [
+        "s10",
+        "sscc",
+        "carrier_waybill",
+        "internal",
+        "dl_uri",
+        "container"
+      ],
+      "title": "IdentifierScheme",
+      "type": "string"
+    },
+    "ParcelIdentifier": {
+      "additionalProperties": false,
+      "description": "One identifier on a parcel or container. A parcel can carry several at once (waybill + SSCC + S10).",
+      "properties": {
+        "scheme": {
+          "$ref": "#/$defs/IdentifierScheme"
+        },
+        "value": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Value",
+          "type": "string"
+        },
+        "check_digit_valid": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Check Digit Valid"
+        }
+      },
+      "required": [
+        "scheme",
+        "value"
+      ],
+      "title": "ParcelIdentifier",
+      "type": "object"
+    },
+    "ReadOutcome": {
+      "enum": [
+        "read",
+        "no_read",
+        "no_solve",
+        "multi_read"
+      ],
+      "title": "ReadOutcome",
+      "type": "string"
+    },
+    "ScanEventKind": {
+      "enum": [
+        "arrived_facility",
+        "inducted",
+        "tunnel_read",
+        "return_inducted",
+        "tunnel_no_read",
+        "sort_assigned",
+        "divert_confirmed",
+        "recirculated",
+        "exception_diverted",
+        "manual_encoded",
+        "relabeled",
+        "damage_hold",
+        "missort_detected",
+        "container_add",
+        "container_closed",
+        "container_remove",
+        "container_loaded",
+        "departed_facility",
+        "case_opened",
+        "case_closed"
+      ],
+      "title": "ScanEventKind",
+      "type": "string"
+    },
+    "SourceType": {
+      "enum": [
+        "video",
+        "sensor_real",
+        "sensor_simulated",
+        "scan_real",
+        "scan_simulated",
+        "human_annotation"
+      ],
+      "title": "SourceType",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One barcode/RFID read or machine event about a parcel or container. Append-only; corrections are new events\nthat point at the event they correct (EPCIS errorDeclaration), never edits.",
+  "properties": {
+    "scan_event_id": {
+      "maxLength": 96,
+      "pattern": "^scan_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Scan Event Id",
+      "type": "string"
+    },
+    "site_id": {
+      "maxLength": 96,
+      "pattern": "^site_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Site Id",
+      "type": "string"
+    },
+    "source_type": {
+      "$ref": "#/$defs/SourceType"
+    },
+    "import_batch": {
+      "title": "Import Batch",
+      "type": "string"
+    },
+    "identifiers": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ParcelIdentifier"
+      },
+      "title": "Identifiers",
+      "type": "array"
+    },
+    "read_outcome": {
+      "$ref": "#/$defs/ReadOutcome",
+      "default": "read"
+    },
+    "event_kind": {
+      "$ref": "#/$defs/ScanEventKind"
+    },
+    "raw_code": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Raw Code"
+    },
+    "raw_description": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Stored as data, never prompts",
+      "title": "Raw Description"
+    },
+    "reason_code": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Reason Code"
+    },
+    "action_code": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Action Code"
+    },
+    "epcis_action": {
+      "anyOf": [
+        {
+          "enum": [
+            "ADD",
+            "OBSERVE",
+            "DELETE"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Epcis Action"
+    },
+    "biz_step": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Biz Step"
+    },
+    "disposition": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Disposition"
+    },
+    "device_time_utc": {
+      "format": "date-time",
+      "title": "Device Time Utc",
+      "type": "string"
+    },
+    "record_time_utc": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Record Time Utc"
+    },
+    "clock_domain_id": {
+      "anyOf": [
+        {
+          "maxLength": 96,
+          "pattern": "^clkd_[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Clock Domain Id"
+    },
+    "device_id": {
+      "minLength": 1,
+      "title": "Device Id",
+      "type": "string"
+    },
+    "device_kind": {
+      "$ref": "#/$defs/DeviceKind"
+    },
+    "station_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Station Id"
+    },
+    "read_point_zone_id": {
+      "anyOf": [
+        {
+          "maxLength": 96,
+          "pattern": "^zone_[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Zone of the read point (camera FOV lookup)",
+      "title": "Read Point Zone Id"
+    },
+    "biz_location_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Biz Location Id"
+    },
+    "sort_destination_assigned": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sort Destination Assigned"
+    },
+    "sort_destination_actual": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sort Destination Actual"
+    },
+    "divert_confirmed": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Divert Confirmed"
+    },
+    "container": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ParcelIdentifier"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "container_type": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ContainerType"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "parent_container": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ParcelIdentifier"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "weight_g": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Weight G"
+    },
+    "dims_mm": {
+      "anyOf": [
+        {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Dims Mm"
+    },
+    "image_refs": {
+      "default": [],
+      "items": {
+        "maxLength": 96,
+        "pattern": "^media_[A-Za-z0-9][A-Za-z0-9_-]*$",
+        "type": "string"
+      },
+      "title": "Image Refs",
+      "type": "array"
+    },
+    "operator_ref": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Operator Ref"
+    },
+    "corrects_scan_event_id": {
+      "anyOf": [
+        {
+          "maxLength": 96,
+          "pattern": "^scan_[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Corrects Scan Event Id"
+    },
+    "correction_reason": {
+      "anyOf": [
+        {
+          "enum": [
+            "did_not_occur",
+            "incorrect_data"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Correction Reason"
+    }
+  },
+  "required": [
+    "scan_event_id",
+    "site_id",
+    "source_type",
+    "import_batch",
+    "event_kind",
+    "device_time_utc",
+    "device_id",
+    "device_kind"
+  ],
+  "title": "ScanEvent",
+  "type": "object"
+}
