@@ -16,7 +16,8 @@ from PIL import Image
 RAW = "https://raw.githubusercontent.com/microsoft/Microsoft-Rocketbox/master/"
 OUT = Path(__file__).parent / "build" / "third_party" / "rocketbox"
 UA = {"User-Agent": "Spoor-demo-hub-builder/0.1"}
-AVATARS = ["Female_Adult_04", "Female_Adult_06", "Female_Adult_07", "Female_Adult_13",
+AVATARS = ["Female_Adult_01", "Female_Adult_04", "Female_Adult_06", "Female_Adult_07", "Female_Adult_09", "Female_Adult_13",
+           "Female_Adult_17",  # flat shoes (01, 09, 17 added 2026-10-30 for handlers: no heels on the floor)
            "Male_Adult_04", "Male_Adult_05", "Male_Adult_09", "Male_Adult_12"]
 CLIPS = {  # folder suffix -> clip names (both genders): no carry / lift / push exist in Rocketbox
     "xy": ["walk_neutral_01", "crouch_in", "crouch_out"],

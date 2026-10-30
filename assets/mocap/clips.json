@@ -1,0 +1,1025 @@
+[
+ {
+  "take": "Participant_2274_Setup_B_Seq_3_Trial_3",
+  "kind": "pick",
+  "t0": 9.775,
+  "t1": 13.067,
+  "dur": 3.292,
+  "events": {
+   "grasp": 10.433,
+   "lift": 12.667
+  },
+  "root_travel_m": 0.28,
+  "foot_travel_m": 0.505,
+  "yaw_change_deg": 95.2,
+  "hand_height_m": 0.972,
+  "wrist_gap_m": 0.327,
+  "two_hand": true,
+  "posture": "St_BF",
+  "wrists": {
+   "Left": [
+    -0.551,
+    1.038,
+    0.301
+   ],
+   "Right": [
+    -0.822,
+    0.972,
+    0.129
+   ]
+  },
+  "usable": false
+ },
+ {
+  "take": "Participant_2274_Setup_B_Seq_3_Trial_3",
+  "kind": "place",
+  "t0": 15.075,
+  "t1": 17.067,
+  "dur": 1.992,
+  "events": {
+   "place_start": 15.4,
+   "release": 16.767
+  },
+  "root_travel_m": 0.322,
+  "foot_travel_m": 0.424,
+  "yaw_change_deg": 49.3,
+  "hand_height_m": 0.47,
+  "wrist_gap_m": 0.258,
+  "two_hand": true,
+  "posture": "Cr_U",
+  "wrists": {
+   "Left": [
+    0.177,
+    0.59,
+    2.405
+   ],
+   "Right": [
+    0.113,
+    0.47,
+    2.625
+   ]
+  },
+  "usable": false
+ },
+ {
+  "take": "Participant_2274_Setup_B_Seq_3_Trial_3",
+  "kind": "pick",
+  "t0": 33.942,
+  "t1": 35.8,
+  "dur": 1.858,
+  "events": {
+   "grasp": 34.467,
+   "lift": 35.4
+  },
+  "root_travel_m": 0.711,
+  "foot_travel_m": 1.009,
+  "yaw_change_deg": 57.8,
+  "hand_height_m": 0.958,
+  "wrist_gap_m": 0.655,
+  "two_hand": false,
+  "posture": "St_BF",
+  "wrists": {
+   "Left": [
+    -0.176,
+    1.084,
+    0.268
+   ],
+   "Right": [
+    -0.794,
+    0.958,
+    0.094
+   ]
+  },
+  "usable": false
+ },
+ {
+  "take": "Participant_2274_Setup_B_Seq_3_Trial_3",
+  "kind": "place",
+  "t0": 37.117,
+  "t1": 39.433,
+  "dur": 2.317,
+  "events": {
+   "place_start": 37.467,
+   "release": 39.133
+  },
+  "root_travel_m": 0.527,
+  "foot_travel_m": 0.568,
+  "yaw_change_deg": 68.3,
+  "hand_height_m": 1.075,
+  "wrist_gap_m": 0.241,
+  "two_hand": true,
+  "posture": "St_U",
+  "wrists": {
+   "Left": [
+    0.196,
+    1.16,
+    2.4
+   ],
+   "Right": [
+    0.141,
+    1.075,
+    2.619
+   ]
+  },
+  "usable": false
+ },
+ {
+  "take": "Participant_2274_Setup_B_Seq_3_Trial_3",
+  "kind": "pick",
+  "t0": 60.125,
+  "t1": 61.733,
+  "dur": 1.608,
+  "events": {
+   "grasp": 60.667,
+   "lift": 61.333
+  },
+  "root_travel_m": 0.136,
+  "foot_travel_m": 0.335,
+  "yaw_change_deg": -91.7,
+  "hand_height_m": 0.807,
+  "wrist_gap_m": 0.272,
+  "two_hand": true,
+  "posture": "St_BF",
+  "wrists": {
+   "Left": [
+    0.307,
+    0.815,
+    -0.404
+   ],
+   "Right": [
+    0.542,
+    0.807,
+    -0.54
+   ]
+  },
+  "usable": false
+ },
+ {
+  "take": "Participant_2274_Setup_B_Seq_3_Trial_3",
+  "kind": "place",
+  "t0": 63.367,
+  "t1": 66.0,
+  "dur": 2.633,
+  "events": {
+   "place_start": 63.7,
+   "release": 65.4
+  },
+  "root_travel_m": 0.622,
+  "foot_travel_m": 0.758,
+  "yaw_change_deg": 87.5,
+  "hand_height_m": 1.178,
+  "wrist_gap_m": 0.192,
+  "two_hand": true,
+  "posture": "St_U",
+  "wrists": {
+   "Left": [
+    0.497,
+    1.178,
+    1.954
+   ],
+   "Right": [
+    0.574,
+    1.196,
+    2.128
+   ]
+  },
+  "usable": false
+ },
+ {
+  "take": "Participant_2274_Setup_B_Seq_3_Trial_3",
+  "kind": "pick",
+  "t0": 69.1,
+  "t1": 70.4,
+  "dur": 1.3,
+  "events": {
+   "grasp": 70.0,
+   "lift": 70.0
+  },
+  "root_travel_m": 0.016,
+  "foot_travel_m": 0.01,
+  "yaw_change_deg": 4.8,
+  "hand_height_m": 0.94,
+  "wrist_gap_m": 0.106,
+  "two_hand": true,
+  "posture": "St_BF",
+  "wrists": {
+   "Left": [
+    -0.798,
+    0.94,
+    0.19
+   ],
+   "Right": [
+    -0.799,
+    0.969,
+    0.088
+   ]
+  },
+  "usable": true
+ },
+ {
+  "take": "Participant_2274_Setup_B_Seq_3_Trial_3",
+  "kind": "pick",
+  "t0": 70.317,
+  "t1": 72.133,
+  "dur": 1.817,
+  "events": {
+   "grasp": 70.867,
+   "lift": 71.733
+  },
+  "root_travel_m": 0.297,
+  "foot_travel_m": 0.385,
+  "yaw_change_deg": 75.8,
+  "hand_height_m": 0.965,
+  "wrist_gap_m": 0.5,
+  "two_hand": true,
+  "posture": "St_BF",
+  "wrists": {
+   "Left": [
+    -0.304,
+    1.04,
+    0.31
+   ],
+   "Right": [
+    -0.755,
+    0.965,
+    0.107
+   ]
+  },
+  "usable": false
+ },
+ {
+  "take": "Participant_2274_Setup_B_Seq_3_Trial_3",
+  "kind": "place",
+  "t0": 74.367,
+  "t1": 77.733,
+  "dur": 3.367,
+  "events": {
+   "place_start": 74.5,
+   "release": 77.433
+  },
+  "root_travel_m": 0.389,
+  "foot_travel_m": 0.494,
+  "yaw_change_deg": 62.5,
+  "hand_height_m": 1.684,
+  "wrist_gap_m": 0.211,
+  "two_hand": true,
+  "posture": "St_OH",
+  "wrists": {
+   "Left": [
+    0.386,
+    1.684,
+    2.357
+   ],
+   "Right": [
+    0.352,
+    1.741,
+    2.557
+   ]
+  },
+  "usable": false
+ },
+ {
+  "take": "Participant_2274_Setup_B_Seq_3_Trial_3",
+  "kind": "pick",
+  "t0": 88.042,
+  "t1": 90.0,
+  "dur": 1.958,
+  "events": {
+   "grasp": 88.933,
+   "lift": 89.6
+  },
+  "root_travel_m": 0.176,
+  "foot_travel_m": 0.35,
+  "yaw_change_deg": -101.9,
+  "hand_height_m": 0.773,
+  "wrist_gap_m": 0.199,
+  "two_hand": true,
+  "posture": "St_BF",
+  "wrists": {
+   "Left": [
+    0.266,
+    0.773,
+    -0.414
+   ],
+   "Right": [
+    0.465,
+    0.789,
+    -0.425
+   ]
+  },
+  "usable": false
+ },
+ {
+  "take": "Participant_2274_Setup_B_Seq_3_Trial_3",
+  "kind": "place",
+  "t0": 91.7,
+  "t1": 94.167,
+  "dur": 2.467,
+  "events": {
+   "place_start": 92.0,
+   "release": 93.567
+  },
+  "root_travel_m": 0.245,
+  "foot_travel_m": 0.384,
+  "yaw_change_deg": 2.3,
+  "hand_height_m": 0.323,
+  "wrist_gap_m": 0.266,
+  "two_hand": true,
+  "posture": "Cr_U",
+  "wrists": {
+   "Left": [
+    0.465,
+    0.323,
+    1.988
+   ],
+   "Right": [
+    0.483,
+    0.351,
+    2.252
+   ]
+  },
+  "usable": false
+ },
+ {
+  "take": "Participant_5124_Setup_B_Seq_1_Trial_3",
+  "kind": "pick",
+  "t0": 7.983,
+  "t1": 9.7,
+  "dur": 1.717,
+  "events": {
+   "grasp": 8.433,
+   "lift": 9.3
+  },
+  "root_travel_m": 0.071,
+  "foot_travel_m": 0.089,
+  "yaw_change_deg": 61.3,
+  "hand_height_m": 0.975,
+  "wrist_gap_m": 0.421,
+  "two_hand": true,
+  "posture": "St_BF",
+  "wrists": {
+   "Left": [
+    -0.78,
+    0.975,
+    0.346
+   ],
+   "Right": [
+    -0.394,
+    1.007,
+    0.181
+   ]
+  },
+  "usable": true
+ },
+ {
+  "take": "Participant_5124_Setup_B_Seq_1_Trial_3",
+  "kind": "place",
+  "t0": 12.742,
+  "t1": 15.833,
+  "dur": 3.092,
+  "events": {
+   "place_start": 12.9,
+   "release": 15.533
+  },
+  "root_travel_m": 0.187,
+  "foot_travel_m": 0.132,
+  "yaw_change_deg": 18.1,
+  "hand_height_m": 0.482,
+  "wrist_gap_m": 0.12,
+  "two_hand": true,
+  "posture": "Cr_U",
+  "wrists": {
+   "Left": [
+    0.271,
+    0.512,
+    2.421
+   ],
+   "Right": [
+    0.225,
+    0.482,
+    2.528
+   ]
+  },
+  "usable": false
+ },
+ {
+  "take": "Participant_5124_Setup_B_Seq_1_Trial_3",
+  "kind": "pick",
+  "t0": 33.442,
+  "t1": 35.3,
+  "dur": 1.858,
+  "events": {
+   "grasp": 34.067,
+   "lift": 34.9
+  },
+  "root_travel_m": 0.22,
+  "foot_travel_m": 0.364,
+  "yaw_change_deg": 69.1,
+  "hand_height_m": 0.988,
+  "wrist_gap_m": 0.448,
+  "two_hand": true,
+  "posture": "St_BF",
+  "wrists": {
+   "Left": [
+    -0.826,
+    0.988,
+    0.397
+   ],
+   "Right": [
+    -0.414,
+    1.052,
+    0.233
+   ]
+  },
+  "usable": false
+ },
+ {
+  "take": "Participant_5124_Setup_B_Seq_1_Trial_3",
+  "kind": "place",
+  "t0": 37.867,
+  "t1": 39.567,
+  "dur": 1.7,
+  "events": {
+   "place_start": 38.233,
+   "release": 39.267
+  },
+  "root_travel_m": 0.201,
+  "foot_travel_m": 0.279,
+  "yaw_change_deg": 20.0,
+  "hand_height_m": 1.067,
+  "wrist_gap_m": 0.127,
+  "two_hand": true,
+  "posture": "St_U",
+  "wrists": {
+   "Left": [
+    0.236,
+    1.126,
+    2.479
+   ],
+   "Right": [
+    0.252,
+    1.067,
+    2.59
+   ]
+  },
+  "usable": false
+ },
+ {
+  "take": "Participant_5124_Setup_B_Seq_1_Trial_3",
+  "kind": "pick",
+  "t0": 59.65,
+  "t1": 61.3,
+  "dur": 1.65,
+  "events": {
+   "grasp": 60.133,
+   "lift": 60.9
+  },
+  "root_travel_m": 0.174,
+  "foot_travel_m": 0.131,
+  "yaw_change_deg": 66.5,
+  "hand_height_m": 0.995,
+  "wrist_gap_m": 0.432,
+  "two_hand": true,
+  "posture": "St_BF",
+  "wrists": {
+   "Left": [
+    -0.811,
+    0.995,
+    0.393
+   ],
+   "Right": [
+    -0.412,
+    1.022,
+    0.232
+   ]
+  },
+  "usable": true
+ },
+ {
+  "take": "Participant_5124_Setup_B_Seq_1_Trial_3",
+  "kind": "place",
+  "t0": 66.25,
+  "t1": 68.867,
+  "dur": 2.617,
+  "events": {
+   "place_start": 66.167,
+   "release": 68.567
+  },
+  "root_travel_m": 0.061,
+  "foot_travel_m": 0.015,
+  "yaw_change_deg": -2.4,
+  "hand_height_m": 1.619,
+  "wrist_gap_m": 0.149,
+  "two_hand": true,
+  "posture": "St_OS",
+  "wrists": {
+   "Left": [
+    0.607,
+    1.674,
+    2.407
+   ],
+   "Right": [
+    0.601,
+    1.619,
+    2.545
+   ]
+  },
+  "usable": false
+ },
+ {
+  "take": "Participant_5124_Setup_B_Seq_1_Trial_3",
+  "kind": "pick",
+  "t0": 110.833,
+  "t1": 113.0,
+  "dur": 2.167,
+  "events": {
+   "grasp": 111.733,
+   "lift": 112.6
+  },
+  "root_travel_m": 0.184,
+  "foot_travel_m": 0.331,
+  "yaw_change_deg": -72.9,
+  "hand_height_m": 0.689,
+  "wrist_gap_m": 0.122,
+  "two_hand": true,
+  "posture": "Cr_U",
+  "wrists": {
+   "Left": [
+    0.157,
+    0.689,
+    0.004
+   ],
+   "Right": [
+    0.279,
+    0.695,
+    0.004
+   ]
+  },
+  "usable": false
+ },
+ {
+  "take": "Participant_5124_Setup_B_Seq_1_Trial_3",
+  "kind": "place",
+  "t0": 114.617,
+  "t1": 117.233,
+  "dur": 2.617,
+  "events": {
+   "place_start": 115.067,
+   "release": 116.633
+  },
+  "root_travel_m": 0.589,
+  "foot_travel_m": 0.588,
+  "yaw_change_deg": 92.3,
+  "hand_height_m": 1.181,
+  "wrist_gap_m": 0.293,
+  "two_hand": true,
+  "posture": "St_U",
+  "wrists": {
+   "Left": [
+    0.711,
+    1.211,
+    1.92
+   ],
+   "Right": [
+    0.67,
+    1.181,
+    2.209
+   ]
+  },
+  "usable": false
+ },
+ {
+  "take": "Participant_5124_Setup_B_Seq_1_Trial_3",
+  "kind": "pick",
+  "t0": 119.833,
+  "t1": 121.9,
+  "dur": 2.067,
+  "events": {
+   "grasp": 120.733,
+   "lift": 121.5
+  },
+  "root_travel_m": 0.199,
+  "foot_travel_m": 0.414,
+  "yaw_change_deg": -66.1,
+  "hand_height_m": 0.674,
+  "wrist_gap_m": 0.212,
+  "two_hand": true,
+  "posture": "Cr_U",
+  "wrists": {
+   "Left": [
+    0.178,
+    0.674,
+    -0.06
+   ],
+   "Right": [
+    0.389,
+    0.674,
+    -0.051
+   ]
+  },
+  "usable": false
+ },
+ {
+  "take": "Participant_5124_Setup_B_Seq_1_Trial_3",
+  "kind": "place",
+  "t0": 124.95,
+  "t1": 127.4,
+  "dur": 2.45,
+  "events": {
+   "place_start": 125.133,
+   "release": 126.8
+  },
+  "root_travel_m": 0.298,
+  "foot_travel_m": 0.148,
+  "yaw_change_deg": 30.4,
+  "hand_height_m": 0.344,
+  "wrist_gap_m": 0.198,
+  "two_hand": true,
+  "posture": "Cr_BF",
+  "wrists": {
+   "Left": [
+    0.542,
+    0.373,
+    2.184
+   ],
+   "Right": [
+    0.54,
+    0.344,
+    2.381
+   ]
+  },
+  "usable": false
+ },
+ {
+  "take": "Participant_541_Setup_A_Seq_3_Trial_2",
+  "kind": "pick",
+  "t0": 9.525,
+  "t1": 11.4,
+  "dur": 1.875,
+  "events": {
+   "grasp": 10.1,
+   "lift": 11.0
+  },
+  "root_travel_m": 0.923,
+  "foot_travel_m": 1.103,
+  "yaw_change_deg": -96.4,
+  "hand_height_m": 0.955,
+  "wrist_gap_m": 0.228,
+  "two_hand": true,
+  "posture": "Wa_U",
+  "wrists": {
+   "Left": [
+    -0.929,
+    0.955,
+    2.451
+   ],
+   "Right": [
+    -0.8,
+    1.09,
+    2.321
+   ]
+  },
+  "usable": false
+ },
+ {
+  "take": "Participant_541_Setup_A_Seq_3_Trial_2",
+  "kind": "place",
+  "t0": 12.575,
+  "t1": 14.3,
+  "dur": 1.725,
+  "events": {
+   "place_start": 12.867,
+   "release": 14.0
+  },
+  "root_travel_m": 0.543,
+  "foot_travel_m": 0.964,
+  "yaw_change_deg": 26.0,
+  "hand_height_m": 0.309,
+  "wrist_gap_m": 0.114,
+  "two_hand": true,
+  "posture": "Cr_BF",
+  "wrists": {
+   "Left": [
+    0.305,
+    0.309,
+    -0.339
+   ],
+   "Right": [
+    0.363,
+    0.341,
+    -0.431
+   ]
+  },
+  "usable": false
+ },
+ {
+  "take": "Participant_541_Setup_A_Seq_3_Trial_2",
+  "kind": "pick",
+  "t0": 14.042,
+  "t1": 15.7,
+  "dur": 1.658,
+  "events": {
+   "grasp": 14.7,
+   "lift": 15.3
+  },
+  "root_travel_m": 0.043,
+  "foot_travel_m": 0.021,
+  "yaw_change_deg": -0.8,
+  "hand_height_m": 0.212,
+  "wrist_gap_m": 0.317,
+  "two_hand": true,
+  "posture": "Cr_BF",
+  "wrists": {
+   "Left": [
+    0.162,
+    0.212,
+    -0.507
+   ],
+   "Right": [
+    0.445,
+    0.352,
+    -0.473
+   ]
+  },
+  "usable": false
+ },
+ {
+  "take": "Participant_541_Setup_A_Seq_3_Trial_2",
+  "kind": "pick",
+  "t0": 14.942,
+  "t1": 16.367,
+  "dur": 1.425,
+  "events": {
+   "grasp": 15.4,
+   "lift": 15.967
+  },
+  "root_travel_m": 0.032,
+  "foot_travel_m": 0.026,
+  "yaw_change_deg": 8.0,
+  "hand_height_m": 0.199,
+  "wrist_gap_m": 0.31,
+  "two_hand": true,
+  "posture": "Cr_BF",
+  "wrists": {
+   "Left": [
+    0.21,
+    0.199,
+    -0.312
+   ],
+   "Right": [
+    0.411,
+    0.365,
+    -0.478
+   ]
+  },
+  "usable": false
+ },
+ {
+  "take": "Participant_541_Setup_A_Seq_3_Trial_2",
+  "kind": "pick",
+  "t0": 26.608,
+  "t1": 28.033,
+  "dur": 1.425,
+  "events": {
+   "grasp": 27.067,
+   "lift": 27.633
+  },
+  "root_travel_m": 0.182,
+  "foot_travel_m": 0.053,
+  "yaw_change_deg": -63.4,
+  "hand_height_m": 0.968,
+  "wrist_gap_m": 0.248,
+  "two_hand": true,
+  "posture": "St_U",
+  "wrists": {
+   "Left": [
+    -0.815,
+    1.082,
+    2.432
+   ],
+   "Right": [
+    -0.914,
+    0.968,
+    2.235
+   ]
+  },
+  "usable": true
+ },
+ {
+  "take": "Participant_541_Setup_A_Seq_3_Trial_2",
+  "kind": "place",
+  "t0": 30.117,
+  "t1": 31.4,
+  "dur": 1.283,
+  "events": {
+   "place_start": 30.533,
+   "release": 31.1
+  },
+  "root_travel_m": 0.518,
+  "foot_travel_m": 0.665,
+  "yaw_change_deg": 42.8,
+  "hand_height_m": 1.175,
+  "wrist_gap_m": 0.054,
+  "two_hand": true,
+  "posture": "St_U",
+  "wrists": {
+   "Left": [
+    0.324,
+    1.175,
+    -0.513
+   ],
+   "Right": [
+    0.336,
+    1.197,
+    -0.56
+   ]
+  },
+  "usable": false
+ },
+ {
+  "take": "Participant_541_Setup_A_Seq_3_Trial_2",
+  "kind": "pick",
+  "t0": 56.292,
+  "t1": 57.867,
+  "dur": 1.575,
+  "events": {
+   "grasp": 56.733,
+   "lift": 57.467
+  },
+  "root_travel_m": 0.166,
+  "foot_travel_m": 0.384,
+  "yaw_change_deg": -89.5,
+  "hand_height_m": 0.861,
+  "wrist_gap_m": 0.118,
+  "two_hand": true,
+  "posture": "St_BF",
+  "wrists": {
+   "Left": [
+    0.835,
+    0.861,
+    1.673
+   ],
+   "Right": [
+    0.731,
+    0.915,
+    1.668
+   ]
+  },
+  "usable": false
+ },
+ {
+  "take": "Participant_541_Setup_A_Seq_3_Trial_2",
+  "kind": "place",
+  "t0": 58.575,
+  "t1": 61.5,
+  "dur": 2.925,
+  "events": {
+   "place_start": 58.767,
+   "release": 60.9
+  },
+  "root_travel_m": 1.203,
+  "foot_travel_m": 1.434,
+  "yaw_change_deg": 1.1,
+  "hand_height_m": 1.173,
+  "wrist_gap_m": 0.227,
+  "two_hand": true,
+  "posture": "St_U",
+  "wrists": {
+   "Left": [
+    0.693,
+    1.173,
+    -0.741
+   ],
+   "Right": [
+    0.916,
+    1.194,
+    -0.776
+   ]
+  },
+  "usable": false
+ },
+ {
+  "take": "Participant_541_Setup_A_Seq_3_Trial_2",
+  "kind": "pick",
+  "t0": 66.317,
+  "t1": 68.1,
+  "dur": 1.783,
+  "events": {
+   "grasp": 66.767,
+   "lift": 67.7
+  },
+  "root_travel_m": 0.806,
+  "foot_travel_m": 1.062,
+  "yaw_change_deg": -83.2,
+  "hand_height_m": 0.956,
+  "wrist_gap_m": 0.307,
+  "two_hand": true,
+  "posture": "St_U",
+  "wrists": {
+   "Left": [
+    -0.91,
+    0.956,
+    2.279
+   ],
+   "Right": [
+    -0.702,
+    1.055,
+    2.077
+   ]
+  },
+  "usable": false
+ },
+ {
+  "take": "Participant_541_Setup_A_Seq_3_Trial_2",
+  "kind": "place",
+  "t0": 69.658,
+  "t1": 71.5,
+  "dur": 1.842,
+  "events": {
+   "place_start": 69.8,
+   "release": 71.2
+  },
+  "root_travel_m": 0.365,
+  "foot_travel_m": 0.403,
+  "yaw_change_deg": 12.9,
+  "hand_height_m": 1.602,
+  "wrist_gap_m": 0.187,
+  "two_hand": true,
+  "posture": "St_OS",
+  "wrists": {
+   "Left": [
+    0.274,
+    1.602,
+    -0.768
+   ],
+   "Right": [
+    0.432,
+    1.702,
+    -0.76
+   ]
+  },
+  "usable": false
+ },
+ {
+  "take": "Participant_541_Setup_A_Seq_3_Trial_2",
+  "kind": "pick",
+  "t0": 80.542,
+  "t1": 82.9,
+  "dur": 2.358,
+  "events": {
+   "grasp": 81.333,
+   "lift": 82.5
+  },
+  "root_travel_m": 0.553,
+  "foot_travel_m": 1.037,
+  "yaw_change_deg": -174.2,
+  "hand_height_m": 0.82,
+  "wrist_gap_m": 0.14,
+  "two_hand": true,
+  "posture": "St_BF",
+  "wrists": {
+   "Left": [
+    0.853,
+    0.82,
+    1.721
+   ],
+   "Right": [
+    0.755,
+    0.874,
+    1.637
+   ]
+  },
+  "usable": false
+ },
+ {
+  "take": "Participant_541_Setup_A_Seq_3_Trial_2",
+  "kind": "place",
+  "t0": 83.033,
+  "t1": 85.667,
+  "dur": 2.633,
+  "events": {
+   "place_start": 83.4,
+   "release": 85.067
+  },
+  "root_travel_m": 0.597,
+  "foot_travel_m": 0.986,
+  "yaw_change_deg": 51.7,
+  "hand_height_m": 0.335,
+  "wrist_gap_m": 0.204,
+  "two_hand": true,
+  "posture": "Cr_BF",
+  "wrists": {
+   "Left": [
+    0.779,
+    0.335,
+    -0.526
+   ],
+   "Right": [
+    0.967,
+    0.354,
+    -0.606
+   ]
+  },
+  "usable": false
+ }
+]

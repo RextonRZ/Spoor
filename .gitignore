@@ -53,3 +53,7 @@ docs/hub/reference_frames/
 assets/hub/render_truth.json
 assets/hub/render_truth.yaml
 *.blend1
+
+# mocap sources (014_GO): large raw downloads and Rexton own takes (his face / home) never committed
+assets/mocap/raw/
+assets/mocap/own/raw/
