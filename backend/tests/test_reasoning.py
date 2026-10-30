@@ -110,8 +110,45 @@ def test_baseten_backend_repairs_once_then_fails():
 
 def test_baseten_backend_refuses_video():
     backend = BasetenChatBackend(SimpleNamespace(chat=FakeChat([])), model="m")
-    with pytest.raises(BackendError, match="text-only"):
+    with pytest.raises(BackendError, match="text and images only"):
         backend.complete(system="s", content=[{"type": "input_video", "file_id": "f"}], output=ClipAnswer, name="a")
+
+
+class ReasoningChat(FakeChat):
+    """Muse Spark Open replies with its reasoning apart (reasoning_content) or inline (<think>)."""
+
+    def __init__(self, replies, inline=False):
+        super().__init__(replies)
+        self.inline = inline
+
+    def create(self, **kw):
+        self.requests.append(kw)
+        body = self.replies.pop(0)
+        msg = (SimpleNamespace(content=f"<think>the last scan was at 14:32</think>{body}") if self.inline
+               else SimpleNamespace(content=body, reasoning_content="checking the graph for the last observation"))
+        return SimpleNamespace(choices=[SimpleNamespace(message=msg)], model="meta-models/muse-spark-open-1026",
+                               id="chat_r", usage=SimpleNamespace(prompt_tokens=300, completion_tokens=500))  # fmt: skip
+
+
+@pytest.mark.parametrize("inline", [False, True])
+def test_baseten_reasoning_is_split_from_the_answer_before_validation(inline):
+    """J2a: only the answer reaches the JSON validator; the reasoning length is recorded, its text is not."""
+    reply = BasetenChatBackend(SimpleNamespace(chat=ReasoningChat([answer(unknowns=["exit unknown"])], inline)),
+                               model="meta-models/muse-spark-open-1026").complete(system="s", content="q",
+                                                                                   output=ClipAnswer, name="a")
+    assert reply.data.unknowns == ["exit unknown"] and reply.reasoning_chars > 10 and "<think>" not in reply.raw
+
+
+def test_baseten_backend_sends_key_frames_as_images():
+    """J2b: evidence pictures go to the open-weights model as image parts; text stays text."""
+    fake = FakeChat([answer()])
+    BasetenChatBackend(SimpleNamespace(chat=fake), model="m").complete(
+        system="s", output=ClipAnswer, name="a",
+        content=[{"type": "input_text", "text": "Which frame shows the parcel?"},
+                 {"type": "input_image", "image_url": "data:image/png;base64,AAAA"}])  # fmt: skip
+    user = fake.requests[0]["messages"][1]["content"]
+    assert user[0] == {"type": "text", "text": "Which frame shows the parcel?"}
+    assert user[1] == {"type": "image_url", "image_url": {"url": "data:image/png;base64,AAAA"}}
 
 
 # --- clips -----------------------------------------------------------------------------------------
@@ -205,3 +242,21 @@ def test_grounding_against_sam_observations(room, now, clip_and_table):
     ]))  # fmt: skip
     statuses = [(g.status, g.observation_ids) for g in ground_facts(world.store, obj, res.facts)]
     assert statuses == [("grounded", [oid]), ("ungrounded", []), ("untimed", [])]
+
+
+def test_agent_runtime_attaches_key_frames_for_image_backends_only():
+    """J2b: the open-weights agent sees the evidence pictures; a text-only backend gets the same text, no images."""
+    from spoor.agents.runtime import AgentRunner as AgentRuntime
+
+    class Ctx(SimpleNamespace):
+        pass
+
+    frames = [("last confirmed: CAM_10 at the C04 divert", "data:image/png;base64,AAAA", "f" * 64)]
+    img = SimpleNamespace(supports_images=True)
+    txt = SimpleNamespace(supports_images=False)
+    rt = AgentRuntime.__new__(AgentRuntime)
+    rt.ctx, rt.backend = Ctx(key_frames=frames), img
+    parts = rt._content(["question", "scope"])
+    assert parts[0]["type"] == "input_text" and parts[-1] == {"type": "input_image", "image_url": "data:image/png;base64,AAAA"}
+    rt.backend = txt
+    assert rt._content(["question", "scope"]) == "question\n\nscope"

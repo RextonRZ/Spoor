@@ -21,6 +21,13 @@ async function postForm<T>(path: string, form: FormData): Promise<T> {
   return body as T;
 }
 
+// Sections as tabs (review F-style #1): the page was one 4,300 px scroll.
+type OpTab = "imports" | "cameras" | "footage" | "models" | "evaluation";
+const OP_TABS: { k: OpTab; label: string }[] = [
+  { k: "imports", label: "Imports" }, { k: "cameras", label: "Cameras and clocks" }, { k: "footage", label: "Footage" },
+  { k: "models", label: "Model calls" }, { k: "evaluation", label: "Evaluation" },
+];
+
 export default function OperatorPage() {
   const me = useResource<Me>("/v1/me");
   const caps = useResource<Capabilities>("/v1/capabilities");
@@ -31,6 +38,7 @@ export default function OperatorPage() {
   const domains = useResource<ClockDomainRow[]>(siteId ? `/v1/sites/${siteId}/clock-domains` : null);
   const cases = useResource<CaseListRow[]>("/v1/cases");
   const admin = me.data?.role === "site_admin";
+  const [tab, setTab] = useState<OpTab>("imports");
 
   return (
     <div className="sp-page sp-stack" style={{ gap: 22 }}>
@@ -60,14 +68,19 @@ export default function OperatorPage() {
         <p className="sp-caption" style={{ marginTop: 10 }}>Keys stay on the backend. With none configured, each step reports &quot;analysis unavailable&quot; instead of a result.</p>
       </section>
 
-      <InboxClockControl />
-
+      <div className="sp-seg" role="tablist" aria-label="Operator sections" style={{ flexWrap: "wrap", alignSelf: "flex-start" }}>
+        {OP_TABS.map((t) => <button key={t.k} role="tab" aria-selected={tab === t.k} onClick={() => setTab(t.k)}>{t.label}</button>)}
+      </div>
+      {tab === "imports" && <>
+        <InboxClockControl />
       <div className="sp-op-grid">
         <ImportClip siteId={siteId} cameras={cams.data ?? []} disabled={!admin} />
         <ImportScans siteId={siteId} disabled={!admin} />
         <ImportSensors cases={cases.data ?? []} />
       </div>
 
+      </>}
+      {tab === "cameras" && <>
       <section className="sp-panel" aria-labelledby="cam-h">
         <div className="sp-panel-head"><h2 className="sp-h3" id="cam-h">Cameras, clocks and calibration</h2>
           <span className="sp-caption">Poses from the mounting plan; not surveyed</span></div>
@@ -98,6 +111,8 @@ export default function OperatorPage() {
         </div>
       </section>
 
+      </>}
+      {tab === "footage" && <>
       <div className="sp-op-grid">
         <section className="sp-panel" aria-labelledby="media-h">
           <div className="sp-panel-head"><h2 className="sp-h3" id="media-h">Footage</h2></div>
@@ -139,8 +154,9 @@ export default function OperatorPage() {
         </section>
       </div>
 
-      <TracePanel cases={cases.data ?? []} />
-      <EvaluationPanel admin={admin} />
+      </>}
+      {tab === "models" && <TracePanel cases={cases.data ?? []} />}
+      {tab === "evaluation" && <EvaluationPanel admin={admin} />}
       <style>{`.sp-op-grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))}`}</style>
     </div>
   );

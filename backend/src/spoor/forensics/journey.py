@@ -99,7 +99,7 @@ def _object_journey(store, case, obj, plan, net, domains) -> dict:
             belt = (snap[0], snap[1]) if snap else None
         beads.append({"scan_event_id": ts.scan.scan_event_id, "t": iso(ts.t_ms), "event_kind": ts.scan.event_kind.value,
                       "raw_code": ts.scan.raw_code, "raw_description": ts.scan.raw_description,
-                      "read_outcome": ts.scan.read_outcome.value,
+                      "read_outcome": ts.scan.read_outcome.value, "source_type": ts.scan.source_type.value,
                       "station_id": ts.scan.station_id, "device_id": ts.scan.device_id,
                       "device_kind": ts.scan.device_kind.value, "zone_id": ts.scan.read_point_zone_id,
                       "xy": xy, "on_conveyor": belt[0] if belt else None, "clock": _clock_view(ts),

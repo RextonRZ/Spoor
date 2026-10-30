@@ -33,6 +33,7 @@ class BackendReply:
     input_tokens: int
     output_tokens: int
     latency_s: float
+    reasoning_chars: int = 0  # length of the model's separate reasoning (never validated, never shown as evidence)
 
 
 class JsonBackend(Protocol):
@@ -77,6 +78,7 @@ def _usage(resp: Any, a: str, b: str) -> tuple[int, int]:
 class MetaResponsesBackend:
     provider = "meta_model_api"
     supports_video = True
+    supports_images = True  # Muse Spark reads images (input_image) as well as video
 
     def __init__(self, client: Any, model: str = "muse-spark-1.3"):
         if model.endswith("-contributor"):
@@ -102,18 +104,43 @@ class MetaResponsesBackend:
                             tin, tout, round(time.perf_counter() - start, 3))  # fmt: skip
 
 
+def split_reasoning(message: Any) -> tuple[str, str]:
+    """(answer, reasoning). Muse Spark Open always reasons (J2a): the reasoning arrives as `reasoning_content` /
+    `reasoning`, or inline as a <think>...</think> block. Only the answer goes to the JSON validator."""
+    text = getattr(message, "content", None) or ""
+    reasoning = getattr(message, "reasoning_content", None) or getattr(message, "reasoning", None) or ""
+    if "</think>" in text:
+        head, text = text.split("</think>", 1)
+        reasoning = reasoning or head.replace("<think>", "")
+    return text.strip(), reasoning if isinstance(reasoning, str) else ""
+
+
+def _chat_parts(content: list[dict]) -> list[dict]:
+    """Meta-style parts -> OpenAI chat parts. Text and images (key frames) only (J2b); video stays with Meta Spark."""
+    out = []
+    for part in content:
+        kind = part.get("type")
+        if kind == "input_text":
+            out.append({"type": "text", "text": part["text"]})
+        elif kind == "input_image":
+            out.append({"type": "image_url", "image_url": {"url": part["image_url"]}})
+        else:
+            raise BackendError("Baseten backend takes text and images only; route video questions to Muse Spark on Meta")
+    return out
+
+
 class BasetenChatBackend:
     provider = "baseten"
     supports_video = False
+    supports_images = True
 
     def __init__(self, client: Any, model: str, max_repairs: int = 1):
         self.client, self.model, self.max_repairs = client, model, max_repairs
 
     def complete(self, *, system: str, content: list[dict] | str, output: type[T], name: str) -> BackendReply:
         if isinstance(content, list):
-            if any(part.get("type") != "input_text" for part in content):
-                raise BackendError("Baseten backend is text-only; route media questions to Muse Spark on Meta")
-            content = "\n\n".join(part["text"] for part in content)
+            parts = _chat_parts(content)
+            content = parts if any(x["type"] == "image_url" for x in parts) else "\n\n".join(x["text"] for x in parts)
         schema = json.dumps(strict_schema(output))
         messages = [
             {"role": "system", "content": f"{system}\n\nReply with ONE JSON object matching this JSON Schema "
@@ -126,11 +153,12 @@ class BasetenChatBackend:
                                                        response_format={"type": "json_object"})  # fmt: skip
             a, b = _usage(resp, "prompt_tokens", "completion_tokens")
             tin, tout = tin + a, tout + b
-            raw = resp.choices[0].message.content or ""
+            raw, reasoning = split_reasoning(resp.choices[0].message)
             try:
                 data = output.model_validate_json(raw)
                 return BackendReply(data, raw, getattr(resp, "model", self.model), self.provider,
-                                    getattr(resp, "id", None), tin, tout, round(time.perf_counter() - start, 3))
+                                    getattr(resp, "id", None), tin, tout, round(time.perf_counter() - start, 3),
+                                    len(reasoning))  # fmt: skip
             except ValidationError as e:
                 if attempt == self.max_repairs:
                     raise BackendError(f"schema-invalid output from {self.model} after {attempt + 1} tries") from e

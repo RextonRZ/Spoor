@@ -20,6 +20,8 @@ export interface JourneyScan extends ScanLike {
   clock_domain: string | null;
   weight_g: number | null;
   dims_mm: [number, number, number] | null;
+  read_outcome?: string;
+  source_type?: string;
 }
 
 export interface ObservedSegment {
@@ -153,6 +155,10 @@ export const ROLE_WORDS: Record<ExpectedNext["role"], string> = {
 };
 
 export const cam = (id: string | null | undefined) => camId.toHub(id);
+
+/** Cameras in play (indigo in 2D and 3D): the ones the investigator lit plus the ones due next that have footage. */
+export const inPlayCameras = (lit: string[], mm: MissingObject | undefined) =>
+  [...new Set([...lit, ...(mm?.expected_next ?? []).filter((r) => r.result !== "no_footage").map((r) => cam(r.camera_id))])];
 /** "14:32:31.8 MYT": tenths of a second, like the scan log (ms = false drops the fraction). */
 export const clock = (iso: string, ms = false) => `${ms ? fmtTime(iso, true).slice(0, -2) : fmtTime(iso, false)} ${TZ_LABEL}`;
 

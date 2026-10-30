@@ -1,0 +1,42 @@
+{
+  "what": "J2b smoke test: Muse Spark Open (open weights) on Baseten reasons over an evidence picture (one synthetic CCTV key frame, CAM_10 at the C04 divert time) with a JSON answer; reasoning kept apart. No keys or headers stored.",
+  "run_at_utc": "20261030T205216Z",
+  "model": "meta-models/muse-spark-open-1026",
+  "response_model": "meta-models/muse-spark-open-1026",
+  "response_id": "chatcmpl-8d6d8275efb741a3aa4747c5d4840871",
+  "frame": "cam10_divert.png",
+  "latency_s": 12.806,
+  "usage": {
+    "completion_tokens": 1877,
+    "prompt_tokens": 862,
+    "total_tokens": 2739,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 1250,
+      "audio_tokens": 0,
+      "reasoning_tokens": 1620,
+      "rejected_prediction_tokens": 3139,
+      "text_tokens": null
+    },
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cache_write_tokens": null,
+      "cached_tokens": 0,
+      "image_tokens": null,
+      "text_tokens": null
+    }
+  },
+  "reasoning_chars": 6966,
+  "parsed": {
+    "parcels_visible": 32,
+    "people_visible": 4,
+    "chutes_visible": true,
+    "what_is_happening": "An overhead yellow conveyor with many dark parcels runs above a line of white sorting chutes with yellow hoods. Several chutes contain parcels and bags. On the floor below, three cardboard boxes and several parcels/bags are scattered. Four people are visible near the chutes: one on the left handling a chute bin, one in a yellow high-visibility vest standing at a central chute near a blue bin, one person crouched or seated on the floor near the center, and one person in a yellow high-visibility vest lying on the floor on the right side near a chute. A white ladder structure with yellow rails is on the right side of the chutes.",
+    "cannot_tell": [
+      "Exact count of parcels due to blur, distance, occlusion and small size on overhead conveyor",
+      "Whether the person on the floor is injured, resting, or why they are on the floor",
+      "Identities, conditions, or intent of the people",
+      "What happened before or after this single frame or any motion",
+      "Whether machinery is operating normally or if an incident occurred"
+    ]
+  }
+}

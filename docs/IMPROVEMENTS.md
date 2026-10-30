@@ -56,3 +56,8 @@ Two passes: one by the author, and one independent reviewer that did not see the
 
 Not worth doing before the deadline unless 1–5 are done: multi-view XYZ on a real rig, appearance encoder,
 LLM verifier challenger, Muse Wonder.
+
+## Forensic journey view (owner must-have, 31 Oct 2026)
+Spec: review/reviews/journey_view_0030.md — follow-cam close-up on original pixels, 2D floor-plan journey as the primary
+path view, camera relay strip, "where it could be" gap cloud from negative evidence, records-vs-video lanes, plan-built
+2.5D deployment mode for the 3D view, evidence-reel export. Tracked as QUEUE block H.

@@ -218,3 +218,11 @@
 .sp-3d-switch { position: absolute; left: 12px; bottom: 12px; z-index: 6; display: flex; flex-direction: column; gap: 6px; max-width: min(460px, calc(100% - 24px));
   padding: 8px 10px; border-radius: 12px; background: var(--material-bg); border: 1px solid var(--hairline); }
 .p3-label { font-size: 10.5px; color: var(--ink-muted); white-space: nowrap; pointer-events: none; text-shadow: 0 1px 2px #000; }
+.p3-cam { color: var(--accent, #6366f1); font-weight: 640; }
+/* scan card (H13). Prefix sc-. */
+.sc { margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--ev-scan, #60a5fa) 55%, transparent);
+  background: color-mix(in srgb, var(--ev-scan, #60a5fa) 9%, var(--surface)); display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.sc[data-ok="false"] { border-color: var(--ev-contradicted); background: color-mix(in srgb, var(--ev-contradicted) 9%, var(--surface)); }
+.sc-title { margin: 0; font-weight: 640; color: var(--ink-strong); font-size: 14px; }
+.sc-facts { margin: 0; font-size: 13px; color: var(--ink); }
+.sc-meta { margin: 0; font-size: 11.5px; color: var(--ink-muted); }

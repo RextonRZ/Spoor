@@ -30,6 +30,7 @@ async function caption(page: Page, text: string) {
 }
 
 test("signature interaction", async ({ page }) => {
+  test.skip(true, "superseded (F-039): the 2D plan now draws the backend journey, not the replay trace; see journey.spec H1/H2 and journey-recording.spec");
   await page.request.post("/api/session", { data: { role: "investigator" } });
   await page.addInitScript(CLICK_RING);
   const t0 = Date.now(); // the page video starts with the page; cuts below are seconds from here
@@ -43,6 +44,8 @@ test("signature interaction", async ({ page }) => {
   await page.waitForTimeout(1800);
   await page.getByRole("link", { name: /Where did parcel/ }).first().click();
   let cutFrom = sec() + 0.6;
+  await page.getByRole("button", { name: "3D", exact: true }).click({ timeout: 120_000 });
+  await page.getByRole("button", { name: "Synthetic hub model" }).click();
   await page.locator('.sp-scene[data-ready="true"]').waitFor({ timeout: 120_000 });
   await page.waitForTimeout(800);
   cuts.push([cutFrom, sec() - 0.3]); // no dead air while the 3D scene loads
@@ -97,7 +100,7 @@ test("signature interaction", async ({ page }) => {
   await page.waitForTimeout(300);
   cuts.push([cutFrom, sec() - 0.3]);
   await page.waitForTimeout(3000);
-  await page.getByRole("button", { name: "2D plan" }).click();
+  await page.getByRole("button", { name: "2D journey" }).click();
   await page.waitForTimeout(2000);
   await page.locator('polyline[data-ev="observed"]').first().click({ force: true });
   await caption(page, "Click a segment: its exact source frame opens");

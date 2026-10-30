@@ -432,3 +432,31 @@ def test_reel_is_built_in_time_order_with_a_card_per_piece_of_evidence(tmp_path)
                                                       "sha256": "f" * 64, "scan_event_id": "scan_a"}]
     mp4 = tmp_path / "reel_test.mp4"
     assert mp4.exists() and mp4.stat().st_size > 1000 and (tmp_path / "reel_test.json").exists()
+
+
+# --- J2: lead investigator ------------------------------------------------------------------------------------------
+
+
+def test_lead_plan_keeps_only_steps_that_cite_real_evidence_and_candidate_cameras(world, now):
+    from types import SimpleNamespace
+
+    from spoor.forensics.lead import InvestigationPlan, latest_plan_step, plan_investigation
+    from spoor.store import CostEntry
+
+    cam(world, "cam_b", [(4, 1.6), (6, 1.6), (6, 4), (4, 4)])
+    world.clip("cam_b", -5, 60)
+    sid = scan(world, "SP-TUN", "tunnel_read", 0, "tunnel")
+    plan = InvestigationPlan(summary="check belt B", unknowns=["where it went after the tunnel"], steps=[
+        {"camera_id": "cam_b", "window_start": "a", "window_end": "b", "what_to_check": "parcel on belt B", "why": "next on the belt",
+         "evidence_ids": [sid]},
+        {"camera_id": "cam_zz", "window_start": "a", "window_end": "b", "what_to_check": "x", "why": "y", "evidence_ids": [sid]},
+        {"camera_id": "cam_b", "window_start": "a", "window_end": "b", "what_to_check": "x", "why": "y", "evidence_ids": ["scan_made_up"]},
+    ])  # fmt: skip
+    fake = SimpleNamespace(complete=lambda **kw: SimpleNamespace(data=plan, model="muse-wonder-1.0", provider="meta_model_api",
+                                                                response_id="resp_1", input_tokens=2000, output_tokens=3000,
+                                                                latency_s=20.0))  # fmt: skip
+    out = plan_investigation(world.store, world.case.case_id, fake, now=now)
+    assert [s["camera_id"] for s in out["steps"]] == ["cam_b"] and len(out["rejected"]) == 2
+    assert {r["reason"] for r in out["rejected"]} == {"camera not a candidate", "cites unknown evidence ['scan_made_up']"}
+    assert out["usd_estimate"] == 0.068 and world.store.find(CostEntry, case_id=world.case.case_id)[0].model == "muse-wonder-1.0"
+    assert latest_plan_step(world.store, world.case.case_id)["summary"] == "check belt B"

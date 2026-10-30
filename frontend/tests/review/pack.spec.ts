@@ -29,7 +29,12 @@ async function caseId(page: Page) {
   return cases[0].case.case_id as string;
 }
 
+/** The workspace opens on the 2D journey; the legacy 3D shots switch to 3D on the synthetic hub model first. */
 async function waitScene(page: Page) {
+  const to3d = page.getByRole("button", { name: "3D", exact: true });
+  if (await to3d.isVisible().catch(() => false) && (await to3d.getAttribute("aria-pressed")) !== "true") await to3d.click();
+  const model = page.getByRole("button", { name: "Synthetic hub model" });
+  if (await model.isVisible().catch(() => false)) await model.click();
   const scene = page.locator(".sp-scene");
   if (await scene.waitFor({ state: "attached", timeout: 30_000 }).then(() => true, () => false)) {
     await page.locator('.sp-scene[data-ready="true"]').waitFor({ state: "attached", timeout: 120_000 }).catch(() => {});
@@ -76,7 +81,7 @@ test("workspace: overview, last confirmed, plan, people mode, timeline, frame st
   await page.waitForTimeout(1500);
   await shotPane(page, info, "05_source_frame_stepped", "#source-panel");
   await mobileTab(page, info, "Scene");
-  await page.getByRole("button", { name: "2D plan" }).click();
+  await page.getByRole("button", { name: "2D journey" }).click();
   await shot(page, info, "06_workspace_2d_plan");
   await mobileTab(page, info, "Case");
   await page.getByRole("button", { name: "People (anonymous)" }).click();
@@ -135,6 +140,7 @@ test("operator page as site admin", async ({ page }, info) => {
 });
 
 test("FIXTURE: trace renderer with observed, hypothesis and unknown", async ({ page }, info) => {
+  test.skip(true, "superseded (F-039): the 2D plan now draws the backend journey, not the replay trace; see journey.spec H1/H2 and journey-recording.spec");
   const id = await caseId(page);
   const state = await (await page.request.get(`/api/spoor/v1/cases/${id}/state`)).json();
   const obj = state.objects[0].object;
@@ -158,7 +164,7 @@ test("FIXTURE: trace renderer with observed, hypothesis and unknown", async ({ p
   await waitScene(page);
   await shot(page, info, "fx_16_trace_3d");
   await mobileTab(page, info, "Scene");
-  await page.getByRole("button", { name: "2D plan" }).click();
+  await page.getByRole("button", { name: "2D journey" }).click();
   await shot(page, info, "fx_17_trace_plan");
   await page.locator('polyline[data-ev="observed"]').first().click({ force: true });
   await mobileTab(page, info, "Source");
@@ -213,6 +219,7 @@ test("source panel context playback (review 007 #1)", async ({ page }, info) => 
 test("operator evaluation: headline source and caveat (review 007 #4)", async ({ page }, info) => {
   await role(page, "site_admin");
   await page.goto("/operator");
+  await page.getByRole("tab", { name: "Evaluation" }).click();
   const head = page.getByTestId("eval-headline-source");
   await expect(head).toBeVisible();
   await head.scrollIntoViewIfNeeded();

@@ -54,6 +54,7 @@ from spoor.forensics.conflicts import records_vs_video
 from spoor.forensics.crop import crop_png, crop_rect, frame_size, identity_chain, sha256
 from spoor.forensics.dashboard import hub_dashboard
 from spoor.forensics.exceptions import exceptions_inbox
+from spoor.forensics.lead import WONDER, latest_plan_step, plan_investigation
 from spoor.forensics.missing import missing_moment
 from spoor.forensics.possible import possible_locations
 from spoor.forensics.reel import build_reel
@@ -465,6 +466,40 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         audit(p, "link_track", track_id, object_id=object_id, status=body.status)
         return a.model_dump(mode="json")
 
+    def key_frames(case_id: str, limit: int = 3) -> list[tuple[str, str, str]]:
+        """(label, data URL, source sha256) for the frames that matter: where the evidence stops and where it was due
+        next (missing moment). Original frames, downscaled to <= 960 px wide for the model; never stored."""
+        import base64
+
+        import cv2
+        import numpy as np
+
+        mm = missing_moment(svc.store, case_id)["objects"]
+        refs: list[tuple[str, dict]] = []
+        for o in mm:
+            lc = o.get("last_confirmed") or {}
+            for f in lc.get("frames", []) or []:
+                refs.append((f"where the evidence stops: {f['camera_id'].removeprefix('cam_')} at the last confirmed time", f))
+            for r in o.get("expected_next", []):
+                if r.get("frame"):
+                    refs.append((f"expected next: {r['camera_id'].removeprefix('cam_')} at the predicted time ({r['result']})",
+                                 r["frame"]))  # fmt: skip
+        out, seen = [], set()
+        for label, f in refs:
+            k = (f["media_id"], f["frame_index"])
+            if k in seen or len(out) >= limit:
+                continue
+            seen.add(k)
+            m = get_or_404(MediaAsset, f["media_id"])
+            png = extract_frame(asset_path(svc.media, m), load_result(svc.media, m.media_id).original_frames, f["frame_index"])
+            img = cv2.imdecode(np.frombuffer(png, np.uint8), cv2.IMREAD_COLOR)
+            if img.shape[1] > 960:
+                img = cv2.resize(img, (960, round(img.shape[0] * 960 / img.shape[1])), interpolation=cv2.INTER_AREA)
+            ok, jpg = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 88])
+            if ok:
+                out.append((label, "data:image/jpeg;base64," + base64.b64encode(jpg.tobytes()).decode(), m.sha256))
+        return out
+
     @app.post("/v1/cases/{case_id}/investigate", status_code=202)
     def start_investigation(case_id: str, p: User) -> dict:
         p.require_role(Role.INVESTIGATOR)
@@ -478,6 +513,8 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
             try:
                 job.emit("investigating", agents=svc.agent is not None)
                 ctx = svc.tool_context(case)
+                if svc.agent is not None and getattr(svc.agent, "supports_images", False):
+                    ctx.key_frames = key_frames(case_id)  # J2b: evidence pictures for the agents
                 res = investigate(ctx, evidence_backend=svc.agent, hypothesis_backend=svc.agent)
             finally:
                 lock.release()
@@ -829,6 +866,25 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         if not f.exists() or not reel_id.startswith("reel_"):
             raise HTTPException(404, "reel not found")
         return FileResponse(f, media_type="video/mp4", filename=f"{reel_id}.mp4")
+
+    @app.post("/v1/cases/{case_id}/lead-plan", status_code=201)
+    def lead_plan(case_id: str, p: User) -> dict:
+        """Lead investigator (J2): Muse Wonder 1.0 plans which footage to analyse next. Paid model call; needs the key."""
+        p.require_role(Role.INVESTIGATOR)
+        case_for(p, case_id)
+        if svc.spark_client is None:
+            raise HTTPException(503, "analysis unavailable: no API key (Muse Wonder needs MODEL_API_KEY)")
+        from spoor.reasoning.backends import MetaResponsesBackend
+
+        out = plan_investigation(svc.store, case_id, MetaResponsesBackend(svc.spark_client, model=WONDER), now=now())
+        audit(p, "lead_plan", case_id, model=out["model"], usd=out["usd_estimate"], kept=len(out["steps"]))
+        return out
+
+    @app.get("/v1/cases/{case_id}/lead-plan")
+    def get_lead_plan(case_id: str, p: User) -> dict:
+        case_for(p, case_id)
+        return {"plan": latest_plan_step(svc.store, case_id), "available": svc.spark_client is not None,
+                "estimate": {"model": WONDER, "usd": 0.07, "basis": "J1 smoke run: 2.3k input / 2.9k output tokens"}}
 
     @app.get("/v1/cases/{case_id}/sync-grid")
     def sync_grid(case_id: str, p: User, cams: str | None = None, t: AwareDatetime | None = None) -> dict:

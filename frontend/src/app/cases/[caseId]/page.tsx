@@ -10,9 +10,10 @@ import MissingMoment from "@/components/workspace/MissingMoment";
 import FollowCam from "@/components/workspace/FollowCam";
 import CameraStrip from "@/components/workspace/CameraStrip";
 import CameraGrid from "@/components/workspace/CameraGrid";
+import ScanCard, { activeScan } from "@/components/workspace/ScanCard";
+import LeadPlan from "@/components/workspace/LeadPlan";
 import HubPlan from "@/components/plan/HubPlan";
-import { camId } from "@/lib/hub";
-import { markerAt, clock, cloudAt } from "@/lib/journey";
+import { markerAt, clock, cloudAt, inPlayCameras } from "@/lib/journey";
 import "@/components/workspace/workspace.css";
 
 const PlanScene3D = dynamic(() => import("@/components/workspace/PlanScene3D"), { ssr: false });
@@ -153,11 +154,11 @@ function Workspace() {
             <button role="tab" aria-selected={rightTab === "agent"} onClick={() => { setRightTab("agent"); setTab("agent"); }}>Agent</button>
           </div>
         </div>
-        <div className="sp-panel-body" data-right={rightTab}>
-          <div className="sp-ws-source" hidden={rightTab !== "source"}><FollowCam /><SourcePanel /></div>
+        <div className="sp-panel-body" data-right={rightTab} tabIndex={0} role="region" aria-label={`${rightTab} panel`}>
+          <div className="sp-ws-source" hidden={rightTab !== "source"}><ScanCard /><FollowCam /><SourcePanel /></div>
           <div className="sp-ws-cameras" hidden={rightTab !== "cameras"}>{rightTab === "cameras" && <CameraGrid />}</div>
           <div className="sp-ws-moment" hidden={rightTab !== "moment"}><MissingMoment /></div>
-          <div className="sp-ws-agent" hidden={rightTab !== "agent"}><AgentPanel /></div>
+          <div className="sp-ws-agent" hidden={rightTab !== "agent"}><LeadPlan /><AgentPanel /></div>
         </div>
       </section>
       <div className="sp-ws-strip" data-pane="strip"><CameraStrip /></div>
@@ -191,13 +192,14 @@ function WorkspacePlan() {
   const j = journey.data?.objects[0];
   const step = cloudAt(possible.data?.objects[0], playhead);
   const mm = missing.data?.objects[0];
-  const inPlay = [...new Set([...litCameras, ...(mm?.expected_next ?? []).filter((r) => r.result !== "no_footage").map((r) => camId.toHub(r.camera_id))])];
+  const inPlay = inPlayCameras(litCameras, mm);
   return (
     <div className="sp-plan2">
       <HubPlan label={`Hub floor plan with the journey of ${j?.label ?? "the parcel"}`} journey={mode !== "people" ? j : undefined}
         missing={mm} marker={j && playhead !== null ? markerAt(j, playhead) : null} litCameras={inPlay}
         cloud={step ? { polygons: step.polygons, seconds: step.seconds_after, removed: step.removed_by_cameras } : null}
         selectedScanId={selection?.kind === "scan" ? selection.scanId : null}
+        activeScanId={activeScan(j?.scans, playhead)?.scan_event_id ?? null}
         onScan={(id) => select({ kind: "scan", scanId: id })} onObservation={(id) => select({ kind: "observation", observationId: id })} />
     </div>
   );

@@ -14,7 +14,7 @@ async function audit(page: Page) {
   return bad.map((v) => `${v.id}: ${v.nodes.slice(0, 3).map((n) => n.target.join(" ")).join(" | ")}`);
 }
 
-for (const path of ["/", "/operator", "/wall"]) {
+for (const path of ["/", "/hub", "/operator", "/wall"]) {
   test(`a11y ${path}`, async ({ page }) => {
     await page.goto(path);
     await page.waitForLoadState("networkidle");
@@ -22,7 +22,7 @@ for (const path of ["/", "/operator", "/wall"]) {
   });
 }
 
-for (const sub of ["", "/graph", "/report"]) {
+for (const sub of ["", "/graph", "/report", "/summary", "/search"]) {
   test(`a11y case${sub || " workspace"}`, async ({ page }) => {
     await page.goto(`/cases/${await caseId(page)}${sub}`);
     await page.waitForLoadState("networkidle");
@@ -30,3 +30,19 @@ for (const sub of ["", "/graph", "/report"]) {
     expect(await audit(page)).toEqual([]);
   });
 }
+
+test("a11y workspace hero tabs (cameras, missing moment, agent) and the 3D switch", async ({ page }) => {
+  await page.goto(`/cases/${await caseId(page)}`);
+  await page.waitForLoadState("networkidle");
+  for (const t of ["tab-cameras", "tab-moment"]) {
+    await page.getByTestId(t).click();
+    await page.waitForTimeout(2500);
+    expect(await audit(page), t).toEqual([]);
+  }
+  await page.getByRole("tab", { name: "Agent" }).click();
+  await page.waitForTimeout(1000);
+  expect(await audit(page), "agent").toEqual([]);
+  await page.getByRole("button", { name: "3D", exact: true }).click();
+  await page.waitForTimeout(2500);
+  expect(await audit(page), "3d").toEqual([]);
+});

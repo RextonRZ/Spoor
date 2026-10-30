@@ -34,6 +34,32 @@ async function settled(page: Page) {
     return !loading && imgs.every((i) => i.complete && i.naturalWidth > 0 && i.dataset.loaded !== undefined || !i.classList.contains("sp-fade") && i.complete && i.naturalWidth > 0);
   }, undefined, { timeout: 45_000 }).catch(() => {});
   await page.waitForTimeout(400);
+  await chipsClear(page);
+}
+
+/** Review F-032 #1: on every plan, no two time chips intersect, none leaves the plan, and no chip text spills its box. */
+async function chipsClear(page: Page) {
+  const faults = await page.evaluate(() => {
+    const out: string[] = [];
+    document.querySelectorAll<SVGSVGElement>("svg.hp-svg").forEach((svg) => {
+      const W = svg.width.baseVal.value, H = svg.height.baseVal.value;
+      const chips = [...svg.querySelectorAll<SVGGElement>(".hp-chip")].map((g) => {
+        const r = g.querySelector("rect")!.getBBox();
+        const texts = [...g.querySelectorAll("text")].map((t) => t.getBBox());
+        return { r, texts, name: g.textContent ?? "" };
+      });
+      chips.forEach((a, i) => {
+        if (a.r.x < 0 || a.r.y < 0 || a.r.x + a.r.width > W || a.r.y + a.r.height > H) out.push(`outside plan: ${a.name}`);
+        if (a.texts.some((t) => t.x + t.width > a.r.x + a.r.width - 2)) out.push(`text spills chip: ${a.name}`);
+        chips.slice(i + 1).forEach((b) => {
+          if (a.r.x < b.r.x + b.r.width && b.r.x < a.r.x + a.r.width && a.r.y < b.r.y + b.r.height && b.r.y < a.r.y + a.r.height)
+            out.push(`overlap: ${a.name} / ${b.name}`);
+        });
+      });
+    });
+    return out;
+  });
+  expect(faults, "plan chips must not collide").toEqual([]);
 }
 
 async function role(page: Page, r: "investigator" | "reviewer" | "site_admin") {
@@ -200,4 +226,34 @@ test("H12 floor search checklist (task + found state route-mocked from the real 
   await expect(page.getByRole("button", { name: "Found it here" }).first()).toBeVisible({ timeout: 60_000 });
   await banner(page, "TEST FIXTURE: search task and outcome route-mocked (no outcome was written to the case).");
   await shot(page, info, "fx_37_h12_search_checklist", true);
+});
+
+test("H13 scan card when the playhead reaches a scan", async ({ page }, info) => {
+  const id = await caseId(page);
+  await openWorkspace(page, id);
+  await scrub(page, "2026-10-28T06:32:08.400Z"); // 0.5 s after the tunnel read
+  if (isMobile(info)) await tab(page, info, "Source");
+  const card = page.getByTestId("scan-card");
+  await expect(card).toContainText("Label read at the scan tunnel", { timeout: 30_000 });
+  await expect(card).toContainText("scanner clock, not synchronized");
+  if (isMobile(info)) await shot(page, info, "39_h13_scan_card");
+  else { await settled(page); await page.screenshot({ path: `review_pack/${info.project.name}/39_h13_scan_card.png` }); }
+});
+
+test("H6 plan-built 3D: extruded from the site plan, cameras in play indigo, zone labels never overlap", async ({ page }, info) => {
+  test.skip(isMobile(info), "3D is a desktop view in this pack");
+  const id = await caseId(page);
+  await openWorkspace(page, id);
+  await page.getByRole("button", { name: "3D", exact: true }).click();
+  await page.getByTestId("plan-3d").click();
+  await expect(page.locator(".p3-cam").first()).toBeVisible({ timeout: 30_000 });
+  await page.waitForTimeout(1500); // label pass runs every few frames
+  const labels = await page.locator(".p3-label:not(.p3-cam)").evaluateAll((els) => els
+    .filter((e) => getComputedStyle(e).visibility === "visible").map((e) => ({ t: e.textContent, r: e.getBoundingClientRect().toJSON() })));
+  const hits = labels.flatMap((a, i) => labels.slice(i + 1).filter((b) =>
+    a.r.left < b.r.right && b.r.left < a.r.right && a.r.top < b.r.bottom && b.r.top < a.r.bottom).map((b) => `${a.t} / ${b.t}`));
+  expect(hits, "3D zone labels must not overlap").toEqual([]);
+  expect(labels.map((l) => l.t)).toContain("Exception store");
+  await settled(page);
+  await page.locator('[data-pane="scene"]').screenshot({ path: `review_pack/${info.project.name}/38_h6_plan_built_3d.png` });
 });

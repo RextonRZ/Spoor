@@ -5,13 +5,14 @@
  * conveyors as decks at their real heights, racks and benches as blocks, camera poses, and the same evidence styles as
  * the 2D journey (amber dotted inferred, blue scan beads, the trail end and the computed "could be here" area).
  */
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Html, Line, OrbitControls } from "@react-three/drei";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useResource } from "@/lib/api";
 import { siteToRenderer, type Vec3 } from "@/lib/frames";
-import { cloudAt, type XY } from "@/lib/journey";
+import { cam, cloudAt, inPlayCameras, type XY } from "@/lib/journey";
+import { ZONE_NAMES } from "@/components/plan/HubPlan";
 import { useWorkspace } from "./context";
 
 interface Plan {
@@ -19,11 +20,12 @@ interface Plan {
   eaves_m: number | null;
   areas: { area_id: string; kind: string; name: string; polygon_m: XY[]; height_m: number | null }[];
   conveyors: { conveyor_id: string; kind: string; path_m: XY[]; deck_heights_m: number[]; closed?: boolean }[];
-  cameras: { camera_id: string; position_m: Vec3; heading_deg: number; tilt_down_deg: number }[];
+  cameras: { camera_id: string; position_m: Vec3; heading_deg: number; tilt_down_deg: number; hfov_deg: number }[];
 }
 
 const v = (x: number, y: number, z = 0) => new THREE.Vector3(...siteToRenderer([x, y, z]));
 const WALL_H = 3;
+const ACCENT = "#6366F1"; // brand indigo: cameras in play only, as in 2D
 
 function flat(poly: XY[], y: number) {
   // a polygon on the floor plane at height y (renderer Y-up): shape in (x, -siteY) so it maps under rotateX(-90deg)
@@ -46,13 +48,49 @@ function Box({ a, b, h0, h1, w, color }: { a: XY; b: XY; h0: number; h1: number;
   );
 }
 
+/** Zone labels in screen space (review F-032 #2): bigger zones first; a label that would overlap one already shown or
+ * leave the view is hidden until the orbit frees its spot. Checked every few frames, not every frame. */
+function ZoneLabels({ zones }: { zones: { key: string; at: THREE.Vector3; text: string }[] }) {
+  const els = useRef<(HTMLDivElement | null)[]>([]);
+  const gl = useThree((st) => st.gl);
+  const tick = useRef(0);
+  useFrame(() => {
+    if (tick.current++ % 6) return;
+    const view = gl.domElement.getBoundingClientRect();
+    const kept: DOMRect[] = [];
+    els.current.forEach((el) => {
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const inside = r.left >= view.left + 2 && r.right <= view.right - 2 && r.top >= view.top + 2 && r.bottom <= view.bottom - 2;
+      const clear = !kept.some((k) => r.left < k.right + 4 && k.left < r.right + 4 && r.top < k.bottom + 2 && k.top < r.bottom + 2);
+      const show = r.width > 0 && inside && clear;
+      el.style.visibility = show ? "visible" : "hidden";
+      if (show) kept.push(r);
+    });
+  });
+  return <>{zones.map((z, i) => (
+    <Html key={z.key} position={z.at} center>
+      <div ref={(el) => { els.current[i] = el; }} className="p3-label" style={{ visibility: "hidden" }}>{z.text}</div>
+    </Html>
+  ))}</>;
+}
+
 function Scene({ plan }: { plan: Plan }) {
-  const { journey, possible, playhead } = useWorkspace();
+  const { journey, possible, playhead, missing, litCameras } = useWorkspace();
+  const inPlay = new Set(inPlayCameras(litCameras, missing.data?.objects[0]));
   const j = journey.data?.objects[0];
   const step = cloudAt(possible.data?.objects[0], playhead);
   const floor = useMemo(() => flat(plan.outline_m, 0), [plan]);
   const zones = useMemo(() => plan.areas.filter((a) => a.kind === "zone" || a.kind === "store").map((a) => ({ a, g: flat(a.polygon_m, 0.01) })), [plan]);
   const cloud = useMemo(() => (step ? step.polygons.map((p) => flat(p, 0.03)) : []), [step]);
+  const labels = useMemo(() => zones.map(({ a }) => {
+    const code = a.name.match(/^Z\d+/)?.[0] ?? "";
+    const xs = a.polygon_m.map((p) => p[0]);
+    const ys = a.polygon_m.map((p) => p[1]);
+    const at = v(xs.reduce((s, x) => s + x, 0) / xs.length, ys.reduce((s, y) => s + y, 0) / ys.length, 0.05);
+    const area = (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys));
+    return { key: a.area_id, at, area, text: ZONE_NAMES[code] ?? a.name.replace(/^Z\d+ /, "").replace(/ \(.*\)$/, "") };
+  }).sort((p, q) => q.area - p.area), [zones]);
   const deck = (c: Plan["conveyors"][number], i: number) => c.deck_heights_m[Math.min(i, c.deck_heights_m.length - 1)];
   return (
     <>
@@ -60,12 +98,9 @@ function Scene({ plan }: { plan: Plan }) {
       <directionalLight position={[20, 40, 10]} intensity={1.2} />
       <mesh geometry={floor}><meshStandardMaterial color="#20222a" /></mesh>
       {zones.map(({ a, g }) => (
-        <group key={a.area_id}>
-          <mesh geometry={g}><meshBasicMaterial color={a.kind === "store" ? "#343744" : "#272a33"} /></mesh>
-          <Html position={v(a.polygon_m.reduce((s, p) => s + p[0], 0) / a.polygon_m.length, a.polygon_m.reduce((s, p) => s + p[1], 0) / a.polygon_m.length, 0.05)}
-            center className="p3-label">{a.name.replace(/^Z\d+ /, "").replace(/ \(.*\)$/, "")}</Html>
-        </group>
+        <mesh key={a.area_id} geometry={g}><meshBasicMaterial color={a.kind === "store" ? "#343744" : "#272a33"} /></mesh>
       ))}
+      <ZoneLabels zones={labels} />
       {plan.outline_m.map((p, i) => {
         const q = plan.outline_m[(i + 1) % plan.outline_m.length];
         return <Box key={`w${i}`} a={p} b={q} h0={0} h1={WALL_H} w={0.3} color="#6b707c" />;
@@ -92,6 +127,7 @@ function Scene({ plan }: { plan: Plan }) {
       {plan.cameras.map((c) => {
         const h = (c.heading_deg * Math.PI) / 180;
         const tip = v(c.position_m[0] + Math.cos(h) * 1.6, c.position_m[1] + Math.sin(h) * 1.6, c.position_m[2] - 1.2);
+        if (inPlay.has(cam(c.camera_id))) return <InPlayCamera key={c.camera_id} c={c} />;
         return (
           <group key={c.camera_id}>
             <mesh position={v(...c.position_m)}><sphereGeometry args={[0.25, 12, 12]} /><meshBasicMaterial color="#8b909b" /></mesh>
@@ -117,6 +153,29 @@ function Scene({ plan }: { plan: Plan }) {
       )}
       <OrbitControls makeDefault target={v(30, 18, 0)} maxPolarAngle={Math.PI / 2.1} />
     </>
+  );
+}
+
+/** A camera in play: indigo, with its view wedge on the floor (8 m, as in 2D) and edge rays from the lens. */
+function InPlayCamera({ c }: { c: Plan["cameras"][number] }) {
+  const [x, y, z] = c.position_m;
+  const h = (c.heading_deg * Math.PI) / 180;
+  const half = (c.hfov_deg * Math.PI) / 360;
+  const fan = useMemo(() => {
+    const rng = 8;
+    const edge = (a: number) => [x + rng * Math.cos(a), y + rng * Math.sin(a)] as XY;
+    const pts: XY[] = [[x, y], ...Array.from({ length: 13 }, (_, i) => edge(h - half + (2 * half * i) / 12))];
+    return { g: flat(pts, 0.04), l: v(...edge(h - half), 0.04), r: v(...edge(h + half), 0.04) };
+  }, [x, y, h, half]);
+  const lens = v(x, y, z);
+  return (
+    <group>
+      <mesh geometry={fan.g}><meshBasicMaterial color={ACCENT} transparent opacity={0.12} depthWrite={false} /></mesh>
+      <Line points={[lens, fan.l]} color={ACCENT} lineWidth={1.2} transparent opacity={0.6} />
+      <Line points={[lens, fan.r]} color={ACCENT} lineWidth={1.2} transparent opacity={0.6} />
+      <mesh position={lens}><sphereGeometry args={[0.38, 16, 16]} /><meshBasicMaterial color={ACCENT} /></mesh>
+      <Html position={v(x, y, z + 0.9)} center><div className="p3-label p3-cam">{cam(c.camera_id).replace("_", " ")}</div></Html>
+    </group>
   );
 }
 

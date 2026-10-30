@@ -60,6 +60,8 @@ class ToolContext:
     ask_spark: Callable[[str, float, float, str], dict] | None = None
     now: Callable[[], datetime] = field(default=lambda: datetime.now(UTC))
     agent_actor: Actor | None = None
+    # J2b: evidence pictures for models that take images: (label, data URL, source sha256). Set by the service layer.
+    key_frames: list[tuple[str, str, str]] = field(default_factory=list)
 
     # --- scope enforcement ----------------------------------------------------------------------
     def object(self, object_id: str) -> ObjectInstance:

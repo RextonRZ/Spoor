@@ -18,7 +18,27 @@ import { cam, clock, type JourneyObject, type MarkerAt, type MissingObject } fro
 import "./hubplan.css";
 
 type XY = [number, number];
-const X0 = -5.5, X1 = 61.5, Y0 = -4.6, Y1 = 45.6; // metres: building + yards + a strip for the scale bar
+// metres: building + yards + a strip for the scale bar; narrow plans zoom to the journey instead (see `frame`)
+interface Ext { x0: number; x1: number; y0: number; y1: number }
+const FULL: Ext = { x0: -5.5, x1: 61.5, y0: -4.6, y1: 45.6 };
+
+/** On a narrow plan (phone), frame the journey (scans, routes, last point, expected spots) + a margin, not the site. */
+function frame(props: PlanProps, w: number): Ext {
+  if (w >= 640 || !props.journey) return FULL;
+  const pts: XY[] = [];
+  props.journey.scans.forEach((s) => s.xy && pts.push(s.xy));
+  props.journey.segments.forEach((s) => s.kind === "inferred_along_conveyor" && pts.push(...s.path_m));
+  if (props.journey.last_confirmed?.xy) pts.push(props.journey.last_confirmed.xy);
+  (props.missing?.expected_next ?? []).forEach((r) => r.result !== "no_footage" && pts.push(r.expected_xy));
+  // cameras in play stay in frame, with room for their label
+  HUB.cameras.forEach((c) => props.litCameras?.includes(c.id) && pts.push([c.position_m[0], c.position_m[1]]));
+  if (pts.length < 2) return FULL;
+  const pad = 7;
+  const xs = pts.map((p) => p[0]);
+  const ys = pts.map((p) => p[1]);
+  return { x0: Math.max(FULL.x0, Math.min(...xs) - pad), x1: Math.min(FULL.x1, Math.max(...xs) + pad),
+    y0: Math.max(FULL.y0, Math.min(...ys) - pad), y1: Math.min(FULL.y1, Math.max(...ys) + pad) };
+}
 const C = {
   floor: "#16171d", mach: "#23252d", machE: "#363944", wall: "#4b4f5a", inkS: "#f4f5f7", ink: "#c9ccd3",
   inkM: "#8b909b", inkF: "#5a5f69", surf: "#121318", surf2: "#1b1d24", obs: "#4ade80", hyp: "#fbbf24", unk: "#8b909b",
@@ -31,7 +51,7 @@ export const ZONE_NAMES: Record<string, string> = {
 };
 // small zones lose their label on small plans (unless they carry a count), so names never collide
 const SMALL_ZONES = new Set(["Z02", "Z04", "Z08", "Z09", "Z13", "Z11"]);
-const LABEL_AT: Record<string, XY> = {
+export const LABEL_AT: Record<string, XY> = {
   Z01: [0.8, 29.2], Z02: [8.6, 28.2], Z03: [6.2, 6.0], Z04: [17.9, 7.0], Z06: [30.4, 24.0], Z08: [23.4, 24.0],
   Z09: [9.0, 4.4], Z10: [25.6, 31.8], Z11: [15.9, 31.2], Z12: [24.6, 39.2], Z13: [55.0, 5.2],
 };
@@ -44,6 +64,7 @@ export interface PlanProps {
   heat?: Record<string, number>; // hub zone id -> count (dashboard)
   cloud?: { polygons: XY[][]; seconds: number; removed: string[] } | null; // where it could be (computed, H4)
   selectedScanId?: string | null;
+  activeScanId?: string | null; // the scan the playhead is on (H13): ringed, and its chip always shown
   onScan?: (scanId: string) => void;
   onObservation?: (observationId: string) => void;
   legend?: boolean;
@@ -68,17 +89,23 @@ function useBox() {
 
 export default function HubPlan(props: PlanProps) {
   const [ref, box] = useBox();
-  const byW = box.w / (X1 - X0);
-  const S = box.w ? Math.max(4, props.fit === "width" ? byW : Math.min(byW, (box.h || 1e9) / (Y1 - Y0))) : 0;
-  const W = (X1 - X0) * S, H = (Y1 - Y0) * S;
+  const narrow = box.w > 0 && box.w < 640;
+  const litKey = props.litCameras?.join() ?? "";
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- recompute only when the evidence or the width class changes
+  const ext = useMemo(() => frame(props, box.w), [props.journey, props.missing, litKey, narrow]);
+  const byW = box.w / (ext.x1 - ext.x0);
+  const fitW = props.fit === "width" || ext !== FULL; // a zoomed phone plan takes the width; the box shrinks to it
+  const S = box.w ? Math.max(4, fitW ? byW : Math.min(byW, (box.h || 1e9) / (ext.y1 - ext.y0))) : 0;
+  const W = (ext.x1 - ext.x0) * S, H = (ext.y1 - ext.y0) * S;
   return (
     <div className="hp">
-      <div className="hp-box" ref={ref} style={props.fit === "width" ? { minHeight: S ? (Y1 - Y0) * S : 200, flex: "none" }
+      <div className="hp-box" ref={ref} style={fitW ? { minHeight: S ? (ext.y1 - ext.y0) * S : 200, flex: "none" }
         : { minHeight: props.minHeight ?? 260 }}>
         {S > 0 && (
           <svg className="hp-svg" width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="group" aria-label={props.label}>
-            <Base S={S} heat={props.heat} />
-            <Overlay S={S} {...props} />
+            <Base S={S} heat={props.heat} ext={ext} />
+            <Overlay S={S} ext={ext} {...props} />
+            <ScaleNorth S={S} W={W} H={H} zoomed={ext !== FULL} />
           </svg>
         )}
       </div>
@@ -87,8 +114,8 @@ export default function HubPlan(props: PlanProps) {
   );
 }
 
-const mk = (S: number) => {
-  const P = ([x, y]: XY): XY => [(x - X0) * S, (Y1 - y) * S];
+const mk = (S: number, e: Ext = FULL) => {
+  const P = ([x, y]: XY): XY => [(x - e.x0) * S, (e.y1 - y) * S];
   const pts = (poly: XY[]) => poly.map((p) => P(p).map((v) => v.toFixed(1)).join(",")).join(" ");
   const rect = (x1: number, y1: number, x2: number, y2: number) => {
     const [a, b] = P([Math.min(x1, x2), Math.max(y1, y2)]);
@@ -97,9 +124,9 @@ const mk = (S: number) => {
   return { P, pts, rect };
 };
 
-function Base({ S, heat }: { S: number; heat?: Record<string, number> }) {
+function Base({ S, heat, ext }: { S: number; heat?: Record<string, number>; ext: Ext }) {
   return useMemo(() => {
-    const { P, pts, rect } = mk(S);
+    const { P, pts, rect } = mk(S, ext);
     const L = HUB.machines.loop as typeof HUB.machines.loop & { speed_mps?: number; carriers?: number };
     const stadium = (rr: number) => {
       const a = P([L.west_cx, L.cy - rr]), b = P([L.east_cx, L.cy - rr]), c = P([L.east_cx, L.cy + rr]), d = P([L.west_cx, L.cy + rr]);
@@ -221,22 +248,21 @@ function Base({ S, heat }: { S: number; heat?: Record<string, number> }) {
               {n ? `${n} case${n === 1 ? "" : "s"} end here · ${z.id}` : z.id}</text>}
           </g>;
         })}
-        <ScaleNorth S={S} />
       </g>
     );
-  }, [S, heat]);
+  }, [S, heat, ext]);
 }
 
-function ScaleNorth({ S }: { S: number }) {
-  const { P } = mk(S);
-  const [sx, sy] = P([0, -2.6]);
-  const [nx, ny] = P([60, -2.2]);
+function ScaleNorth({ S, W, H, zoomed }: { S: number; W: number; H: number; zoomed: boolean }) {
+  const [sx, sy] = [10, H - 14];
+  const [nx, ny] = [W - 14, H - 18];
   return (
     <g aria-hidden>
+      <rect x={sx - 6} y={sy - 10} width={10 * S + (zoomed ? 150 : 40)} height={20} rx={6} fill={C.surf} fillOpacity={0.85} />
+      <rect x={nx - 11} y={ny - 19} width={22} height={36} rx={6} fill={C.surf} fillOpacity={0.85} />
       <line x1={sx} y1={sy} x2={sx + 10 * S} y2={sy} stroke={C.inkM} strokeWidth={1.5} />
       {[0, 5, 10].map((i) => <line key={i} x1={sx + i * S} y1={sy - 4} x2={sx + i * S} y2={sy + 4} stroke={C.inkM} strokeWidth={1.5} />)}
-      <text className="hp-t" x={sx} y={sy + 15} fontSize={9.5} fill={C.inkM} textAnchor="middle">0</text>
-      <text className="hp-t" x={sx + 10 * S} y={sy + 15} fontSize={9.5} fill={C.inkM} textAnchor="middle">10 m</text>
+      <text className="hp-t" x={sx + 10 * S + 6} y={sy + 4} fontSize={9.5} fill={C.inkM}>10 m{zoomed ? " · zoomed to the journey" : ""}</text>
       <path d={`M${nx},${ny - 14} L${nx + 5},${ny} L${nx},${ny - 4} L${nx - 5},${ny} Z`} fill={C.inkM} />
       <text className="hp-t" x={nx} y={ny + 12} fontSize={9} fill={C.inkM} fontWeight={640} textAnchor="middle">N</text>
     </g>
@@ -245,31 +271,43 @@ function ScaleNorth({ S }: { S: number }) {
 
 interface Chip { x: number; y: number; w: number; h: number; ax: number; ay: number; t: string; sub: string; dot: string }
 
-/** Greedy chip placement: first offset whose box avoids other chips, the route and the plan edge. */
-function placeChips(want: { at: XY; t: string; sub: string; dot: string }[], route: XY[], W: number, H: number): Chip[] {
+/** Chip placement (review F-032 #1): chips never overlap each other and never leave the plan. Story chips go first
+ * (`rank` 0); each takes the first preferred offset that is free, else the nearest free spot anywhere on the plan
+ * (first off the route, then anywhere chip-free); a chip with no free spot is dropped, its facts stay in the bead tooltip. */
+function placeChips(want: { at: XY; t: string; sub: string; dot: string; rank: number }[], route: XY[], W: number, H: number): Chip[] {
   const out: Chip[] = [];
-  const hits = (x: number, y: number, w: number, h: number) =>
-    x < 4 || y < 4 || x + w > W - 4 || y + h > H - 4
-    || out.some((c) => x < c.x + c.w + 6 && x + w + 6 > c.x && y < c.y + c.h + 6 && y + h + 6 > c.y)
-    || route.some(([px, py]) => px > x - 8 && px < x + w + 8 && py > y - 8 && py < y + h + 8);
-  for (const c of want) {
+  const outside = (x: number, y: number, w: number, h: number) => x < 4 || y < 4 || x + w > W - 4 || y + h > H - 4;
+  const onChip = (x: number, y: number, w: number, h: number) =>
+    out.some((c) => x < c.x + c.w + 6 && x + w + 6 > c.x && y < c.y + c.h + 6 && y + h + 6 > c.y);
+  const onRoute = (x: number, y: number, w: number, h: number) =>
+    route.some(([px, py]) => px > x - 8 && px < x + w + 8 && py > y - 8 && py < y + h + 8);
+  for (const c of [...want].sort((a, b) => a.rank - b.rank)) {
     const w = 34 + 7.1 * Math.max(c.t.length * 0.95, c.sub.length * 0.86);
     const h = 36;
     const [ax, ay] = c.at;
-    const cands: XY[] = [[34, -62], [34, 26], [-34 - w, -62], [-34 - w, 26], [60, -104], [-60 - w, -104], [60, 70], [-60 - w, 70],
-      [90, -20], [-90 - w, -20]];
-    const pick = cands.find(([dx, dy]) => !hits(ax + dx, ay + dy, w, h)) ?? cands[0];
-    // never outside the plan, even when every candidate collides
-    const x = Math.min(Math.max(4, ax + pick[0]), W - w - 4);
-    const y = Math.min(Math.max(4, ay + pick[1]), H - h - 4);
-    out.push({ x, y, w, h, ax, ay, t: c.t, sub: c.sub, dot: c.dot });
+    const pref: XY[] = [[34, -62], [34, 26], [-34 - w, -62], [-34 - w, 26], [60, -104], [-60 - w, -104], [60, 70], [-60 - w, 70],
+      [90, -20], [-90 - w, -20]].map(([dx, dy]) => [ax + dx, ay + dy]);
+    const free = ([x, y]: XY) => !outside(x, y, w, h) && !onChip(x, y, w, h);
+    const clear = (p: XY) => free(p) && !onRoute(p[0], p[1], w, h);
+    let grid: XY[] | null = null;
+    const near = () => {
+      if (!grid) {
+        const d = ([x, y]: XY) => Math.hypot(x + w / 2 - ax, y + h / 2 - ay);
+        grid = [];
+        for (let y = 4; y + h <= H - 4; y += 8) for (let x = 4; x + w <= W - 4; x += 8) grid.push([x, y]);
+        grid.sort((p, q) => d(p) - d(q));
+      }
+      return grid;
+    };
+    const pick = pref.find(clear) ?? near().find(clear) ?? pref.find(free) ?? near().find(free);
+    if (pick) out.push({ x: pick[0], y: pick[1], w, h, ax, ay, t: c.t, sub: c.sub, dot: c.dot });
   }
   return out;
 }
 
-function Overlay({ S, journey: j, missing, marker, cloud, litCameras = [], selectedScanId, onScan, onObservation }: PlanProps & { S: number }) {
-  const { P, pts } = mk(S);
-  const W = (X1 - X0) * S, H = (Y1 - Y0) * S;
+function Overlay({ S, ext, journey: j, missing, marker, cloud, litCameras = [], selectedScanId, activeScanId, onScan, onObservation }: PlanProps & { S: number; ext: Ext }) {
+  const { P, pts } = mk(S, ext);
+  const W = (ext.x1 - ext.x0) * S, H = (ext.y1 - ext.y0) * S;
   const lit = new Set(litCameras);
   const last = j?.last_confirmed ?? null;
   const expected = (missing?.expected_next ?? []).filter((r) => r.role !== "watching_last_point" && r.result !== "no_footage").slice(0, 2);
@@ -281,14 +319,15 @@ function Overlay({ S, journey: j, missing, marker, cloud, litCameras = [], selec
   // small plans keep only the chips that carry the story (last confirmed + expected); others stay in bead tooltips
   const compact = S < 12;
   const chips = j ? placeChips([
-    ...j.scans.filter((s) => s.xy && (!compact || last?.evidence_id === s.scan_event_id)).map((s) => {
+    ...j.scans.filter((s) => s.xy && (!compact || last?.evidence_id === s.scan_event_id || s.scan_event_id === activeScanId)).map((s) => {
       const isLast = last?.evidence_id === s.scan_event_id;
-      return { at: P(s.xy!), t: clock(s.t, true).replace(" MYT", ""), sub: `${isLast ? "Last confirmed · " : ""}${short(describeScan(s).title)}`, dot: C.scan };
+      return { at: P(s.xy!), t: clock(s.t, true).replace(" MYT", ""), sub: `${isLast ? "Last confirmed · " : ""}${short(describeScan(s).title)}`, dot: C.scan,
+        rank: isLast ? 0 : 2 };
     }),
-    ...(last?.kind === "observation" && last.xy ? [{ at: P(last.xy), t: clock(last.t, true).replace(" MYT", ""), sub: `Last confirmed · seen on ${cam(last.camera_id)}`, dot: C.obs }] : []),
+    ...(last?.kind === "observation" && last.xy ? [{ at: P(last.xy), t: clock(last.t, true).replace(" MYT", ""), sub: `Last confirmed · seen on ${cam(last.camera_id)}`, dot: C.obs, rank: 0 }] : []),
     ...expected.map((r) => ({ at: P(r.expected_xy), t: `${clock(r.window.start, true).replace(" MYT", "")}–${clock(r.window.end).replace(" MYT", "").slice(-2)}`,
       sub: `Expected on ${cam(r.camera_id).replace("_", " ")} · ${r.result === "not_seen" ? "not seen" : r.result === "seen" ? "seen" : "not analysed"}`,
-      dot: r.result === "not_seen" ? C.con : C.unk })),
+      dot: r.result === "not_seen" ? C.con : C.unk, rank: 1 })),
   ], routePx, W, H) : [];
   return (
     <g className="hp-over">
@@ -350,6 +389,7 @@ function Overlay({ S, journey: j, missing, marker, cloud, litCameras = [], selec
         return (
           <g key={s.scan_event_id} role="button" tabIndex={0} aria-label={`Scan: ${label}. Open source.`} style={{ cursor: "pointer" }}
             onClick={() => onScan?.(s.scan_event_id)} onKeyDown={(e) => e.key === "Enter" && onScan?.(s.scan_event_id)}>
+            {s.scan_event_id === activeScanId && <circle cx={x} cy={y} r={13} fill="none" stroke={C.scan} strokeWidth={2} strokeOpacity={0.8} data-ev="scan-active" />}
             <rect x={x - 5.5} y={y - 5.5} width={11} height={11} rx={2} transform={`rotate(45 ${x} ${y})`} fill={sel ? "#bfdbfe" : C.scan} stroke={C.surf} strokeWidth={2} />
             <title>{label}</title>
           </g>
