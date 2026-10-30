@@ -25,6 +25,11 @@ So a parcel's "label read at the scan tunnel" comes before "loaded onto carrier 
 (carrier assignment, divert, recirculation) carry identity by sorter tracking, not by a new label read. Chute
 photo-eye pulses (`bag_drop` in the simulated log) have no identity and are imported as simulated sensor events.
 
+Two induction lines feed the loop: line A (SP-INDUCT → SP-TUNNEL → merge at x 30) and line B (SP-INDUCT-B → DWS arch
+SP-TUNNEL-B → its own merge at x 46.6, 16.6 m downstream). The seed keeps each record's own `scan_point`; hypothesis
+routes follow whichever line the observation sits on (feeder chains are derived from `hub_spec.json` belts, not listed
+in code), and the trace height follows line B's ramp. The default seeded case stays a line-A parcel.
+
 ## Generated inputs
 
 | Command | What |

@@ -36,6 +36,7 @@ export function Shell({ children }: { children: ReactNode }) {
   }
 
   const nav = [
+    { href: "/hub", label: "Hub", icon: Icon.scan, current: path.startsWith("/hub") },
     { href: "/", label: "Cases", icon: Icon.cases, current: path === "/" },
     ...(caseId
       ? [
@@ -53,9 +54,11 @@ export function Shell({ children }: { children: ReactNode }) {
       {menu && <div className="sp-scrim" onClick={() => setMenu(false)} aria-hidden />}
       <aside className="sp-side" aria-label="Main navigation">
         <div className="sp-brand">
-          <span className="sp-brand-mark" aria-hidden>S</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="sp-brand-logo" src="/brand/spoor-mark-dark.svg" alt="" width={30} height={30} />
           <div className="sp-brand-text">
-            <div className="sp-brand-name">Spoor</div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="sp-brand-word" src="/brand/spoor-logo-dark.svg" alt="Spoor" height={22} />
             <div className="sp-brand-site">CONTOH Express hub · fictional</div>
           </div>
         </div>
@@ -102,7 +105,8 @@ export function Shell({ children }: { children: ReactNode }) {
         <header className="sp-topbar">
           <button className="sp-btn sp-btn-ghost sp-iconbtn" aria-label="Open menu" aria-expanded={menu}
             onClick={() => setMenu(true)}><Icon.menu /></button>
-          <span className="sp-brand-name">Spoor</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/spoor-logo-dark.svg" alt="Spoor" height={20} />
           <span className="sp-muted" style={{ fontSize: 12 }}>CONTOH Express · fictional hub</span>
         </header>
         <main id="main" tabIndex={-1} style={{ outline: "none", minWidth: 0, flex: 1, display: "flex", flexDirection: "column" }}>

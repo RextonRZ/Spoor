@@ -11,6 +11,7 @@ import { fmtTime, fmtUncertainty, TZ_LABEL } from "@/lib/time";
 import type { Capabilities, CameraRow, CaseListRow, ClockDomainRow, Me, MediaRow, OperatorTrace, Site } from "@/lib/types";
 import { Empty, ErrorState, Loading, SimulatedChip, Unavailable } from "@/components/ui";
 import { clockWarning } from "@/components/workspace/context";
+import { postJson } from "@/components/Shell";
 
 async function postForm<T>(path: string, form: FormData): Promise<T> {
   const r = await fetch(`${API_BASE}${path}`, { method: "POST", body: form });
@@ -164,8 +165,11 @@ function ImportClip({ siteId, cameras, disabled }: { siteId?: string; cameras: C
     const f = new FormData(e.currentTarget);
     const file = f.get("file") as File;
     const start = String(f.get("start"));
+    const check = String(f.get("clockcheck") ?? "").trim();
+    const ref = String(f.get("ref") ?? "").trim();
     const meta = {
-      site_id: siteId, camera_id: f.get("camera"), rights_statement: String(f.get("rights")), purpose: "Spoor demonstration",
+      site_id: siteId, camera_id: f.get("camera"), rights_statement: String(f.get("rights")),
+      purpose: ref ? `CCTV retrieval for ${ref}` : "CCTV retrieval (no case or claim reference given)",
       consent_confirmed: f.get("consent") === "on", hosted_processing_allowed: false, retention_days: 30,
       recording_start_camera_time: start ? new Date(start).toISOString() : null, recording_kind: f.get("kind"),
     };
@@ -174,6 +178,17 @@ function ImportClip({ siteId, cameras, disabled }: { siteId?: string; cameras: C
     body.set("file", file);
     setBusy(true);
     try {
+      if (check) {
+        // Clock check at retrieval: recorder display minus a reference clock, recorded before the clip is placed on
+        // the timeline (Home Office v3.0 3.3(a): "Any discrepancy between the system time and real time should be
+        // recorded in the audit trail"). A recorder running ahead by d seconds needs -d to reach reference time.
+        const d = Number(check);
+        if (!Number.isFinite(d)) throw new Error("Clock check must be a number of seconds, e.g. 4.2 or -1.5");
+        await postJson(`/v1/cameras/${f.get("camera")}/clock-syncs`, {
+          offset_ms: -d * 1000, uncertainty_ms: 1000,
+          method: "clock check at retrieval: recorder display vs reference clock, read by the operator (±1 s)",
+          anchor_description: `recorder ${d >= 0 ? "ahead of" : "behind"} reference by ${Math.abs(d)} s at retrieval` });
+      }
       const r = await postForm<{ media_id: string; frames: number; deduplicated: boolean }>("/v1/media/uploads", body);
       setRes({ tone: "ok", text: `Imported ${r.media_id}: ${r.frames} frames${r.deduplicated ? " (already stored, deduplicated)" : ""}.` });
       invalidate("/v1/sites/");
@@ -185,8 +200,13 @@ function ImportClip({ siteId, cameras, disabled }: { siteId?: string; cameras: C
   }
   return (
     <section className="sp-panel" aria-labelledby="clip-h">
-      <div className="sp-panel-head"><h2 className="sp-h3" id="clip-h">Import a camera clip</h2></div>
+      <div className="sp-panel-head"><h2 className="sp-h3" id="clip-h">CCTV retrieval: import a recorder clip</h2></div>
       <form className="sp-panel-body sp-stack" onSubmit={submit}>
+        <p className="sp-caption" style={{ margin: 0 }}>Import the recorder&apos;s native file. It is kept unchanged as the
+          master, with its SHA-256; the app plays an H.264 working copy (converted format). Record the clock check and the
+          period so the clip can be placed on the case timeline.</p>
+        <label className="sp-field"><span className="sp-label">Case or claim reference</span>
+          <input name="ref" className="sp-input" placeholder="e.g. the case ID or the customer&apos;s complaint reference" /></label>
         <label className="sp-field"><span className="sp-label">Camera</span>
           <select name="camera" className="sp-select" required>
             {cameras.map((c) => <option key={c.camera.camera_id} value={c.camera.camera_id}>{c.camera.name}</option>)}
@@ -196,6 +216,9 @@ function ImportClip({ siteId, cameras, disabled }: { siteId?: string; cameras: C
         <label className="sp-field"><span className="sp-label">Recording start, camera clock</span>
           <input name="start" type="datetime-local" step="0.001" className="sp-input" />
           <span className="sp-caption">As shown by the camera OSD. Spoor treats it as unverified until anchors are matched.</span></label>
+        <label className="sp-field"><span className="sp-label">Clock check at retrieval (seconds, recorder minus reference)</span>
+          <input name="clockcheck" inputMode="decimal" className="sp-input sp-num" placeholder="e.g. 4.2 if the recorder shows 14:32:11.2 at 14:32:07.0" />
+          <span className="sp-caption">Read the recorder&apos;s displayed time against a reference clock when you export. Leave empty if not checked: the clip stays &quot;clock unverified&quot;.</span></label>
         <label className="sp-field"><span className="sp-label">Footage kind</span>
           <select name="kind" className="sp-select" defaultValue="synthetic_test">
             <option value="synthetic_test">synthetic test</option><option value="staged_event">staged event</option>

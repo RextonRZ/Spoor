@@ -1,0 +1,6 @@
+/* Hub home (H15). Prefix hub-. */
+.hub-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.hub-search { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; width: min(520px, 100%); }
+.hub-search .sp-input { flex: 1; min-width: 220px; }
+.hub-hit { flex-basis: 100%; margin: 0; }
+.hub-empty { display: flex; flex-direction: column; gap: 4px; padding: 6px 0; }

@@ -34,6 +34,12 @@ const hub = {
   },
   fixtures: pick(spec.fixtures, ["benches", "cage_bays", "racks"]),
   walkways: spec.circulation.walkways.map((w) => pick(w, ["id", "rect_m"])),
+  // floor-plan language (floorplan_design_0300): forklift lane, zebra crossings and belt crossovers are drawn too
+  circulation: {
+    forklift_lane: pick(spec.circulation.forklift_lane, ["centreline_m", "width_m"]),
+    zebra_crossings: (spec.circulation.zebra_crossings ?? []).map((z) => pick(z, ["id", "rect_m"])),
+    crossovers: (spec.circulation.crossovers ?? []).map((x) => pick(x, ["id", "x", "width", "south_stair_y", "north_stair_y"])),
+  },
   scan_points: spec.scan_points.map((s) => ({
     ...pick(s, ["id", "device_kind", "zone", "position_m", "clock_domain", "events"]),
     visible_by: (s.visible_by ?? []).map((v) => v.camera),

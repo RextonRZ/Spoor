@@ -139,7 +139,7 @@ export default function ReportPage({ params }: { params: Promise<{ caseId: strin
             {current && (html === null ? <Loading label="Loading preview" lines={4} /> : (
               <iframe title="Report preview" sandbox="" srcDoc={html} className="sp-report-frame" />
             ))}
-            <p className="sp-caption">Times in the report are UTC; the workspace shows {TZ_LABEL}.</p>
+            <p className="sp-caption">Times in the report are {TZ_LABEL} (UTC+08:00), as in the workspace; the JSON keeps ISO 8601.</p>
           </div>
         </section>
       </div>

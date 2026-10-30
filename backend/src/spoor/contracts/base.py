@@ -56,6 +56,9 @@ ID_PREFIXES = {
     "membership": "cmem",
     "alias": "alias",
     "clock_domain": "clkd",
+    "site_plan": "plan",
+    "search_task": "srch",
+    "reel": "reel",
 }
 
 

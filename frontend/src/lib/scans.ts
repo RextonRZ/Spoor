@@ -1,7 +1,8 @@
 /**
  * What a scan or sorter event does and does not prove, in plain words (review 004 #1, #2).
  * Hub flow (fictional CONTOH hub): induction station -> infeed belt -> scan tunnel -> merge onto a cross-belt carrier
- * -> sorter loop -> chute. So "label read at the tunnel" comes BEFORE "loaded onto carrier"; a divert confirmation is
+ * -> sorter loop -> chute. There are two induction lines (A: SP-INDUCT / SP-TUNNEL, B: SP-INDUCT-B / SP-TUNNEL-B), each
+ * with its own tunnel and its own merge onto the loop; the line is read from the record's scan point, never assumed. So "label read at the tunnel" comes BEFORE "loaded onto carrier"; a divert confirmation is
  * the sorter reporting where it tipped a tracked carrier, not a new label read.
  */
 export interface ScanLike {
@@ -20,7 +21,13 @@ export interface ScanWords {
   proves: string;
 }
 
-export const HUB_FLOW = "induction station → infeed belt → scan tunnel → merge onto a carrier → sorter loop → chute";
+export const HUB_FLOW = "induction line A or B → infeed belt → that line's scan tunnel → merge onto a carrier → sorter loop → chute";
+
+/** Induction line of a tunnel / induction record, from its scan point id (SP-TUNNEL = A, SP-TUNNEL-B = B, ...). */
+export function inductionLine(s: Pick<ScanLike, "station_id" | "device_id">): string | null {
+  const m = /^SP-(?:TUNNEL|INDUCT)(?:-([A-Z]))?$/.exec(s.station_id ?? s.device_id ?? "");
+  return m ? (m[1] ?? "A") : null;
+}
 
 function chuteFromDesc(s: ScanLike): string {
   const m = /chute\s+(\w+)/i.exec(s.raw_description ?? "");
@@ -37,19 +44,21 @@ export function describeScan(s: ScanLike): ScanWords {
   const chute = s.sort_destination_actual ?? s.station_id?.replace(/^SP-DIV-/, "") ?? null;
   const noRead = s.read_outcome && s.read_outcome !== "read";
   const code = s.raw_code ?? s.event_kind;
+  const line = inductionLine(s);
+  const onLine = line ? ` (line ${line})` : "";
   switch (code) {
     case "tunnel_read":
-      return { title: "label read at the scan tunnel", card: "scan tunnel label read",
+      return { title: `label read at the scan tunnel${onLine}`, card: `scan tunnel label read${onLine}`,
         proves: "The tunnel read this parcel's label (with its size and weight). It does not show where the parcel went next." };
     case "tunnel_no_read":
-      return { title: "tunnel no-read", card: "scan tunnel no-read",
+      return { title: `tunnel no-read${onLine}`, card: `scan tunnel no-read${onLine}`,
         proves: "The tunnel saw a parcel but read no label. No identity: it cannot be tied to any waybill on its own." };
     case "induct_to_carrier":
       return noRead
         ? { title: `unidentified item loaded onto carrier ${carrier ?? "?"}`, card: "sorter carrier assignment, no identity",
           proves: "The sorter put an item it could not identify on a carrier." }
         : { title: `loaded onto carrier ${carrier ?? "?"}`, card: "sorter carrier assignment",
-          proves: `The sorter assigned the tracked item to carrier ${carrier ?? "?"} at the merge. Identity is carried by sorter tracking from the tunnel read, not a new read.` };
+          proves: `The sorter assigned the tracked item to carrier ${carrier ?? "?"} at the${line ? ` line ${line}` : ""} merge. Identity is carried by sorter tracking from the tunnel read, not a new read.` };
     case "divert_confirm":
       return noRead
         ? { title: `unidentified item diverted to ${chute ?? "a chute"}`, card: "sorter divert, no identity",
@@ -60,10 +69,10 @@ export function describeScan(s: ScanLike): ScanWords {
       return { title: `recirculated: ${chute ?? "chute"} full`, card: "sorter recirculation",
         proves: `The sorter could not discharge carrier ${carrier ?? "?"} because the target chute was full; the item stays on the loop. Identity from sorter tracking, not a new read.` };
     case "bag_open":
-      return { title: `new bag opened${chuteFromDesc(s)}`, card: "bag lifecycle scan (handheld)",
+      return { title: `bagging: new bag opened${chuteFromDesc(s)}`, card: "bagging scan (handheld)",
         proves: "A handheld scanned a new bag label at the chute. It is about the bag, not about any parcel." };
     case "bag_close":
-      return { title: `bag closed${chuteFromDesc(s)}`, card: "bag lifecycle scan (handheld)",
+      return { title: `bagging: bag closed${chuteFromDesc(s)}`, card: "bagging scan (handheld)",
         proves: "A handheld scanned the bag as closed. Which parcels are inside is not shown by this scan." };
     case "container_add":
       if (s.event_kind === "container_add" && /into/.test(s.raw_description ?? "")) {

@@ -157,7 +157,8 @@ function FrameViewer({ mediaId, time, title, recordingKind, sha, context }: { me
     <div className="sp-frame" data-playing={play ? "true" : "false"}>
       <div className="sp-row" style={{ justifyContent: "space-between" }}>
         <span className="sp-strong" style={{ fontWeight: 600 }}>{title}</span>
-        <span className="sp-chip">{play ? "playing · working proxy" : "original"}</span>
+        <span className="sp-chip" title={play ? "H.264 working copy (converted format), frame for frame the master" : "master: the original file as received"}>
+          {play ? "playing · working copy" : "master (original)"}</span>
       </div>
       {at.loading && <div className="sp-skel" style={{ aspectRatio: "16 / 9" }} />}
       {at.error && <ErrorState error={at.error} what="the frame" onRetry={at.reload} />}
@@ -184,10 +185,11 @@ function FrameViewer({ mediaId, time, title, recordingKind, sha, context }: { me
           </div>
           <dl className="sp-kv">
             <dt>Frame time</dt><dd className="sp-num">{frameTime === null ? "…" : `${fmtTime(frameTime)} ${TZ_LABEL}`}{atSelected ? " (selected)" : ""}</dd>
-            <dt>Media</dt><dd className="sp-mono">{mediaId}</dd>
-            {sha && <><dt>SHA-256</dt><dd className="sp-mono">{sha.slice(0, 16)}…</dd></>}
+            <dt>Master</dt><dd className="sp-mono">{mediaId}</dd>
+            {sha && <><dt>Master SHA-256</dt><dd className="sp-mono">{sha.slice(0, 16)}…</dd></>}
+            {play && pb.data && <><dt>Working copy</dt><dd className="sp-mono">{pb.data.proxy_media_id} · converted format (H.264)</dd></>}
             <dt>Footage</dt><dd>{recordingKind === "synthetic_test" ? "synthetic test footage (SYNTHETIC mark burned in)" : recordingKind ?? "unknown"}</dd>
-            <dt>Clock</dt><dd>{fmtUncertainty(at.data.time_uncertainty_ms)} on this clip&apos;s start time</dd>
+            <dt>Clock check</dt><dd>{fmtUncertainty(at.data.time_uncertainty_ms)} on this recorder&apos;s start time</dd>
           </dl>
           {context && (
             <p className="sp-caption">{play ? `Context playback around the selected time (from ${PREROLL_S} s before). `

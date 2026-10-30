@@ -1,23 +1,28 @@
 /* Workspace layout: one focus hierarchy, scene / timeline / source first, context on the left (PRD §19.5). */
 .sp-ws {
   --tl-label: 118px;
-  flex: 1;
+  flex: none; /* a fixed viewport-height grid: long columns scroll inside, the timeline stays on screen */
   display: grid;
   gap: 10px;
   padding: 10px;
   height: 100vh;
   min-height: 640px;
-  grid-template-columns: minmax(270px, 300px) minmax(0, 1fr) minmax(320px, 380px);
-  grid-template-rows: minmax(0, 1fr) auto;
+  /* floorplan_design_0300 §2: CCTV is the hero (centre), the plan supports it (right), the camera route strip sits
+     under the hero, and the timeline spans the bottom so it is visible without scrolling at 1440x900. */
+  grid-template-columns: minmax(250px, 270px) minmax(0, 1fr) minmax(0, 1.05fr);
+  grid-template-rows: minmax(0, 1fr) auto auto;
   grid-template-areas:
-    "left scene right"
-    "left time  right";
+    "left right scene"
+    "left strip scene"
+    "left time  time";
 }
+.sp-ws-strip { grid-area: strip; min-width: 0; }
 .sp-ws-tabs { display: none; }
-.sp-ws-left { grid-area: left; }
+.sp-ws-left { grid-area: left; min-height: 0; overflow: hidden; }
+.sp-ws-right, .sp-ws-scene { min-height: 0; overflow: hidden; }
 .sp-ws-scene { grid-area: scene; }
 .sp-ws-right { grid-area: right; }
-.sp-ws-time { grid-area: time; max-height: 300px; overflow: auto; }
+.sp-ws-time { grid-area: time; max-height: 190px; overflow: auto; }
 
 .sp-scene-wrap { position: relative; flex: 1; min-height: 0; }
 .sp-scene { position: absolute; inset: 0; border-radius: 0 0 var(--radius) var(--radius); overflow: hidden; }
@@ -87,6 +92,7 @@
   .sp-ws[data-tab="timeline"] > [data-pane]:not([data-pane~="timeline"]),
   .sp-ws[data-tab="source"] > [data-pane]:not([data-pane~="source"]),
   .sp-ws[data-tab="agent"] > [data-pane]:not([data-pane~="agent"]),
+  .sp-ws[data-tab="moment"] > [data-pane]:not([data-pane~="moment"]),
   .sp-ws[data-tab="case"] > [data-pane]:not([data-pane~="case"]) { display: none; }
   .sp-ws-scene { height: 68vh; min-height: 360px; }
   .sp-ws-time { max-height: none; }
@@ -106,3 +112,91 @@
 
 .sp-tl-eye { background: rgba(96, 165, 250, 0.7); height: 10px; top: 8px; }
 .sp-frame-loading { position: absolute; right: 8px; top: 8px; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--material-bg); border: 1px solid var(--hairline); }
+
+/* scan history (QUEUE G): one line per scan, gaps called out between rows */
+.sp-scanhist { gap: 2px; margin: 0; padding: 0; list-style: none; }
+.sp-scanhist li { display: flex; flex-direction: column; }
+.sp-scanhist-gap { padding: 2px 0 2px 10px; border-left: 2px dotted var(--ev-unknown); margin: 2px 0 2px 4px; }
+.sp-linkbtn { all: unset; cursor: pointer; padding: 3px 4px; border-radius: 6px; color: var(--ink); }
+.sp-linkbtn:hover { background: var(--surface-2); }
+.sp-linkbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* replay status (H2): the marker's evidence in words, colour = the evidence language */
+.sp-replay-status { position: absolute; left: 12px; top: 12px; z-index: 5; display: inline-flex; align-items: center; gap: 8px;
+  max-width: calc(100% - 24px); padding: 6px 12px; border-radius: 999px; font-size: 12.5px; color: var(--ink-strong);
+  background: var(--material-bg); border: 1px solid var(--hairline); backdrop-filter: blur(10px); }
+.sp-replay-dot { width: 8px; height: 8px; border-radius: 999px; flex: none; background: var(--ev-unknown); }
+.sp-replay-status[data-tone="observed"] .sp-replay-dot { background: var(--ev-observed); }
+.sp-replay-status[data-tone="inferred"] .sp-replay-dot { background: var(--ev-hypothesis); }
+.sp-replay-status[data-tone="scan"] .sp-replay-dot { background: var(--ev-scan, #60a5fa); }
+.sp-replay-status[data-tone="unknown"] .sp-replay-dot { background: transparent; border: 1.5px dashed var(--ev-unknown); }
+.jl-time { font-variant-numeric: tabular-nums; paint-order: stroke; stroke: #0b0c10; stroke-width: 0.35px; }
+
+/* missing moment (H10). Prefix mm-. */
+.mm-last { margin: 4px 0 8px; font-weight: 620; color: var(--ink-strong); }
+.mm-rows { gap: 12px; }
+.mm-row { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-top: 1px solid var(--hairline); }
+.mm-shot, .mm-close { position: relative; display: block; width: 100%; padding: 0; margin: 4px 0 0; border: 1px solid var(--hairline);
+  border-radius: 10px; overflow: hidden; background: #07080b; cursor: pointer; aspect-ratio: 16 / 9; }
+.mm-close { cursor: default; image-rendering: auto; }
+.mm-shot img, .mm-close img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; display: block; }
+.mm-box { position: absolute; min-width: 8px; min-height: 8px; border: 2px dashed var(--ev-hypothesis); border-radius: 3px;
+  box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.7); pointer-events: none; }
+.mm-cap { position: absolute; left: 6px; bottom: 6px; padding: 2px 8px; border-radius: 999px; font-size: 10.5px;
+  background: rgba(8, 8, 14, 0.75); color: #e8eaee; max-width: calc(100% - 12px); text-align: left; }
+.mm-neg { margin: 0; font-size: 12.5px; color: #fca5a5; }
+
+/* follow-cam (H1). Prefix fc-. Bottom-left of the scene, above the plan. */
+.sp-followcam-slot { position: absolute; left: 12px; bottom: 12px; z-index: 6; max-width: calc(100% - 24px); }
+.fc-pill { display: inline-block; padding: 6px 12px; border-radius: 999px; font-size: 12px; color: var(--ink-muted);
+  background: var(--material-bg); border: 1px solid var(--hairline); backdrop-filter: blur(10px); }
+.fc-idle { margin: 0 0 8px; }
+.fc { margin: 0 0 12px; max-width: 100%; border-radius: 14px; overflow: hidden; background: var(--material-bg);
+  border: 1px solid var(--hairline-strong); box-shadow: var(--shadow); backdrop-filter: blur(10px); }
+.fc-shot { position: relative; display: block; width: 100%; padding: 0; border: 0; background: #07080b; cursor: zoom-in; }
+.fc-shot img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; image-rendering: auto; }
+.fc-brackets { position: absolute; pointer-events: none;
+  background:
+    linear-gradient(var(--ev-observed), var(--ev-observed)) top left / 10px 2px no-repeat,
+    linear-gradient(var(--ev-observed), var(--ev-observed)) top left / 2px 10px no-repeat,
+    linear-gradient(var(--ev-observed), var(--ev-observed)) top right / 10px 2px no-repeat,
+    linear-gradient(var(--ev-observed), var(--ev-observed)) top right / 2px 10px no-repeat,
+    linear-gradient(var(--ev-observed), var(--ev-observed)) bottom left / 10px 2px no-repeat,
+    linear-gradient(var(--ev-observed), var(--ev-observed)) bottom left / 2px 10px no-repeat,
+    linear-gradient(var(--ev-observed), var(--ev-observed)) bottom right / 10px 2px no-repeat,
+    linear-gradient(var(--ev-observed), var(--ev-observed)) bottom right / 2px 10px no-repeat;
+  margin: -4px; padding: 4px; box-sizing: content-box; transition: left 200ms var(--ease), top 200ms var(--ease); }
+.fc-tag { position: absolute; left: 6px; top: 6px; padding: 2px 8px; border-radius: 999px; font-size: 10.5px;
+  background: rgba(8, 8, 14, 0.75); color: #e8eaee; }
+.fc-cap { padding: 8px 10px 10px; font-size: 12px; color: var(--ink); display: flex; flex-direction: column; gap: 3px; }
+.fc-id { color: var(--ink-strong); font-weight: 620; }
+.fc-hash { color: var(--ink-muted); font-size: 10.5px; }
+@media (prefers-reduced-motion: reduce) { .fc-brackets { transition: none; } }
+.fc { width: 100%; }
+.sp-plan2 { position: absolute; inset: 0; padding: 52px 12px 10px; }
+
+/* camera route strip (H3/H10). Prefix cs-. */
+.cs { overflow-x: auto; padding: 2px 0 4px; }
+.cs-row { list-style: none; margin: 0; padding: 0; display: flex; gap: 8px; align-items: stretch; }
+.cs-item { display: flex; align-items: center; gap: 8px; flex: none; }
+.cs-link { font-size: 10.5px; color: var(--ink-muted); white-space: nowrap; max-width: 84px; overflow: hidden; text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums; }
+.cs-link::before { content: "→ "; color: var(--ev-hypothesis); }
+.cs-tile { width: 132px; display: flex; flex-direction: column; gap: 3px; padding: 6px; border-radius: 12px; text-align: left;
+  border: 1px solid var(--hairline); background: var(--surface); color: var(--ink); cursor: pointer; }
+.cs-tile:disabled { cursor: default; }
+.cs-tile:not(:disabled):hover { border-color: var(--hairline-strong); }
+.cs-shot { position: relative; display: block; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: #07080b; }
+.cs-shot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.cs-none { position: absolute; inset: 0; display: grid; place-items: center; font-size: 11px; color: var(--ink-muted);
+  background: repeating-linear-gradient(135deg, transparent 0 6px, rgba(139, 144, 155, 0.12) 6px 7px), #101116; }
+.cs-box { position: absolute; min-width: 6px; min-height: 6px; border: 1.5px dashed var(--ev-unknown); border-radius: 2px; }
+.cs-tile[data-kind="not_seen"] .cs-box { border-color: var(--ev-contradicted); }
+.cs-tile[data-kind="scan"] { box-shadow: inset 0 2px 0 var(--ev-scan, #60a5fa); }
+.cs-tile[data-kind="seen"] { box-shadow: inset 0 2px 0 var(--ev-observed); }
+.cs-tile[data-kind="expected"] { border-style: dashed; }
+.cs-tile[data-kind="not_seen"] { border: 1px dashed var(--ev-contradicted); }
+.cs-tile[data-kind="none"] { border-style: dashed; opacity: 0.85; }
+.cs-title { font-size: 12px; font-weight: 620; color: var(--ink-strong); }
+.cs-sub { font-size: 10.5px; color: var(--ink-muted); line-height: 1.3; }
+@media (max-width: 1100px) { .sp-ws-strip { display: none; } }

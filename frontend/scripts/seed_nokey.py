@@ -25,6 +25,9 @@ from pathlib import Path
 
 import httpx
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # sibling modules, also when loaded by path
+from site_plan import site_plan
+
 HERE = Path(__file__).resolve().parent
 FRONT = HERE.parent
 REPO = FRONT.parent
@@ -138,6 +141,17 @@ def handheld_point(points: dict, r: dict, prefix: str) -> dict | None:
     return None
 
 
+def own_point(points: dict, r: dict, device_kind: str, legacy: str) -> dict:
+    """The record's own scan point when the site plan has it with the right device kind (the hub has two induction
+    lines, A and B); records without one (logs from before line B) keep the original single-line point."""
+    sp = points.get(r.get("scan_point") or "")
+    if sp and sp["device_kind"] == device_kind:
+        return sp
+    if r.get("scan_point") and r["scan_point"] not in points:
+        raise ValueError(f"scan point {r['scan_point']} is not in the site plan (run npm run gen:hub / check hub_spec)")
+    return points[legacy]
+
+
 def convert_scans(lines: list[str], domain_ids: dict[str, str], spec: dict) -> tuple[list[dict], dict]:
     """Translate the hub's simulated log into Spoor ScanEvent rows. Field meanings only; no values invented."""
     points = {p["id"]: p for p in spec["scan_points"]}
@@ -152,15 +166,15 @@ def convert_scans(lines: list[str], domain_ids: dict[str, str], spec: dict) -> t
         # Ground-truth seconds (`t_s`, removed in log v2) are never used.
         base = {"device_time_utc": r["time"], "record_time_utc": r.get("received_time") or r["time"], "raw_code": ev,
                 "clock_domain_id": domain_ids.get(r.get("clock_domain") or "clkd_wcs")}  # fmt: skip
-        if ev in ("tunnel_read", "tunnel_no_read"):
-            sp = points["SP-TUNNEL"]
+        if ev in ("tunnel_read", "tunnel_no_read"):  # line A (SP-TUNNEL) or line B (SP-TUNNEL-B): the record says which
+            sp = own_point(points, r, "tunnel", "SP-TUNNEL")
             row = {**base, "event_kind": ev, "read_outcome": "read" if ev == "tunnel_read" else "no_read",
                    "identifiers": ids if ev == "tunnel_read" else [], "device_id": sp["id"], "device_kind": "tunnel",
                    "station_id": sp["id"], "read_point_zone_id": f"zone_{sp['zone']}",
                    "dims_mm": r.get("dims_mm"), "weight_g": r.get("weight_g"),
                    "raw_description": f"tunnel photo {r['photo']}" if r.get("photo") else None}  # fmt: skip
-        elif ev == "induct_to_carrier":
-            sp = points["SP-INDUCT"]
+        elif ev == "induct_to_carrier":  # SP-INDUCT (line A) or SP-INDUCT-B (line B)
+            sp = own_point(points, r, "sorter_plc", "SP-INDUCT")
             row = {**base, "event_kind": "inducted", "identifiers": ids, "read_outcome": "read" if pid else "no_read", "device_id": sp["id"],
                    "device_kind": "sorter_plc", "station_id": sp["id"], "read_point_zone_id": f"zone_{sp['zone']}",
                    "raw_description": f"carrier {r.get('carrier')}"}  # fmt: skip
@@ -240,6 +254,9 @@ def load_inputs(admin, *, clips_dir: Path, clip_start: str, scans_path: Path, sp
                "fov_polygon_m": floor_footprint(c)}  # fmt: skip
         admin.post(f"/v1/sites/{SITE_ID}/cameras", json=cam).raise_for_status()
     log("cameras", len(spec["cameras"]))
+    if admin.get(f"/v1/sites/{SITE_ID}/plan").status_code == 404:  # QUEUE I9: the plan the journey is computed on
+        r = admin.post(f"/v1/sites/{SITE_ID}/plan", json=site_plan(spec, zone_polys)).raise_for_status()
+        log("site plan", r.json()["plan_id"])
 
     existing = {d["domain"]["name"]: d["domain"]["clock_domain_id"]
                 for d in admin.get(f"/v1/sites/{SITE_ID}/clock-domains").json()}  # fmt: skip
@@ -322,7 +339,8 @@ def seed_scenarios(admin, inv, manifest: Path, spec_path: Path, work_dir: Path) 
                           spec_path=spec_path, work_dir=work_dir / it["scenario"], batch=f"scenario_{it['scenario']}",
                           skip_covered=False, burn_mark=False)  # fmt: skip
         ci = base / it["scenario"] / "case_input.json"
-        asked = json.loads(guard(ci).read_text(encoding="utf-8")).get("question") if ci.exists() else None
+        card = json.loads(guard(ci).read_text(encoding="utf-8")) if ci.exists() else {}
+        asked = card.get("question")
         default = (f"which truck did cage {it['parcel']} go onto?" if kind == "container"
                    else f"where did parcel {it['parcel']} go after its last scan?")  # fmt: skip
         q = f"{it['scenario']} · {it['title']}: {asked or default}"
@@ -331,10 +349,26 @@ def seed_scenarios(admin, inv, manifest: Path, spec_path: Path, work_dir: Path) 
             continue
         body = case_body(it["parcel"], got["clips"], it["clip_start"], question=q, subject_kind=kind,
                          window_s=max(40.0, clip_seconds(got["clips"]) + 5))  # fmt: skip
+        if card.get("complaint"):  # the complaint as the card states it (review 012 #3); no invented claim ref / date
+            body["complaint"] = card["complaint"]
         r = inv.post("/v1/cases", json=body)
         r.raise_for_status()
         print("scenario case", it["scenario"], r.json()["case"]["case_id"])
         import_photo_eyes(admin, r.json()["case"]["case_id"], got["lines"])
+
+
+def auto_case_parcel(rows: list[dict], line_a: tuple[str, ...] = ("SP-TUNNEL", "SP-INDUCT")) -> str:
+    """Default input case: the parcel with the most reads, among parcels inducted on line A. Line B (added 30 Oct)
+    draws its own parcel stream, so restricting the pick to line A keeps the default case the same when line B
+    traffic is added to the log."""
+    on_a = {i["value"] for r in rows if r.get("station_id") in line_a for i in r.get("identifiers", [])
+            if i["scheme"] == "carrier_waybill"}  # fmt: skip
+    counts: dict[str, int] = {}
+    for row in rows:
+        for i in row.get("identifiers", []):
+            if i["scheme"] == "carrier_waybill" and (i["value"] in on_a or not on_a):
+                counts[i["value"]] = counts.get(i["value"], 0) + 1
+    return max(sorted(counts), key=lambda k: counts[k])
 
 
 def case_body(subject: str, clips: list[Path], clip_start: str, question: str | None = None, *,
@@ -393,12 +427,7 @@ def main() -> None:
 
     auto = args.case_parcel == "auto"
     if auto:  # an operator choice of INPUT case, made from the scan log only (PRD §23)
-        counts: dict[str, int] = {}
-        for row in rows:
-            for i in row.get("identifiers", []):
-                if i["scheme"] == "carrier_waybill":
-                    counts[i["value"]] = counts.get(i["value"], 0) + 1
-        args.case_parcel = max(sorted(counts), key=lambda k: counts[k])
+        args.case_parcel = auto_case_parcel(rows)
     cases = inv.get("/v1/cases").json()
     if not (auto and cases) and not any(c["case"]["target_description"].endswith(args.case_parcel) for c in cases):
         r = inv.post("/v1/cases", json=case_body(args.case_parcel, clips, args.clip_start)).raise_for_status().json()

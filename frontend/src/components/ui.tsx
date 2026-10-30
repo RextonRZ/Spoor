@@ -72,16 +72,18 @@ export function SimulatedChip({ kind = "simulated" }: { kind?: string }) {
 /** Evidence legend: colour + line pattern + word, so meaning never depends on colour alone (PRD §18.1). */
 export function EvidenceLegend({ compact = false }: { compact?: boolean }) {
   const items = [
-    { k: "Observed", d: "seen in footage, one camera track", style: { borderTop: "3px solid var(--ev-observed)" } },
-    { k: "Hypothesis", d: "possible link, not seen", style: { borderTop: "3px dashed var(--ev-hypothesis)" } },
-    { k: "Unknown", d: "not observed: no path drawn", style: { borderTop: "3px dotted var(--ev-unknown)" } },
-    { k: "Scan", d: "identity read at a read point", style: { borderTop: "3px double var(--ev-scan)" } },
+    { k: "Seen", d: "inside one camera track", style: { borderTop: "3px solid var(--ev-observed)" } },
+    { k: "Inferred", d: "belt route between scans, not seen", style: { borderTop: "3px dotted var(--ev-hypothesis)" } },
+    { k: "Gap", d: "unknown, never bridged", style: { height: 10, borderTop: "0", background:
+      "repeating-linear-gradient(135deg, var(--ev-unknown) 0 1.5px, transparent 1.5px 4px)", borderRadius: 2 } },
+    { k: "Scan", d: "identity read at a read point", style: { width: 9, height: 9, borderTop: "0", background: "var(--ev-scan)",
+      transform: "rotate(45deg)", margin: "0 6px 0 7px" } },
   ];
   return (
     <ul className="sp-list" aria-label="Evidence legend" style={{ gap: compact ? 4 : 6 }}>
       {items.map((i) => (
         <li key={i.k} className="sp-row" style={{ fontSize: 12 }}>
-          <span className="sp-swatch" style={{ ...i.style, borderTopWidth: 3 }} aria-hidden />
+          <span className="sp-swatch" style={i.style} aria-hidden />
           <span className="sp-strong" style={{ fontWeight: 600 }}>{i.k}</span>
           {!compact && <span className="sp-muted">{i.d}</span>}
         </li>

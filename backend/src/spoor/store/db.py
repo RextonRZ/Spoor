@@ -58,6 +58,7 @@ cameras = _table("cameras", _idx("site_id"), immutable=False)
 calibrations = _table("calibrations", _idx("camera_id"))
 clock_syncs = _table("clock_syncs", _idx("camera_id"), _idx("clock_domain_id"))
 clock_domains = _table("clock_domains", _idx("site_id"))
+site_plans = _table("site_plans", _idx("site_id"))
 
 # --- media ----------------------------------------------------------------------
 authorizations = _table("authorizations", _idx("site_id"))

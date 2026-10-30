@@ -32,3 +32,24 @@ export function traceFixture(caseId: string, objectId: string, label: string): R
 }
 
 export const FIXTURE_BANNER = "TEST FIXTURE: route-mocked trace to show the renderer. Not case evidence.";
+
+/** The same fixture as a backend /journey payload (H2 renders the backend-typed journey in the 2D view). */
+export function journeyFixture(caseId: string, objectId: string, label: string) {
+  const r = traceFixture(caseId, objectId, label).objects[0];
+  const observed = r.segments.map((s) => ({
+    kind: "observed" as const, start: s.start, end: s.end, camera_id: s.camera_id, track_id: s.track_id,
+    evidence_ids: s.points.map((p) => p.observation_id),
+    points: s.points.map((p) => ({ t: p.t, observation_id: p.observation_id, xy: p.floor_xy_m })),
+  }));
+  const g = r.gaps[0];
+  return {
+    case_id: caseId, plan_id: "plan_fixture", contract: "TEST FIXTURE", needs: [],
+    objects: [{
+      object_instance_id: objectId, label, identity_keys: [], scans: [], observed_segments: observed.length,
+      segments: [observed[0], { kind: "gap", start: g.start, end: g.end, reason: "unobserved", note: g.reason,
+        covering_camera_ids: [], after: "obs_fixture_4", before: "obs_fixture_5", evidence_ids: [] }, observed[1]],
+      last_confirmed: { kind: "observation", evidence_id: "obs_fixture_7", t: observed[1].end, xy: [47.1, 20.9],
+        camera_id: "cam_CAM_10", on_conveyor: null, station_id: null, event_kind: null },
+    }],
+  };
+}

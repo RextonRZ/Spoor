@@ -111,3 +111,51 @@ test("trace height follows the surface: deck on the loop, chute lip in a chute, 
   assert.equal(surfaceHeight(LOOP, CHUTES, [47.1, 20.2]), 1.0);
   assert.equal(surfaceHeight(LOOP, CHUTES, [10, 30]), 0.12);
 });
+
+// --- induction line B (30 Oct): feeder chains come from the site plan, each line merges at its own point --------------
+import { feederChains } from "../../src/lib/topology.ts";
+
+const BELTS = [
+  { id: "collector", kind: "belt", path: [[5, 28], [5, 10.85], [9.2, 10.85]] as [number, number][], height: 0.9 },
+  { id: "induction", kind: "belt", path: [[5.6, 9.5], [17.5, 9.5]] as [number, number][], height: 0.9 },
+  { id: "tunnel_line", kind: "belt", path: [[17.5, 9.5], [23, 9.5]] as [number, number][], height: 1.0 },
+  { id: "merge", kind: "belt", path: [[23, 9.5], [27.6, 9.5], [30, 11]] as [number, number][], height: 1.5 },
+  { id: "induction_B", kind: "belt", path: [[40.8, 7.6], [44, 7.6], [45.6, 9.2], [46.6, 11]] as [number, number][],
+    height: 1.0, heights: [1.0, 1.0, 1.5, 1.5] },
+];
+
+test("feeder chains: line A (induction + tunnel + merge) and line B, both ending on the loop; collector is not a feeder", () => {
+  const chains = feederChains(LOOP, BELTS);
+  assert.deepEqual(chains.map((c) => c.id), ["induction+tunnel_line+merge", "induction_B"]);
+  assert.deepEqual(chains[1].heights, [1.0, 1.0, 1.5, 1.5]);
+});
+
+test("hypothesis from tunnel B follows belt B to its own merge at x 46.6, then the loop; never through line A", () => {
+  const r = routeLink(LOOP, CHUTES, [45.6, 9.2], [47.1, 20.4], 1.0, BELTS);
+  assert.equal(r.via, "induction_B → loop → chute C02");
+  assert.deepEqual(r.points[1], [46.6, 11]);
+  assert.ok(r.points.every(([x]) => x > 40)); // line A merges at x 30: not on this route
+  const a = routeLink(LOOP, CHUTES, [22.2, 9.5], [40, 11], 1.0, BELTS);
+  assert.equal(a.via, "induction+tunnel_line+merge → loop");
+  assert.deepEqual(a.points[1], [23, 9.5]);
+  assert.equal(routeLink(LOOP, CHUTES, [45.6, 9.2], [47.1, 20.4]).via, "straight"); // no belts given: unchanged
+});
+
+test("trace height on belt B follows its ramp through the DWS arch", () => {
+  assert.equal(surfaceHeight(LOOP, CHUTES, [42, 7.6], BELTS), 1.05);
+  assert.equal(surfaceHeight(LOOP, CHUTES, [45.6, 9.2], BELTS), 1.55);
+  assert.equal(surfaceHeight(LOOP, CHUTES, [44.8, 8.4], BELTS), 1.3);
+});
+
+import { describeScan, inductionLine } from "../../src/lib/scans.ts";
+
+test("scan wording names the induction line from the record's own scan point", () => {
+  assert.equal(inductionLine({ station_id: "SP-TUNNEL-B", device_id: "SP-TUNNEL-B" }), "B");
+  assert.equal(inductionLine({ station_id: "SP-TUNNEL", device_id: "SP-TUNNEL" }), "A");
+  assert.equal(inductionLine({ station_id: "SP-DIV-C04", device_id: "SP-DIV-C04" }), null);
+  const b = describeScan({ event_kind: "tunnel_read", device_id: "SP-TUNNEL-B", station_id: "SP-TUNNEL-B", raw_code: "tunnel_read" });
+  assert.equal(b.title, "label read at the scan tunnel (line B)");
+  const ind = describeScan({ event_kind: "inducted", device_id: "SP-INDUCT-B", station_id: "SP-INDUCT-B", raw_code: "induct_to_carrier",
+    read_outcome: "read", raw_description: "carrier 12" });
+  assert.match(ind.proves, /line B merge/);
+});

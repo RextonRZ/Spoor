@@ -41,15 +41,15 @@ export interface HubData {
     footprint_m: [number, number];
     eaves_m: number;
     columns: [number, number][];
-    doors: { id: string; kind: string; wall: string; centre: [number, number]; width: number }[];
+    doors: { id: string; kind: string; wall: string; centre: [number, number]; width: number; board?: string }[];
   };
   zones: HubZone[];
   blind_corner: { id: string; zone: string; polygon: [number, number][]; why: string };
   machines: {
     loop: { south_y: number; north_y: number; radius: number; west_cx: number; east_cx: number; cy: number;
       deck_height: number };
-    conveyors: { id: string; kind: string; path: [number, number][]; height: number }[];
-    chutes: { id: string; x: number; mouth_y: number; end_y: number; width: number }[];
+    conveyors: { id: string; kind: string; path: [number, number][]; height: number; heights?: number[] }[];
+    chutes: { id: string; x: number; mouth_y: number; end_y: number; width: number; lip_z?: number }[];
     scan_tunnel: { zone: string; box_m: [number, number, number]; exit_read_point_m: [number, number] };
   };
   fixtures: {
@@ -58,6 +58,11 @@ export interface HubData {
     racks: { rect_m: [number, number, number, number]; height_m: number }[];
   };
   walkways: { id: string; rect_m: [number, number, number, number] }[];
+  circulation: {
+    forklift_lane: { centreline_m: [number, number][]; width_m: number };
+    zebra_crossings: { id: string; rect_m: [number, number, number, number] }[];
+    crossovers: { id: string; x: number; width: number; south_stair_y: [number, number]; north_stair_y: [number, number] }[];
+  };
   scan_points: HubScanPoint[];
   cameras: HubCamera[];
 }

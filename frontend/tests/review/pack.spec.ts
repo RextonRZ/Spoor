@@ -221,3 +221,14 @@ test("operator evaluation: headline source and caveat (review 007 #4)", async ({
   if (isMobile(info)) await shot(page, info, "24_operator_evaluation_headline");
   else await panel.screenshot({ path: `review_pack/${info.project.name}/24_operator_evaluation_headline.png` });
 });
+
+test("report document, full length (QUEUE G: scan history, CCTV reviewed, continuity, records a claim needs)", async ({ page }, info) => {
+  test.skip(isMobile(info), "the report document is the same on every viewport");
+  const id = await caseId(page);
+  const reports = await (await page.request.get(`/api/spoor/v1/cases/${id}/reports`)).json();
+  const html = await (await page.request.get(`/api/spoor/v1/reports/${reports[reports.length - 1].report_id}?format=html`)).text();
+  await page.setContent(html);
+  await expect(page.getByRole("heading", { name: /Scan history/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /CCTV reviewed/ })).toBeVisible();
+  await page.screenshot({ path: `review_pack/${info.project.name}/26_report_document_full.png`, fullPage: true });
+});

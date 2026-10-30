@@ -3,7 +3,7 @@
  * Run: npm run backend & npm run seed, then npm run test:e2e
  */
 import { expect, test, type Page } from "@playwright/test";
-import { FIXTURE_BANNER, traceFixture } from "../fixtures/trace-fixture";
+import { FIXTURE_BANNER, journeyFixture, traceFixture } from "../fixtures/trace-fixture";
 
 const FORBIDDEN_BRANDS = /\b(DPD|BEUMER|PosLaju|Pos Laju|Skynet|J&T|Ninja Van|FedEx|UPS|DHL|FORTNA)\b/;
 const TRUTH = /render_truth|flow_truth|\/truth\//;
@@ -83,6 +83,8 @@ test("trace contract on a route-mocked FIXTURE: solid never bridges the grey gap
   const obj = state.objects[0].object;
   await page.route(`**/api/spoor/v1/cases/${caseId}/replay**`, (route) =>
     route.fulfill({ json: traceFixture(caseId, obj.object_instance_id, obj.label) }));
+  await page.route(`**/api/spoor/v1/cases/${caseId}/journey**`, (route) =>
+    route.fulfill({ json: journeyFixture(caseId, obj.object_instance_id, obj.label) }));
   await page.goto(`/cases/${caseId}`);
   await page.evaluate((t) => {
     const b = document.createElement("div");
@@ -90,10 +92,10 @@ test("trace contract on a route-mocked FIXTURE: solid never bridges the grey gap
     b.setAttribute("style", "position:fixed;z-index:9999;top:0;left:50%;transform:translateX(-50%);background:#fbbf24;color:#111;padding:6px 12px;font:600 13px system-ui;border-radius:0 0 8px 8px");
     document.body.appendChild(b);
   }, FIXTURE_BANNER);
-  await page.getByRole("button", { name: "2D plan" }).click();
-  const solids = page.locator('polyline[data-ev="observed"]');
+  await page.getByRole("button", { name: "2D journey" }).click();
+  const solids = page.locator('[data-ev="observed"]');
   await expect(solids).toHaveCount(2);
-  await expect(page.locator('[data-ev="hypothesis"]')).toHaveCount(1);
+  await expect(page.locator('[data-ev="inferred"]')).toHaveCount(0); // a gap is never drawn as a route
   const gap = { start: Date.UTC(2026, 9, 28, 6, 32, 14), end: Date.UTC(2026, 9, 28, 6, 32, 22) };
   for (const el of await solids.all()) {
     const from = Date.parse((await el.getAttribute("data-from"))!);

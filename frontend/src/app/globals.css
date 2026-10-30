@@ -26,7 +26,7 @@
   --ev-hypothesis: #fbbf24;
   --ev-unknown: #8b949c;
   --ev-contradicted: #f87171;
-  --ev-scan: #e2e8f0;
+  --ev-scan: #60a5fa; /* blue scan bead (journey_view_0030 design bar) */
   --radius: 0.75rem;
   --radius-sm: 0.5rem;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -37,14 +37,15 @@
 }
 
 * { box-sizing: border-box; }
-html, body { height: 100%; }
+html, body { min-height: 100%; }
+html { background: var(--bg); }
 body {
   margin: 0;
   background:
     radial-gradient(60rem 40rem at 0% 0%, rgba(169, 155, 255, 0.04), transparent 70%),
     radial-gradient(50rem 40rem at 100% 100%, rgba(96, 165, 250, 0.035), transparent 70%),
     var(--bg);
-  background-attachment: fixed;
+  background-attachment: scroll; /* fixed painted a seam at 100vh in full-page captures (F-style #13) */
   color: var(--ink);
   font: 14px/1.5 var(--font);
   -webkit-font-smoothing: antialiased;
@@ -88,6 +89,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .sp-brand-mark { width: 28px; height: 28px; flex: none; border-radius: 8px; display: grid; place-items: center;
   background: var(--accent-tint); color: var(--accent); font-weight: 800; font-family: var(--mono); }
 .sp-brand-text { min-width: 0; }
+/* logo (assets/brand: the evidence-trail S): wordmark when the rail is open, the mark alone when it is collapsed */
+.sp-brand-logo { display: none; flex: none; }
+.sp-brand-word { display: block; height: 22px; width: auto; margin-bottom: 3px; }
+.sp-shell[data-rail="collapsed"] .sp-brand-logo { display: block; }
 .sp-brand-name { font-weight: 700; color: var(--ink-strong); letter-spacing: -0.01em; }
 .sp-brand-site { font-size: 11px; color: var(--ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sp-navgroup { margin: 12px 8px 4px; }

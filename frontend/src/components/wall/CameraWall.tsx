@@ -153,7 +153,7 @@ export default function CameraWall({ tiles, title }: { tiles: WallTile[]; title:
       </div>
       <p className="sp-caption" style={{ margin: 0 }}>
         Synchronized on each clip&apos;s recorded start (uploader-declared, clock not verified); every tile&apos;s burned-in OSD shows that
-        camera&apos;s own clock. Footage is synthetic (SYNTHETIC mark burned in). Playback uses each original&apos;s H.264 working proxy,
+        camera&apos;s own clock. Footage is synthetic (SYNTHETIC mark burned in). Playback uses an H.264 working copy (converted format) of each master,
         frame for frame the same clip. Context only: nothing in these tiles has been detected or observed.
       </p>
     </div>
@@ -180,7 +180,7 @@ function Tile({ tile, register, report, focused, onSelect }: { tile: WallTile; f
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onSelect(); } }}>
       {tile.mediaId && data && !failed && (
         <video ref={videoRef} src={signedUrl(data.url)} muted playsInline preload="auto"
-          aria-label={`${tile.camera} original footage (working proxy)`}
+          aria-label={`${tile.camera} footage, working copy of the master`}
           onError={() => { if (!retried) { setRetried(true); void pb.reload(); } else setFailed(true); }} />
       )}
       {tile.mediaId && !data && !pb.error && <div className="sp-skel" style={{ position: "absolute", inset: 0 }} aria-hidden />}

@@ -1,6 +1,7 @@
 """Step 09 acceptance test: the end-to-end HTTP flow without a UI (upload -> segment -> investigate -> export),
 plus RBAC, signed links, review, sensor import and deletion. SAM output is a synthesized wire-format fixture."""
 
+import hashlib
 import json
 import time
 from datetime import UTC, datetime, timedelta
@@ -95,6 +96,30 @@ def test_end_to_end_flow(ready):
     r = c.post(f"/v1/cases/{case_id}/objects/{obj_id}/tracks/{track['track_id']}", headers=h("t-inv"),
                json={"status": "human_confirmed", "reason": "overlay matches the blue case"})
     assert r.status_code == 200 and r.json()["status"] == "human_confirmed"
+
+    # I1 follow-cam crop: original pixels around the box, its hashes, and why this track is the object.
+    cr = c.get(f"/v1/cases/{case_id}/tracks/{track['track_id']}/crop", params={"frame": 5}, headers=h("t-inv")).json()
+    assert cr["media_sha256"] == up["sha256"] and cr["frame_index"] == 5 and cr["asset_kind"] == "original"
+    x1, y1, x2, y2 = cr["crop_rect_px"]
+    assert 0 <= x1 < x2 <= cr["frame_wh_px"][0] and 0 <= y1 < y2 <= cr["frame_wh_px"][1]
+    assert cr["identity"]["association"]["status"] == "human_confirmed" and 5 in cr["observed_frames"]
+    img = c.get(cr["crop_url"])
+    assert img.status_code == 200 and img.headers["X-Spoor-Asset-Kind"] == "original_crop"
+    assert hashlib.sha256(img.content).hexdigest() == cr["crop_sha256"]
+    import cv2
+    import numpy as np
+    crop = cv2.imdecode(np.frombuffer(img.content, np.uint8), cv2.IMREAD_UNCHANGED)
+    assert crop.shape[1] == x2 - x1 and crop.shape[0] == y2 - y1  # native pixels, no upscale
+    rc = c.get(f"/v1/media/{up['media_id']}/frames/5/crop", params={"box": "10,10,40,40"}, headers=h("t-inv")).json()
+    assert "not an observation" in rc["label"] and c.get(rc["crop_url"]).status_code == 200
+    by_t = c.get(f"/v1/cases/{case_id}/tracks/{track['track_id']}/crop", headers=h("t-inv"),
+                 params={"t": (T0 + timedelta(milliseconds=520)).isoformat()}).json()  # fmt: skip
+    assert by_t["frame_index"] == 5  # nearest observed frame by normalized time (10 fps)
+    scaled = c.get(f"/v1/media/{up['media_id']}/frames/5/crop", headers=h("t-inv"),
+                   params={"box": "20,20,80,80", "basis": f"{2 * rc['frame_wh_px'][0]},{2 * rc['frame_wh_px'][1]}"}).json()
+    assert scaled["box_px"] == [10.0, 10.0, 40.0, 40.0]
+    assert c.get(f"/v1/media/{up['media_id']}/frames/5/crop", params={"box": "40,10,10,40"},
+                 headers=h("t-inv")).status_code == 422  # fmt: skip
 
     inv = wait(c, c.post(f"/v1/cases/{case_id}/investigate", headers=h("t-inv")).json()["job_id"])
     assert inv["status"] == "done" and inv["result"]["status"] == "answered", inv
@@ -292,9 +317,34 @@ def test_parcel_scan_routes(client):
 
     case = c.post("/v1/cases", json={"site_id": "site_demo", "question": "Where is parcel MY88213?",
                                      "target_description": "parcel MY88213",
-                                     "identifiers": [{"scheme": "carrier_waybill", "value": "MY88213"}]},
+                                     "identifiers": [{"scheme": "carrier_waybill", "value": "MY88213"}],
+                                     "claim_reference": "CLM-0042", "complaint": "Parcel MY88213 never arrived.",
+                                     "reported_at": "2026-10-29T09:15:00+08:00"},
                   headers=h("t-inv"))  # fmt: skip
     assert case.status_code == 201
+
+    # Report follows a claims trace (QUEUE G): scan history first, gaps between scans, records a claim needs.
+    exp = c.post(f"/v1/cases/{case.json()['case']['case_id']}/export", headers=h("t-inv")).json()
+    rep = c.get(f"/v1/reports/{exp['report_id']}", headers=h("t-inv")).json()["content"]
+    hist = rep["scan_history"]
+    assert [x["event"] for x in hist] == ["tunnel_read", "relabeled"] and hist[0]["gap_from_previous_s"] is None
+    # 300 s on the device clocks; the tunnel read is corrected +7 s by its fitted WCS clock, the handheld is not
+    assert hist[1]["gap_from_previous_s"] == 293.0 and hist[1]["clock"] == "device time, not synchronized"
+    assert hist[0]["clock"].startswith("synchronized")
+    assert rep["consignment"]["scan_events"] == 2 and "carrier_waybill:MY88213" in rep["consignment"]["identifiers"]
+    held = {r["record"].split(" (")[0]: r["held"] for r in rep["records_not_held"]}
+    assert held["Linehaul loading or departure scan"].startswith("no") and held["Proof of delivery"].startswith("no")
+    assert rep["footage_reviewed"] == [] and rep["continuity"][0]["item"].startswith("scan log batch sim-1")
+    page = c.get(f"/v1/reports/{exp['report_id']}", params={"format": "html"}, headers=h("t-inv")).text
+    assert "Scan history (where the consignment was scanned, not where it went)" in page
+    # Review 012: a document a claims team hands over: complaint block, human labels, one time zone, no literals.
+    assert rep["claim"] == {"claim_reference": "CLM-0042", "complaint": "Parcel MY88213 never arrived.",
+                            "reported_at": "2026-10-29T09:15:00.000+08:00"}  # fmt: skip
+    assert "CLM-0042" in page and "Parcel MY88213 never arrived." in page and "29 Oct 2026, 09:15:00.0 MYT" in page
+    assert "Gap since previous scan" in page and "293 s" in page and "gap_from_previous_s" not in page
+    assert "+00:00" not in page and "<td>None</td>" not in page and "<td>False</td>" not in page
+    assert "None. None." not in page and "Malaysia Time (MYT, UTC+08:00)" in page
+    assert rep["sources_used"][0]["kind"] == "Scan log batch" and "Simulated scan log" in page
 
 
 def test_workspace_read_routes(ready):

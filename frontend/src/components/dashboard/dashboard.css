@@ -1,0 +1,21 @@
+/* Hub dashboard (H15). Prefix: dash-. Work surface: zero ambient motion, numbers and hairlines do the work. */
+.dash { display: flex; flex-direction: column; gap: 14px; }
+.dash-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 0; }
+.dash-kpi { background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--radius); padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.dash-kpi-v { margin: 0; font-size: 26px; font-weight: 680; letter-spacing: -0.03em; color: var(--ink-strong); line-height: 1.1; }
+.dash-grid { display: grid; grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.dash-heat { width: 100%; height: auto; display: block; }
+.dash-zone { fill: var(--ink-strong); stroke: var(--hairline-strong); stroke-width: 0.12; }
+.dash-zones { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; }
+.dash-zones li { display: flex; justify-content: space-between; gap: 12px; padding: 7px 2px; border-bottom: 1px solid var(--hairline);
+  font-size: 13px; }
+.dash-bars { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.dash-bars li { display: grid; grid-template-columns: 64px 1fr 28px; align-items: center; gap: 10px; font-size: 13px; }
+.dash-bar { height: 8px; border-radius: 999px; background: var(--fill-1, rgba(226, 232, 238, 0.05)); overflow: hidden; }
+.dash-bar span { display: block; height: 100%; border-radius: 999px; background: var(--ink-muted); }
+.dash-table a { color: var(--ink-strong); text-decoration: none; font-weight: 560; }
+.dash-table a:hover { text-decoration: underline; }
+.dash .map-outline { fill: var(--surface-2); stroke: var(--hairline-strong); stroke-width: 0.2; }
+.dash .map-belt { fill: none; stroke: rgba(201, 204, 211, 0.28); stroke-width: 0.5; }
+@media (max-width: 1000px) { .dash-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .dash-grid { grid-template-columns: minmax(0, 1fr); } }

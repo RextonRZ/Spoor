@@ -46,7 +46,14 @@ for name, question, expect in CASES:
             ],
             response_format={"type": "json_object"},
         )
-    text = resp.choices[0].message.content
+    msg = resp.choices[0].message
+    text = msg.content or ""
+    # Muse Spark Open always reasons: keep the reasoning apart so the JSON check only sees the answer (J2a).
+    reasoning = getattr(msg, "reasoning_content", None) or getattr(msg, "reasoning", None)
+    if not reasoning and "</think>" in text:
+        reasoning, text = text.split("</think>", 1)
+        reasoning = reasoning.replace("<think>", "")
+    text = text.strip()
     try:
         out = json.loads(text)
         ok = out.get("abstain") == expect["expect_abstain"] and (
@@ -54,7 +61,9 @@ for name, question, expect in CASES:
         )
     except json.JSONDecodeError:
         out, ok = None, False
-    results.append({"case": name, "ok": ok, **t, "usage": usage_of(resp), "parsed": out, "raw": text})
+    results.append({"case": name, "ok": ok, **t, "usage": usage_of(resp), "response_id": resp.id,
+                    "response_model": resp.model, "reasoning_chars": len(reasoning or ""), "parsed": out,
+                    "answer_raw": text})
     print(f"{name}: {'PASS' if ok else 'FAIL'}  {text}")
 
 record("baseten_open", {"model": s.baseten_model_id, "base_url": s.baseten_base_url, "results": results})

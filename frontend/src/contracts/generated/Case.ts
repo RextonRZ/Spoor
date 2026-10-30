@@ -15,6 +15,18 @@ export type StartUtc = string
 export type EndUtc = string
 export type CreatedBy = string
 export type CreatedAt = string
+/**
+ * Courier claim / complaint ref.
+ */
+export type ClaimReference = (string | null)
+/**
+ * The customer's complaint, as reported
+ */
+export type Complaint = (string | null)
+/**
+ * When the customer reported it
+ */
+export type ReportedAt = (string | null)
 
 export interface Case {
 case_id: CaseId
@@ -25,6 +37,9 @@ camera_ids?: CameraIds
 window?: (TimeWindow | null)
 created_by: CreatedBy
 created_at: CreatedAt
+claim_reference?: ClaimReference
+complaint?: Complaint
+reported_at?: ReportedAt
 }
 export interface TimeWindow {
 start_utc: StartUtc

@@ -63,6 +63,10 @@ class Case(Record):
     window: TimeWindow | None = None
     created_by: str
     created_at: AwareDatetime
+    # The complaint the case starts from (review 012 #3): recorded as given, never inferred.
+    claim_reference: str | None = Field(default=None, max_length=80, description="Courier claim / complaint ref.")
+    complaint: str | None = Field(default=None, max_length=1000, description="The customer's complaint, as reported")
+    reported_at: AwareDatetime | None = Field(default=None, description="When the customer reported it")
 
 
 class Event(ImmutableRecord):

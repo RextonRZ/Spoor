@@ -38,6 +38,7 @@ from spoor.contracts import (
     ScanEvent,
     SensorEvent,
     Site,
+    SitePlan,
     TimeWindow,
     Track,
     TrackAssociation,
@@ -45,6 +46,11 @@ from spoor.contracts import (
     new_id,
 )
 from spoor.contracts.site import SITE_FRAME
+from spoor.forensics import build_journey, latest_plan
+from spoor.forensics.crop import crop_png, crop_rect, frame_size, identity_chain, sha256
+from spoor.forensics.dashboard import hub_dashboard
+from spoor.forensics.exceptions import exceptions_inbox
+from spoor.forensics.missing import missing_moment
 from spoor.ingest import IngestRejected, asset_path, extract_frame, ingest, load_result
 from spoor.ingest.ffmpeg import MediaToolError
 from spoor.perception import InstancePrompt, PromptError
@@ -409,6 +415,9 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         camera_ids: list[str] = []
         window: TimeWindow | None = None
         identifiers: list[ParcelIdentifier] = Field(default=[], description="e.g. the missing parcel's waybill")
+        claim_reference: str | None = Field(default=None, max_length=80)
+        complaint: str | None = Field(default=None, max_length=1000)
+        reported_at: AwareDatetime | None = None
 
     @app.post("/v1/cases", status_code=201)
     def create_case(body: CaseRequest, p: User) -> dict:
@@ -635,6 +644,186 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
                 "calls": [c.model_dump(mode="json") for c in costs],
                 "agent_steps": [{"request_id": s.request_id, "seq": s.seq, "role": s.role, "kind": s.kind,
                                  "content": s.content, "at": s.at.isoformat()} for s in steps]}  # fmt: skip
+
+    # --- forensic journey (QUEUE block I) ------------------------------------------------------------------------
+
+    class PlanRequest(BaseModel):
+        """A site plan as the hub hands it over (I9); ids and provenance are added by the server."""
+
+        model_config = {"extra": "forbid"}
+        source: str = Field(min_length=3)
+        outline_m: list[tuple[float, float]]
+        eaves_m: float | None = None
+        areas: list[dict] = []
+        conveyors: list[dict] = []
+        doors: list[dict] = []
+        read_points: list[dict] = []
+        cameras: list[dict] = []
+        walk_speed_mps: float | None = None
+        walk_speed_max_mps: float | None = None
+
+    @app.post("/v1/sites/{site_id}/plan", status_code=201)
+    def import_plan(site_id: str, body: PlanRequest, p: User) -> dict:
+        p.require_role(Role.SITE_ADMIN)
+        p.require_site(site_id)
+        get_or_404(Site, site_id)
+        try:
+            plan = SitePlan(plan_id=new_id("site_plan"), site_id=site_id, created_by=p.user_id, created_at=now(),
+                            **body.model_dump(exclude_none=True))  # fmt: skip
+        except ValidationError as e:
+            raise HTTPException(422, json.loads(e.json(include_url=False))) from e
+        svc.store.put(plan)
+        audit(p, "import_plan", plan.plan_id, conveyors=len(plan.conveyors), areas=len(plan.areas))
+        return {"plan_id": plan.plan_id}
+
+    @app.get("/v1/sites/{site_id}/plan")
+    def get_plan(site_id: str, p: User) -> dict:
+        """Walls, zones, doors, conveyors with deck heights, racks, cameras (pose) — enough to extrude a 2.5D hub
+        without any 3D model (I9 / H6)."""
+        p.require_site(site_id)
+        plan = latest_plan(svc.store, site_id)
+        if plan is None:
+            raise HTTPException(404, f"no site plan imported for {site_id}")
+        return plan.model_dump(mode="json")
+
+    def frame_lookup(p: Principal):
+        """(camera_id, t_ms) -> the original frame shown at that normalized time, with a signed link (context only)."""
+        tables: dict[str, object] = {}
+
+        def look(camera_id: str, t_ms: float) -> dict | None:
+            t = datetime.fromtimestamp(t_ms / 1000, UTC)
+            covs = [c for c in svc.store.find(CameraCoverage, camera_id=camera_id)
+                    if c.start_utc <= t <= c.end_utc and not svc.store.is_invalid(c.coverage_id)]  # fmt: skip
+            if not covs:
+                return None
+            cov = covs[-1]
+            if cov.media_id not in tables:
+                try:
+                    tables[cov.media_id] = load_result(svc.media, cov.media_id).original_frames
+                except (FileNotFoundError, KeyError, ValueError):
+                    tables[cov.media_id] = None
+            table = tables[cov.media_id]
+            if table is None or not table.pts_ms:
+                return None
+            rel = (t - cov.start_utc).total_seconds() * 1000
+            idx = min(range(len(table.pts_ms)), key=lambda i: abs(table.pts_ms[i] - rel))
+            exp, sig = svc.signer.sign(f"{cov.media_id}/{idx}")
+            return {"camera_id": camera_id, "media_id": cov.media_id, "frame_index": idx, "pts_ms": table.pts_ms[idx],
+                    "time_uncertainty_ms": cov.time_uncertainty_ms,
+                    "frame_url": f"/v1/signed/frames/{cov.media_id}/{idx}?exp={exp}&sig={sig}",
+                    "sha256": svc.store.get(MediaAsset, cov.media_id).sha256}  # fmt: skip
+
+        return look
+
+    @app.get("/v1/cases/{case_id}/missing-moment")
+    def missing(case_id: str, p: User) -> dict:
+        """Last confirmed point + per camera where/when it should have appeared next, and seen / NOT seen (a typed
+        negative observation) / not analysed / no footage (I3)."""
+        case_for(p, case_id)
+        audit(p, "missing_moment", case_id)
+        return missing_moment(svc.store, case_id, frame_lookup=frame_lookup(p))
+
+    def _crop(p: Principal, media_id: str, frame_index: int, box: tuple[float, float, float, float],
+              basis: tuple[float, float] | None = None) -> dict:
+        m = get_or_404(MediaAsset, media_id)
+        p.require_site(m.site_id)
+        r = load_result(svc.media, media_id)
+        try:
+            png = extract_frame(asset_path(svc.media, m), r.original_frames, frame_index)
+        except (IndexError, MediaToolError) as e:
+            raise HTTPException(404, str(e)) from e
+        wh = frame_size(png)
+        if basis:  # box measured on another resolution of the same view (e.g. the camera's planned 2688x1520)
+            kx, ky = wh[0] / basis[0], wh[1] / basis[1]
+            box = (box[0] * kx, box[1] * ky, box[2] * kx, box[3] * ky)
+        rect = crop_rect(box, wh)
+        data = crop_png(png, rect)
+        key = f"crop/{media_id}/{frame_index}/{'_'.join(map(str, rect))}"
+        exp, sig = svc.signer.sign(key)
+        return {"crop_url": f"/v1/signed/crops/{media_id}/{frame_index}/{'_'.join(map(str, rect))}?exp={exp}&sig={sig}",
+                "media_id": media_id, "media_sha256": m.sha256, "asset_kind": m.kind.value, "camera_id": m.camera_id,
+                "frame_index": frame_index, "frame_wh_px": list(wh), "box_px": [round(v, 1) for v in box],
+                "crop_rect_px": list(rect), "crop_sha256": sha256(data),
+                "label": "original pixels, cropped; not resampled or enhanced"}  # fmt: skip
+
+    @app.get("/v1/cases/{case_id}/tracks/{track_id}/crop")
+    def track_crop(case_id: str, track_id: str, p: User, frame: int | None = None,
+                   t: AwareDatetime | None = None) -> dict:
+        """Follow-cam crop (I1): the original frame cut around the track's box at `frame` (nearest observed frame),
+        with source hash and the identity chain (the scans that name the object this track is linked to)."""
+        case = case_for(p, case_id)
+        trk = get_or_404(Track, track_id)
+        if get_or_404(Camera, trk.camera_id).site_id != case.site_id:
+            raise HTTPException(404, "track not on this case's site")
+        invalid = svc.store.invalid_ids()
+        obs = sorted((o for o in svc.store.find(RawObservation, track_id=track_id)
+                      if o.source_frame and o.bbox_xyxy_px and o.observation_id not in invalid),
+                     key=lambda o: o.source_frame.frame_index)  # fmt: skip
+        if not obs:
+            raise HTTPException(404, "track has no boxed observations")
+        if frame is not None:
+            o = min(obs, key=lambda x: abs(x.source_frame.frame_index - frame))
+        elif t is not None and any(x.source_frame.normalized_utc for x in obs):
+            o = min((x for x in obs if x.source_frame.normalized_utc),
+                    key=lambda x: abs((x.source_frame.normalized_utc - t).total_seconds()))  # fmt: skip
+        else:
+            o = obs[0]
+        out = _crop(p, o.source_frame.media_id, o.source_frame.frame_index, o.bbox_xyxy_px)
+        audit(p, "track_crop", track_id, frame_index=o.source_frame.frame_index)
+        return {**out, "track_id": track_id, "observation_id": o.observation_id,
+                "t": o.source_frame.normalized_utc.isoformat() if o.source_frame.normalized_utc else None,
+                "observed_frames": [x.source_frame.frame_index for x in obs],
+                "identity": identity_chain(svc.store, case_id, track_id)}  # fmt: skip
+
+    @app.get("/v1/media/{media_id}/frames/{frame_index}/crop")
+    def region_crop(media_id: str, frame_index: int, box: str, p: User, basis: str | None = None) -> dict:
+        """Crop of an original frame around a requested region (e.g. where the parcel was expected, I3/H10).
+        Context only: a region is not an observation of anything."""
+        try:
+            x1, y1, x2, y2 = (float(v) for v in box.split(","))
+        except ValueError:
+            raise HTTPException(422, "box must be x1,y1,x2,y2 in pixels") from None
+        if not (x2 > x1 and y2 > y1):
+            raise HTTPException(422, "box must have x2 > x1 and y2 > y1")
+        try:
+            bwh = tuple(float(v) for v in basis.split(",")) if basis else None
+        except ValueError:
+            raise HTTPException(422, "basis must be width,height in pixels") from None
+        out = _crop(p, media_id, frame_index, (x1, y1, x2, y2), bwh)
+        return {**out, "label": "original pixels around a requested region; context, not an observation"}
+
+    @app.get("/v1/signed/crops/{media_id}/{frame_index}/{rect}")
+    def signed_crop(media_id: str, frame_index: int, rect: str, exp: int, sig: str) -> Response:
+        svc.signer.check(f"crop/{media_id}/{frame_index}/{rect}", exp, sig)
+        m = get_or_404(MediaAsset, media_id)
+        r = load_result(svc.media, media_id)
+        try:
+            png = extract_frame(asset_path(svc.media, m), r.original_frames, frame_index)
+            x1, y1, x2, y2 = (int(v) for v in rect.split("_"))
+        except (IndexError, MediaToolError, ValueError) as e:
+            raise HTTPException(404, str(e)) from e
+        return Response(crop_png(png, (x1, y1, x2, y2)), media_type="image/png",
+                        headers={"Cache-Control": "private, max-age=60", "X-Spoor-Asset-Kind": "original_crop"})
+
+    @app.get("/v1/sites/{site_id}/exceptions")
+    def exceptions(site_id: str, p: User, as_of: AwareDatetime | None = None, limit: int = 50) -> dict:
+        """Exceptions inbox (H15): parcels whose next expected scan is overdue, on the log's own clock."""
+        p.require_site(site_id)
+        get_or_404(Site, site_id)
+        return exceptions_inbox(svc.store, site_id, as_of=as_of, limit=max(1, min(limit, 500)))
+
+    @app.get("/v1/sites/{site_id}/dashboard")
+    def dashboard(site_id: str, p: User) -> dict:
+        """Hub dashboard (H15): case status, trail ends by zone, cameras relied on, conflicts, cost per case."""
+        p.require_site(site_id)
+        get_or_404(Site, site_id)
+        return hub_dashboard(svc.store, site_id, now=now())
+
+    @app.get("/v1/cases/{case_id}/journey")
+    def journey(case_id: str, p: User) -> dict:
+        """Typed journey segments (I2): observed / inferred_along_conveyor / gap, each with its evidence ids."""
+        case_for(p, case_id)
+        return build_journey(svc.store, case_id)
 
     # --- parcels & scans (parcel-hub pivot) ------------------------------------------------------------------------
 

@@ -1,9 +1,10 @@
 "use client";
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useResource } from "@/lib/api";
 import { scanPoint } from "@/lib/hub";
 import { toMs } from "@/lib/time";
 import type { SensorEvent } from "@/contracts/generated";
+import type { Journey, MissingMoment } from "@/lib/journey";
 import type {
   Capabilities, CameraRow, CaseState, ClockDomainRow, LastSeenRow, MediaRow, ParcelLookup, Replay, ReportRow, ScanRow,
 } from "@/lib/types";
@@ -37,7 +38,14 @@ interface Ctx {
   reports: ReturnType<typeof useResource<ReportRow[]>>;
   sensors: ReturnType<typeof useResource<SensorEvent[]>>;
   caps: ReturnType<typeof useResource<Capabilities>>;
+  journey: ReturnType<typeof useResource<Journey>>;
+  missing: ReturnType<typeof useResource<MissingMoment>>;
   range: { start: number; end: number } | null;
+  /** Journey replay (H2): the playhead advances at `speed` x real time while playing. */
+  playing: boolean;
+  setPlaying: (p: boolean) => void;
+  speed: 1 | 4 | 16;
+  setSpeed: (s: 1 | 4 | 16) => void;
   playhead: number | null;
   setPlayhead: (t: number) => void;
   selection: Selection;
@@ -72,6 +80,8 @@ export function WorkspaceProvider({ caseId, children }: { caseId: string; childr
   const reports = useResource<ReportRow[]>(`/v1/cases/${caseId}/reports`);
   const sensors = useResource<SensorEvent[]>(siteId ? `/v1/sites/${siteId}/sensor-events` : null);
   const caps = useResource<Capabilities>("/v1/capabilities");
+  const journey = useResource<Journey>(`/v1/cases/${caseId}/journey`);
+  const missing = useResource<MissingMoment>(`/v1/cases/${caseId}/missing-moment`);
 
   const range = useMemo(() => {
     const w = state.data?.case.window;
@@ -96,6 +106,30 @@ export function WorkspaceProvider({ caseId, children }: { caseId: string; childr
   const [mode, setMode] = useState<TraceMode>("object");
   const [focus, setFocus] = useState<FocusRequest>({ id: 0, site_xy: null, radius_m: 30 });
   const [litCameras, setLitCameras] = useState<string[]>([]);
+  const [playing, setPlaying] = useState(false);
+  const [speed, setSpeed] = useState<1 | 4 | 16>(4);
+  const clockRef = useRef<{ wall: number; t: number } | null>(null);
+
+  // Replay: one rAF loop moves the playhead in real time x speed; it stops at the end of the case range.
+  useEffect(() => {
+    if (!playing || !range) return;
+    let raf = 0;
+    clockRef.current = { wall: performance.now(), t: playhead ?? range.start };
+    const tick = (now: number) => {
+      const c = clockRef.current!;
+      const t = c.t + (now - c.wall) * speed;
+      if (t >= range.end) {
+        setPlayhead(range.end);
+        setPlaying(false);
+        return;
+      }
+      setPlayhead(t);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- restart only when play state, speed or range change
+  }, [playing, speed, range]);
 
   const focusOn = useCallback((xy: [number, number] | null, radius = 8) => {
     setFocus((f) => ({ id: f.id + 1, site_xy: xy, radius_m: radius }));
@@ -120,12 +154,12 @@ export function WorkspaceProvider({ caseId, children }: { caseId: string; childr
 
   const reloadAll = useCallback(async () => {
     await Promise.all([state.reload(), replay.reload(), lastSeen.reload(), parcel.reload(), reports.reload(),
-      cameras.reload(), media.reload()]);
-  }, [state, replay, lastSeen, parcel, reports, cameras, media]);
+      cameras.reload(), media.reload(), journey.reload(), missing.reload()]);
+  }, [state, replay, lastSeen, parcel, reports, cameras, media, journey, missing]);
 
   const value: Ctx = {
     caseId, siteId, state, replay, lastSeen, parcel, cameras, media, domains, siteScans, reports, sensors, caps, range,
-    playhead, setPlayhead, selection, select, mode, setMode, focus, focusOn, litCameras, setLitCameras, reloadAll,
+    journey, missing, playing, setPlaying, speed, setSpeed, playhead, setPlayhead, selection, select, mode, setMode, focus, focusOn, litCameras, setLitCameras, reloadAll,
   };
   return <WorkspaceCtx.Provider value={value}>{children}</WorkspaceCtx.Provider>;
 }

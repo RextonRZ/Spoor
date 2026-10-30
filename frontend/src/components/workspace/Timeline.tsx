@@ -12,7 +12,8 @@ import { clockWarning, useWorkspace } from "./context";
 
 export default function Timeline() {
   const ws = useWorkspace();
-  const { range, playhead, setPlayhead, parcel, siteScans, cameras, replay, state, select, selection, domains, sensors } = ws;
+  const { range, playhead, setPlayhead, parcel, siteScans, cameras, replay, state, select, selection, domains, sensors,
+    playing, setPlaying, speed, setSpeed } = ws;
   const span = range ? range.end - range.start : 1;
   const pct = (t: number) => `${(((t - (range?.start ?? 0)) / span) * 100).toFixed(3)}%`;
   const caseKeys = new Set((state.data?.objects[0]?.object.identifiers ?? []).map((i) => `${i.scheme}:${i.value}`));
@@ -67,7 +68,17 @@ export default function Timeline() {
     <div className="sp-tl">
       <div className="sp-tl-head">
         <span className="sp-micro">Timeline · {TZ_LABEL}</span>
-        <span className="sp-num sp-strong" aria-live="polite">{playhead !== null ? fmtTime(playhead) : ""}</span>
+        <button className="sp-btn sp-btn-sm sp-iconbtn" data-testid="replay-play" aria-pressed={playing}
+          aria-label={playing ? "Pause the journey replay" : "Replay the journey"} onClick={() => {
+            if (!playing && playhead !== null && playhead >= range.end - 100) setPlayhead(range.start);
+            setPlaying(!playing);
+          }}>{playing ? "❚❚" : "▶"}</button>
+        <div className="sp-seg" role="group" aria-label="Replay speed">
+          {([1, 4, 16] as const).map((v) => (
+            <button key={v} aria-pressed={speed === v} onClick={() => setSpeed(v)}>{v}×</button>
+          ))}
+        </div>
+        <span className="sp-num sp-strong" aria-live={playing ? "off" : "polite"}>{playhead !== null ? fmtTime(playhead) : ""}</span>
         <input type="range" className="sp-tl-range" min={range.start} max={range.end} step={100}
           value={playhead ?? range.start} onChange={(e) => setPlayhead(Number(e.target.value))} onKeyDown={onKey}
           aria-label="Time scrubber. Arrow keys move one second, Shift plus arrow ten seconds."

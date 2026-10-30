@@ -65,6 +65,7 @@ from .parcels import (
     gs1_check_digit,
     s10_check_digit,
 )
+from .plan import PlanArea, PlanCamera, PlanConveyor, PlanDoor, PlanReadPoint, SitePlan
 from .site import (
     SITE_FRAME,
     CalibrationInvalidation,
@@ -85,6 +86,7 @@ SCHEMA_MODELS = [
     Case, Event, Hypothesis, HypothesisStatusChange, VerifiedFinding, CaseRevision,
     AgentRequest, AgentResponse,
     ScanEvent, ContainerMembership, IdentifierAlias, ClockDomain,
+    SitePlan,
 ]  # fmt: skip
 
 __all__ = [
@@ -138,6 +140,11 @@ __all__ = [
     "ObjectInstance",
     "ObjectVisibility",
     "ParcelIdentifier",
+    "PlanArea",
+    "PlanCamera",
+    "PlanConveyor",
+    "PlanDoor",
+    "PlanReadPoint",
     "RawObservation",
     "ReadOutcome",
     "RigState",
@@ -148,6 +155,7 @@ __all__ = [
     "SensorEvent",
     "SensorKind",
     "Site",
+    "SitePlan",
     "SourceType",
     "SpatialEstimate",
     "SpatialMode",

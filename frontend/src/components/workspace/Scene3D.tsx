@@ -134,10 +134,11 @@ function onTop(o: THREE.Object3D) {
 
 const LOOP = HUB.machines.loop;
 const CHUTES = HUB.machines.chutes;
+const BELTS = HUB.machines.conveyors; // every infeed line in the site plan (A, B, ...)
 /** Draw height of an observation: its own z when the backend gives one, else the surface under its floor point. */
 function zOf(p: ReplayPoint): number {
   const ry = p.renderer_xyz_y_up?.[1] ?? 0;
-  return ry > 0.01 ? ry : surfaceHeight(LOOP, CHUTES, p.floor_xy_m!);
+  return ry > 0.01 ? ry : surfaceHeight(LOOP, CHUTES, p.floor_xy_m!, BELTS);
 }
 const at3 = (p: ReplayPoint) => r3([p.floor_xy_m![0], p.floor_xy_m![1], zOf(p)]);
 
@@ -157,8 +158,8 @@ function Arrow({ from, to }: { from: ReplayPoint; to: ReplayPoint }) {
 /** Amber dashed hypothesis, routed along known conveyance. Points are memoised: drei's Line rebuilds its geometry
  * when the points array changes, and a rebuilt geometry loses the dash distances until the next layout pass. */
 function HypothesisRoute({ from, to, onSelect }: { from: ReplayPoint; to: ReplayPoint; onSelect: () => void }) {
-  const pts = useMemo(() => routeLink(LOOP, CHUTES, from.floor_xy_m!, to.floor_xy_m!).points
-    .map((q) => r3([q[0], q[1], surfaceHeight(LOOP, CHUTES, q) + 0.45])), [from, to]);
+  const pts = useMemo(() => routeLink(LOOP, CHUTES, from.floor_xy_m!, to.floor_xy_m!, 1.0, BELTS).points
+    .map((q) => r3([q[0], q[1], surfaceHeight(LOOP, CHUTES, q, BELTS) + 0.45])), [from, to]);
   const ref = useRef<{ computeLineDistances: () => void } | null>(null);
   const invalidate = useThree((st) => st.invalidate);
   useEffect(() => {
@@ -185,7 +186,7 @@ function TraceLines() {
     if (mode === "people" || framed.current === replay.data) return;
     const pts = traces.flatMap((t) => [
       ...[...t.solid.flatMap((r) => r.points), ...t.singles].map((p) => p.floor_xy_m!),
-      ...t.dashed.flatMap((d) => routeLink(LOOP, CHUTES, d.from.floor_xy_m!, d.to.floor_xy_m!).points),
+      ...t.dashed.flatMap((d) => routeLink(LOOP, CHUTES, d.from.floor_xy_m!, d.to.floor_xy_m!, 1.0, BELTS).points),
     ]);
     if (!pts.length) return;
     framed.current = replay.data;

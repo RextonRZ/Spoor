@@ -45,6 +45,7 @@ from spoor.contracts import (
     ScanEvent,
     SensorEvent,
     Site,
+    SitePlan,
     SpatialEstimate,
     Track,
     TrackAssociation,
@@ -106,6 +107,8 @@ SPECS: dict[type, Spec] = {
                     + ([(r.clock_domain_id, "clock_domain")] if r.clock_domain_id else [])),
     ClockDomain: Spec(db.clock_domains, lambda r: r.clock_domain_id, lambda r: {"site_id": r.site_id},
                       lambda r: [(r.site_id, "site")]),
+    SitePlan: Spec(db.site_plans, lambda r: r.plan_id, lambda r: {"site_id": r.site_id},
+                   lambda r: [(r.site_id, "site")]),
     ScanEvent: Spec(
         db.scan_events, lambda r: r.scan_event_id,
         lambda r: {"site_id": r.site_id, "event_kind": r.event_kind.value, "device_id": r.device_id,
@@ -223,6 +226,7 @@ KIND_TABLE = {
     "case_revision": db.case_revisions, "event": db.events, "hypothesis": db.hypotheses,
     "status_change": db.status_changes, "finding": db.findings, "evidence_request": db.evidence_requests,
     "report": db.reports, "scan_event": db.scan_events, "alias": db.aliases, "clock_domain": db.clock_domains,
+    "site_plan": db.site_plans,
 }  # fmt: skip
 MODEL_BY_TABLE = {spec.table.name: model for model, spec in SPECS.items()}
 

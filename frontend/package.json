@@ -21,6 +21,7 @@
     "export:hub": "node scripts/export-hub.mjs"
   },
   "dependencies": {
+    "@fontsource-variable/google-sans-flex": "^5.3.2",
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.2",
     "next": "^16.4.3",

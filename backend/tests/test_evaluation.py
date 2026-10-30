@@ -301,3 +301,31 @@ def test_hub_container_subject_without_track_is_not_scored_for_abstention(tmp_pa
     assert s["last_seen_correct"] and s["abstention"].startswith("claimed") and not s["false_left_hub"]
     s2 = score(HubPrediction(**{**pred.__dict__, "left_area": "unknown"}), t)
     assert s2["abstention"].startswith("not scored") and not s2["abstention_correct"]
+
+
+def test_seed_maps_induction_line_b_to_its_own_scan_points():
+    """Hub line B (30 Oct): tunnel / induction records carry SP-TUNNEL-B / SP-INDUCT-B; the seed must not fold them into
+    line A, and the default input case stays a line-A parcel."""
+    from spoor_eval.hub import _seed_module
+
+    seed = _seed_module()
+    spec = json.loads((ROOT / "assets" / "hub" / "hub_spec.json").read_text(encoding="utf-8"))
+    ids = {p["id"] for p in spec["scan_points"]}
+    if "SP-TUNNEL-B" not in ids:
+        pytest.skip("site plan without line B")
+    t = "2026-10-28T14:32:07.100+08:00"
+    lines = [json.dumps(r) for r in [
+        {"time": t, "event": "tunnel_read", "scan_point": "SP-TUNNEL-B", "parcel_id": "CTXB1", "clock_domain": "clkd_wcs"},
+        {"time": t, "event": "induct_to_carrier", "scan_point": "SP-INDUCT-B", "carrier": 7, "parcel_id": "CTXB1",
+         "clock_domain": "clkd_wcs"},
+        {"time": t, "event": "tunnel_read", "scan_point": "SP-TUNNEL", "parcel_id": "CTXA1", "clock_domain": "clkd_wcs"},
+        {"time": t, "event": "tunnel_read", "parcel_id": "CTXA2", "clock_domain": "clkd_wcs"},  # older log: no point
+    ]]  # fmt: skip
+    rows, skipped = seed.convert_scans(lines, {"clkd_wcs": "dom_wcs"}, spec)
+    assert [(r["device_id"], r["read_point_zone_id"]) for r in rows] == [
+        ("SP-TUNNEL-B", "zone_Z05"), ("SP-INDUCT-B", "zone_Z05"), ("SP-TUNNEL", "zone_Z04"), ("SP-TUNNEL", "zone_Z04")]
+    assert rows[1]["device_kind"] == "sorter_plc" and not skipped
+    assert seed.auto_case_parcel(rows + [rows[0], rows[1]]) == "CTXA1"  # line B never takes the default case
+    with pytest.raises(ValueError):
+        seed.convert_scans([json.dumps({"time": t, "event": "tunnel_read", "scan_point": "SP-NOPE", "parcel_id": "X",
+                                        "clock_domain": "clkd_wcs"})], {"clkd_wcs": "d"}, spec)  # fmt: skip

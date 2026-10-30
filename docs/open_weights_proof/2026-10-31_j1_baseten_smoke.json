@@ -1,0 +1,81 @@
+{
+  "what": "J1 smoke test: Muse Spark Open (open weights) on Baseten's per-token endpoint, evidence-graph reasoning with one answerable and one unanswerable question. No request headers or keys are stored.",
+  "run_at_utc": "20261030T180140Z",
+  "provider": "baseten",
+  "base_url": "https://inference.baseten.co/v1",
+  "model": "meta-models/muse-spark-open-1026",
+  "results": [
+    {
+      "case": "answerable",
+      "ok": true,
+      "latency_s": 3.892,
+      "response_id": "chatcmpl-1d3de46c11de415f961bc90a5254aa92",
+      "response_model": "meta-models/muse-spark-open-1026",
+      "usage": {
+        "completion_tokens": 540,
+        "prompt_tokens": 346,
+        "total_tokens": 886,
+        "completion_tokens_details": {
+          "accepted_prediction_tokens": 394,
+          "audio_tokens": 0,
+          "reasoning_tokens": 483,
+          "rejected_prediction_tokens": 628,
+          "text_tokens": null
+        },
+        "prompt_tokens_details": {
+          "audio_tokens": 0,
+          "cache_write_tokens": null,
+          "cached_tokens": 0,
+          "image_tokens": null,
+          "text_tokens": null
+        }
+      },
+      "reasoning_chars": 1993,
+      "parsed": {
+        "answer": "desk",
+        "cited_ids": [
+          "obs_2"
+        ],
+        "abstain": false,
+        "reason": "Last observation where blue case was visibly confirmed is obs_2 at t_s 95 in zone desk."
+      }
+    },
+    {
+      "case": "unanswerable",
+      "ok": true,
+      "latency_s": 2.361,
+      "response_id": "chatcmpl-17d22f75bc6344d4833775d3e510b3ae",
+      "response_model": "meta-models/muse-spark-open-1026",
+      "usage": {
+        "completion_tokens": 594,
+        "prompt_tokens": 345,
+        "total_tokens": 939,
+        "completion_tokens_details": {
+          "accepted_prediction_tokens": 432,
+          "audio_tokens": 0,
+          "reasoning_tokens": 519,
+          "rejected_prediction_tokens": 702,
+          "text_tokens": null
+        },
+        "prompt_tokens_details": {
+          "audio_tokens": 0,
+          "cache_write_tokens": null,
+          "cached_tokens": 0,
+          "image_tokens": null,
+          "text_tokens": null
+        }
+      },
+      "reasoning_chars": 2172,
+      "parsed": {
+        "answer": null,
+        "cited_ids": [
+          "obs_1",
+          "obs_2"
+        ],
+        "abstain": true,
+        "reason": "No observation shows blue case at door_b; last observed at desk at t_s 95 before camA unobserved interval 100-400s, so movement through door_b cannot be established."
+      }
+    }
+  ],
+  "reasoning_handling": "reasoning_content kept apart from the answer; only the answer is JSON-validated"
+}

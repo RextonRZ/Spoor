@@ -2,10 +2,12 @@
 /** Case overview (PRD §19.2 #1): question, last confirmed observation, unknowns, next evidence, report state. */
 import { describeScan } from "@/lib/scans";
 import Link from "next/link";
-import { camId, hubCamera, scanPoint } from "@/lib/hub";
-import { fmtTime, fmtUncertainty, toMs, TZ_LABEL } from "@/lib/time";
-import { EvidenceLegend, Loading, ErrorState } from "@/components/ui";
-import { clockWarning, useWorkspace, type TraceMode } from "./context";
+import { useState } from "react";
+import { camId, scanPoint } from "@/lib/hub";
+import { fmtTime, toMs } from "@/lib/time";
+import { answerParts, nextAction, unknownSentences } from "@/lib/journey";
+import { Loading, ErrorState } from "@/components/ui";
+import { useWorkspace, type TraceMode } from "./context";
 
 const CLASS_LABEL: Record<string, string> = {
   fixed_scan: "fixed scanner read", handheld_scan: "handheld scan", video: "video, confirmed track",
@@ -22,7 +24,12 @@ export function useLastConfirmed() {
 
 export function CaseOverview() {
   const ws = useWorkspace();
-  const { state, lastSeen, parcel, cameras, reports, caps, select, focusOn, setLitCameras } = ws;
+  const { state, lastSeen, reports, caps, select, focusOn, setLitCameras, journey, missing } = ws;
+  const jo = journey.data?.objects[0];
+  const mmo = missing.data?.objects[0];
+  const parts = answerParts(jo, mmo);
+  const action = nextAction(mmo);
+  const lastBead = jo?.last_confirmed?.kind === "scan" ? jo.scans.find((x) => x.scan_event_id === jo.last_confirmed!.evidence_id) : undefined;
   const { lc, scan, sp } = useLastConfirmed();
   if (state.loading) return <Loading label="Loading case" lines={5} />;
   if (state.error) return <ErrorState error={state.error} what="the case" onRetry={state.reload} />;
@@ -40,18 +47,6 @@ export function CaseOverview() {
     document.getElementById("source-panel")?.scrollIntoView({ block: "nearest" });
   }
 
-  const after = lc ? toMs(lc.time) : null;
-  const viewers = sp?.visible_by ?? [];
-  const covered = (hub: string) => cameras.data?.find((r) => r.camera.camera_id === camId.toBackend(hub))
-    ?.coverage.some((cv) => after !== null && toMs(cv.end_utc) > after);
-  const unknowns: string[] = [];
-  if (!lc) unknowns.push("No scan or confirmed observation places this parcel yet.");
-  else unknowns.push(`Where the parcel went after ${fmtTime(lc.time)} ${TZ_LABEL}: no later scan, no observation.`);
-  if (!caps.data?.sam) unknowns.push("Footage has not been analysed: object tracking needs SAM (no API key).");
-  if (parcel.data?.scans.some((s) => !s.synced)) unknowns.push("Scanner clock is not synchronized to the cameras; scan times are device times.");
-  const badClocks = (cameras.data ?? []).filter((r) => r.coverage.length && clockWarning(r.clock_sync)).length;
-  if (badClocks) unknowns.push(`${badClocks} camera clock${badClocks > 1 ? "s are" : " is"} unverified.`);
-
   return (
     <div className="sp-stack" style={{ gap: 16 }}>
       <div>
@@ -65,11 +60,10 @@ export function CaseOverview() {
 
       <section aria-labelledby="lc-h" className="sp-tint" style={{ padding: 14 }}>
         <p className="sp-micro" id="lc-h">Last confirmed</p>
-        {lastSeen.loading ? <Loading lines={2} /> : lc ? (
-          <div style={{ marginTop: 6 }}>
-            <div className="sp-strong" style={{ fontWeight: 600 }}>{lc.label === "observed" ? "Observed" : "Estimated"}: {scan ? describeScan(scan).card : CLASS_LABEL[lc.class]}</div>
-            <div className="sp-num" style={{ fontSize: 13 }}>{fmtTime(lc.time)} {TZ_LABEL}</div>
-            <div className="sp-caption">{scan ? describeScan(scan).title : lc.where} · {sp?.id ?? lc.where} · {fmtUncertainty(lc.time_uncertainty_ms)}</div>
+        {!journey.data ? <Loading lines={2} /> : jo?.last_confirmed ? (
+          <div style={{ marginTop: 6 }} data-testid="ws-last-confirmed">
+            <div className="sp-strong" style={{ fontWeight: 620, fontSize: 15 }}>{parts.head}</div>
+            <div className="sp-caption">{lastBead ? `${describeScan(lastBead).card} · ${lastBead.clock.synchronized ? "clock synchronized" : "scanner clock, not synchronized"}` : "camera sighting"}</div>
           </div>
         ) : <p className="sp-muted" style={{ margin: "6px 0 0" }}>Not confirmed by any scan or observation.</p>}
         {leads.length > 0 && (
@@ -82,42 +76,77 @@ export function CaseOverview() {
         )}
       </section>
 
+      <ScanHistory />
+
       <section aria-labelledby="unk-h">
         <p className="sp-micro" id="unk-h">Unknown</p>
-        <ul className="sp-list" style={{ fontSize: 12.5, marginTop: 6 }}>
-          {unknowns.map((u) => <li key={u} className="sp-row" style={{ alignItems: "flex-start" }}>
-            <span className="sp-swatch" style={{ borderTop: "3px dotted var(--ev-unknown)", marginTop: 8, width: 12 }} aria-hidden />
-            <span>{u}</span></li>)}
-        </ul>
+        <div className="sp-stack" style={{ gap: 4, marginTop: 6, fontSize: 13 }}>
+          {unknownSentences(jo, mmo, !!caps.data?.sam).map((u) => <p key={u} style={{ margin: 0 }}>{u}</p>)}
+        </div>
       </section>
 
       <section aria-labelledby="next-h">
-        <p className="sp-micro" id="next-h">Next evidence</p>
-        <ul className="sp-list" style={{ fontSize: 12.5, marginTop: 6 }}>
-          {state.data!.evidence_requests.map((r) => (
-            <li key={r.evidence_request_id}>{r.camera_id ? camId.toHub(r.camera_id) + ": " : ""}{r.reason}
-              <span className="sp-caption"> · requested by the investigation</span></li>
-          ))}
-          {state.data!.evidence_requests.length === 0 && viewers.map((h) => (
-            <li key={h}>
-              <span className="sp-strong">{h}</span> {hubCamera(h)?.osd_label.toLowerCase()} from {lc ? fmtTime(lc.time, false) : "the last scan"}
-              <span className="sp-caption"> · {covered(h) ? "footage imported, not yet analysed" : "footage not imported"}</span>
-            </li>
-          ))}
-          {state.data!.evidence_requests.length === 0 && viewers.length === 0 && <li className="sp-muted">No suggestion: no last read point.</li>}
-        </ul>
-        {state.data!.evidence_requests.length === 0 && viewers.length > 0 && (
-          <p className="sp-caption">Suggested from the camera mounting plan: these cameras see the last read point.</p>
-        )}
+        <p className="sp-micro" id="next-h">Next action</p>
+        {action ? <>
+          <p style={{ margin: "6px 0 2px", fontSize: 13.5, fontWeight: 600 }} className="sp-strong" data-testid="ws-next-action">{action.text}</p>
+          <p className="sp-caption">{action.detail}</p>
+        </> : <p className="sp-muted" style={{ margin: "6px 0 0", fontSize: 13 }}>{missing.data ? "No action can be derived from the evidence yet." : "Working it out from the plan."}</p>}
+        {state.data!.evidence_requests.map((r) => (
+          <p key={r.evidence_request_id} className="sp-caption">{r.camera_id ? camId.toHub(r.camera_id) + ": " : ""}{r.reason} · requested by the investigation</p>
+        ))}
       </section>
 
       <section aria-labelledby="rep-h" className="sp-row" style={{ justifyContent: "space-between" }}>
         <div><p className="sp-micro" id="rep-h">Report</p>
           <span style={{ fontSize: 12.5 }}>{report ? `${report.status} · ${fmtTime(report.at, false)}` : "not drafted"}</span></div>
-        <Link className="sp-btn sp-btn-sm" href={`/cases/${c.case_id}/report`}>Review report</Link>
+        <div className="sp-row" style={{ gap: 6 }}>
+          <Link className="sp-btn sp-btn-sm" href={`/cases/${c.case_id}/summary`} data-testid="open-summary">Case summary</Link>
+          <Link className="sp-btn sp-btn-sm" href={`/cases/${c.case_id}/report`}>Review report</Link>
+        </div>
       </section>
     </div>
   );
+}
+
+/** The consignment's scan history, as a hub ops / claims team reads it first (QUEUE G): every scan of the waybill in
+ * time order, with the gap since the previous scan. Each row opens its source. It says where the consignment was
+ * SCANNED; where it went in between is what the footage is for. */
+function ScanHistory() {
+  const { parcel, select } = useWorkspace();
+  const [all, setAll] = useState(false);
+  const scans = [...(parcel.data?.scans ?? [])].sort((a, b) => toMs(a.time) - toMs(b.time));
+  if (parcel.loading) return <Loading lines={2} />;
+  if (!scans.length) return null;
+  const shown = all ? scans : scans.slice(-6);
+  return (
+    <section aria-labelledby="sh-h">
+      <p className="sp-micro" id="sh-h">Scan history · {scans.length} scan{scans.length === 1 ? "" : "s"}</p>
+      <p className="sp-caption" style={{ margin: "2px 0 6px" }}>Where it was scanned, not where it went.</p>
+      <ol className="sp-list sp-scanhist" style={{ fontSize: 12.5 }}>
+        {shown.map((s) => {
+          const i = scans.indexOf(s);
+          const gap = i > 0 ? (toMs(s.time) - toMs(scans[i - 1].time)) / 1000 : null;
+          return (
+            <li key={s.scan_event_id}>
+              {gap !== null && gap >= 60 && <span className="sp-caption sp-scanhist-gap">no scan for {fmtGap(gap)}</span>}
+              <button className="sp-linkbtn" onClick={() => select({ kind: "scan", scanId: s.scan_event_id })}>
+                <span className="sp-num">{fmtTime(s.time, false)}</span> {describeScan(s).title}
+                <span className="sp-caption"> · {s.station_id ?? s.device_id}{s.synced ? "" : " · device time"}{s.late_upload ? " · uploaded late" : ""}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+      {scans.length > 6 && <button className="sp-btn sp-btn-sm sp-btn-ghost" onClick={() => setAll(!all)}>
+        {all ? "Show the last 6" : `Show all ${scans.length}`}</button>}
+    </section>
+  );
+}
+
+function fmtGap(s: number): string {
+  if (s < 3600) return `${Math.round(s / 60)} min`;
+  const h = Math.floor(s / 3600);
+  return `${h} h ${Math.round((s - h * 3600) / 60)} min`;
 }
 
 export function TraceControls() {
@@ -133,7 +162,7 @@ export function TraceControls() {
           <button key={o.k} aria-pressed={mode === o.k} onClick={() => setMode(o.k)}>{o.label}</button>
         ))}
       </div>
-      <EvidenceLegend compact />
+
     </div>
   );
 }

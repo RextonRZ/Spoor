@@ -2,7 +2,12 @@ from datetime import UTC, datetime
 
 import pytest
 
+from spoor.config import Settings
 from spoor.contracts import Floor, Site, Zone, ZoneKind
+
+# Tests are hermetic: they never read a developer's backend/.env (real API keys, local paths). Without this a key
+# placed there for the real app would reach the tests and could trigger paid model calls.
+Settings.model_config["env_file"] = None
 
 NOW = datetime(2026, 10, 27, 14, 0, tzinfo=UTC)
 

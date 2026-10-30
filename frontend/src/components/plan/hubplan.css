@@ -1,0 +1,9 @@
+/* Hub floor plan (floorplan_design_0300). Prefix hp-. */
+.hp { display: flex; flex-direction: column; gap: 10px; min-width: 0; height: 100%; }
+.hp-box { position: relative; flex: 1; min-height: 0; display: grid; place-items: center; overflow: hidden; }
+.hp-svg { display: block; max-width: 100%; }
+.hp-t { font-family: var(--font, system-ui), system-ui, sans-serif; font-feature-settings: "tnum" 1, "ss01" 1; }
+.hp-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; list-style: none; margin: 0; padding: 0 4px; font-size: 12px; color: var(--ink); }
+.hp-legend li { display: inline-flex; align-items: center; gap: 8px; }
+.hp [role="button"]:focus { outline: none; }
+.hp g[role="button"]:focus-visible rect, .hp polyline[role="button"]:focus-visible { stroke: var(--accent-strong, #818cf8); stroke-width: 3; }

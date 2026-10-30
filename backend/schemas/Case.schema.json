@@ -77,6 +77,48 @@
       "format": "date-time",
       "title": "Created At",
       "type": "string"
+    },
+    "claim_reference": {
+      "anyOf": [
+        {
+          "maxLength": 80,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Courier claim / complaint ref.",
+      "title": "Claim Reference"
+    },
+    "complaint": {
+      "anyOf": [
+        {
+          "maxLength": 1000,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The customer's complaint, as reported",
+      "title": "Complaint"
+    },
+    "reported_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "When the customer reported it",
+      "title": "Reported At"
     }
   },
   "required": [

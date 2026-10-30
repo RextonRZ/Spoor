@@ -22,8 +22,8 @@ export default function CasesPage() {
         <p className="sp-eyebrow">Parcel investigations</p>
         <h1 className="sp-h1">Cases</h1>
         <p className="sp-muted sp-body" style={{ marginTop: 6 }}>
-          Each case asks where one parcel went. Answers come only from stored evidence: scans, footage and what has
-          been observed in it.
+          Each case traces one consignment reported not received. The scan history says where it was scanned; footage
+          and what has been observed in it can show where it went. Answers come only from stored evidence.
         </p>
       </header>
 
@@ -100,6 +100,9 @@ function NewCase({ siteId, cameras }: { siteId?: string; cameras: CameraRow[] })
   const router = useRouter();
   const [waybill, setWaybill] = useState("");
   const [question, setQuestion] = useState("");
+  const [claimRef, setClaimRef] = useState("");
+  const [complaint, setComplaint] = useState("");
+  const [reported, setReported] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const scanHit = useResource<{ scans: unknown[] }>(
@@ -117,6 +120,10 @@ function NewCase({ siteId, cameras }: { siteId?: string; cameras: CameraRow[] })
         target_description: `parcel ${waybill}`,
         camera_ids: cameras.filter((c) => c.coverage.length).map((c) => c.camera.camera_id),
         identifiers: [{ scheme: "carrier_waybill", value: waybill }],
+        // The complaint as the customer gave it (review 012 #3). Left empty = "not recorded" in the report.
+        claim_reference: claimRef.trim() || null,
+        complaint: complaint.trim() || null,
+        reported_at: reported ? `${reported}T00:00:00+08:00` : null,
       } });
       invalidate("/v1/cases");
       router.push(`/cases/${r.case.case_id}`);
@@ -131,14 +138,30 @@ function NewCase({ siteId, cameras }: { siteId?: string; cameras: CameraRow[] })
       <div className="sp-panel-head"><h2 className="sp-h3" id="new-h">Start a case</h2></div>
       <form className="sp-panel-body sp-stack" onSubmit={submit}>
         <label className="sp-field">
-          <span className="sp-label">Parcel waybill</span>
+          <span className="sp-label">Waybill / tracking no. <span className="sp-muted">(consignment note, AWB)</span></span>
           <input className="sp-input sp-num" value={waybill} onChange={(e) => setWaybill(e.target.value.trim())}
             placeholder="e.g. CTX026892360674" required pattern="[A-Za-z0-9]{6,40}" autoComplete="off" />
           <span className="sp-caption">
             {scanHit.data ? `${scanHit.data.scans.length} scan events found for this waybill`
-              : "The identity comes from scans; footage alone cannot tell look-alike parcels apart."}
+              : "The number on the consignment note the customer quotes. Identity comes from scans of it; footage alone cannot tell look-alike parcels apart."}
           </span>
         </label>
+        <label className="sp-field">
+          <span className="sp-label">Customer&apos;s complaint <span className="sp-muted">(as reported)</span></span>
+          <textarea className="sp-input" rows={2} value={complaint} onChange={(e) => setComplaint(e.target.value)}
+            maxLength={1000} placeholder="e.g. Parcel shows 'in transit' since 28 Oct, never arrived." />
+        </label>
+        <div className="sp-row sp-wrap" style={{ gap: 12 }}>
+          <label className="sp-field sp-grow">
+            <span className="sp-label">Claim reference <span className="sp-muted">(optional)</span></span>
+            <input className="sp-input sp-num" value={claimRef} onChange={(e) => setClaimRef(e.target.value)}
+              maxLength={80} autoComplete="off" />
+          </label>
+          <label className="sp-field">
+            <span className="sp-label">Date reported</span>
+            <input className="sp-input sp-num" type="date" value={reported} onChange={(e) => setReported(e.target.value)} />
+          </label>
+        </div>
         <label className="sp-field">
           <span className="sp-label">Question <span className="sp-muted">(optional)</span></span>
           <input className="sp-input" value={question} onChange={(e) => setQuestion(e.target.value)}
