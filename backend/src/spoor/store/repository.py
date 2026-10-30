@@ -43,6 +43,8 @@ from spoor.contracts import (
     ObjectInstance,
     RawObservation,
     ScanEvent,
+    SearchOutcome,
+    SearchTask,
     SensorEvent,
     Site,
     SitePlan,
@@ -109,6 +111,11 @@ SPECS: dict[type, Spec] = {
                       lambda r: [(r.site_id, "site")]),
     SitePlan: Spec(db.site_plans, lambda r: r.plan_id, lambda r: {"site_id": r.site_id},
                    lambda r: [(r.site_id, "site")]),
+    SearchTask: Spec(db.search_tasks, lambda r: r.search_task_id, lambda r: {"case_id": r.case_id},
+                     lambda r: [(r.case_id, "case")]),
+    SearchOutcome: Spec(db.search_outcomes, lambda r: r.search_outcome_id,
+                        lambda r: {"case_id": r.case_id, "search_task_id": r.search_task_id},
+                        lambda r: [(r.case_id, "case"), (r.search_task_id, "search_task")]),
     ScanEvent: Spec(
         db.scan_events, lambda r: r.scan_event_id,
         lambda r: {"site_id": r.site_id, "event_kind": r.event_kind.value, "device_id": r.device_id,
@@ -226,7 +233,7 @@ KIND_TABLE = {
     "case_revision": db.case_revisions, "event": db.events, "hypothesis": db.hypotheses,
     "status_change": db.status_changes, "finding": db.findings, "evidence_request": db.evidence_requests,
     "report": db.reports, "scan_event": db.scan_events, "alias": db.aliases, "clock_domain": db.clock_domains,
-    "site_plan": db.site_plans,
+    "site_plan": db.site_plans, "search_task": db.search_tasks, "search_outcome": db.search_outcomes,
 }  # fmt: skip
 MODEL_BY_TABLE = {spec.table.name: model for model, spec in SPECS.items()}
 

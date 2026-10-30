@@ -3,7 +3,8 @@
 import { describeScan } from "@/lib/scans";
 import Link from "next/link";
 import { useState } from "react";
-import { camId, scanPoint } from "@/lib/hub";
+import { camId, scanPoint, zoneId } from "@/lib/hub";
+import { ZONE_NAMES } from "@/components/plan/HubPlan";
 import { fmtTime, toMs } from "@/lib/time";
 import { answerParts, nextAction, unknownSentences } from "@/lib/journey";
 import { Loading, ErrorState } from "@/components/ui";
@@ -55,7 +56,7 @@ export function CaseOverview() {
         <p className="sp-caption">{c.target_description} · case {c.case_id.slice(-8)}</p>
       </div>
       <button className="sp-btn sp-btn-primary" onClick={whereDidItGo} disabled={!lc || !scan} data-testid="where-did-it-go">
-        Show where it was last confirmed
+        Show last confirmed
       </button>
 
       <section aria-labelledby="lc-h" className="sp-tint" style={{ padding: 14 }}>
@@ -84,6 +85,8 @@ export function CaseOverview() {
           {unknownSentences(jo, mmo, !!caps.data?.sam).map((u) => <p key={u} style={{ margin: 0 }}>{u}</p>)}
         </div>
       </section>
+
+      <PlacesList />
 
       <section aria-labelledby="next-h">
         <p className="sp-micro" id="next-h">Next action</p>
@@ -166,3 +169,35 @@ export function TraceControls() {
     </div>
   );
 }
+
+/** Where it might be (H12): the places still possible, ranked by the backend, with evidence for and against. */
+export function PlacesList({ max = 3 }: { max?: number }) {
+  const { possible } = useWorkspace();
+  const o = possible.data?.objects[0];
+  if (!o) return null;
+  const top = o.places.filter((p) => p.possible_share > 0).slice(0, max);
+  return (
+    <section aria-labelledby="pl-h" data-testid="places">
+      <p className="sp-micro" id="pl-h">Where it might be <span className="sp-muted" style={{ textTransform: "none", letterSpacing: 0 }}>· computed</span></p>
+      <ol className="sp-list" style={{ marginTop: 6, gap: 8, paddingLeft: 0, listStyle: "none" }}>
+        {top.map((p, i) => (
+          <li key={p.area_id} style={{ fontSize: 12.5 }}>
+            <div className="sp-row" style={{ gap: 6 }}>
+              <span className="sp-num sp-muted">{i + 1}</span>
+              <span className="sp-strong" style={{ fontWeight: 620 }}>{placeName(p)}</span>
+              {p.last_confirmed_here && <span className="sp-chip" style={{ height: 20 }}>last confirmed here</span>}
+            </div>
+            <p className="sp-caption" style={{ margin: "2px 0 0 14px" }}>{camWords(p.evidence_for.filter((e) => e !== "last confirmed here").slice(0, 2).join(" · "))}
+              {p.evidence_against.length ? ` · against: ${camWords(p.evidence_against[0])}` : ""}</p>
+          </li>
+        ))}
+      </ol>
+      {o.note && <p className="sp-caption">{o.note.charAt(0).toUpperCase() + o.note.slice(1)}.</p>}
+    </section>
+  );
+}
+
+const placeName = (p: { name: string; zone_id: string | null; area_id: string }) =>
+  (p.zone_id && ZONE_NAMES[zoneId.toHub(p.zone_id)]) || p.name.replace(/^Z\d+ /, "").replace(/ \(.*\)$/, "");
+
+const camWords = (t: string) => t.replace(/cam_(CAM_\d+)/g, "$1");

@@ -36,6 +36,9 @@ from spoor.contracts import (
     RawObservation,
     Role,
     ScanEvent,
+    SearchOutcome,
+    SearchPlace,
+    SearchTask,
     SensorEvent,
     Site,
     SitePlan,
@@ -47,10 +50,14 @@ from spoor.contracts import (
 )
 from spoor.contracts.site import SITE_FRAME
 from spoor.forensics import build_journey, latest_plan
+from spoor.forensics.conflicts import records_vs_video
 from spoor.forensics.crop import crop_png, crop_rect, frame_size, identity_chain, sha256
 from spoor.forensics.dashboard import hub_dashboard
 from spoor.forensics.exceptions import exceptions_inbox
 from spoor.forensics.missing import missing_moment
+from spoor.forensics.possible import possible_locations
+from spoor.forensics.reel import build_reel
+from spoor.forensics.search import search_view
 from spoor.ingest import IngestRejected, asset_path, extract_frame, ingest, load_result
 from spoor.ingest.ffmpeg import MediaToolError
 from spoor.perception import InstancePrompt, PromptError
@@ -715,6 +722,162 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
 
         return look
 
+    @app.get("/v1/cases/{case_id}/conflicts")
+    def conflicts(case_id: str, p: User) -> dict:
+        """Records vs video (I6): typed conflicts where a record claims an ongoing place and a confirmed sighting
+        contradicts it, plus records-timing conflicts; both lanes for the UI."""
+        case_for(p, case_id)
+        return records_vs_video(svc.store, case_id)
+
+    @app.get("/v1/cases/{case_id}/possible-locations")
+    def possible(case_id: str, p: User, t: AwareDatetime | None = None) -> dict:
+        """Where it could be (I4): reachable floor area minus what analysed cameras watched without seeing it, per time
+        step (or at t), and the places ranked with evidence for / against. Computed, not observed."""
+        case_for(p, case_id)
+        return possible_locations(svc.store, case_id, t=t)
+
+    class SearchTaskRequest(BaseModel):
+        area_ids: list[str] = Field(default=[], description="places to search; default = the top computed places")
+
+    @app.post("/v1/cases/{case_id}/search-tasks", status_code=201)
+    def create_search_task(case_id: str, body: SearchTaskRequest, p: User) -> dict:
+        """A floor search task (I7) from the ranked possible places, in walking order."""
+        p.require_role(Role.INVESTIGATOR)
+        case = case_for(p, case_id)
+        ranked = possible_locations(svc.store, case_id)["objects"][0]["places"]
+        pick = [r for r in ranked if (r["area_id"] in body.area_ids if body.area_ids else r["possible_share"] > 0)][:6]
+        if not pick:
+            raise HTTPException(409, "no possible place to search")
+        pick.sort(key=lambda r: (r.get("machine", False), -r.get("searchable_score", 0), r["reach_m"] if r["reach_m"] is not None else 1e9))
+        plan = latest_plan(svc.store, case.site_id)
+        task = svc.store.put(SearchTask(
+            search_task_id=new_id("search_task"), case_id=case_id, plan_id=plan.plan_id if plan else None,
+            places=[SearchPlace(area_id=r["area_id"], name=r["name"], zone_id=r["zone_id"], centroid_xy=r["centroid_xy"],
+                                why=r["evidence_for"][:3]) for r in pick],
+            created_by=p.user_id, created_at=now()))  # fmt: skip
+        audit(p, "create_search_task", task.search_task_id, places=len(task.places))
+        return task.model_dump(mode="json")
+
+    class OutcomeRequest(BaseModel):
+        area_id: str
+        outcome: Literal["found", "not_found"]
+        note: str | None = Field(default=None, max_length=500)
+        photo_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+    @app.post("/v1/cases/{case_id}/search-tasks/{task_id}/outcome", status_code=201)
+    def record_outcome(case_id: str, task_id: str, body: OutcomeRequest, p: User) -> dict:
+        """What a person found at a place (I7): stored as a human observation (pseudonymous id, time, content hash);
+        the case's next read is revised by it (possible area, status)."""
+        p.require_role(Role.INVESTIGATOR, Role.REVIEWER)
+        case_for(p, case_id)
+        task = get_or_404(SearchTask, task_id)
+        if task.case_id != case_id or body.area_id not in {pl.area_id for pl in task.places}:
+            raise HTTPException(404, "place not in this search task")
+        at = now()
+        content = {"task": task_id, "area": body.area_id, "outcome": body.outcome, "note": body.note,
+                   "photo": body.photo_sha256, "by": p.user_id, "at": at.isoformat()}  # fmt: skip
+        out = svc.store.put(SearchOutcome(search_outcome_id=new_id("search_outcome"), search_task_id=task_id, case_id=case_id,
+                                          area_id=body.area_id, outcome=body.outcome, note=body.note,
+                                          photo_sha256=body.photo_sha256, recorded_by=p.user_id, recorded_at=at,
+                                          content_sha256=canonical_sha256(content)))  # fmt: skip
+        head = svc.store.head_revision(case_id)
+        svc.store.append_revision(case_id, expected_parent=head.case_revision_id if head else None, actor=actor(p),
+                                  reason=f"floor search: {body.outcome.replace('_', ' ')} at {body.area_id}",
+                                  changed_ids=[out.search_outcome_id], now=at)  # fmt: skip
+        audit(p, "search_outcome", out.search_outcome_id, outcome=body.outcome, area=body.area_id)
+        return out.model_dump(mode="json")
+
+    @app.get("/v1/cases/{case_id}/search-tasks")
+    def list_search_tasks(case_id: str, p: User) -> dict:
+        case_for(p, case_id)
+        return search_view(svc.store, case_id)
+
+    @app.post("/v1/cases/{case_id}/reel", status_code=201)
+    def make_reel(case_id: str, p: User) -> dict:
+        """Evidence reel (I8): an MP4 of the journey in time order from stored evidence, with a manifest of every source."""
+        case = case_for(p, case_id)
+        plan = latest_plan(svc.store, case.site_id)
+        jo = build_journey(svc.store, case_id, plan=plan)["objects"][0]
+        for b in jo["scans"]:
+            rp = plan.read_point(b.get("station_id") or b.get("device_id")) if plan else None
+            b["_watchers"] = rp.visible_by if rp else []
+        media_cache: dict[str, object] = {}
+
+        def frame_get(media_id: str, idx: int) -> bytes:
+            m = get_or_404(MediaAsset, media_id)
+            if media_id not in media_cache:
+                media_cache[media_id] = load_result(svc.media, media_id).original_frames
+            return extract_frame(asset_path(svc.media, m), media_cache[media_id], idx)
+
+        def crop_of(observation_id: str):
+            o = get_or_404(RawObservation, observation_id)
+            m = get_or_404(MediaAsset, o.source_frame.media_id)
+            rect = crop_rect(o.bbox_xyxy_px, tuple(o.frame_wh_px)) if o.bbox_xyxy_px else None
+            return m.media_id, o.source_frame.frame_index, rect, m.sha256
+
+        reel_id = new_id("reel")
+        man = build_reel(jo, frame_get=frame_get, frame_lookup=frame_lookup(p), crop_of=crop_of,
+                         out_dir=Path(svc.settings.data_dir) / "reels", reel_id=reel_id, case_label=case.question)  # fmt: skip
+        exp, sig = svc.signer.sign(f"reel/{reel_id}")
+        audit(p, "make_reel", case_id, reel_id=reel_id, cards=man["cards"])
+        return {**man, "url": f"/v1/signed/reels/{reel_id}?exp={exp}&sig={sig}"}
+
+    @app.get("/v1/signed/reels/{reel_id}")
+    def signed_reel(reel_id: str, exp: int, sig: str) -> FileResponse:
+        svc.signer.check(f"reel/{reel_id}", exp, sig)
+        f = Path(svc.settings.data_dir) / "reels" / f"{reel_id}.mp4"
+        if not f.exists() or not reel_id.startswith("reel_"):
+            raise HTTPException(404, "reel not found")
+        return FileResponse(f, media_type="video/mp4", filename=f"{reel_id}.mp4")
+
+    @app.get("/v1/cases/{case_id}/sync-grid")
+    def sync_grid(case_id: str, p: User, cams: str | None = None, t: AwareDatetime | None = None) -> dict:
+        """Synced camera grid (I5 / H11): 2-4 cameras on one scrubber. Each clip is placed on the timeline by its own
+        clock sync, so the same instant shows in every tile; per camera the original frame at `t`, the case object's
+        confirmed boxes near `t`, and where it was expected (missing moment)."""
+        case_for(p, case_id)
+        mm = missing_moment(svc.store, case_id)["objects"]
+        rows = {r["camera_id"]: r for o in mm for r in o.get("expected_next", [])}
+        last = next((o["last_confirmed"] for o in mm if o.get("last_confirmed")), None)
+        t_ms = t.timestamp() * 1000 if t else (datetime.fromisoformat(last["t"]).timestamp() * 1000 if last else None)
+        if t_ms is None:
+            raise HTTPException(409, "nothing confirmed yet and no time given")
+        # cameras with footage first, then the plan's other cameras around the break point as quiet "no footage" tiles,
+        # so the gap is visible (review F-026..031 #4)
+        chosen = [c.strip() for c in cams.split(",") if c.strip()][:4] if cams else             ([cid for cid, r in rows.items() if r.get("result") != "no_footage"]
+             + [cid for cid, r in rows.items() if r.get("result") == "no_footage"])[:4]  # fmt: skip
+        look = frame_lookup(p)
+        objs = {o.object_instance_id for o in svc.store.find(ObjectInstance, case_id=case_id)}
+        out = []
+        for cid in chosen:
+            cam = get_or_404(Camera, cid)
+            p.require_site(cam.site_id)
+            frame = look(cid, t_ms)
+            cov = next((c for c in svc.store.find(CameraCoverage, camera_id=cid)
+                        if c.media_id == (frame or {}).get("media_id")), None)  # fmt: skip
+            sync = svc.store.get(ClockSync, cov.sync_id) if cov and svc.store.exists(cov.sync_id) else None
+            boxes = []
+            if frame:
+                for o in svc.store.find(RawObservation, media_id=frame["media_id"]):
+                    f = o.source_frame
+                    if not (f and f.normalized_utc and o.bbox_xyxy_px and abs(f.normalized_utc.timestamp() * 1000 - t_ms) <= 600):
+                        continue
+                    linked = any(a.track_id == o.track_id and a.status.value in ("human_confirmed", "verified_same_camera",
+                                 "scan_anchored") for oid in objs for a in latest_associations(svc.store, oid).values())
+                    boxes.append({"observation_id": o.observation_id, "track_id": o.track_id, "box_px": o.bbox_xyxy_px,
+                                  "frame_wh_px": o.frame_wh_px, "subject": linked})  # fmt: skip
+            r = rows.get(cid, {})
+            out.append({"camera_id": cid, "name": cam.name, "frame": frame,
+                        "clock": None if not sync else {"offset_ms": sync.offset_ms, "drift_ppm": sync.drift_ppm,
+                                                        "uncertainty_ms": sync.uncertainty_ms, "method": sync.method},
+                        "coverage": None if not cov else {"start": cov.start_utc.isoformat(), "end": cov.end_utc.isoformat()},
+                        "boxes": boxes, "expected_region_px": r.get("expected_region_px"),
+                        "region_basis_wh_px": r.get("region_basis_wh_px"), "role": r.get("role"),
+                        "result": r.get("result")})  # fmt: skip
+        return {"case_id": case_id, "t": datetime.fromtimestamp(t_ms / 1000, UTC).isoformat(timespec="milliseconds"),
+                "cameras": out, "label": "one instant on every camera, each placed by its own clock sync; context frames, "
+                                         "boxes only where a track exists"}  # fmt: skip
+
     @app.get("/v1/cases/{case_id}/missing-moment")
     def missing(case_id: str, p: User) -> dict:
         """Last confirmed point + per camera where/when it should have appeared next, and seen / NOT seen (a typed
@@ -806,11 +969,14 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
                         headers={"Cache-Control": "private, max-age=60", "X-Spoor-Asset-Kind": "original_crop"})
 
     @app.get("/v1/sites/{site_id}/exceptions")
-    def exceptions(site_id: str, p: User, as_of: AwareDatetime | None = None, limit: int = 50) -> dict:
-        """Exceptions inbox (H15): parcels whose next expected scan is overdue, on the log's own clock."""
+    def exceptions(site_id: str, p: User, as_of: AwareDatetime | None = None, after_log_min: float = 0,
+                   now_clock: bool = False, limit: int = 50) -> dict:  # fmt: skip
+        """Exceptions inbox (H15): parcels whose next expected scan is overdue, on the log's own clock (+ an offset),
+        or on the server clock (`now_clock`, live mode)."""
         p.require_site(site_id)
         get_or_404(Site, site_id)
-        return exceptions_inbox(svc.store, site_id, as_of=as_of, limit=max(1, min(limit, 500)))
+        return exceptions_inbox(svc.store, site_id, as_of=now() if now_clock else as_of,
+                                after_log_min=max(0.0, min(after_log_min, 7 * 24 * 60)), limit=max(1, min(limit, 500)))
 
     @app.get("/v1/sites/{site_id}/dashboard")
     def dashboard(site_id: str, p: User) -> dict:

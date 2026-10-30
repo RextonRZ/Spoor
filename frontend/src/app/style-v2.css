@@ -86,7 +86,7 @@
 :root[data-style="v2"] .sp-nav:hover { background: var(--fill-1); color: var(--ink-strong); }
 :root[data-style="v2"] .sp-nav[aria-current="page"] { background: var(--fill-2); color: var(--ink-strong); }
 :root[data-style="v2"] .sp-brand-mark { border-radius: var(--radius-xs); }
-:root[data-style="v2"] .sp-side { backdrop-filter: blur(14px); }
+:root[data-style="v2"] .sp-side { background: var(--surface); backdrop-filter: none; } /* same colour as the rail band below it: no seam */
 
 /* surfaces: opaque, hairline, doubled shadow, radius grows with size */
 :root[data-style="v2"] .sp-card, :root[data-style="v2"] .sp-panel { border-radius: var(--radius); box-shadow: var(--shadow); }

@@ -4,7 +4,7 @@ import { useResource } from "@/lib/api";
 import { scanPoint } from "@/lib/hub";
 import { toMs } from "@/lib/time";
 import type { SensorEvent } from "@/contracts/generated";
-import type { Journey, MissingMoment } from "@/lib/journey";
+import type { Journey, MissingMoment, Possible } from "@/lib/journey";
 import type {
   Capabilities, CameraRow, CaseState, ClockDomainRow, LastSeenRow, MediaRow, ParcelLookup, Replay, ReportRow, ScanRow,
 } from "@/lib/types";
@@ -40,6 +40,7 @@ interface Ctx {
   caps: ReturnType<typeof useResource<Capabilities>>;
   journey: ReturnType<typeof useResource<Journey>>;
   missing: ReturnType<typeof useResource<MissingMoment>>;
+  possible: ReturnType<typeof useResource<Possible>>;
   range: { start: number; end: number } | null;
   /** Journey replay (H2): the playhead advances at `speed` x real time while playing. */
   playing: boolean;
@@ -82,6 +83,7 @@ export function WorkspaceProvider({ caseId, children }: { caseId: string; childr
   const caps = useResource<Capabilities>("/v1/capabilities");
   const journey = useResource<Journey>(`/v1/cases/${caseId}/journey`);
   const missing = useResource<MissingMoment>(`/v1/cases/${caseId}/missing-moment`);
+  const possible = useResource<Possible>(`/v1/cases/${caseId}/possible-locations`);
 
   const range = useMemo(() => {
     const w = state.data?.case.window;
@@ -154,12 +156,12 @@ export function WorkspaceProvider({ caseId, children }: { caseId: string; childr
 
   const reloadAll = useCallback(async () => {
     await Promise.all([state.reload(), replay.reload(), lastSeen.reload(), parcel.reload(), reports.reload(),
-      cameras.reload(), media.reload(), journey.reload(), missing.reload()]);
-  }, [state, replay, lastSeen, parcel, reports, cameras, media, journey, missing]);
+      cameras.reload(), media.reload(), journey.reload(), missing.reload(), possible.reload()]);
+  }, [state, replay, lastSeen, parcel, reports, cameras, media, journey, missing, possible]);
 
   const value: Ctx = {
     caseId, siteId, state, replay, lastSeen, parcel, cameras, media, domains, siteScans, reports, sensors, caps, range,
-    journey, missing, playing, setPlaying, speed, setSpeed, playhead, setPlayhead, selection, select, mode, setMode, focus, focusOn, litCameras, setLitCameras, reloadAll,
+    journey, missing, possible, playing, setPlaying, speed, setSpeed, playhead, setPlayhead, selection, select, mode, setMode, focus, focusOn, litCameras, setLitCameras, reloadAll,
   };
   return <WorkspaceCtx.Provider value={value}>{children}</WorkspaceCtx.Provider>;
 }

@@ -93,6 +93,8 @@ status_changes = _table("status_changes", _idx("hypothesis_id"))
 findings = _table("findings", _idx("case_id"))
 evidence_requests = _table("evidence_requests", _idx("case_id"))
 reports = _table("reports", _idx("case_id"))
+search_tasks = _table("search_tasks", _idx("case_id"))
+search_outcomes = _table("search_outcomes", _idx("case_id"), _idx("search_task_id"))
 
 # --- operations ------------------------------------------------------------------
 invalidations = _table("invalidations", _idx("target_id"))

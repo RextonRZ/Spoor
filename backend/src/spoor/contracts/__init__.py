@@ -66,6 +66,7 @@ from .parcels import (
     s10_check_digit,
 )
 from .plan import PlanArea, PlanCamera, PlanConveyor, PlanDoor, PlanReadPoint, SitePlan
+from .search import SearchOutcome, SearchPlace, SearchTask
 from .site import (
     SITE_FRAME,
     CalibrationInvalidation,
@@ -152,6 +153,9 @@ __all__ = [
     "ScanEvent",
     "ScanEventId",
     "ScanEventKind",
+    "SearchOutcome",
+    "SearchPlace",
+    "SearchTask",
     "SensorEvent",
     "SensorKind",
     "Site",

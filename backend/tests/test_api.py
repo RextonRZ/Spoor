@@ -118,6 +118,12 @@ def test_end_to_end_flow(ready):
     scaled = c.get(f"/v1/media/{up['media_id']}/frames/5/crop", headers=h("t-inv"),
                    params={"box": "20,20,80,80", "basis": f"{2 * rc['frame_wh_px'][0]},{2 * rc['frame_wh_px'][1]}"}).json()
     assert scaled["box_px"] == [10.0, 10.0, 40.0, 40.0]
+    # I5 synced grid: the same instant on the camera, its original frame and the subject's box there
+    grid = c.get(f"/v1/cases/{case_id}/sync-grid", headers=h("t-inv"),
+                 params={"cams": "cam_a", "t": (T0 + timedelta(milliseconds=500)).isoformat()}).json()  # fmt: skip
+    (g,) = grid["cameras"]
+    assert g["frame"]["frame_index"] == 5 and g["clock"]["uncertainty_ms"] == 50
+    assert any(b["subject"] and b["track_id"] == track["track_id"] for b in g["boxes"])
     assert c.get(f"/v1/media/{up['media_id']}/frames/5/crop", params={"box": "40,10,10,40"},
                  headers=h("t-inv")).status_code == 422  # fmt: skip
 

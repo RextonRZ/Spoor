@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import type { ReactNode } from "react";
 import type { ApiError } from "@/lib/api";
 
@@ -95,4 +96,15 @@ export function EvidenceLegend({ compact = false }: { compact?: boolean }) {
 export function ModeChip({ mode }: { mode: string }) {
   const tone = mode === "floor_xy" || mode === "multiview_xyz" ? "sp-chip" : "sp-chip sp-chip-warn";
   return <span className={tone} title="How this position was obtained (PRD §13.5)">mode: {mode}</span>;
+}
+
+/** An image that fades in (180 ms) over a quiet placeholder instead of popping in black (F-024 #5). */
+export function FadeImg(props: React.ImgHTMLAttributes<HTMLImageElement>) {
+  const [ok, setOk] = useState(false);
+  return (
+    // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
+    <img {...props} data-loaded={ok || undefined} className={`sp-fade ${props.className ?? ""}`}
+      ref={(el) => { if (el?.complete && el.naturalWidth && !ok) setOk(true); }}
+      onLoad={(e) => { setOk(true); props.onLoad?.(e); }} />
+  );
 }

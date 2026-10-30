@@ -58,6 +58,7 @@ ID_PREFIXES = {
     "clock_domain": "clkd",
     "site_plan": "plan",
     "search_task": "srch",
+    "search_outcome": "sout",
     "reel": "reel",
 }
 

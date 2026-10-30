@@ -52,7 +52,7 @@ export function HubDashboard({ siteId }: { siteId?: string }) {
             <span className="sp-caption" style={{ margin: 0 }}>cases per zone</span></div>
           <div className="sp-panel-body">
             <HubPlan label={`Hub plan shaded by where cases' evidence trails end: ${d.data.trail_ends_by_zone.map((z) => `${ZONE_NAMES[zoneId.toHub(z.zone_id)] ?? z.zone} ${z.cases}`).join(", ") || "none"}`}
-              heat={Object.fromEntries(d.data.trail_ends_by_zone.map((z) => [zoneId.toHub(z.zone_id), z.cases]))} minHeight={300} />
+              heat={Object.fromEntries(d.data.trail_ends_by_zone.map((z) => [zoneId.toHub(z.zone_id), z.cases]))} fit="width" />
             {d.data.trail_ends_by_zone.length === 0 && <p className="sp-muted">No case has a confirmed point yet.</p>}
           </div>
         </div>

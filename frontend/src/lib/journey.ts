@@ -219,7 +219,7 @@ export function nextAction(mm: MissingObject | undefined): { text: string; detai
   const todo = rows.filter((r) => r.result === "not_analysed");
   if (todo.length) {
     const w = todo[0].window;
-    return { text: `Review ${listCams(todo)} from ${clock(w.start)} to ${clock(w.end)}`,
+    return { text: `Review ${listCams(todo)} from ${clock(w.start, true).replace(" MYT", "")} to ${clock(w.end, true)}`,
       detail: "The cameras watching the last confirmed moment. Automatic tracking needs object tracking (SAM)." };
   }
   const open = rows.filter((r) => r.result === "unresolved_candidates");
@@ -311,4 +311,19 @@ export function unknownSentences(j: JourneyObject | undefined, mm: MissingObject
   if (j.scans.length && j.scans.every((s) => !s.clock.synchronized)) out.push("Scan times are the scanners' own clocks, not yet synchronized with the cameras.");
   void mm;
   return out.slice(0, 3);
+}
+
+export interface PossibleStep { t: string; seconds_after: number; area_m2: number; polygons: XY[][]; removed_by_cameras: string[];
+  identity_open_on: string[] }
+export interface PossiblePlace { area_id: string; name: string; kind: string; zone_id: string | null; possible_share: number;
+  reach_m: number | null; covered_by: string[]; evidence_for: string[]; evidence_against: string[]; centroid_xy: XY;
+  last_confirmed_here: boolean }
+export interface Possible { case_id: string; label: string; objects: { object_instance_id: string; steps: PossibleStep[];
+  places: PossiblePlace[]; note: string | null; from?: { t: string } }[] }
+
+/** The cloud at time t: the last step at or before t (none before the trail ends). */
+export function cloudAt(p: Possible["objects"][number] | undefined, t: number | null): PossibleStep | null {
+  if (!p || t === null || !p.from || t < Date.parse(p.from.t)) return null;
+  const done = p.steps.filter((s) => Date.parse(s.t) <= t);
+  return done.length ? done[done.length - 1] : null;
 }

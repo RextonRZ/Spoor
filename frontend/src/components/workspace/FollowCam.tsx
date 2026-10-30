@@ -5,6 +5,7 @@
  * brackets on the box, and why we know it is this parcel (the scans that name the object the track is linked to).
  * Outside a seen segment it says so; it never invents a sighting.
  */
+import { FadeImg } from "@/components/ui";
 import { useEffect, useMemo, useState } from "react";
 import { api, signedUrl } from "@/lib/api";
 import { cam, clock, type ObservedSegment } from "@/lib/journey";
@@ -84,8 +85,7 @@ export default function FollowCam() {
       ref={(el) => { if (el && el.clientWidth !== figW) setFigW(el.clientWidth); }}>
       <button className="fc-shot" style={{ aspectRatio: `${w} / ${h}` }} aria-label="Open the full original frame in the source panel"
         onClick={() => select({ kind: "observation", observationId: hit.obs.observation_id })}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={signedUrl(c.crop_url)} alt={`Follow-cam: original pixels of ${cam(c.camera_id)} frame ${c.frame_index} around the parcel`} />
+          <FadeImg src={signedUrl(c.crop_url)} alt={`Follow-cam: original pixels of ${cam(c.camera_id)} frame ${c.frame_index} around the parcel`} />
         <span className="fc-brackets" style={{ left: `${((bx1 - x1) / w) * 100}%`, top: `${((by1 - y1) / h) * 100}%`,
           width: `${((bx2 - bx1) / w) * 100}%`, height: `${((by2 - by1) / h) * 100}%` }} aria-hidden />
         <span className="fc-tag">{cam(c.camera_id)} · frame {c.frame_index} · {zoom ? `${zoom.toFixed(1)}× browser zoom of original pixels` : "original pixels"}</span>

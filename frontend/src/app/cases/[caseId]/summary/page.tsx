@@ -9,11 +9,13 @@ import { use } from "react";
 import { signedUrl, useResource } from "@/lib/api";
 import {
   answerParts, answerSentence, cam, caseStatus, clock, confidenceWords, nextAction, openFor, openedOn, RESULT_WORDS,
-  type ExpectedNext, type FrameRef, type Journey, type JourneyObject, type MissingMoment,
+  type ExpectedNext, type FrameRef, type Journey, type JourneyObject, type MissingMoment, type Possible,
 } from "@/lib/journey";
 import type { CaseState } from "@/lib/types";
-import { ErrorState, Loading } from "@/components/ui";
+import { ErrorState, Loading, FadeImg } from "@/components/ui";
 import HubPlan from "@/components/plan/HubPlan";
+import RecordsVsVideo from "@/components/RecordsVsVideo";
+import ReelExport from "@/components/ReelExport";
 import "./summary.css";
 
 const STATUS = {
@@ -27,6 +29,8 @@ export default function SummaryPage({ params }: { params: Promise<{ caseId: stri
   const state = useResource<CaseState>(`/v1/cases/${caseId}/state`);
   const journey = useResource<Journey>(`/v1/cases/${caseId}/journey`);
   const missing = useResource<MissingMoment>(`/v1/cases/${caseId}/missing-moment`);
+  const possible = useResource<Possible>(`/v1/cases/${caseId}/possible-locations`);
+  const search = useResource<{ status: string; found: { name: string; by: string; at: string } | null }>(`/v1/cases/${caseId}/search-tasks`);
 
   if (state.error || journey.error) {
     return <div className="sp-page"><ErrorState error={(state.error ?? journey.error)!} what="the case summary"
@@ -40,7 +44,8 @@ export default function SummaryPage({ params }: { params: Promise<{ caseId: stri
   const c = state.data.case;
   const j = journey.data.objects[0];
   const mm = missing.data?.objects[0];
-  const status = STATUS[caseStatus(j)];
+  const found = search.data?.found ?? null;
+  const status = STATUS[found ? "found" : caseStatus(j)];
   const action = nextAction(mm);
   const waybill = j?.identity_keys.find((k) => k.startsWith("carrier_waybill:"))?.split(":")[1];
   return (
@@ -51,8 +56,8 @@ export default function SummaryPage({ params }: { params: Promise<{ caseId: stri
           <span className={`sp-chip ${status.cls}`} data-testid="case-status">{status.label}</span>
           <span className="sp-chip sp-chip-sim">synthetic footage · simulated scans</span>
         </div>
-        <h1 className="sp-h1 sum-answer" id="sum-answer" data-testid="case-answer" aria-describedby="sum-sub">{answerParts(j, mm).head}</h1>
-        <p className="sum-sub" id="sum-sub">{answerParts(j, mm).sub}</p>
+        <h1 className="sp-h1 sum-answer" id="sum-answer" data-testid="case-answer" aria-describedby="sum-sub">{found ? `Found at ${found.name.replace(/^Z\d+ /, "").replace(/ \(.*\)$/, "")} · ${clock(found.at)}` : answerParts(j, mm).head}</h1>
+        <p className="sum-sub" id="sum-sub">{found ? `Recorded by ${found.by} during the floor search. ${answerParts(j, mm).head}.` : answerParts(j, mm).sub}</p>
         <p className="sp-sr">{answerSentence(j, mm)}</p>
         <dl className="sum-facts">
           <div><dt className="sp-micro">Waybill</dt><dd className="sp-num">{waybill ?? "none"}</dd></div>
@@ -64,7 +69,8 @@ export default function SummaryPage({ params }: { params: Promise<{ caseId: stri
       </header>
 
       <section aria-label="Key frames" className="sum-frames">
-        <KeyFrames j={j} mm={missing.data} loading={missing.loading} />
+        <KeyFrames j={j} mm={missing.data} loading={missing.loading} possible={possible.data}
+          foundText={found ? `Found at ${found.name.replace(/^Z\d+ /, "")} by ${found.by}, ${clock(found.at)}.` : undefined} />
       </section>
 
       <div className="sum-grid">
@@ -73,7 +79,7 @@ export default function SummaryPage({ params }: { params: Promise<{ caseId: stri
             <h2 className="sp-h3" id="sum-route">Route through the hub</h2>
           </div>
           <div className="sp-panel-body">
-            {j ? <HubPlan label={`Route of ${j.label} through the hub`} journey={j} missing={mm} minHeight={320}
+            {j ? <HubPlan label={`Route of ${j.label} through the hub`} journey={j} missing={mm} fit="width"
               litCameras={(mm?.expected_next ?? []).filter((r) => r.result !== "no_footage").map((r) => cam(r.camera_id))} /> : <Loading lines={3} />}
           </div>
         </section>
@@ -87,6 +93,7 @@ export default function SummaryPage({ params }: { params: Promise<{ caseId: stri
             </> : <p className="sum-next-text">No action can be derived from the evidence yet.</p>}
             <div className="sp-row sp-wrap sum-actions">
               <Link className="sp-btn sp-btn-primary" href={`/cases/${caseId}`}>Open the investigation</Link>
+              <Link className="sp-btn" href={`/cases/${caseId}/search`} data-testid="open-search">{search.data?.status === "none" ? "Start a floor search" : "Floor search checklist"}</Link>
               <button className="sp-btn" onClick={() => window.print()}>Print or save as PDF</button>
             </div>
           </section>
@@ -103,16 +110,19 @@ export default function SummaryPage({ params }: { params: Promise<{ caseId: stri
             <h2 className="sp-h3" id="sum-app">Evidence appendix</h2>
             <p className="sp-caption">The full trace: scan history, CCTV reviewed with hashes, continuity, records a claim needs.</p>
             <Link className="sp-btn sp-btn-sm" href={`/cases/${caseId}/report`}>Open the report</Link>
+            <ReelExport caseId={caseId} />
           </section>
         </div>
       </div>
+      <div className="sp-card"><RecordsVsVideo caseId={caseId} /></div>
       <p className="sp-caption sum-foot">Investigative decision support, not a forensic certification. Inferred stretches
         come from the site plan&apos;s belt route and are not observations. Times in {clock(c.created_at).split(" ").pop()}.</p>
     </article>
   );
 }
 
-function KeyFrames({ j, mm, loading }: { j?: JourneyObject; mm?: MissingMoment; loading: boolean }) {
+function KeyFrames({ j, mm, loading, possible, foundText }: { j?: JourneyObject; mm?: MissingMoment; loading: boolean; possible?: Possible; foundText?: string }) {
+  const top = (possible?.objects[0]?.places ?? []).filter((p) => p.possible_share > 0).slice(0, 2);
   const o = mm?.objects[0];
   const lastFrames = o?.last_confirmed?.frames ?? [];
   const rowOf = (camera: string) => o?.expected_next.find((r) => r.camera_id === camera);
@@ -129,8 +139,10 @@ function KeyFrames({ j, mm, loading }: { j?: JourneyObject; mm?: MissingMoment; 
         caption={nextRow ? `${cam(nextRow.camera_id)} · expected ${clock(nextRow.window.start, true).replace(" MYT", "")}–${clock(nextRow.window.end, true)} · ${RESULT_WORDS[nextRow.result]}`
           : "No camera with footage was due next."}
         note={nextRow ? "Dashed box: where it should appear (approximate, from the mounting plan)." : undefined} />
-      <Tile n="3" title="Where it is" empty="Not located yet. The possible area narrows only when analysed footage shows where it was not." />
-      <Tile n="4" title="Found" empty="Not found yet. A floor search records the outcome here." />
+      <Tile n="3" title="Where it is" empty={top.length
+        ? `Not located. Computed places still possible: ${top.map((p) => p.name.replace(/^Z\d+ /, "").replace(/ \(.*\)$/, "")).join(", then ")}. The area narrows when analysed footage shows where it was not.`
+        : "Not located yet. The possible area narrows only when analysed footage shows where it was not."} />
+      <Tile n="4" title="Found" empty={foundText ?? "Not found yet. A floor search records the outcome here."} />
     </>
   );
 }
@@ -145,8 +157,7 @@ function Tile({ n, title, frame, row, caption, note, empty }: {
       <figcaption className="sum-tile-head"><span className="sum-tile-n sp-num">{n}</span>{title}</figcaption>
       {frame ? (
         <div className="sum-shot">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={signedUrl(frame.frame_url)} alt={`${title}: original frame ${frame.frame_index} of ${cam(frame.camera_id)}`} />
+          <FadeImg src={signedUrl(frame.frame_url)} alt={`${title}: original frame ${frame.frame_index} of ${cam(frame.camera_id)}`} />
           {r && b && <span className="sum-expect" aria-hidden style={{ left: `${(r[0] / b[0]) * 100}%`,
             top: `${(r[1] / b[1]) * 100}%`, width: `${((r[2] - r[0]) / b[0]) * 100}%`, height: `${((r[3] - r[1]) / b[1]) * 100}%` }} />}
           <span className="sum-shot-tag">original · frame {frame.frame_index}</span>

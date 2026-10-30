@@ -14,6 +14,7 @@ from spoor.store import CostEntry, EvidenceStore
 
 from .journey import build_journey, latest_plan
 from .missing import missing_moment
+from .search import search_view
 
 
 def _zone_of(site: Site, plan, last: dict | None) -> str | None:
@@ -57,7 +58,7 @@ def hub_dashboard(store: EvidenceStore, site_id: str, *, now: datetime) -> dict:
         costs.append(usd)
         rows.append({
             "case_id": case.case_id, "question": case.question, "target": case.target_description,
-            "status": "unknown",  # found needs a recorded search outcome (I7); located needs a collapsed area (I4)
+            "status": search_view(store, case.case_id)["status"].replace("none", "unknown").replace("searching", "unknown"),
             "opened_at": case.created_at.isoformat(), "open_hours": round((now - case.created_at).total_seconds() / 3600, 1),
             "trail_end": {"zone_id": zone, "zone": zones.get(zone, zone), "t": last["t"] if last else None,
                           "kind": last["kind"] if last else None, "event_kind": last.get("event_kind") if last else None},

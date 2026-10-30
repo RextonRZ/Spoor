@@ -4,7 +4,8 @@
  * scan logs, simulated sensor events) and inspects what the system did (model calls, agent steps, evaluation).
  * It cannot set or edit any output: no answer, trace, provenance or metric can be entered here.
  */
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
+import { inboxClockWords, readInboxClock, writeInboxClock, type InboxClock } from "@/lib/inboxClock";
 import { API_BASE, ApiError, invalidate, useResource } from "@/lib/api";
 import { camId, hubCamera } from "@/lib/hub";
 import { fmtTime, fmtUncertainty, TZ_LABEL } from "@/lib/time";
@@ -58,6 +59,8 @@ export default function OperatorPage() {
         )}
         <p className="sp-caption" style={{ marginTop: 10 }}>Keys stay on the backend. With none configured, each step reports &quot;analysis unavailable&quot; instead of a result.</p>
       </section>
+
+      <InboxClockControl />
 
       <div className="sp-op-grid">
         <ImportClip siteId={siteId} cameras={cams.data ?? []} disabled={!admin} />
@@ -465,5 +468,32 @@ function HubEvaluation({ r }: { r: HubEval }) {
       ) : null}
       <p className="sp-caption" style={{ margin: 0 }}>{r.note} {r.inputs.clips_note ? `Clips: ${r.inputs.clips_note}.` : ""} Ground truth was read by the {r.truth_read_by}; the app and backend never read it.</p>
     </div>
+  );
+}
+
+/** Exceptions inbox clock (review F-style-b #4): replays what the Hub inbox shows N minutes after the log ended. */
+function InboxClockControl() {
+  const [, bump] = useState(0); // re-render after a write; the snapshot below re-reads storage
+  const snap = useSyncExternalStore(() => () => {}, () => JSON.stringify(readInboxClock()), () => "null");
+  const c: InboxClock = snap === "null" ? { kind: "log", minutes: 0 } : JSON.parse(snap);
+  const setC = (v: InboxClock) => { void v; bump((n) => n + 1); };
+  const opts: { label: string; v: InboxClock }[] = [
+    { label: "End of the imported log", v: { kind: "log", minutes: 0 } },
+    { label: "+30 min", v: { kind: "log", minutes: 30 } },
+    { label: "+2 h", v: { kind: "log", minutes: 120 } },
+    { label: "Now (live)", v: { kind: "now" } },
+  ];
+  const same = (a: InboxClock, b: InboxClock) => JSON.stringify(a) === JSON.stringify(b);
+  return (
+    <section className="sp-panel" aria-labelledby="inbox-clock" id="inbox-clock">
+      <div className="sp-panel-head"><h2 className="sp-h3" id="inbox-clock-h">Exceptions inbox clock</h2></div>
+      <div className="sp-panel-body sp-stack">
+        <div className="sp-seg" role="group" aria-labelledby="inbox-clock-h" style={{ flexWrap: "wrap", alignSelf: "flex-start" }}>
+          {opts.map((o) => <button key={o.label} aria-pressed={same(c, o.v)} onClick={() => { writeInboxClock(o.v); setC(o.v); }}>{o.label}</button>)}
+        </div>
+        <p className="sp-caption">The Hub inbox judges overdue scans as of {inboxClockWords(c)}. A synthetic log is short, so its parcels only
+          become overdue when you replay a later moment. Stored in this browser only; it changes no evidence.</p>
+      </div>
+    </section>
   );
 }

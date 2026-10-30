@@ -243,20 +243,7 @@ def load_inputs(admin, *, clips_dir: Path, clip_start: str, scans_path: Path, sp
         admin.post("/v1/sites", json=site).raise_for_status()
         log("site", SITE_ID, len(zones), "zones")
 
-    have = {c["camera"]["camera_id"] for c in admin.get(f"/v1/sites/{SITE_ID}/cameras").json()}
-    for c in spec["cameras"]:
-        if f"cam_{c['id']}" in have:
-            continue
-        cam = {"camera_id": f"cam_{c['id']}", "site_id": SITE_ID, "floor_id": FLOOR_ID,
-               "name": f"{c['id']} {c['osd_label']}", "resolution_wh_px": c["resolution"],
-               "position_m": [*c["position_m"], c["height_m"]], "position_measured": False,
-               "yaw_deg": c["heading_deg"], "hfov_deg": c["hfov_deg"], "orientation_measured": False,
-               "fov_polygon_m": floor_footprint(c)}  # fmt: skip
-        admin.post(f"/v1/sites/{SITE_ID}/cameras", json=cam).raise_for_status()
-    log("cameras", len(spec["cameras"]))
-    if admin.get(f"/v1/sites/{SITE_ID}/plan").status_code == 404:  # QUEUE I9: the plan the journey is computed on
-        r = admin.post(f"/v1/sites/{SITE_ID}/plan", json=site_plan(spec, zone_polys)).raise_for_status()
-        log("site plan", r.json()["plan_id"])
+    sync_geometry(admin, spec, log)
 
     existing = {d["domain"]["name"]: d["domain"]["clock_domain_id"]
                 for d in admin.get(f"/v1/sites/{SITE_ID}/clock-domains").json()}  # fmt: skip
@@ -312,6 +299,53 @@ def load_inputs(admin, *, clips_dir: Path, clip_start: str, scans_path: Path, sp
     r.raise_for_status()
     log("scans", r.json(), "not imported:", skipped)
     return {"spec": spec, "rows": rows, "lines": lines, "skipped": skipped, "clips": clips, "domain_ids": domain_ids}
+
+
+def camera_record(c: dict) -> dict:
+    return {"camera_id": f"cam_{c['id']}", "site_id": SITE_ID, "floor_id": FLOOR_ID,
+            "name": f"{c['id']} {c['osd_label']}", "resolution_wh_px": c["resolution"],
+            "position_m": [*c["position_m"], c["height_m"]], "position_measured": False,
+            "yaw_deg": c["heading_deg"], "hfov_deg": c["hfov_deg"], "orientation_measured": False,
+            "fov_polygon_m": floor_footprint(c)}  # fmt: skip
+
+
+def _norm(v):
+    """JSON value with every number as float (95 == 95.0), so a re-run compares equal."""
+    return json.loads(json.dumps(v), parse_int=float)
+
+
+def _subset(want, have) -> bool:
+    if isinstance(want, dict):
+        return isinstance(have, dict) and all(_subset(v, have.get(k)) for k, v in want.items())
+    if isinstance(want, list):
+        return isinstance(have, list) and len(want) == len(have) and all(_subset(a, b) for a, b in zip(want, have, strict=True))
+    return want == have
+
+
+def sync_geometry(admin, spec: dict, log=print) -> None:
+    """Cameras and site plan follow the CURRENT hub spec (F-024 #1: CAM_07 / CAM_04 were re-aimed by the builder).
+    A camera whose mounting pose changed is updated; the plan is re-imported as a new version when it differs, so every
+    answer cites the plan it was computed on."""
+    have = {c["camera"]["camera_id"]: c["camera"] for c in admin.get(f"/v1/sites/{SITE_ID}/cameras").json()}
+    changed = 0
+    for c in spec["cameras"]:
+        rec = camera_record(c)
+        cur = have.get(rec["camera_id"])
+        if cur and all(_norm(cur.get(k)) == _norm(rec[k]) for k in ("position_m", "yaw_deg", "hfov_deg", "fov_polygon_m", "name")):
+            continue
+        admin.post(f"/v1/sites/{SITE_ID}/cameras", json=rec).raise_for_status()
+        changed += 1
+    log("cameras", len(spec["cameras"]), "added or re-posed:", changed)
+    want = site_plan(spec, zone_polys)
+    got = admin.get(f"/v1/sites/{SITE_ID}/plan")
+    keys = ("outline_m", "areas", "conveyors", "doors", "read_points", "cameras")
+    stored = got.json() if got.status_code == 200 else {}
+    # the server fills defaults (closed, speed, walkable …): compare only what this payload states
+    if got.status_code == 404 or any(not _subset(_norm(want[k]), _norm(stored.get(k))) for k in keys):
+        r = admin.post(f"/v1/sites/{SITE_ID}/plan", json=want).raise_for_status()
+        log("site plan (new version)", r.json()["plan_id"])
+    else:
+        log("site plan unchanged", got.json()["plan_id"])
 
 
 def import_photo_eyes(admin, case_id: str, lines: list[str]) -> int:
@@ -409,6 +443,7 @@ def main() -> None:
     ap.add_argument("--spec", default=str(REPO / "assets/hub/hub_spec.json"))
     ap.add_argument("--case-parcel", default="auto", help="parcel ID, or auto = the parcel with the most reads")
     ap.add_argument("--scenarios", default=None, help="scenario manifest JSON (QUEUE F1); one input case per scenario")
+    ap.add_argument("--sync-geometry", action="store_true", help="only update cameras + site plan from the hub spec")
     args = ap.parse_args()
 
     env = load_env()
@@ -418,6 +453,9 @@ def main() -> None:
     inv = httpx.Client(base_url=api, headers={"Authorization": f"Bearer {env['SPOOR_TOKEN_INVESTIGATOR']}"},
                        timeout=300)  # fmt: skip
     local = FRONT / ".local"
+    if args.sync_geometry:
+        sync_geometry(admin, json.loads(guard(Path(args.spec)).read_text(encoding="utf-8")))
+        return
     if args.scenarios:
         seed_scenarios(admin, inv, Path(args.scenarios), Path(args.spec), local / "scenarios")
         return

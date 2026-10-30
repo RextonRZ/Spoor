@@ -27,7 +27,7 @@ const C = {
 export const ZONE_NAMES: Record<string, string> = {
   Z01: "Inbound dock", Z02: "Bag opening", Z03: "Induction", Z04: "Scan tunnel", Z05: "Cross-belt sorter",
   Z06: "Chutes + bagging", Z07: "Reject", Z08: "Exception bench", Z09: "Oversize", Z10: "Cage staging",
-  Z11: "Cage + bag store", Z12: "Outbound dock", Z13: "Office", Z14: "Truck yard",
+  Z11: "Exception store", Z12: "Outbound dock", Z13: "Office", Z14: "Truck yard",
 };
 // small zones lose their label on small plans (unless they carry a count), so names never collide
 const SMALL_ZONES = new Set(["Z02", "Z04", "Z08", "Z09", "Z13", "Z11"]);
@@ -42,12 +42,15 @@ export interface PlanProps {
   marker?: MarkerAt | null;
   litCameras?: string[]; // hub ids ("CAM_07")
   heat?: Record<string, number>; // hub zone id -> count (dashboard)
+  cloud?: { polygons: XY[][]; seconds: number; removed: string[] } | null; // where it could be (computed, H4)
   selectedScanId?: string | null;
   onScan?: (scanId: string) => void;
   onObservation?: (observationId: string) => void;
   legend?: boolean;
   label: string;
   minHeight?: number;
+  /** "width": the plan takes the card's full width and its own height (summary, hub); default fits the box. */
+  fit?: "width" | "contain";
 }
 
 function useBox() {
@@ -65,11 +68,13 @@ function useBox() {
 
 export default function HubPlan(props: PlanProps) {
   const [ref, box] = useBox();
-  const S = box.w ? Math.max(4, Math.min(box.w / (X1 - X0), (box.h || 1e9) / (Y1 - Y0))) : 0;
+  const byW = box.w / (X1 - X0);
+  const S = box.w ? Math.max(4, props.fit === "width" ? byW : Math.min(byW, (box.h || 1e9) / (Y1 - Y0))) : 0;
   const W = (X1 - X0) * S, H = (Y1 - Y0) * S;
   return (
     <div className="hp">
-      <div className="hp-box" ref={ref} style={{ minHeight: props.minHeight ?? 260 }}>
+      <div className="hp-box" ref={ref} style={props.fit === "width" ? { minHeight: S ? (Y1 - Y0) * S : 200, flex: "none" }
+        : { minHeight: props.minHeight ?? 260 }}>
         {S > 0 && (
           <svg className="hp-svg" width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="group" aria-label={props.label}>
             <Base S={S} heat={props.heat} />
@@ -149,6 +154,9 @@ function Base({ S, heat }: { S: number; heat?: Record<string, number> }) {
         <defs>
           <pattern id="hp-hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
             <line x1="0" y1="0" x2="0" y2="7" stroke={C.unk} strokeOpacity={0.4} strokeWidth={1.4} /></pattern>
+          <pattern id="hp-hatch-cloud" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <rect width="6" height="6" fill="#8b909b" fillOpacity={0.12} />
+            <line x1="0" y1="0" x2="0" y2="6" stroke="#c9ccd3" strokeOpacity={0.5} strokeWidth={1.3} /></pattern>
           <pattern id="hp-yard" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
             <line x1="0" y1="0" x2="0" y2="10" stroke="#fff" strokeOpacity={0.035} /></pattern>
           <pattern id="hp-zebra" width="5" height="5" patternUnits="userSpaceOnUse"><rect width="2.5" height="5" fill="#fff" fillOpacity={0.07} /></pattern>
@@ -245,18 +253,21 @@ function placeChips(want: { at: XY; t: string; sub: string; dot: string }[], rou
     || out.some((c) => x < c.x + c.w + 6 && x + w + 6 > c.x && y < c.y + c.h + 6 && y + h + 6 > c.y)
     || route.some(([px, py]) => px > x - 8 && px < x + w + 8 && py > y - 8 && py < y + h + 8);
   for (const c of want) {
-    const w = 30 + 6.6 * Math.max(c.t.length * 0.95, c.sub.length * 0.82);
+    const w = 34 + 7.1 * Math.max(c.t.length * 0.95, c.sub.length * 0.86);
     const h = 36;
     const [ax, ay] = c.at;
     const cands: XY[] = [[34, -62], [34, 26], [-34 - w, -62], [-34 - w, 26], [60, -104], [-60 - w, -104], [60, 70], [-60 - w, 70],
       [90, -20], [-90 - w, -20]];
     const pick = cands.find(([dx, dy]) => !hits(ax + dx, ay + dy, w, h)) ?? cands[0];
-    out.push({ x: ax + pick[0], y: ay + pick[1], w, h, ax, ay, t: c.t, sub: c.sub, dot: c.dot });
+    // never outside the plan, even when every candidate collides
+    const x = Math.min(Math.max(4, ax + pick[0]), W - w - 4);
+    const y = Math.min(Math.max(4, ay + pick[1]), H - h - 4);
+    out.push({ x, y, w, h, ax, ay, t: c.t, sub: c.sub, dot: c.dot });
   }
   return out;
 }
 
-function Overlay({ S, journey: j, missing, marker, litCameras = [], selectedScanId, onScan, onObservation }: PlanProps & { S: number }) {
+function Overlay({ S, journey: j, missing, marker, cloud, litCameras = [], selectedScanId, onScan, onObservation }: PlanProps & { S: number }) {
   const { P, pts } = mk(S);
   const W = (X1 - X0) * S, H = (Y1 - Y0) * S;
   const lit = new Set(litCameras);
@@ -267,8 +278,10 @@ function Overlay({ S, journey: j, missing, marker, litCameras = [], selectedScan
     if (s.kind === "inferred_along_conveyor") s.path_m.forEach((p) => routePx.push(P(p)));
     if (s.kind === "observed") s.points.forEach((p) => p.xy && routePx.push(P(p.xy)));
   });
+  // small plans keep only the chips that carry the story (last confirmed + expected); others stay in bead tooltips
+  const compact = S < 12;
   const chips = j ? placeChips([
-    ...j.scans.filter((s) => s.xy).map((s) => {
+    ...j.scans.filter((s) => s.xy && (!compact || last?.evidence_id === s.scan_event_id)).map((s) => {
       const isLast = last?.evidence_id === s.scan_event_id;
       return { at: P(s.xy!), t: clock(s.t, true).replace(" MYT", ""), sub: `${isLast ? "Last confirmed · " : ""}${short(describeScan(s).title)}`, dot: C.scan };
     }),
@@ -298,6 +311,12 @@ function Overlay({ S, journey: j, missing, marker, litCameras = [], selectedScan
           </g>
         );
       })}
+      {cloud && cloud.polygons.map((poly, i) => (
+        <polygon key={`cloud${i}`} data-ev="possible" points={pts(poly)} fill="url(#hp-hatch-cloud)"
+          stroke="#c9ccd3" strokeOpacity={0.75} strokeWidth={1.2} strokeDasharray="4 3">
+          <title>{`Could be here (computed): reachable within ${cloud.seconds} s on foot${cloud.removed.length ? `, minus what ${cloud.removed.join(", ")} watched without seeing it` : ""}. Not an observation.`}</title>
+        </polygon>
+      ))}
       {j?.segments.map((s, i) => s.kind === "observed" ? (
         <g key={i} data-ev="observed" data-from={s.start} data-to={s.end}>
           <polyline points={pts(s.points.filter((p) => p.xy).map((p) => p.xy!))} fill="none" stroke={C.obs} strokeWidth={10} strokeOpacity={0.18} strokeLinecap="round" strokeLinejoin="round" />

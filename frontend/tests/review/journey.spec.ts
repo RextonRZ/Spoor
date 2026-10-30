@@ -10,8 +10,10 @@
 import { expect, test, type Page, type Route, type TestInfo } from "@playwright/test";
 
 const isMobile = (info: TestInfo) => info.project.name === "mobile";
-const shot = (page: Page, info: TestInfo, name: string, full = false) =>
-  page.screenshot({ path: `review_pack/${info.project.name}/${name}.png`, fullPage: full || isMobile(info) });
+const shot = async (page: Page, info: TestInfo, name: string, full = false) => {
+  await settled(page);
+  await page.screenshot({ path: `review_pack/${info.project.name}/${name}.png`, fullPage: full || isMobile(info) });
+};
 
 const CAM07_MEDIA = "media_4e3731fecba75f126b67";
 const SAM_BOXES: [number, [number, number, number, number]][] = [
@@ -22,6 +24,17 @@ const SAM_BOXES: [number, [number, number, number, number]][] = [
 const FIX_BANNER = "TEST FIXTURE: real SAM 3.1 boxes (J1 smoke) on real CAM_07 frames, linked to this case by a route mock. Not case evidence.";
 const t0 = Date.parse("2026-10-28T06:32:07.000Z"); // CAM_07 clip start (coverage)
 const tOf = (frame: number) => new Date(t0 + frame * 100).toISOString();
+
+/** Before any capture: no loading states left and every visible image decoded (F-style-b review #1). */
+async function settled(page: Page) {
+  await page.waitForFunction(() => {
+    const visible = (el: Element) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < innerHeight; };
+    const imgs = [...document.images].filter(visible);
+    const loading = [...document.querySelectorAll('[role="status"]')].some((el) => visible(el) && /Loading/i.test(el.textContent ?? ""));
+    return !loading && imgs.every((i) => i.complete && i.naturalWidth > 0 && i.dataset.loaded !== undefined || !i.classList.contains("sp-fade") && i.complete && i.naturalWidth > 0);
+  }, undefined, { timeout: 45_000 }).catch(() => {});
+  await page.waitForTimeout(400);
+}
 
 async function role(page: Page, r: "investigator" | "reviewer" | "site_admin") {
   await page.request.post("/api/session", { data: { role: r } });
@@ -83,7 +96,7 @@ test("H10 missing moment: frames at the predicted time with the expected place d
   await expect(mm.locator(".mm-close img").first()).toBeVisible({ timeout: 30_000 });
   await page.waitForTimeout(1500);
   if (isMobile(info)) await shot(page, info, "31_h10_missing_moment");
-  else await page.locator("#source-panel").screenshot({ path: `review_pack/${info.project.name}/31_h10_missing_moment.png` });
+  else { await settled(page); await page.locator("#source-panel").screenshot({ path: `review_pack/${info.project.name}/31_h10_missing_moment.png` }); }
 });
 
 test("H14 case summary and H15 hub dashboard", async ({ page }, info) => {
@@ -98,6 +111,12 @@ test("H14 case summary and H15 hub dashboard", async ({ page }, info) => {
   await expect(page.getByTestId("inbox-empty").or(page.locator(".hub .sp-table")).first()).toBeVisible();
   await page.waitForTimeout(2500);
   await shot(page, info, "34_h15_hub_home", true);
+  // replay 30 min after the log ended (Operator clock): parcels whose next scan never came become stalled
+  await page.evaluate(() => localStorage.setItem("spoor-inbox-clock", JSON.stringify({ kind: "log", minutes: 30 })));
+  await page.reload();
+  await expect(page.getByTestId("inbox-clock")).toContainText("30 min after the last imported scan", { timeout: 60_000 });
+  await shot(page, info, "34b_h15_inbox_plus_30_min");
+  await page.evaluate(() => localStorage.removeItem("spoor-inbox-clock"));
 });
 
 test("H1 follow-cam on a labelled fixture (real SAM boxes, real crops)", async ({ page }, info) => {
@@ -132,4 +151,53 @@ test("H1 follow-cam on a labelled fixture (real SAM boxes, real crops)", async (
   await page.waitForTimeout(1200);
   await banner(page, FIX_BANNER);
   await shot(page, info, "fx_32_h1_followcam");
+});
+
+test("H5 records vs video: real lanes, and the red pin on a labelled fixture", async ({ page }, info) => {
+  const id = await caseId(page);
+  await page.goto(`/cases/${id}/summary?style=v2`);
+  const rv = page.getByTestId("records-vs-video");
+  await expect(rv).toContainText("no confirmed track yet", { timeout: 60_000 });
+  await settled(page);
+  await rv.screenshot({ path: `review_pack/${info.project.name}/35_h5_records_vs_video.png` });
+  const real = await (await page.request.get(`/api/spoor/v1/cases/${id}/conflicts`)).json();
+  const o = real.objects[0];
+  o.video = [{ start: "2026-10-28T06:32:38.000Z", end: "2026-10-28T06:32:44.000Z", camera_id: "cam_CAM_19" }];
+  o.records.push({ t: "2026-10-28T06:32:35.000Z", words: "RC-864 container loaded at SP-LOAD-D07", zone_id: "zone_Z12", evidence_id: "scan_fixture", claim: "departure" }); // S2 card: RC-864 -> D07
+  o.conflicts = [{ kind: "departure", divergence_t: "2026-10-28T06:32:38.000Z",
+    statement: "fixture", claim: { t: "2026-10-28T06:32:35.000Z", zone_id: "zone_Z12", words: "RC-864 container loaded at SP-LOAD-D07" },
+    observation: { t: "2026-10-28T06:32:38.000Z", camera_id: "cam_CAM_19", zone_id: "zone_Z11" } }];
+  o.note = null;
+  await page.route(`**/api/spoor/v1/cases/${id}/conflicts`, (r) => r.fulfill({ json: real }));
+  await page.reload();
+  await expect(rv).toContainText("1 disagreement", { timeout: 60_000 });
+  await banner(page, "TEST FIXTURE: the sighting and the conflict are route-mocked to show the red pin. Not case evidence.");
+  await settled(page);
+  await rv.screenshot({ path: `review_pack/${info.project.name}/fx_35b_h5_records_vs_video_conflict.png` });
+});
+
+test("H11 camera moment: the cameras around the break point at one instant", async ({ page }, info) => {
+  const id = await caseId(page);
+  await openWorkspace(page, id);
+  if (isMobile(info)) await tab(page, info, "Cameras"); else await page.getByTestId("tab-cameras").click();
+  const g = page.getByTestId("camera-grid");
+  await expect(g).toContainText("on every camera", { timeout: 60_000 });
+  await expect(g.locator(".cg-tile img").first()).toBeVisible({ timeout: 30_000 });
+  if (isMobile(info)) await shot(page, info, "36_h11_camera_moment");
+  else { await settled(page); await page.locator("#source-panel").screenshot({ path: `review_pack/${info.project.name}/36_h11_camera_moment.png` }); }
+});
+
+test("H12 floor search checklist (task + found state route-mocked from the real computed places)", async ({ page }, info) => {
+  const id = await caseId(page);
+  const poss = await (await page.request.get(`/api/spoor/v1/cases/${id}/possible-locations`)).json();
+  const places = poss.objects[0].places.filter((p: { possible_share: number }) => p.possible_share > 0).slice(0, 4)
+    .map((p: { area_id: string; name: string; zone_id: string | null; evidence_for: string[] }) => ({ area_id: p.area_id, name: p.name, zone_id: p.zone_id, why: p.evidence_for }));
+  const task = { search_task_id: "srch_fixture", created_by: "investigator_01", created_at: "2026-10-31T05:00:00Z", places,
+    outcomes: [{ area_id: places[0].area_id, outcome: "not_found", recorded_by: "investigator_01", recorded_at: "2026-10-28T07:10:00Z" }] }; // after the event (15:10 MYT)
+  await page.route(`**/api/spoor/v1/cases/${id}/search-tasks`, (r) => r.fulfill({ json: { status: "searching", found: null,
+    not_here: [places[0].area_id], tasks: [task] } }));
+  await page.goto(`/cases/${id}/search?style=v2`);
+  await expect(page.getByRole("button", { name: "Found it here" }).first()).toBeVisible({ timeout: 60_000 });
+  await banner(page, "TEST FIXTURE: search task and outcome route-mocked (no outcome was written to the case).");
+  await shot(page, info, "fx_37_h12_search_checklist", true);
 });

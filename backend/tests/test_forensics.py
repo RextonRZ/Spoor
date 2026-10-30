@@ -243,12 +243,192 @@ def test_exceptions_inbox_flags_an_overdue_next_scan_on_the_logs_own_clock(world
     from spoor.forensics.exceptions import exceptions_inbox
 
     scan(world, "SP-TUN", "tunnel_read", 0, "tunnel")  # never loaded onto a carrier
+    third = ParcelIdentifier(scheme="carrier_waybill", value="CTX111222333444")
+    world.store.put(ScanEvent(scan_event_id=new_id("scan_event"), site_id=world.site.site_id, source_type="scan_simulated",
+                              import_batch="t", identifiers=[third], event_kind="inducted", device_id="SP-INDUCT",
+                              device_time_utc=world.t0 + timedelta(seconds=90), device_kind="sorter_plc"))  # fmt: skip
     other = ParcelIdentifier(scheme="carrier_waybill", value="CTX999888777666")
     world.store.put(ScanEvent(scan_event_id=new_id("scan_event"), site_id=world.site.site_id, source_type="scan_simulated",
                               import_batch="t", identifiers=[other], event_kind="tunnel_read", device_id="SP-TUN",
                               device_time_utc=world.t0 + timedelta(seconds=100), device_kind="tunnel", station_id="SP-TUN"))
     box = exceptions_inbox(world.store, world.site.site_id)
     assert box["as_of"].startswith("2026-10-27T14:01:40") and box["basis"] == "as of the last imported scan"
+    assert box["counts"]["parcels"] == 3
     (row,) = box["stalled"]  # the parcel scanned at the log's end is still in progress
     assert row["waybill"] == WAYBILL.value and row["overdue_s"] == 70.0 and row["expected_next"] == "loaded onto a carrier"
-    assert row["case_id"] == world.case.case_id and box["counts"] == {"parcels": 2, "stalled": 1, "in_progress": 1, "closed": 0}
+    assert row["proof"]["event_kind"] == "inducted"  # the induct point kept working after the allowance
+    assert row["case_id"] == world.case.case_id and box["counts"]["stalled"] == 1 and box["counts"]["in_progress"] == 2
+
+
+@pytest.mark.skipif(not (REPO / "assets/hub/hub_spec.json").exists(), reason="hub spec not present")
+def test_divert_c04_projects_inside_the_cameras_that_watch_it_with_current_poses(now):
+    """F-024 #1: expected regions use the CURRENT mounting poses from the hub spec (CAM_07 / CAM_04 were re-aimed)."""
+    sys.path.insert(0, str(REPO / "frontend/scripts"))
+    from seed_nokey import zone_polys
+    from site_plan import site_plan
+
+    from spoor.forensics.viewgeom import expected_region, project
+
+    spec = json.loads((REPO / "assets/hub/hub_spec.json").read_text(encoding="utf-8"))
+    plan = SitePlan(plan_id="plan_hub", site_id="site_contoh_hub", created_by="t", created_at=now,
+                    **site_plan(spec, zone_polys))  # fmt: skip
+    div = plan.read_point("SP-DIV-C04").position_for("divert_confirmed")
+    for cam_id in ("cam_CAM_07", "cam_CAM_10"):
+        pose = next(c for c in plan.cameras if c.camera_id == cam_id)
+        spec_cam = next(c for c in spec["cameras"] if f"cam_{c['id']}" == cam_id)
+        assert list(pose.position_m[:2]) == spec_cam["position_m"] and pose.heading_deg == spec_cam["heading_deg"]
+        uv = project(pose, (*div, 1.5))
+        assert uv is not None, f"C04 divert is outside {cam_id}'s frame"
+        r = expected_region(pose, (*div, 1.5))
+        assert r and 0 <= r[0] < r[2] <= pose.resolution_wh_px[0] and 0 <= r[1] < r[3] <= pose.resolution_wh_px[1]
+
+
+# --- I4: where it could be ----------------------------------------------------------------------------------------
+
+
+def test_possible_area_collapses_into_the_store_when_its_only_exit_was_watched(site, now):
+    """S2 in miniature: last confirmed inside a store; the band between store and hall is watched by an analysed camera
+    that never saw the parcel -> the computed area stays in the store, and the store ranks first."""
+    from spoor.forensics.possible import possible_locations
+
+    w = World(EvidenceStore(), site, now)
+    w.store.put(SitePlan(
+        plan_id="plan_store", site_id=site.site_id, source="unit test fixture", outline_m=[(0, -2), (6, -2), (6, 4), (0, 4)],
+        areas=[{"area_id": "store", "kind": "store", "name": "Exception store", "polygon_m": [(0, -2), (2, -2), (2, 4), (0, 4)],
+                "zone_id": "zone_shelf_a", "walkable": True},
+               {"area_id": "hall", "kind": "zone", "name": "Hall", "polygon_m": [(3, -2), (6, -2), (6, 4), (3, 4)],
+                "zone_id": "zone_hall", "walkable": True}],
+        read_points=[{"scan_point_id": "SP-STORE", "device_kind": "handheld", "position_m": (1, 1, 1.0)}],
+        created_by="tester", created_at=now))  # fmt: skip
+    w.store.put(ObjectInstance(object_instance_id="objinst_parcel", case_id=w.case.case_id, label="parcel",
+                               identifiers=[WAYBILL], created_by="tester", created_at=now))  # fmt: skip
+    cam(w, "cam_door", [(2, -2), (3, -2), (3, 4), (2, 4)])
+    m = w.clip("cam_door", -5, 60)
+    scan(w, "SP-STORE", "relabeled", 0, "handheld", domain=None)
+
+    before = possible_locations(w.store, w.case.case_id)["objects"][0]
+    assert before["note"] and "SAM" in before["note"]  # nothing analysed: no area removed
+    assert before["steps"][-1]["area_m2"] > 20  # the hall is reachable too
+
+    other = w.track("cam_door", m, label="box")  # analysed: something else tracked, before the window
+    w.obs(other, -3.0)
+    after = possible_locations(w.store, w.case.case_id)["objects"][0]
+    last = after["steps"][-1]
+    assert last["removed_by_cameras"] == ["cam_door"] and last["area_m2"] <= 12.5
+    assert after["places"][0]["area_id"] == "store" and after["places"][0]["possible_share"] > 0.85  # 0.25 m grid edge
+    hall = next(p for p in after["places"] if p["area_id"] == "hall")
+    assert hall["possible_share"] == 0 and after["note"] is None
+
+
+def test_exceptions_inbox_clock_offset_replays_a_later_moment(world):
+    from spoor.forensics.exceptions import exceptions_inbox
+
+    world.store.put(ScanEvent(scan_event_id=new_id("scan_event"), site_id=world.site.site_id, source_type="scan_simulated",
+                              import_batch="t", identifiers=[WAYBILL], event_kind="divert_confirmed", device_id="SP-DIV-C04",
+                              station_id="SP-DIV-C04", device_kind="sorter_plc", device_time_utc=world.t0))  # fmt: skip
+    assert exceptions_inbox(world.store, world.site.site_id)["counts"]["stalled"] == 0  # at the log's end: in time
+    later = exceptions_inbox(world.store, world.site.site_id, after_log_min=30)
+    # the log just ends: no proof the bagging point kept working, so nobody can judge (no false alarm)
+    assert later["stalled"] == [] and later["counts"]["cannot_judge"] == 1
+    other = ParcelIdentifier(scheme="carrier_waybill", value="CTX555444333222")
+    world.store.put(ScanEvent(scan_event_id=new_id("scan_event"), site_id=world.site.site_id, source_type="scan_simulated",
+                              import_batch="t", identifiers=[other], event_kind="container_closed", device_id="SP-BAG-C04",
+                              station_id="SP-BAG-C04", device_kind="handheld",
+                              container=ParcelIdentifier(scheme="container", value="BAG-1"),
+                              device_time_utc=world.t0 + timedelta(minutes=25)))  # fmt: skip
+    proof = exceptions_inbox(world.store, world.site.site_id)  # the log now runs 25 min and C04 bagging kept working
+    (row,) = proof["stalled"]
+    assert row["waybill"] == WAYBILL.value and row["proof"]["station"] == "SP-BAG-C04" and row["overdue_s"] == 300.0
+
+
+# --- I6: records vs video -----------------------------------------------------------------------------------------
+
+
+def test_records_say_it_left_on_the_truck_but_a_camera_confirms_it_inside(world):
+    """S2 in miniature: parcel inside cage RC-864; the cage's loading scan at D08 says it left; a confirmed track shows
+    the parcel in the hall afterwards -> a typed departure conflict with the divergence time and both evidence ids."""
+    from spoor.contracts import ContainerMembership
+    from spoor.forensics.conflicts import records_vs_video
+
+    cage = ParcelIdentifier(scheme="container", value="RC-864")
+    world.store.put(ContainerMembership(membership_id="cmem_rc864", version=1, child_key=WAYBILL.key,
+                                        parent_key=cage.key, valid_from=world.t0 + timedelta(seconds=1),
+                                        basis="scan", status="active", created_at=world.t0))  # fmt: skip
+    load = new_id("scan_event")
+    world.store.put(ScanEvent(scan_event_id=load, site_id=world.site.site_id, source_type="scan_simulated", import_batch="t",
+                              identifiers=[cage], container=cage, event_kind="container_loaded", device_id="SP-LOAD-D08",
+                              parent_container=ParcelIdentifier(scheme="container", value="TRAILER-D08"),
+                              station_id="SP-LOAD-D08", device_kind="handheld", read_point_zone_id="zone_shelf_a",
+                              device_time_utc=world.t0 + timedelta(seconds=5)))  # fmt: skip
+    none_yet = records_vs_video(world.store, world.case.case_id)["objects"][0]
+    assert none_yet["conflicts"] == [] and "not agreement" in none_yet["note"]
+
+    world.camera("cam_a")
+    m = world.clip("cam_a", -5, 60)
+    t = world.track("cam_a", m)
+    world.link(world.oid, t, AssociationStatus.HUMAN_CONFIRMED)
+    obs = world.obs(t, 20.0, xy=(5, -1), zone="zone_hall")
+    out = records_vs_video(world.store, world.case.case_id)["objects"][0]
+    (c,) = [x for x in out["conflicts"] if x["kind"] == "departure"]
+    assert c["divergence_t"].startswith("2026-10-27T14:00:20") and c["observation"]["observation_id"] == obs
+    assert load in c["claim"]["evidence_ids"] and "left the hub" in c["statement"] and out["note"] is None
+    assert any(r.get("claim") == "departure" for r in out["records"]) and out["video"]
+
+
+# --- I7: floor search ------------------------------------------------------------------------------------------------
+
+
+def test_search_outcomes_revise_the_possible_area_and_the_status(world, now):
+    from spoor.contracts import SearchOutcome, SearchPlace, SearchTask
+    from spoor.forensics.possible import possible_locations
+    from spoor.forensics.search import search_view
+
+    world.store.put(SitePlan(
+        plan_id="plan_two", site_id=world.site.site_id, source="unit test fixture", outline_m=[(0, -2), (6, -2), (6, 4), (0, 4)],
+        areas=[{"area_id": "store", "kind": "store", "name": "Store", "polygon_m": [(0, -2), (2, -2), (2, 4), (0, 4)], "walkable": True},
+               {"area_id": "hall", "kind": "zone", "name": "Hall", "polygon_m": [(3, -2), (6, -2), (6, 4), (3, 4)], "walkable": True}],
+        read_points=[{"scan_point_id": "SP-STORE", "device_kind": "handheld", "position_m": (2.5, 1, 1.0)}],
+        created_by="tester", created_at=now))  # fmt: skip
+    world.camera("cam_a")
+    world.clip("cam_a", -5, 60)
+    scan(world, "SP-STORE", "relabeled", 0, "handheld", domain=None)
+    task = world.store.put(SearchTask(search_task_id="srch_t1", case_id=world.case.case_id, created_by="ivy", created_at=now,
+                                      places=[SearchPlace(area_id="store", name="Store", centroid_xy=(1, 1)),
+                                              SearchPlace(area_id="hall", name="Hall", centroid_xy=(4.5, 1))]))  # fmt: skip
+    assert search_view(world.store, world.case.case_id)["status"] == "searching"
+    world.store.put(SearchOutcome(search_outcome_id="sout_1", search_task_id=task.search_task_id, case_id=world.case.case_id,
+                                  area_id="hall", outcome="not_found", recorded_by="ivy", recorded_at=now,
+                                  content_sha256="a" * 64))  # fmt: skip
+    out = possible_locations(world.store, world.case.case_id)["objects"][0]
+    hall = next(p for p in out["places"] if p["area_id"] == "hall")
+    assert hall["possible_share"] == 0 and hall["evidence_against"][0].startswith("searched by ivy")
+    assert out["steps"][-1]["searched_not_here"] == ["hall"]
+    world.store.put(SearchOutcome(search_outcome_id="sout_2", search_task_id=task.search_task_id, case_id=world.case.case_id,
+                                  area_id="store", outcome="found", recorded_by="ivy", recorded_at=now,
+                                  content_sha256="b" * 64))  # fmt: skip
+    view = search_view(world.store, world.case.case_id)
+    assert view["status"] == "found" and view["found"]["name"] == "Store" and view["not_here"] == ["hall"]
+    assert possible_locations(world.store, world.case.case_id)["objects"][0]["places"][0]["area_id"] == "store"
+
+
+# --- I8: evidence reel ----------------------------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(__import__("shutil").which("ffmpeg") is None, reason="ffmpeg not installed")
+def test_reel_is_built_in_time_order_with_a_card_per_piece_of_evidence(tmp_path):
+    import cv2
+    import numpy as np
+
+    from spoor.forensics.reel import build_reel
+
+    png = cv2.imencode(".png", np.full((540, 960, 3), 120, np.uint8))[1].tobytes()
+    jo = {"scans": [{"scan_event_id": "scan_a", "t": "2026-10-27T14:00:00+00:00", "event_kind": "tunnel_read", "raw_code": "tunnel_read",
+                     "station_id": "SP-TUN", "_watchers": ["cam_a"]}],
+          "segments": [{"kind": "gap", "start": "2026-10-27T14:00:00+00:00", "end": "2026-10-27T14:00:20+00:00"}]}
+    ref = {"camera_id": "cam_a", "media_id": "media_x", "frame_index": 3, "sha256": "f" * 64}
+    man = build_reel(jo, frame_get=lambda m, i: png, frame_lookup=lambda c, t: ref, crop_of=lambda o: None,
+                     out_dir=tmp_path, reel_id="reel_test", case_label="unit test")  # fmt: skip
+    assert man["cards"] == 3 and man["sources"] == [{"kind": "context_frame", "media_id": "media_x", "frame_index": 3,
+                                                      "sha256": "f" * 64, "scan_event_id": "scan_a"}]
+    mp4 = tmp_path / "reel_test.mp4"
+    assert mp4.exists() and mp4.stat().st_size > 1000 and (tmp_path / "reel_test.json").exists()

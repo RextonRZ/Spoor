@@ -17,6 +17,7 @@ test("journey replay recording (real no-key data)", async ({ page }) => {
   await expect(page.getByTestId("case-answer")).toBeVisible({ timeout: 90_000 });
   await page.goto(`/cases/${id}?style=v2`);
   await expect(page.locator(".hp-over")).toBeAttached({ timeout: 90_000 });
+  await page.waitForFunction(() => [...document.images].every((i) => i.complete && i.naturalWidth > 0), undefined, { timeout: 45_000 }).catch(() => {});
   await page.waitForTimeout(1500);
   writeFileSync("test-results/journey-recording-start.txt", String((Date.now() - began) / 1000 - 1));
   await page.getByRole("button", { name: "4×" }).click();

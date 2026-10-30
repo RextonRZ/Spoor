@@ -43,7 +43,7 @@ def site_plan(spec: dict, zone_polys) -> dict:
     areas = []
     for z in spec["zones"]:
         for zid, poly in zone_polys(z):
-            kind = "store" if z["kind"] == "store" else "zone"
+            kind = {"store": "store", "machine": "machine"}.get(z["kind"], "zone")  # machines: searched last, line stopped
             areas.append({"area_id": zid.removeprefix("zone_"), "kind": kind, "name": f"{z['id']} {z['name']}",
                           "polygon_m": poly, "zone_id": zid, "walkable": z["kind"] != "yard"})  # fmt: skip
     walk = spec["circulation"]["walkways"] + spec["circulation"].get("zebra_crossings", [])

@@ -8,15 +8,16 @@ import { useEffect, useState } from "react";
 import { api, signedUrl } from "@/lib/api";
 import { cam, clock, lastConfirmedWords, RESULT_WORDS, ROLE_WORDS, type ExpectedNext, type FrameRef } from "@/lib/journey";
 import { toMs } from "@/lib/time";
-import { Loading } from "@/components/ui";
+import { Loading, FadeImg } from "@/components/ui";
 import { useWorkspace } from "./context";
+import RecordsVsVideo from "@/components/RecordsVsVideo";
 
 const TONE: Record<ExpectedNext["result"], string> = {
   seen: "sp-chip-safe", not_seen: "sp-chip-alert", unresolved_candidates: "sp-chip-warn", not_analysed: "", no_footage: "",
 };
 
 export default function MissingMoment() {
-  const { missing, journey, select } = useWorkspace();
+  const { missing, journey, select, caseId, range } = useWorkspace();
   if (missing.loading && !missing.data) return <Loading label="Working out the missing moment" lines={4} />;
   const o = missing.data?.objects[0];
   const j = journey.data?.objects[0];
@@ -42,9 +43,19 @@ export default function MissingMoment() {
         <ul className="sp-list mm-rows">
           {rows.map((r) => <Row key={r.camera_id} r={r} onOpen={() => select({ kind: "camera", cameraId: r.camera_id, time: toMs(r.predicted_t) })} />)}
         </ul>
-        {dark.length > 0 && <p className="sp-caption">No footage for {dark.map((r) => cam(r.camera_id)).join(", ")} in this case: they cannot show where it went.</p>}
+        {dark.length > 0 && (
+          <ul className="sp-list mm-dark" aria-label="Cameras predicted next without footage in this case">
+            {dark.map((r) => (
+              <li key={r.camera_id}>
+                <span className="sp-strong sp-num">{cam(r.camera_id)}</span> · {ROLE_WORDS[r.role]} · expected {clock(r.window.start, true).replace(" MYT", "")}–{clock(r.window.end, true)}
+                <span className="sp-caption"> · {r.how} · no footage in this case, so it cannot show where it went</span>
+              </li>
+            ))}
+          </ul>
+        )}
         <p className="sp-caption">Predicted from the site plan (belt speed, walking speed, clock tolerance). A prediction is not an observation.</p>
       </div>
+      <RecordsVsVideo caseId={caseId} range={range ?? undefined} />
     </div>
   );
 }
@@ -72,8 +83,7 @@ function Shot({ frame, row, caption, onOpen }: { frame: FrameRef; row?: Expected
   const b = row?.region_basis_wh_px;
   return (
     <button className="mm-shot" onClick={onOpen} aria-label={`${caption}. Open in the source panel.`}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={signedUrl(frame.frame_url)} alt="" />
+      <FadeImg src={signedUrl(frame.frame_url)} alt="" />
       {reg && b && <span className="mm-box" style={{ left: `${(reg[0] / b[0]) * 100}%`, top: `${(reg[1] / b[1]) * 100}%`,
         width: `${((reg[2] - reg[0]) / b[0]) * 100}%`, height: `${((reg[3] - reg[1]) / b[1]) * 100}%` }} />}
       <span className="mm-cap">{caption}</span>
@@ -102,8 +112,7 @@ function CloseUp({ frame, row }: { frame: FrameRef; row: ExpectedNext }) {
   const h = cy2 - cy1;
   return (
     <figure className="mm-close" ref={(el) => { if (el && el.clientWidth !== figW) setFigW(el.clientWidth); }}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={signedUrl(crop.crop_url)} alt={`Close-up where ${cam(row.camera_id)} should show the parcel`} />
+      <FadeImg src={signedUrl(crop.crop_url)} alt={`Close-up where ${cam(row.camera_id)} should show the parcel`} />
       <span className="mm-box" style={{ left: `${((bx1 - cx1) / w) * 100}%`, top: `${((by1 - cy1) / h) * 100}%`,
         width: `${((bx2 - bx1) / w) * 100}%`, height: `${((by2 - by1) / h) * 100}%` }} />
       <figcaption className="mm-cap">close-up · original pixels{figW ? `, shown ${(figW / w).toFixed(1)}× (browser scaling, no AI upscale)` : ""}</figcaption>

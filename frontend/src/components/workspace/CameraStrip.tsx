@@ -6,6 +6,7 @@
  * not seen), and a grey "no camera" tile after the trail ends. Arrows between tiles carry the time and how it moved
  * ("+4.7 s · belt, inferred"). Click a tile to open that frame in the hero.
  */
+import { FadeImg } from "@/components/ui";
 import { useEffect, useState } from "react";
 import { api, signedUrl } from "@/lib/api";
 import { camId, scanPoint } from "@/lib/hub";
@@ -87,8 +88,7 @@ function TileView({ t, onOpen }: { t: Tile; onOpen: () => void }) {
     <button className="cs-tile" data-kind={t.kind} onClick={onOpen} disabled={!t.camera}
       aria-label={`${t.title}: ${t.sub}${t.camera ? ". Open this frame." : ""}`}>
       <span className="cs-shot">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        {url ? <img src={signedUrl(url)} alt="" /> : <span className="cs-none">{t.kind === "none" ? "no camera" : ""}</span>}
+        {url ? <FadeImg src={signedUrl(url)} alt="" /> : <span className="cs-none">{t.kind === "none" ? "no camera" : ""}</span>}
         {r && b && url && <span className="cs-box" style={{ left: `${(r[0] / b[0]) * 100}%`, top: `${(r[1] / b[1]) * 100}%`,
           width: `${((r[2] - r[0]) / b[0]) * 100}%`, height: `${((r[3] - r[1]) / b[1]) * 100}%` }} />}
       </span>

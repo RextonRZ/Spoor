@@ -56,7 +56,7 @@ class PlanReadPoint(Record):
 
 class PlanArea(Record):
     area_id: str = Field(min_length=1, max_length=64)
-    kind: Literal["zone", "walkway", "rack", "bench", "cage_bay", "blind_spot", "store"]
+    kind: Literal["zone", "walkway", "rack", "bench", "cage_bay", "blind_spot", "store", "machine"]
     name: str
     polygon_m: Annotated[list[MetresXY], Field(min_length=3)]
     height_m: float | None = Field(default=None, ge=0)
