@@ -25,7 +25,7 @@ test("journey replay recording (real no-key data)", async ({ page }) => {
   await expect(page.getByTestId("replay-status")).toContainText("Unknown since", { timeout: 30_000 });
   await page.waitForTimeout(1200);
   await page.getByTestId("tab-moment").click();
-  await expect(page.locator(".mm-close img").first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator(".xm-pin").first()).toBeVisible({ timeout: 30_000 });
   await page.waitForTimeout(2000);
   await page.locator("#source-panel .sp-panel-body").evaluate((el) => el.scrollTo({ top: 900, behavior: "smooth" }));
   await page.waitForTimeout(2000);

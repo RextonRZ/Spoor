@@ -1,0 +1,8 @@
+/* Voice notes (J4). Prefix vn-. */
+.vn { display: flex; flex-direction: column; gap: 6px; }
+.vn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.vn-tr { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--hairline);
+  background: color-mix(in srgb, var(--surface) 70%, transparent); }
+.vn-turns { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; line-height: 1.5; }
+.vn-turns b { margin-right: 6px; color: var(--ink-strong); font-weight: 640; }
+.vn-t { display: inline-block; min-width: 38px; color: var(--ink-muted); font-size: 12px; }

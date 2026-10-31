@@ -63,7 +63,7 @@ class SceneBoundary extends Component<{ fallback: ReactNode; children: ReactNode
 function Workspace() {
   const { selection, mode, caps } = useWorkspace();
   const [chosenView, setView] = useState<"3d" | "plan" | null>(null);
-  const [model3d, setModel3d] = useState<"model" | "plan">("plan");
+  const [model3d, setModel3d] = useState<"model" | "plan">("model"); // design_sprint §I: the real hub first
   const hasWebgl = useSyncExternalStore(noop, webglAvailable, () => null);
   // The 2D journey is the primary view (journey_view_0030 pass 2): any hub has a plan; 3D is optional.
   const view = chosenView ?? (hasWebgl === null ? null : "plan");
@@ -111,9 +111,9 @@ function Workspace() {
           <TraceControls />
         </div>
       </aside>
-      <section className="sp-ws-scene sp-panel" data-pane="scene" aria-label="Hub scene">
+      <section className="sp-ws-scene sp-panel" data-pane="scene" data-view={view} aria-label="Hub scene">
         <div className="sp-panel-head">
-          <span className="sp-micro">{view === "plan" ? "Floor plan · synthetic hub" : model3d === "plan" ? "3D · built from the site plan" : "3D · synthetic hub model"}</span>
+          <span className="sp-micro">{view === "plan" ? "Floor plan" : model3d === "plan" ? "3D · built from the site plan" : "3D · real hub"}</span>
           <div className="sp-seg" role="group" aria-label="Scene view">
             <button aria-pressed={view === "plan"} onClick={() => setView("plan")}>2D journey</button>
             <button aria-pressed={view === "3d"} onClick={() => setView("3d")}>3D</button>
@@ -125,12 +125,12 @@ function Workspace() {
               {model3d === "plan" ? <PlanScene3D /> : <Scene3D />}
               <div className="sp-3d-switch">
                 <div className="sp-seg" role="group" aria-label="3D geometry source">
-                  <button aria-pressed={model3d === "model"} onClick={() => setModel3d("model")}>Synthetic hub model</button>
-                  <button aria-pressed={model3d === "plan"} onClick={() => setModel3d("plan")} data-testid="plan-3d">Plan-built 3D</button>
+                  <button aria-pressed={model3d === "model"} onClick={() => setModel3d("model")}>Real hub</button>
+                  <button aria-pressed={model3d === "plan"} onClick={() => setModel3d("plan")} data-testid="plan-3d">What a hub gets on day one (from the floor plan)</button>
                 </div>
                 <span className="sp-caption" style={{ margin: 0 }}>{model3d === "plan"
                   ? "What a real hub gets on day one: extruded from its floor plan (walls, zones, conveyors at deck height, racks). No 3D model."
-                  : "The fictional hub's own model, used for the synthetic footage."}</span>
+                  : "The hub's own 3D model, the one the footage was rendered from."}</span>
               </div>
             </SceneBoundary>
           )}

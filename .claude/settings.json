@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      { "matcher": "*", "hooks": [ { "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/review/tools/review_watch.py\"" } ] }
+    ],
+    "Stop": [
+      { "hooks": [ { "type": "command", "command": "python \"$CLAUDE_PROJECT_DIR/review/tools/review_watch.py\"" } ] }
+    ]
+  }
+}

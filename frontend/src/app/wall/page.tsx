@@ -79,7 +79,6 @@ function Wall() {
     <div className="sp-page sp-stack" style={{ gap: 18 }}>
       <header className="sp-row sp-wrap" style={{ justifyContent: "space-between", alignItems: "flex-end", gap: 12 }}>
         <div>
-          <p className="sp-eyebrow">Synthetic CCTV · CONTOH Express hub (fictional)</p>
           <h1 className="sp-h1">Camera wall</h1>
         </div>
         <SourcePicker index={index.data} cases={cases.data ?? []} value={scenarioParam ? `s:${scenarioParam}` : caseParam ? `c:${caseParam}` : ""}
@@ -158,7 +157,7 @@ function ScenarioWall({ s, media, caseId }: { s: WallScenario; media: MediaRow[]
   return (
     <section className="sp-stack" style={{ gap: 14 }} aria-labelledby="wall-h">
       <div className="sp-tint" style={{ padding: "14px 18px" }}>
-        <p className="sp-micro" id="wall-h">{s.scenario} · {s.title} · synthetic</p>
+        <p className="sp-micro" id="wall-h">{s.scenario} · {s.title}</p>
         <p className="sp-h3" style={{ margin: "4px 0 0" }}>{complaint ?? (subject ? `Case subject: ${subject}` : "No complaint recorded in case_input.json")}</p>
         <p className="sp-caption" style={{ margin: "4px 0 0" }}>
           {s.input?.question ?? "Question not written yet (case_input.json missing)."}
@@ -197,7 +196,7 @@ function CaseWall({ row }: { row: CaseListRow }) {
   return (
     <section className="sp-stack" style={{ gap: 14 }} aria-labelledby="wall-h">
       <div className="sp-tint" style={{ padding: "14px 18px" }}>
-        <p className="sp-micro" id="wall-h">Case footage · {row.footage_kinds?.includes("synthetic_test") ? "synthetic" : "imported"}</p>
+        <p className="sp-micro" id="wall-h">Case footage</p>
         <p className="sp-h3" style={{ margin: "4px 0 0" }}>{c.question}</p>
         <p className="sp-caption" style={{ margin: "4px 0 0" }}>{c.target_description} · {withFootage.length} of {tiles.length} cameras in scope have footage in the case window</p>
         <div className="sp-row" style={{ gap: 8, marginTop: 10 }}>

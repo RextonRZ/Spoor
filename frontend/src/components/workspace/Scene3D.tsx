@@ -7,7 +7,7 @@
 import { describeScan } from "@/lib/scans";
 import { Canvas, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Line, OrbitControls, useGLTF } from "@react-three/drei";
-import { Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { floorFootprint, frustumCorners, siteToRenderer, type Vec3 } from "@/lib/frames";
@@ -260,7 +260,7 @@ function LastConfirmed() {
 }
 
 function CameraRig({ reduced }: { reduced: boolean }) {
-  const { focus } = useWorkspace();
+  const { focus, parcel } = useWorkspace();
   const controls = useRef<OrbitControlsImpl>(null);
   const { camera, invalidate, size } = useThree();
   const aspect = size.width / Math.max(1, size.height);
@@ -271,8 +271,17 @@ function CameraRig({ reduced }: { reduced: boolean }) {
       return { target: r3([31, 20, 0]), pos: r3([31 - 40 * k, 20, 58 * k]) };
     }
     const k = Math.max(1, 1.25 / aspect);
+    // same orientation as the 2D plan (north away, inbound docks on the left), a calm 3/4 view framed on the trail
+    const pts = (parcel.data?.scans ?? []).flatMap((s) => { const sp = scanPoint(s.station_id ?? s.device_id); return sp ? [sp.position_m] : []; });
+    if (pts.length) {
+      const xs = pts.map((p) => p[0]);
+      const ys = pts.map((p) => p[1]);
+      const [cx, cy] = [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2];
+      const span = Math.max(22, Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) * k;
+      return { target: r3([cx, cy, 0]), pos: r3([cx, cy - span * 1.05, span * 1.15]) };
+    }
     return { target: r3([30, 20, 0]), pos: r3([30, 20 - 52 * k, 52 * k]) };
-  }, [aspect]);
+  }, [aspect, parcel.data]);
   useEffect(() => {
     camera.position.copy(home.pos);
     controls.current?.target.copy(home.target);
@@ -304,8 +313,9 @@ function CameraRig({ reduced }: { reduced: boolean }) {
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
   }, [focus, camera, home, reduced, invalidate]);
-  return <OrbitControls ref={controls} makeDefault enableDamping={!reduced} maxPolarAngle={Math.PI / 2.05}
-    minDistance={4} maxDistance={140} />;
+  // orbit stays above the floor and inside the building's scale (no flipping, no flying off)
+  return <OrbitControls ref={controls} makeDefault enableDamping={!reduced} maxPolarAngle={Math.PI / 2.3}
+    minDistance={6} maxDistance={95} />;
 }
 
 /** Keyboard control for the canvas container: arrows pan, +/- zoom, R resets (PRD §19.4 keyboard control). */
@@ -344,10 +354,20 @@ function KeyboardNav({ el }: { el: HTMLElement | null }) {
   return null;
 }
 
-interface Label { key: string; site: Vec3; text: string; tone: "scan" | "cam" | "last" | "sel" }
+interface Label { key: string; site: Vec3; text: string; tone: "scan" | "cam" | "last" | "sel" | "land" }
 interface Placed { key: string; x: number; y: number; ay: number; text: string; tone: Label["tone"] }
 
-const PRIORITY: Record<Label["tone"], number> = { sel: 0, last: 1, cam: 2, scan: 3 };
+const PRIORITY: Record<Label["tone"], number> = { sel: 0, last: 1, cam: 2, scan: 3, land: 4 };
+
+/** Landmarks that keep the user oriented (design_sprint §H), placed at their zone's centre, above the racks. */
+const LANDMARKS: [string, string][] = [["Z01", "Inbound docks 01–06"], ["Z12", "Outbound docks 07–12"], ["Z05", "Sorter"],
+  ["Z06", "Chutes"], ["Z10", "Cage staging"], ["Z11", "Exception store"]];
+const LANDMARK_LABELS: Label[] = LANDMARKS.flatMap(([id, text]) => {
+  const z = HUB.zones.find((x) => x.id === id);
+  if (!z?.polygons[0]) return [];
+  const [x, y] = centroid(z.polygons[0]);
+  return [{ key: `land-${id}`, site: [x, y, 3.2] as Vec3, text, tone: "land" as const }];
+});
 
 /** Screen-space de-overlap: higher-priority labels keep their place; others stack upward with a leader line. */
 export function declutter(items: Omit<Placed, "ay">[], width = Infinity): Placed[] {
@@ -370,6 +390,26 @@ export function declutter(items: Omit<Placed, "ay">[], width = Infinity): Placed
     if (placedAt !== null) out.push({ ...it, ay: it.y, y: placedAt });
   }
   return out;
+}
+
+/** Turns the compass needle so N points to site north on screen, whenever the view changes (design_sprint §H). */
+function CompassSync({ needle }: { needle: RefObject<HTMLSpanElement | null> }) {
+  const { camera, controls } = useThree() as unknown as { camera: THREE.Camera; controls: OrbitControlsImpl | null };
+  useEffect(() => {
+    if (!controls) return;
+    const run = () => {
+      // eslint-disable-next-line react-hooks/immutability -- the needle turns on every orbit frame: a direct transform, no re-render
+      const el = needle.current;
+      if (!el) return;
+      const a = controls.target.clone().project(camera);
+      const t = controls.target.clone().add(r3([0, 10, 0]).sub(r3([0, 0, 0]))).project(camera);
+      el.style.transform = `rotate(${Math.atan2(t.x - a.x, t.y - a.y)}rad)`;
+    };
+    run();
+    controls.addEventListener("change", run);
+    return () => controls.removeEventListener("change", run);
+  }, [needle, controls, camera]);
+  return null;
 }
 
 /** Projects label anchors to screen space whenever the view changes; labels are plain DOM over the canvas. */
@@ -401,21 +441,26 @@ function useLabels(): Label[] {
   return useMemo(() => {
     const out: Label[] = [];
     if (mode !== "people") {
+      // the trail's two ends say where it starts and stops; a middle scan gets a chip only when it is picked
       const lc = lastSeen.data?.[0]?.last_confident?.evidence_id;
-      for (const s of parcel.data?.scans ?? []) {
+      const scans = parcel.data?.scans ?? [];
+      scans.forEach((s, i) => {
         const sp = scanPoint(s.station_id ?? s.device_id);
-        if (!sp) continue;
+        if (!sp) return;
         const sel = selection?.kind === "scan" && selection.scanId === s.scan_event_id;
-        out.push({ key: s.scan_event_id, site: [sp.position_m[0], sp.position_m[1], sp.position_m[2] + 1.4],
-          text: `${describeScan(s).title} · ${fmtTime(s.time)}`, tone: sel ? "sel" : "scan" });
-        if (s.scan_event_id === lc) out.push({ key: "last", site: [sp.position_m[0], sp.position_m[1], 0.1], text: "Last confirmed", tone: "last" });
-      }
+        if (s.scan_event_id === lc) {
+          out.push({ key: "last", site: [sp.position_m[0], sp.position_m[1], 0.1], text: `Last seen ${fmtTime(s.time, false)}`, tone: "last" });
+        } else if (i === 0 || sel) {
+          out.push({ key: s.scan_event_id, site: [sp.position_m[0], sp.position_m[1], sp.position_m[2] + 1.4],
+            text: i === 0 && !sel ? `Scanned ${fmtTime(s.time, false)}` : `${describeScan(s).title} · ${fmtTime(s.time, false)}`, tone: sel ? "sel" : "scan" });
+        }
+      });
     }
     for (const id of litCameras) {
       const c = HUB.cameras.find((x) => x.id === id);
-      if (c) out.push({ key: `cam-${id}`, site: [c.position_m[0], c.position_m[1], c.height_m + 0.6], text: `${id} · approx. FOV`, tone: "cam" });
+      if (c) out.push({ key: `cam-${id}`, site: [c.position_m[0], c.position_m[1], c.height_m + 0.6], text: id.replace("_", " "), tone: "cam" });
     }
-    return out;
+    return [...out, ...LANDMARK_LABELS];
   }, [parcel.data, litCameras, selection, lastSeen.data, mode]);
 }
 
@@ -426,6 +471,7 @@ export default function Scene3D() {
   const [el, setEl] = useState<HTMLDivElement | null>(null);
   const labels = useLabels();
   const [placed, setPlaced] = useState<Placed[]>([]);
+  const needle = useRef<HTMLSpanElement>(null);
   const covered = useMemo(() => new Set((cameras.data ?? []).filter((c) => c.coverage.length)
     .map((c) => c.camera.camera_id.replace(/^cam_/, ""))), [cameras.data]);
   return (
@@ -447,6 +493,7 @@ export default function Scene3D() {
         <CameraRig reduced={reduced} />
         <KeyboardNav el={el} />
         <Projector labels={labels} onPlace={setPlaced} />
+        <CompassSync needle={needle} />
       </Canvas>
       <div className="sp-scene-labels" aria-hidden>
         {placed.map((p) => (
@@ -461,6 +508,9 @@ export default function Scene3D() {
       {!ready && <div className="sp-scene-note" role="status">Loading hub model</div>}
       <div className="sp-scene-tools">
         <button className="sp-btn sp-btn-sm" onClick={() => focusOn(null)}>Reset view</button>
+      </div>
+      <div className="sp-compass" aria-label="Compass" role="img">
+        <span ref={needle} className="sp-compass-needle"><span className="sp-compass-n">N</span></span>
       </div>
     </div>
   );

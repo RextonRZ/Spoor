@@ -4,6 +4,7 @@
  * appeared next, with an empty dashed box at the predicted place and time. "Not seen" is shown only when the backend
  * returns a typed negative observation (the clip was analysed); otherwise the row says what is missing.
  */
+import { ExpectedMark } from "./ExpectedMark";
 import { useEffect, useState } from "react";
 import { api, signedUrl } from "@/lib/api";
 import { cam, clock, lastConfirmedWords, RESULT_WORDS, ROLE_WORDS, type ExpectedNext, type FrameRef } from "@/lib/journey";
@@ -69,7 +70,8 @@ function Row({ r, onOpen }: { r: ExpectedNext; onOpen: () => void }) {
       </div>
       <p className="sp-caption" style={{ margin: 0 }}>{ROLE_WORDS[r.role]} · expected {clock(r.predicted_t, true)} · {r.how}</p>
       {r.frame && <Shot frame={r.frame} row={r} caption={`frame ${r.frame.frame_index} at the predicted time`} onOpen={onOpen} />}
-      {r.frame && r.expected_region_px && <CloseUp frame={r.frame} row={r} />}
+      {/* the close-up of the expected spot only once there is a result to show there (design_sprint §G) */}
+      {r.frame && r.expected_region_px && r.result === "not_seen" && <CloseUp frame={r.frame} row={r} />}
       {r.result === "not_seen" && r.negative_observation && (
         <p className="mm-neg">Not seen: frames {r.negative_observation.frame_indices[0]}–{r.negative_observation.frame_indices.at(-1)} analysed, the parcel was not confirmed. Negative evidence.</p>
       )}
@@ -79,13 +81,10 @@ function Row({ r, onOpen }: { r: ExpectedNext; onOpen: () => void }) {
 }
 
 function Shot({ frame, row, caption, onOpen }: { frame: FrameRef; row?: ExpectedNext; caption: string; onOpen: () => void }) {
-  const reg = row?.expected_region_px;
-  const b = row?.region_basis_wh_px;
   return (
     <button className="mm-shot" onClick={onOpen} aria-label={`${caption}. Open in the source panel.`}>
       <FadeImg src={signedUrl(frame.frame_url)} alt="" />
-      {reg && b && <span className="mm-box" style={{ left: `${(reg[0] / b[0]) * 100}%`, top: `${(reg[1] / b[1]) * 100}%`,
-        width: `${((reg[2] - reg[0]) / b[0]) * 100}%`, height: `${((reg[3] - reg[1]) / b[1]) * 100}%` }} />}
+      {row && <ExpectedMark row={row} />}
       <span className="mm-cap">{caption}</span>
     </button>
   );

@@ -177,6 +177,15 @@ def canonical_sha256(data: dict) -> str:
     return hashlib.sha256(json.dumps(data, sort_keys=True, separators=(",", ":"), default=str).encode()).hexdigest()
 
 
+def _legal_context(store: EvidenceStore, site_id: str) -> dict | None:
+    """The latest web-grounded Malaysian context for this site (J3): background for the reader, never evidence."""
+    from spoor.grounding import latest_legal_context
+
+    rec = latest_legal_context(store, site_id)
+    return rec.model_dump(mode="json", include={"legal_context_id", "model", "answers", "sources", "searches",
+                                                "retrieved_at", "label", "content_sha256"}) if rec else None  # fmt: skip
+
+
 def build_report(store: EvidenceStore, case_id: str, *, site: Site, now: datetime | None = None) -> dict:
     now = now or datetime.now(UTC)
     case = store.get(Case, case_id)
@@ -283,6 +292,7 @@ def build_report(store: EvidenceStore, case_id: str, *, site: Site, now: datetim
             "model_calls": len(costs), "cache_hits": sum(c.cache_hit for c in costs),
             "tokens": {"input": sum(c.input_tokens for c in costs), "output": sum(c.output_tokens for c in costs)},
         },
+        "legal_context": _legal_context(store, site.site_id),
         "simulated_inputs": [{"sensor_event_id": s.sensor_event_id, "kind": s.kind.value, "device_id": s.device_id,
                               "label": "Simulated input"} for s in sensors
                              if s.source_type == SourceType.SENSOR_SIMULATED],
@@ -382,6 +392,24 @@ def _kv(rows: list[tuple[str, str]]) -> str:
     return "<dl class=kv>" + "".join(f"<dt>{e(k)}</dt><dd>{e(v)}</dd>" for k, v in rows) + "</dl>"
 
 
+def _legal_html(ctx: dict | None) -> str:
+    e = html.escape
+    if not ctx:
+        return ("<p class=muted>Not retrieved: web-grounded context needs the Model API key; a site admin runs it from "
+                "the Operator page. The Evidence Act note under the footnotes is from the Laws of Malaysia reprint.</p>")
+    out = []
+    for a in ctx["answers"]:
+        body = " ".join(f"{e(s['text'])}" + "".join(f"<sup>[{n}]</sup>" for n in s["sources"]) for s in a["sentences"])
+        dropped = f" <span class=muted>({a['dropped_uncited']} uncited sentence(s) left out)</span>" if a["dropped_uncited"] else ""
+        out.append(f"<p><b>{e(a['question'])}</b><br>{body or '<span class=muted>No cited answer.</span>'}{dropped}</p>")
+    srcs = "".join(f"<li>[{s['n']}] {e(s['title'])} · {e(s['domain'])}{' · official' if s['official'] else ''}<br>"
+                   f"<span class=muted>{e(s['url'])}</span></li>" for s in ctx["sources"])  # fmt: skip
+    return ("".join(out) + f"<ol class=plain>{srcs}</ol>"
+            + f"<p class=muted>Retrieved {e(fmt_time(ctx['retrieved_at']))} by {e(ctx['model'])} with web search "
+              f"({ctx['searches']} searches). {e(ctx['label'])} Record {e(ctx['legal_context_id'])}, "
+              f"SHA-256 {e(ctx['content_sha256'])}.</p>")
+
+
 def render_html(report: dict, *, status: str, approved_by: str | None = None) -> str:
     """The document a claims team or investigator hands over (review 012): human labels, one time zone (MYT),
     the complaint the case started from, the sources actually used, and empty states said once in words."""
@@ -474,6 +502,7 @@ def render_html(report: dict, *, status: str, approved_by: str | None = None) ->
             "No items entered the case."),
         "<h2>Records a claim usually needs</h2>" + table(
             report.get("records_not_held", []), [("Record", "record"), ("Held", "held")], "—"),
+        "<h2>Malaysian context (from the web, cited and dated)</h2>" + _legal_html(report.get("legal_context")),
         "<h2>Sources used</h2>" + table(
             report.get("sources_used", []),
             [("Kind", "kind"), ("Item", "item"), ("SHA-256", "sha256"), ("Label", "label")],
@@ -501,7 +530,7 @@ def render_html(report: dict, *, status: str, approved_by: str | None = None) ->
 <style>body{{font:14px/1.5 system-ui,sans-serif;max-width:1000px;margin:24px auto;padding:0 16px;color:#111}}
 table{{border-collapse:collapse;width:100%;margin:8px 0}}td,th{{border:1px solid #ccc;padding:4px 6px;text-align:left;
 vertical-align:top;font-size:12px}}th{{background:#f4f4f4}}.mono{{font-family:ui-monospace,monospace;font-size:11px;
-word-break:break-all}}.banner{{padding:8px;border:2px solid #333;font-weight:600}}.muted{{color:#555}}
+word-break:break-all}}.banner{{padding:8px;border:2px solid #333;font-weight:600}}.muted{{color:#555}}ol.plain{{list-style:none;padding-left:0}}
 .disclaimer{{background:#fff4d6;padding:8px;border-left:4px solid #c90}}.kv{{display:grid;
 grid-template-columns:max-content 1fr;gap:2px 16px;margin:8px 0}}.kv dt{{color:#555}}.kv dd{{margin:0}}
 blockquote{{margin:4px 0;padding:6px 10px;border-left:3px solid #999;background:#f7f7f7}}

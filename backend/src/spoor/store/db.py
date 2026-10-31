@@ -59,6 +59,7 @@ calibrations = _table("calibrations", _idx("camera_id"))
 clock_syncs = _table("clock_syncs", _idx("camera_id"), _idx("clock_domain_id"))
 clock_domains = _table("clock_domains", _idx("site_id"))
 site_plans = _table("site_plans", _idx("site_id"))
+legal_contexts = _table("legal_contexts", _idx("site_id"))
 
 # --- media ----------------------------------------------------------------------
 authorizations = _table("authorizations", _idx("site_id"))
@@ -95,6 +96,7 @@ evidence_requests = _table("evidence_requests", _idx("case_id"))
 reports = _table("reports", _idx("case_id"))
 search_tasks = _table("search_tasks", _idx("case_id"))
 search_outcomes = _table("search_outcomes", _idx("case_id"), _idx("search_task_id"))
+voice_transcripts = _table("voice_transcripts", _idx("case_id"))
 
 # --- operations ------------------------------------------------------------------
 invalidations = _table("invalidations", _idx("target_id"))

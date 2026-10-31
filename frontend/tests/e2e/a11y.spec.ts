@@ -46,3 +46,14 @@ test("a11y workspace hero tabs (cameras, missing moment, agent) and the 3D switc
   await page.waitForTimeout(2500);
   expect(await audit(page), "3d").toEqual([]);
 });
+
+test("a11y operator tabs (model calls with the Malaysian context, evaluation)", async ({ page }) => {
+  await page.request.post("/api/session", { data: { role: "site_admin" } });
+  await page.goto("/operator");
+  for (const t of ["Model calls", "Evaluation", "Cameras and clocks", "Footage"]) {
+    await page.getByRole("tab", { name: t }).click();
+    await page.waitForLoadState("networkidle");
+    await page.waitForTimeout(800);
+    expect(await audit(page), t).toEqual([]);
+  }
+});

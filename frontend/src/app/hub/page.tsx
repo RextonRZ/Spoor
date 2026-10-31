@@ -41,7 +41,6 @@ export default function HubPage() {
     <div className="sp-page sp-stack hub" style={{ gap: 22 }}>
       <header className="hub-head">
         <div>
-          <p className="sp-eyebrow">{site?.name ?? "Hub"}</p>
           <h1 className="sp-h1">Hub</h1>
         </div>
         <Search siteId={site?.site_id} />

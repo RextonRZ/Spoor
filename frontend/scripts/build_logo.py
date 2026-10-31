@@ -1,14 +1,18 @@
-"""Build the Spoor logo SVGs (owner_style_0136, update 02:08): an "S" drawn as an evidence trail, rebuilt by hand as exact
-geometry from the chosen ChatGPT concept (assets/brand/logo_concept_chatgpt.png), never traced from the raster.
+"""Build the Spoor logo SVGs (owner_final_0815: the FINAL logo is the fingerprint parcel box - "every parcel leaves a
+trace": the box carries its own print; never presented as fingerprinting people). Rebuilt as exact geometry from Rexton's
+PNGs (assets/brand/spoor_logo_fingerprint_{light,dark}.png), not traced from them.
 
-Symbol: one stroke weight, rounded caps, hollow nodes where the trail starts (camera detections), evenly spaced dots
-for the inferred stretches, a filled dot where the trail ends. Wordmark: "Spoor" in Google Sans Flex at weight 700
-(OFL-1.1, @fontsource-variable/google-sans-flex), outlined to paths so the SVG renders the same everywhere.
+Symbol: an isometric box (a hexagon split into three faces). Top face: evenly spaced straight ridges along one edge
+direction. Left and right faces: nested rounded "L" ridges, concentric round each face's outer lower corner (mirrored),
+like fingerprint ridges. One stroke weight, round caps, the same thin gap along every box edge. Small mark (<= 32 px,
+favicon): 3 ridges per face, heavier stroke. Wordmark: "Spoor" in Google Sans Flex 700 (OFL-1.1,
+@fontsource-variable/google-sans-flex), outlined to paths so the SVG renders the same everywhere.
 
 Run: uv run --project ../backend --with fonttools --with brotli python scripts/build_logo.py
 """
 
 import io
+import math
 from pathlib import Path
 
 from fontTools.pens.svgPathPen import SVGPathPen
@@ -21,36 +25,54 @@ OUT = HERE.parent / "public" / "brand"
 FONT = HERE.parent / "node_modules/@fontsource-variable/google-sans-flex/files/google-sans-flex-latin-wght-normal.woff2"
 INDIGO = {"light": "#4F46E5", "dark": "#6366F1"}
 WORD = {"light": "#0E1116", "dark": "#FFFFFF"}
-SW = 6.0  # one stroke weight for every line
-DOT_R = 3.2  # inferred dots
-NODE_R = 6.2  # hollow start nodes (ring stroke 3.4)
-END_R = 7.4  # filled end dots
+CX, CY, R = 62.0, 61.0, 58.0
+TRACK = 0.02  # wordmark tracking, -2 % of the em  # the box's centre and corner radius in the 124 x 122 symbol box
 
-# The S, in a 124 x 122 box: upper bowl, middle bar, lower bowl (coordinates read off the concept, then made exact).
-SOLID = [
-    "M21.8 12 C12 12 5 22 5 35 C5 48 15 58 30 58 L86 58",  # upper-left bowl into the middle bar
-    "M34.2 12 L74 12",  # top bar leaving the first node
-    "M99 60.5 C110 64 116 73 116 85 C116 97 110 106 101.5 109.5",  # lower-right bowl into the end dot
-    "M9.6 83.4 C5.5 89 5.8 100 16 106 C20 108.6 25 110 32 110 L94 110",  # lower-left bowl into the bottom bar
-]
-TOP_DOTS = [(86, 12), (97.5, 12.4), (108.4, 15.2), (115.6, 23.6), (117, 34.6), (112.6, 45.2)]  # top-right, inferred
-MID_DOTS = [(34, 79), (44, 79), (54, 79), (64, 79), (74, 79)]  # lower bar, inferred
-NODES = [(28, 12), (14, 79)]
-ENDS = [(93, 58), (101, 110)]
+
+def _pt(o, e1, e2, u, v):
+    return (o[0] + u * e1[0] + v * e2[0], o[1] + u * e1[1] + v * e2[1])
 
 
 def symbol(color: str, *, small: bool = False) -> str:
-    """The symbol's SVG elements. `small` = the simplified mark for <= 32 px: fewer, larger dots, heavier stroke."""
-    sw = SW * (1.45 if small else 1)
-    parts = [f'<path d="{d}" fill="none" stroke="{color}" stroke-width="{sw}" stroke-linecap="round" '
-             f'stroke-linejoin="round"/>' for d in SOLID]  # fmt: skip
-    dots = (TOP_DOTS[::2] + MID_DOTS[::2]) if small else (TOP_DOTS + MID_DOTS)
-    r = DOT_R * (1.6 if small else 1)
-    parts += [f'<circle cx="{x}" cy="{y}" r="{r}" fill="{color}"/>' for x, y in dots]
-    parts += [f'<circle cx="{x}" cy="{y}" r="{NODE_R}" fill="none" stroke="{color}" stroke-width="{3.4 * (1.3 if small else 1)}"/>'
-              for x, y in NODES]  # fmt: skip
-    parts += [f'<circle cx="{x}" cy="{y}" r="{END_R * (1.15 if small else 1)}" fill="{color}"/>' for x, y in ENDS]
-    return "".join(parts)
+    """The symbol's SVG elements. `small` = the simplified mark for <= 32 px: 3 ridges per face, heavier stroke."""
+    c30 = math.cos(math.radians(30))
+    C = (CX, CY)
+    T, B = (CX, CY - R), (CX, CY + R)
+    UL, UR = (CX - R * c30, CY - R / 2), (CX + R * c30, CY - R / 2)
+    LL, LR = (CX - R * c30, CY + R / 2), (CX + R * c30, CY + R / 2)
+    sub = lambda p, q: (p[0] - q[0], p[1] - q[1])  # noqa: E731
+    n_top, n_side = (3, 3) if small else (4, 4)
+    sw = R * (0.15 if small else 0.112)  # stroke width (ridge : gap about 1 : 1, as the PNG)
+    g = 0.10 if small else 0.075  # the gap along the box edges (face units, beyond the stroke's half width)
+    paths = []
+    # top face: origin UL, a along UL->C (down-right), b along UL->T (up-right); ridges at constant b
+    o, e1, e2 = UL, sub(C, UL), sub(T, UL)
+    for i in range(n_top):
+        b = g + (1 - 2 * g) * (i + 0.5) / n_top
+        p0, p1 = _pt(o, e1, e2, g, b), _pt(o, e1, e2, 1 - g, b)
+        paths.append(f"M{p0[0]:.2f} {p0[1]:.2f} L{p1[0]:.2f} {p1[1]:.2f}")
+    # side faces: origin at the outer lower corner, u along the bottom edge (towards B), v up the outer edge;
+    # ridge i = the rounded L at max(u, v) = r_i, from the outer edge to the bottom edge
+    # as the PNG: the right face's outer ridge hugs the seam up to the centre; the left face stops short of the seam,
+    # leaving room for the short stub at the bottom corner
+    for o, ub, vt, r_max in ((LL, B, UL, 1 - 2 * g if small else 0.8), (LR, B, UR, 1 - 2 * g)):
+        e1, e2 = sub(ub, o), sub(vt, o)
+        for i in range(n_side):
+            r = g + (r_max - g) * (i + 1) / n_side
+            rho = min(0.8 * r, 0.42)  # corner rounding: near quarter circles, like the PNG's fingerprint loops
+            s0 = _pt(o, e1, e2, g, r)
+            s1 = _pt(o, e1, e2, max(g, r - rho), r)
+            cq = _pt(o, e1, e2, r, r)
+            s2 = _pt(o, e1, e2, r, max(g, r - rho))
+            s3 = _pt(o, e1, e2, r, g)
+            paths.append(f"M{s0[0]:.2f} {s0[1]:.2f} L{s1[0]:.2f} {s1[1]:.2f} Q{cq[0]:.2f} {cq[1]:.2f} "
+                         f"{s2[0]:.2f} {s2[1]:.2f} L{s3[0]:.2f} {s3[1]:.2f}")
+    if not small:
+        # the short separate ridge in the seam at the bottom corner (as in the PNG)
+        s0, s1 = _pt(B, sub(UL, LL), (0, 0), g + 0.02, 0), _pt(B, sub(UL, LL), (0, 0), 0.30, 0)
+        paths.append(f"M{s0[0]:.2f} {s0[1]:.2f} L{s1[0]:.2f} {s1[1]:.2f}")
+    return "".join(f'<path d="{d}" fill="none" stroke="{color}" stroke-width="{sw:.2f}" stroke-linecap="round" '
+                   f'stroke-linejoin="round"/>' for d in paths)
 
 
 def wordmark_paths(text: str, size: float, x0: float, baseline: float) -> tuple[str, float]:
@@ -69,15 +91,15 @@ def wordmark_paths(text: str, size: float, x0: float, baseline: float) -> tuple[
         g = cmap[ord(ch)]
         tp = TransformPen(pen, (scale, 0, 0, -scale, x0 + x * scale, baseline))
         gs[g].draw(tp)
-        x += gs[g].width + kern.get((prev, g), 0)
+        x += gs[g].width + kern.get((prev, g), 0) - TRACK * font["head"].unitsPerEm  # (tighter, as the PNG)
         prev = g
     return pen.getCommands(), x * scale
 
 
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
-    word, adv = wordmark_paths("Spoor", 96, 148, 98)
-    width = 148 + adv + 6
+    word, adv = wordmark_paths("Spoor", 96, 138, 98)
+    width = 138 + adv + 6
     for theme in ("light", "dark"):
         suffix = "" if theme == "light" else "-dark"
         full = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width:.1f} 122" role="img" aria-label="Spoor">'

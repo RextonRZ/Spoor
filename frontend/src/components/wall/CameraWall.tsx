@@ -193,7 +193,6 @@ function Tile({ tile, register, report, focused, onSelect }: { tile: WallTile; f
       <figcaption className="sp-wall-cap">
         <span className="sp-strong">{tile.camera}</span>
         {tile.osd && <span className="sp-muted">{tile.osd}</span>}
-        {tile.mediaId && <span className="sp-chip sp-chip-sim">synthetic</span>}
       </figcaption>
       <span className="sp-wall-out" aria-hidden>no footage at this time</span>
     </figure>

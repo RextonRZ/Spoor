@@ -10,6 +10,7 @@ import { use, useState } from "react";
 import { api, invalidate, useResource } from "@/lib/api";
 import { clock } from "@/lib/journey";
 import { ErrorState, Loading } from "@/components/ui";
+import { Transcript, VoiceRecorder, useVoice } from "@/components/VoiceNote";
 import "./search.css";
 
 interface SearchView {
@@ -30,6 +31,7 @@ export default function SearchPage({ params }: { params: Promise<{ caseId: strin
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const task = view.data?.tasks[view.data.tasks.length - 1];
+  const voice = useVoice(caseId);
 
   async function create() {
     setBusy("create");
@@ -89,6 +91,8 @@ export default function SearchPage({ params }: { params: Promise<{ caseId: strin
                     <button className="sp-btn srch-big" onClick={() => record(pl.area_id, "not_found")} disabled={!!busy}>Not here</button>
                   </div>
                 )}
+                {(voice.data?.items ?? []).filter((v) => v.kind === "search_note" && v.area_id === pl.area_id).map((v) => <Transcript key={v.voice_transcript_id} v={v} />)}
+                <VoiceRecorder caseId={caseId} kind="search_note" taskId={task.search_task_id} areaId={pl.area_id} label="Add a voice note" />
               </li>
             );
           })}

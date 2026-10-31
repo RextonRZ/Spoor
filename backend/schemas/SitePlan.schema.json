@@ -1,0 +1,525 @@
+{
+  "$defs": {
+    "PlanArea": {
+      "additionalProperties": false,
+      "properties": {
+        "area_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Area Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "zone",
+            "walkway",
+            "rack",
+            "bench",
+            "cage_bay",
+            "blind_spot",
+            "store",
+            "machine"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "polygon_m": {
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          },
+          "minItems": 3,
+          "title": "Polygon M",
+          "type": "array"
+        },
+        "height_m": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Height M"
+        },
+        "zone_id": {
+          "anyOf": [
+            {
+              "maxLength": 96,
+              "pattern": "^zone_[A-Za-z0-9][A-Za-z0-9_-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Zone Id"
+        },
+        "walkable": {
+          "description": "A person can walk here (walkways, open floor of zones); racks/benches: no",
+          "title": "Walkable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "area_id",
+        "kind",
+        "name",
+        "polygon_m",
+        "walkable"
+      ],
+      "title": "PlanArea",
+      "type": "object"
+    },
+    "PlanCamera": {
+      "additionalProperties": false,
+      "properties": {
+        "camera_id": {
+          "maxLength": 96,
+          "pattern": "^cam_[A-Za-z0-9][A-Za-z0-9_-]*$",
+          "title": "Camera Id",
+          "type": "string"
+        },
+        "position_m": {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Position M",
+          "type": "array"
+        },
+        "heading_deg": {
+          "title": "Heading Deg",
+          "type": "number"
+        },
+        "tilt_down_deg": {
+          "title": "Tilt Down Deg",
+          "type": "number"
+        },
+        "hfov_deg": {
+          "exclusiveMaximum": 180,
+          "exclusiveMinimum": 0,
+          "title": "Hfov Deg",
+          "type": "number"
+        },
+        "vfov_deg": {
+          "exclusiveMaximum": 180,
+          "exclusiveMinimum": 0,
+          "title": "Vfov Deg",
+          "type": "number"
+        },
+        "resolution_wh_px": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "title": "Resolution Wh Px",
+          "type": "array"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        }
+      },
+      "required": [
+        "camera_id",
+        "position_m",
+        "heading_deg",
+        "tilt_down_deg",
+        "hfov_deg",
+        "vfov_deg",
+        "resolution_wh_px"
+      ],
+      "title": "PlanCamera",
+      "type": "object"
+    },
+    "PlanConveyor": {
+      "additionalProperties": false,
+      "description": "A conveyor centreline in travel direction. `feeds` lists the conveyors it discharges onto: an open conveyor\nhands over at its end; a closed one (sorter loop) hands over where the next conveyor starts (e.g. a chute mouth).",
+      "properties": {
+        "conveyor_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Conveyor Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "belt",
+            "telescopic",
+            "loop",
+            "chute"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "path_m": {
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          },
+          "minItems": 2,
+          "title": "Path M",
+          "type": "array"
+        },
+        "deck_heights_m": {
+          "items": {
+            "type": "number"
+          },
+          "minItems": 1,
+          "title": "Deck Heights M",
+          "type": "array"
+        },
+        "closed": {
+          "default": false,
+          "title": "Closed",
+          "type": "boolean"
+        },
+        "speed_mps": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Belt speed from the machine spec; None = unknown",
+          "title": "Speed Mps"
+        },
+        "feeds": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Feeds",
+          "type": "array"
+        }
+      },
+      "required": [
+        "conveyor_id",
+        "kind",
+        "path_m",
+        "deck_heights_m"
+      ],
+      "title": "PlanConveyor",
+      "type": "object"
+    },
+    "PlanDoor": {
+      "additionalProperties": false,
+      "properties": {
+        "door_id": {
+          "title": "Door Id",
+          "type": "string"
+        },
+        "kind": {
+          "description": "dock, personnel, fire exit, cage entrance \u2026",
+          "title": "Kind",
+          "type": "string"
+        },
+        "centre_m": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Centre M",
+          "type": "array"
+        },
+        "width_m": {
+          "exclusiveMinimum": 0,
+          "title": "Width M",
+          "type": "number"
+        },
+        "wall": {
+          "enum": [
+            "N",
+            "S",
+            "E",
+            "W",
+            "inner"
+          ],
+          "title": "Wall",
+          "type": "string"
+        },
+        "exit": {
+          "default": false,
+          "description": "Leads out of the building",
+          "title": "Exit",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "door_id",
+        "kind",
+        "centre_m",
+        "width_m",
+        "wall"
+      ],
+      "title": "PlanDoor",
+      "type": "object"
+    },
+    "PlanReadPoint": {
+      "additionalProperties": false,
+      "description": "A scan point (station id in the scan log). `event_positions` says where an event kind physically happens when\nthat is not at the device itself, e.g. the sorter PLC reports a carrier assignment at the merge onto the loop.",
+      "properties": {
+        "scan_point_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Scan Point Id",
+          "type": "string"
+        },
+        "device_kind": {
+          "title": "Device Kind",
+          "type": "string"
+        },
+        "position_m": {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Position M",
+          "type": "array"
+        },
+        "zone_id": {
+          "anyOf": [
+            {
+              "maxLength": 96,
+              "pattern": "^zone_[A-Za-z0-9][A-Za-z0-9_-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Zone Id"
+        },
+        "event_positions": {
+          "additionalProperties": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "type": "array"
+          },
+          "default": {},
+          "title": "Event Positions",
+          "type": "object"
+        },
+        "visible_by": {
+          "default": [],
+          "description": "Cameras with a clear view of it (plan check)",
+          "items": {
+            "maxLength": 96,
+            "pattern": "^cam_[A-Za-z0-9][A-Za-z0-9_-]*$",
+            "type": "string"
+          },
+          "title": "Visible By",
+          "type": "array"
+        }
+      },
+      "required": [
+        "scan_point_id",
+        "device_kind",
+        "position_m"
+      ],
+      "title": "PlanReadPoint",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One version of a site's plan. A new import is a new record; answers cite the plan_id they were computed on.",
+  "properties": {
+    "plan_id": {
+      "maxLength": 96,
+      "pattern": "^plan_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Plan Id",
+      "type": "string"
+    },
+    "site_id": {
+      "maxLength": 96,
+      "pattern": "^site_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Site Id",
+      "type": "string"
+    },
+    "source": {
+      "description": "Where the plan came from, e.g. 'CAD export 2026-10 + machine spec'",
+      "minLength": 3,
+      "title": "Source",
+      "type": "string"
+    },
+    "outline_m": {
+      "items": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "number"
+          }
+        ],
+        "type": "array"
+      },
+      "minItems": 3,
+      "title": "Outline M",
+      "type": "array"
+    },
+    "eaves_m": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Eaves M"
+    },
+    "areas": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PlanArea"
+      },
+      "title": "Areas",
+      "type": "array"
+    },
+    "conveyors": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PlanConveyor"
+      },
+      "title": "Conveyors",
+      "type": "array"
+    },
+    "doors": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PlanDoor"
+      },
+      "title": "Doors",
+      "type": "array"
+    },
+    "read_points": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PlanReadPoint"
+      },
+      "title": "Read Points",
+      "type": "array"
+    },
+    "cameras": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PlanCamera"
+      },
+      "title": "Cameras",
+      "type": "array"
+    },
+    "walk_speed_mps": {
+      "default": 1.4,
+      "exclusiveMinimum": 0,
+      "title": "Walk Speed Mps",
+      "type": "number"
+    },
+    "walk_speed_max_mps": {
+      "default": 1.8,
+      "exclusiveMinimum": 0,
+      "title": "Walk Speed Max Mps",
+      "type": "number"
+    },
+    "created_by": {
+      "title": "Created By",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "plan_id",
+    "site_id",
+    "source",
+    "outline_m",
+    "created_by",
+    "created_at"
+  ],
+  "title": "SitePlan",
+  "type": "object"
+}

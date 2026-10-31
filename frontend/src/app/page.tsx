@@ -32,7 +32,6 @@ export default function CasesPage() {
           <div>
             <p className="sp-micro" id="site-h">Site</p>
             <div className="sp-h3" style={{ marginTop: 4 }}>{site?.name ?? (sites.loading ? "Loading site" : "No site registered")}</div>
-            <p className="sp-caption">Synthetic footage of a fictional hub. Scan log is simulated.</p>
           </div>
           <dl className="sp-row sp-wrap" style={{ gap: 28, margin: 0 }}>
             <Stat label="Cameras" value={cams.data ? String(cams.data.length) : "…"} />
@@ -65,7 +64,7 @@ export default function CasesPage() {
                         <span className="sp-caption">{c.case.target_description} · opened {fmtDate(c.case.created_at)}{" "}
                           {fmtTime(c.case.created_at, false)} {TZ_LABEL}</span>
                       </span>
-                      {c.footage_kinds?.includes("synthetic_test") && <span className="sp-chip sp-chip-sim">synthetic</span>}
+                      
                       <span className={c.report_status === "approved" ? "sp-chip sp-chip-safe" : "sp-chip"}>
                         {c.report_status ? `report ${c.report_status}` : "no report"}
                       </span>

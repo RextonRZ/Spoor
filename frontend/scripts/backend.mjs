@@ -19,7 +19,8 @@ const noKeys = withKeys ? {} : {
 const env = {
   ...process.env,
   ...noKeys,
-  DATA_DIR: join(local, "backend-data"),
+  // SPOOR_DATA=s2 (or `--data s2`): the S2 demo store (.local/backend-data-s2); default: the Thursday QA store the tests use
+  DATA_DIR: join(local, (() => { const i = process.argv.indexOf("--data"); const d = i > 0 ? process.argv[i + 1] : process.env.SPOOR_DATA; return d ? `backend-data-${d}` : "backend-data"; })()),
   USERS_FILE: join(local, "users.json"),
   URL_SIGNING_SECRET: readFileSync(join(local, "signing.secret"), "utf8").trim(),
   RATE_LIMIT_PER_MINUTE: "2000",

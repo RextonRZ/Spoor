@@ -12,6 +12,7 @@ from .case import (
     TimeWindow,
     VerifiedFinding,
 )
+from .context import ContextAnswer, ContextSentence, ContextSource, LegalContext
 from .enums import (
     ActorKind,
     AgentRole,
@@ -78,6 +79,7 @@ from .site import (
     Zone,
     point_in_polygon,
 )
+from .voice import VoiceTranscript, VoiceTurn
 
 # Models exported as JSON Schema for other languages (e.g. generated TypeScript for the frontend).
 SCHEMA_MODELS = [
@@ -87,7 +89,7 @@ SCHEMA_MODELS = [
     Case, Event, Hypothesis, HypothesisStatusChange, VerifiedFinding, CaseRevision,
     AgentRequest, AgentResponse,
     ScanEvent, ContainerMembership, IdentifierAlias, ClockDomain,
-    SitePlan,
+    SitePlan, LegalContext, VoiceTranscript,
 ]  # fmt: skip
 
 __all__ = [
@@ -118,6 +120,9 @@ __all__ = [
     "ClockSync",
     "ContainerMembership",
     "ContainerType",
+    "ContextAnswer",
+    "ContextSentence",
+    "ContextSource",
     "DeviceKind",
     "Event",
     "EvidenceLabel",
@@ -131,6 +136,7 @@ __all__ = [
     "HypothesisStatusChange",
     "IdentifierAlias",
     "IdentifierScheme",
+    "LegalContext",
     "LinkStatus",
     "MediaAsset",
     "MediaAuthorization",
@@ -168,6 +174,8 @@ __all__ = [
     "TrackAssociation",
     "VerificationVerdict",
     "VerifiedFinding",
+    "VoiceTranscript",
+    "VoiceTurn",
     "Zone",
     "ZoneKind",
     "check_estimate_in_site",

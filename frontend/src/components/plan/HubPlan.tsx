@@ -11,7 +11,7 @@
  * last confirmed = ring (green for a sighting, blue for a scan: no-key mode never draws green); dashed box = where it
  * was expected (red only for a typed negative observation, grey when not analysed); grey hatch = no coverage.
  */
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { HUB, centroid } from "@/lib/hub";
 import { describeScan } from "@/lib/scans";
 import { cam, clock, type JourneyObject, type MarkerAt, type MissingObject } from "@/lib/journey";
@@ -87,8 +87,24 @@ function useBox() {
   return [ref, box] as const;
 }
 
+/** A zone label a time chip covers is hidden whole, never left peeking out from under it (review F-039 P2 #1). */
+function useChipKnockout(svg: RefObject<SVGSVGElement | null>) {
+  useLayoutEffect(() => {
+    const el = svg.current;
+    if (!el) return;
+    const chips = [...el.querySelectorAll<SVGRectElement>(".hp-chip rect")].map((r) => r.getBBox());
+    el.querySelectorAll<SVGGraphicsElement>(".hp-zl").forEach((z) => {
+      const b = z.getBBox();
+      const hit = chips.some((c) => b.x < c.x + c.width + 2 && c.x < b.x + b.width + 2 && b.y < c.y + c.height + 2 && c.y < b.y + b.height + 2);
+      z.style.visibility = hit ? "hidden" : "";
+    });
+  });
+}
+
 export default function HubPlan(props: PlanProps) {
   const [ref, box] = useBox();
+  const svgRef = useRef<SVGSVGElement>(null);
+  useChipKnockout(svgRef);
   const narrow = box.w > 0 && box.w < 640;
   const litKey = props.litCameras?.join() ?? "";
   // eslint-disable-next-line react-hooks/exhaustive-deps -- recompute only when the evidence or the width class changes
@@ -102,7 +118,7 @@ export default function HubPlan(props: PlanProps) {
       <div className="hp-box" ref={ref} style={fitW ? { minHeight: S ? (ext.y1 - ext.y0) * S : 200, flex: "none" }
         : { minHeight: props.minHeight ?? 260 }}>
         {S > 0 && (
-          <svg className="hp-svg" width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="group" aria-label={props.label}>
+          <svg ref={svgRef} className="hp-svg" width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="group" aria-label={props.label}>
             <Base S={S} heat={props.heat} ext={ext} />
             <Overlay S={S} ext={ext} {...props} />
             <ScaleNorth S={S} W={W} H={H} zoomed={ext !== FULL} />
@@ -226,9 +242,9 @@ function Base({ S, heat, ext }: { S: number; heat?: Record<string, number>; ext:
         <path d={stadium(L.radius)} fill="none" stroke={C.mach} strokeWidth={S} />
         <path d={stadium(L.radius)} fill="none" stroke="#3a3d47" strokeWidth={0.8 * S} strokeDasharray={`1.2 ${Math.max(1, 0.7 * S - 1.2)}`} />
         <path d={stadium(L.radius - 0.5)} fill="#fff" fillOpacity={0.012} />
-        <text className="hp-t" x={P([(L.west_cx + L.east_cx) / 2, L.cy + 0.2])[0]} y={P([(L.west_cx + L.east_cx) / 2, L.cy + 0.2])[1]}
+        <text className="hp-t hp-zl" x={P([(L.west_cx + L.east_cx) / 2, L.cy + 0.2])[0]} y={P([(L.west_cx + L.east_cx) / 2, L.cy + 0.2])[1]}
           fontSize={fs(12)} fill={C.inkM} fontWeight={600} textAnchor="middle">Cross-belt sorter</text>
-        {S >= 10 && <text className="hp-t" x={P([(L.west_cx + L.east_cx) / 2, L.cy + 0.2])[0]} y={P([(L.west_cx + L.east_cx) / 2, L.cy + 0.2])[1] + 15}
+        {S >= 10 && <text className="hp-t hp-zl" x={P([(L.west_cx + L.east_cx) / 2, L.cy + 0.2])[0]} y={P([(L.west_cx + L.east_cx) / 2, L.cy + 0.2])[1] + 15}
           fontSize={fs(10)} fill={C.inkF} fontWeight={500} textAnchor="middle">{`${L.carriers ?? 99} carriers · ${L.speed_mps ?? 2} m/s · counter-clockwise`}</text>}
         {HUB.circulation.crossovers.map((x) => <rect key={x.id} {...rect(x.x - x.width / 2, x.south_stair_y[0], x.x + x.width / 2, x.north_stair_y[1])}
           rx={2} fill="none" stroke="#fff" strokeOpacity={0.16} strokeDasharray="3 3" />)}
@@ -242,7 +258,7 @@ function Base({ S, heat, ext }: { S: number; heat?: Record<string, number>; ext:
         {HUB.zones.filter((z) => LABEL_AT[z.id] && (S >= 8.5 || heat?.[z.id] || !SMALL_ZONES.has(z.id))).map((z) => {
           const [x, y] = P(LABEL_AT[z.id]);
           const n = heat?.[z.id];
-          return <g key={z.id}>
+          return <g key={z.id} className="hp-zl">
             <text className="hp-t" x={x} y={y} fontSize={fs(11)} fill={n ? C.inkS : C.inkM} fontWeight={600}>{ZONE_NAMES[z.id] ?? z.name}</text>
             {(showCodes || n) && <text className="hp-t" x={x} y={y + fs(11) + 2} fontSize={fs(9)} fill={n ? C.ink : C.inkF} fontWeight={600} letterSpacing="0.04em">
               {n ? `${n} case${n === 1 ? "" : "s"} end here · ${z.id}` : z.id}</text>}

@@ -6,6 +6,7 @@
  */
 import { useState, useSyncExternalStore } from "react";
 import { inboxClockWords, readInboxClock, writeInboxClock, type InboxClock } from "@/lib/inboxClock";
+import LegalContextPanel from "@/components/LegalContextPanel";
 import { API_BASE, ApiError, invalidate, useResource } from "@/lib/api";
 import { camId, hubCamera } from "@/lib/hub";
 import { fmtTime, fmtUncertainty, TZ_LABEL } from "@/lib/time";
@@ -155,7 +156,10 @@ export default function OperatorPage() {
       </div>
 
       </>}
-      {tab === "models" && <TracePanel cases={cases.data ?? []} />}
+      {tab === "models" && <>
+        <LegalContextPanel siteId={siteId} admin={admin} />
+        <TracePanel cases={cases.data ?? []} />
+      </>}
       {tab === "evaluation" && <EvaluationPanel admin={admin} />}
       <style>{`.sp-op-grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))}`}</style>
     </div>

@@ -60,7 +60,6 @@ function ScanSource({ scanId }: { scanId: string }) {
         <span className="sp-swatch" style={{ borderTop: "3px double var(--ev-scan)" }} aria-hidden />
         <span className="sp-h3">{describeScan(scan).title}</span>
         {isLast && <span className="sp-chip" style={{ background: "#f3f5f7", color: "#111" }}>last confirmed</span>}
-        {scan.source_type === "scan_simulated" && <SimulatedChip kind="scan_simulated" />}
       </div>
       <dl className="sp-kv">
         <dt>Time</dt><dd className="sp-num">{fmtTime(scan.time)} {TZ_LABEL}</dd>

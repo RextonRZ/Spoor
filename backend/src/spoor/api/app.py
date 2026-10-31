@@ -824,6 +824,82 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         audit(p, "search_outcome", out.search_outcome_id, outcome=body.outcome, area=body.area_id)
         return out.model_dump(mode="json")
 
+    @app.post("/v1/cases/{case_id}/voice", status_code=201)
+    def add_voice(case_id: str, p: User, file: Annotated[UploadFile, File()],
+                  kind: Annotated[Literal["search_note", "complaint_call"], Form()],
+                  search_task_id: Annotated[str | None, Form()] = None,
+                  area_id: Annotated[str | None, Form()] = None) -> dict:  # fmt: skip
+        """A voice note from the floor search or a complaint call (J4): the original WAV is kept by its SHA-256 and
+        Muse Voice Transcribe adds speaker turns. Paid ($0.18 per audio hour); needs the key; nothing is stored without it."""
+        from spoor.contracts import VoiceTranscript, VoiceTurn
+        from spoor.voice import VoiceError, turns_of, usd_for, wav_info
+
+        p.require_role(Role.INVESTIGATOR, Role.REVIEWER)
+        case_for(p, case_id)
+        if svc.voice is None:
+            raise HTTPException(503, "transcription unavailable: no API key (Muse Voice Transcribe needs MODEL_API_KEY)")
+        if kind == "search_note":
+            task = get_or_404(SearchTask, search_task_id or "")
+            if task.case_id != case_id or area_id not in {pl.area_id for pl in task.places}:
+                raise HTTPException(404, "place not in this search task")
+        data = file.file.read()
+        try:
+            rate, ms = wav_info(data)
+        except VoiceError as e:
+            raise HTTPException(422, str(e)) from e
+        digest = sha256(data)
+        audio = Path(svc.settings.data_dir) / "audio" / f"{digest}.wav"
+        audio.parent.mkdir(parents=True, exist_ok=True)
+        if not audio.exists():
+            audio.write_bytes(data)
+        objs = svc.store.find(ObjectInstance, case_id=case_id)
+        keywords = [i.value for o in objs for i in o.identifiers][:5] + ["waybill", "chute", "cage", "exception store", "bench"]
+        try:
+            reply = svc.voice.transcribe(data, mode="DIARIZATION", keywords=keywords)
+        except VoiceError as e:
+            raise HTTPException(502, str(e)) from e
+        at = now()
+        turns = turns_of(reply)
+        usd = usd_for(int(reply.get("audioDurationMs") or ms))
+        content = {"kind": kind, "audio": digest, "turns": turns, "transcript": reply.get("transcript", ""),
+                   "by": p.user_id, "at": at.isoformat(), "area": area_id}  # fmt: skip
+        rec = svc.store.put(VoiceTranscript(
+            voice_transcript_id=new_id("voice_transcript"), case_id=case_id, kind=kind, search_task_id=search_task_id,
+            area_id=area_id, audio_sha256=digest, audio_duration_ms=int(reply.get("audioDurationMs") or ms),
+            sample_rate_hz=rate, mode="DIARIZATION", transcript=(reply.get("transcript") or "").strip(),
+            turns=[VoiceTurn(**t) for t in turns], model=svc.voice.model, session_id=reply.get("sessionId"),
+            usd_estimate=usd, recorded_by=p.user_id, recorded_at=at, content_sha256=canonical_sha256(content)))  # fmt: skip
+        svc.store.put(CostEntry(cost_id=f"cost_{rec.voice_transcript_id}", provider="meta_model_api", model=rec.model,
+                                request_kind=f"voice_{kind}", case_id=case_id, response_id=rec.session_id,
+                                billed_units=rec.audio_duration_ms // 1000, unit="audio seconds", usd_estimate=usd,
+                                at=at))  # fmt: skip
+        head = svc.store.head_revision(case_id)
+        svc.store.append_revision(case_id, expected_parent=head.case_revision_id if head else None, actor=actor(p),
+                                  reason=f"voice: {kind.replace('_', ' ')}", changed_ids=[rec.voice_transcript_id], now=at)  # fmt: skip
+        audit(p, "voice_transcript", rec.voice_transcript_id, kind=kind, seconds=rec.audio_duration_ms // 1000, usd=usd)
+        return _voice_out(rec)
+
+    def _voice_out(rec) -> dict:
+        exp, sig = svc.signer.sign(f"audio/{rec.audio_sha256}")
+        return {**rec.model_dump(mode="json"), "audio_url": f"/v1/signed/audio/{rec.audio_sha256}?exp={exp}&sig={sig}"}
+
+    @app.get("/v1/cases/{case_id}/voice")
+    def list_voice(case_id: str, p: User) -> dict:
+        from spoor.contracts import VoiceTranscript
+
+        case_for(p, case_id)
+        recs = sorted(svc.store.find(VoiceTranscript, case_id=case_id), key=lambda r: r.recorded_at)
+        return {"items": [_voice_out(r) for r in recs], "available": svc.voice is not None,
+                "estimate": {"model": "muse-voice-transcribe-1.0", "usd_per_minute": round(0.18 / 60, 4)}}
+
+    @app.get("/v1/signed/audio/{digest}")
+    def signed_audio(digest: str, exp: int, sig: str) -> FileResponse:
+        svc.signer.check(f"audio/{digest}", exp, sig)
+        f = Path(svc.settings.data_dir) / "audio" / f"{digest}.wav"
+        if not f.exists() or len(digest) != 64:
+            raise HTTPException(404, "audio not found")
+        return FileResponse(f, media_type="audio/wav", headers={"Cache-Control": "private, max-age=60"})
+
     @app.get("/v1/cases/{case_id}/search-tasks")
     def list_search_tasks(case_id: str, p: User) -> dict:
         case_for(p, case_id)
@@ -879,6 +955,35 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         out = plan_investigation(svc.store, case_id, MetaResponsesBackend(svc.spark_client, model=WONDER), now=now())
         audit(p, "lead_plan", case_id, model=out["model"], usd=out["usd_estimate"], kept=len(out["steps"]))
         return out
+
+    @app.post("/v1/sites/{site_id}/legal-context", status_code=201)
+    def legal_context(site_id: str, p: User) -> dict:
+        """Malaysian context for reports (J3): Muse Spark 1.3 with web search, cited and dated. Paid; needs the key."""
+        p.require_role(Role.SITE_ADMIN)
+        p.require_site(site_id)
+        if svc.spark_client is None:
+            raise HTTPException(503, "search grounding unavailable: no API key (needs MODEL_API_KEY)")
+        from spoor.grounding import ground_legal_context
+
+        t = now()
+        rec, usage = ground_legal_context(svc.spark_client, site_id, now=t)
+        svc.store.put(rec)
+        svc.store.put(CostEntry(cost_id=f"cost_{rec.legal_context_id}", provider="meta_model_api", model=rec.model,
+                                request_kind="legal_context_grounding", response_id=(rec.response_ids or [None])[0],
+                                input_tokens=usage["input_tokens"], output_tokens=usage["output_tokens"],
+                                billed_units=rec.searches, unit="tokens + web searches", usd_estimate=rec.usd_estimate,
+                                at=t))  # fmt: skip
+        audit(p, "legal_context", rec.legal_context_id, usd=rec.usd_estimate, searches=rec.searches)
+        return rec.model_dump(mode="json")
+
+    @app.get("/v1/sites/{site_id}/legal-context")
+    def get_legal_context(site_id: str, p: User) -> dict:
+        p.require_site(site_id)
+        from spoor.grounding import ESTIMATE, latest_legal_context
+
+        rec = latest_legal_context(svc.store, site_id)
+        return {"context": rec.model_dump(mode="json") if rec else None, "available": svc.spark_client is not None,
+                "estimate": ESTIMATE}
 
     @app.get("/v1/cases/{case_id}/lead-plan")
     def get_lead_plan(case_id: str, p: User) -> dict:

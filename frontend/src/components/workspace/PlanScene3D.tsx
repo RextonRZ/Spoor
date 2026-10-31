@@ -131,6 +131,7 @@ function Scene({ plan }: { plan: Plan }) {
         return (
           <group key={c.camera_id}>
             <mesh position={v(...c.position_m)}><sphereGeometry args={[0.25, 12, 12]} /><meshBasicMaterial color="#8b909b" /></mesh>
+            <Line points={[v(...c.position_m), v(c.position_m[0], c.position_m[1], 0)]} color="#3d414b" lineWidth={1} />
             <Line points={[v(...c.position_m), tip]} color="#5a5f69" lineWidth={1.5} />
           </group>
         );
@@ -174,6 +175,7 @@ function InPlayCamera({ c }: { c: Plan["cameras"][number] }) {
       <Line points={[lens, fan.l]} color={ACCENT} lineWidth={1.2} transparent opacity={0.6} />
       <Line points={[lens, fan.r]} color={ACCENT} lineWidth={1.2} transparent opacity={0.6} />
       <mesh position={lens}><sphereGeometry args={[0.38, 16, 16]} /><meshBasicMaterial color={ACCENT} /></mesh>
+      <Line points={[lens, v(x, y, 0)]} color={ACCENT} lineWidth={1} transparent opacity={0.35} />
       <Html position={v(x, y, z + 0.9)} center><div className="p3-label p3-cam">{cam(c.camera_id).replace("_", " ")}</div></Html>
     </group>
   );

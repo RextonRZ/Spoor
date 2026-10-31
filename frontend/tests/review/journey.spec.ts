@@ -113,13 +113,14 @@ test("H2 2D journey: typed ribbon, scan beads, trail end, replay marker on an in
   await shot(page, info, "30b_h2_journey_unknown_after_last");
 });
 
-test("H10 missing moment: frames at the predicted time with the expected place dashed", async ({ page }, info) => {
+test("H10 missing moment: frames at the predicted time, the expected place pinned (no box before analysis, §G)", async ({ page }, info) => {
   const id = await caseId(page);
   await openWorkspace(page, id);
   if (isMobile(info)) await tab(page, info, "Moment"); else await page.getByTestId("tab-moment").click();
   const mm = page.getByTestId("missing-moment");
   await expect(mm).toContainText("Where it should have appeared next");
-  await expect(mm.locator(".mm-close img").first()).toBeVisible({ timeout: 30_000 });
+  await expect(mm.locator(".xm-pin").first()).toContainText("not checked yet", { timeout: 30_000 });
+  expect(await mm.locator(".xm-box, .mm-close").count()).toBe(0); // nothing boxed on air before analysis
   await page.waitForTimeout(1500);
   if (isMobile(info)) await shot(page, info, "31_h10_missing_moment");
   else { await settled(page); await page.locator("#source-panel").screenshot({ path: `review_pack/${info.project.name}/31_h10_missing_moment.png` }); }

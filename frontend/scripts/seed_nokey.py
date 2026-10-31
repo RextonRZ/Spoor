@@ -444,6 +444,8 @@ def main() -> None:
     ap.add_argument("--case-parcel", default="auto", help="parcel ID, or auto = the parcel with the most reads")
     ap.add_argument("--scenarios", default=None, help="scenario manifest JSON (QUEUE F1); one input case per scenario")
     ap.add_argument("--sync-geometry", action="store_true", help="only update cameras + site plan from the hub spec")
+    ap.add_argument("--case-input", default=None, help="scenario case_input.json: the question + complaint as the card states")
+    ap.add_argument("--window-s", type=float, default=40.0, help="case window length from --clip-start (no clips: the log span)")
     args = ap.parse_args()
 
     env = load_env()
@@ -468,7 +470,11 @@ def main() -> None:
         args.case_parcel = auto_case_parcel(rows)
     cases = inv.get("/v1/cases").json()
     if not (auto and cases) and not any(c["case"]["target_description"].endswith(args.case_parcel) for c in cases):
-        r = inv.post("/v1/cases", json=case_body(args.case_parcel, clips, args.clip_start)).raise_for_status().json()
+        card = json.loads(guard(Path(args.case_input)).read_text(encoding="utf-8")) if args.case_input else {}
+        body = case_body(args.case_parcel, clips, args.clip_start, question=card.get("question"), window_s=args.window_s)
+        if card.get("complaint"):
+            body["complaint"] = card["complaint"]
+        r = inv.post("/v1/cases", json=body).raise_for_status().json()
         print("case", r["case"]["case_id"])
         n = import_photo_eyes(admin, r["case"]["case_id"], got["lines"])
         if n:

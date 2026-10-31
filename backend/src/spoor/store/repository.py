@@ -37,6 +37,7 @@ from spoor.contracts import (
     HypothesisStatus,
     HypothesisStatusChange,
     IdentifierAlias,
+    LegalContext,
     MediaAsset,
     MediaAuthorization,
     MultiView3DEstimate,
@@ -52,6 +53,7 @@ from spoor.contracts import (
     Track,
     TrackAssociation,
     VerifiedFinding,
+    VoiceTranscript,
     id_kind,
     new_id,
 )
@@ -111,6 +113,10 @@ SPECS: dict[type, Spec] = {
                       lambda r: [(r.site_id, "site")]),
     SitePlan: Spec(db.site_plans, lambda r: r.plan_id, lambda r: {"site_id": r.site_id},
                    lambda r: [(r.site_id, "site")]),
+    LegalContext: Spec(db.legal_contexts, lambda r: r.legal_context_id, lambda r: {"site_id": r.site_id},
+                       lambda r: [(r.site_id, "site")]),
+    VoiceTranscript: Spec(db.voice_transcripts, lambda r: r.voice_transcript_id, lambda r: {"case_id": r.case_id},
+                          lambda r: [(r.case_id, "case")]),
     SearchTask: Spec(db.search_tasks, lambda r: r.search_task_id, lambda r: {"case_id": r.case_id},
                      lambda r: [(r.case_id, "case")]),
     SearchOutcome: Spec(db.search_outcomes, lambda r: r.search_outcome_id,
@@ -234,6 +240,8 @@ KIND_TABLE = {
     "status_change": db.status_changes, "finding": db.findings, "evidence_request": db.evidence_requests,
     "report": db.reports, "scan_event": db.scan_events, "alias": db.aliases, "clock_domain": db.clock_domains,
     "site_plan": db.site_plans, "search_task": db.search_tasks, "search_outcome": db.search_outcomes,
+    "legal_context": db.legal_contexts,
+    "voice_transcript": db.voice_transcripts,
 }  # fmt: skip
 MODEL_BY_TABLE = {spec.table.name: model for model, spec in SPECS.items()}
 
@@ -242,7 +250,11 @@ class EvidenceStore:
     def __init__(self, url: str = "sqlite:///:memory:", *, engine: Engine | None = None):
         if engine is None:
             # In-memory SQLite: one shared connection so every thread sees the same database.
-            kw = {"poolclass": StaticPool, "connect_args": {"check_same_thread": False}} if ":memory:" in url else {}
+            kw = (
+                {"poolclass": StaticPool, "connect_args": {"check_same_thread": False}}
+                if ":memory:" in url
+                else {}
+            )
             engine = create_engine(url, **kw)
         self.engine = engine
         if self.engine.dialect.name == "sqlite":
@@ -279,7 +291,10 @@ class EvidenceStore:
 
     def _exists_in(self, c, any_id: str) -> bool:
         table = KIND_TABLE.get(id_kind(any_id) or "")
-        return table is not None and c.execute(select(table.c.id).where(table.c.id == any_id)).first() is not None
+        return (
+            table is not None
+            and c.execute(select(table.c.id).where(table.c.id == any_id)).first() is not None
+        )
 
     def _write(self, c, record: BaseModel, *, check_refs: bool, known: set[str]) -> None:
         if isinstance(record, CalibrationInvalidation):
@@ -361,7 +376,9 @@ class EvidenceStore:
         if not keys:
             return []
         with self.engine.connect() as c:
-            rows = c.execute(select(db.scan_identifiers.c.scan_event_id).where(db.scan_identifiers.c.key.in_(keys)))
+            rows = c.execute(
+                select(db.scan_identifiers.c.scan_event_id).where(db.scan_identifiers.c.key.in_(keys))
+            )
             return list(dict.fromkeys(r for (r,) in rows))
 
     def get_many(self, model: type[M], ids: Iterable[str]) -> list[M]:
@@ -370,7 +387,7 @@ class EvidenceStore:
         out: list[M] = []
         with self.engine.connect() as c:
             for i in range(0, len(ids), 500):
-                rows = c.execute(select(table.c.payload).where(table.c.id.in_(ids[i:i + 500])))
+                rows = c.execute(select(table.c.payload).where(table.c.id.in_(ids[i : i + 500])))
                 out += [model.model_validate_json(p) for (p,) in rows]
         return out
 
@@ -390,7 +407,9 @@ class EvidenceStore:
             est_ids = list({s for s, _ in pairs})
             payloads: dict[str, SpatialEstimate] = {}
             for i in range(0, len(est_ids), 500):
-                q = select(db.estimates.c.id, db.estimates.c.payload).where(db.estimates.c.id.in_(est_ids[i:i + 500]))
+                q = select(db.estimates.c.id, db.estimates.c.payload).where(
+                    db.estimates.c.id.in_(est_ids[i : i + 500])
+                )
                 payloads |= {rid: SpatialEstimate.model_validate_json(p) for rid, p in c.execute(q)}
         out: dict[str, SpatialEstimate] = {}
         for est_id, obs_id in pairs:

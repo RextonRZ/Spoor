@@ -1,0 +1,191 @@
+{
+  "$defs": {
+    "VoiceTurn": {
+      "additionalProperties": false,
+      "properties": {
+        "turn_id": {
+          "title": "Turn Id",
+          "type": "integer"
+        },
+        "speaker": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "model speaker label (A, B\u2026), DIARIZATION only",
+          "title": "Speaker"
+        },
+        "start_ms": {
+          "minimum": 0,
+          "title": "Start Ms",
+          "type": "integer"
+        },
+        "end_ms": {
+          "minimum": 0,
+          "title": "End Ms",
+          "type": "integer"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "turn_id",
+        "start_ms",
+        "end_ms",
+        "text"
+      ],
+      "title": "VoiceTurn",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "voice_transcript_id": {
+      "maxLength": 96,
+      "pattern": "^vtr_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Voice Transcript Id",
+      "type": "string"
+    },
+    "case_id": {
+      "maxLength": 96,
+      "pattern": "^case_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Case Id",
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "search_note",
+        "complaint_call"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "search_task_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Search Task Id"
+    },
+    "area_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Area Id"
+    },
+    "audio_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Audio Sha256",
+      "type": "string"
+    },
+    "audio_duration_ms": {
+      "minimum": 0,
+      "title": "Audio Duration Ms",
+      "type": "integer"
+    },
+    "sample_rate_hz": {
+      "enum": [
+        16000,
+        24000
+      ],
+      "title": "Sample Rate Hz",
+      "type": "integer"
+    },
+    "mode": {
+      "enum": [
+        "PUSH_TO_TALK",
+        "ENDPOINTING",
+        "DIARIZATION"
+      ],
+      "title": "Mode",
+      "type": "string"
+    },
+    "transcript": {
+      "title": "Transcript",
+      "type": "string"
+    },
+    "turns": {
+      "items": {
+        "$ref": "#/$defs/VoiceTurn"
+      },
+      "title": "Turns",
+      "type": "array"
+    },
+    "model": {
+      "title": "Model",
+      "type": "string"
+    },
+    "session_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Session Id"
+    },
+    "usd_estimate": {
+      "title": "Usd Estimate",
+      "type": "number"
+    },
+    "recorded_by": {
+      "description": "pseudonymous user id of the person who uploaded it",
+      "title": "Recorded By",
+      "type": "string"
+    },
+    "recorded_at": {
+      "format": "date-time",
+      "title": "Recorded At",
+      "type": "string"
+    },
+    "label": {
+      "default": "Machine transcript of the original audio (kept with its SHA-256); check a line against the audio.",
+      "title": "Label",
+      "type": "string"
+    },
+    "content_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Content Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "voice_transcript_id",
+    "case_id",
+    "kind",
+    "audio_sha256",
+    "audio_duration_ms",
+    "sample_rate_hz",
+    "mode",
+    "transcript",
+    "turns",
+    "model",
+    "usd_estimate",
+    "recorded_by",
+    "recorded_at",
+    "content_sha256"
+  ],
+  "title": "VoiceTranscript",
+  "type": "object"
+}

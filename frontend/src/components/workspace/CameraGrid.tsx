@@ -5,6 +5,7 @@
  * on every camera. Boxes: solid green = the subject's confirmed track; thin grey = something else tracked; dashed =
  * where it was expected (red only for a typed "not seen").
  */
+import { ExpectedMark } from "./ExpectedMark";
 import { useEffect, useState } from "react";
 import { signedUrl, useResource } from "@/lib/api";
 import { cam, clock, RESULT_WORDS, type ExpectedResult, type FrameRef } from "@/lib/journey";
@@ -44,9 +45,7 @@ export default function CameraGrid() {
               {c.frame && c.boxes.map((b) => (
                 <span key={b.observation_id} className={b.subject ? "cg-box cg-subject" : "cg-box"} style={pct(b.box_px, b.frame_wh_px)} />
               ))}
-              {c.frame && !c.boxes.some((b) => b.subject) && c.expected_region_px && c.region_basis_wh_px && (
-                <span className="cg-box cg-expected" data-result={c.result ?? undefined} style={pct(c.expected_region_px, c.region_basis_wh_px)} />
-              )}
+              {c.frame && !c.boxes.some((b) => b.subject) && <ExpectedMark row={c} compact />}
             </div>
             <figcaption className="cg-cap">
               <span className="sp-strong sp-num">{cam(c.camera_id)}</span>

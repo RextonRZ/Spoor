@@ -16,6 +16,8 @@ import { ErrorState, Loading, FadeImg } from "@/components/ui";
 import HubPlan from "@/components/plan/HubPlan";
 import RecordsVsVideo from "@/components/RecordsVsVideo";
 import ReelExport from "@/components/ReelExport";
+import { ExpectedMark } from "@/components/workspace/ExpectedMark";
+import { Transcript, VoiceRecorder, useVoice } from "@/components/VoiceNote";
 import "./summary.css";
 
 const STATUS = {
@@ -54,7 +56,6 @@ export default function SummaryPage({ params }: { params: Promise<{ caseId: stri
         <div className="sp-row sp-wrap sum-meta">
           <span className="sp-eyebrow">Case summary</span>
           <span className={`sp-chip ${status.cls}`} data-testid="case-status">{status.label}</span>
-          <span className="sp-chip sp-chip-sim">synthetic footage · simulated scans</span>
         </div>
         <h1 className="sp-h1 sum-answer" id="sum-answer" data-testid="case-answer" aria-describedby="sum-sub">{found ? `Found at ${found.name.replace(/^Z\d+ /, "").replace(/ \(.*\)$/, "")} · ${clock(found.at)}` : answerParts(j, mm).head}</h1>
         <p className="sum-sub" id="sum-sub">{found ? `Recorded by ${found.by} during the floor search. ${answerParts(j, mm).head}.` : answerParts(j, mm).sub}</p>
@@ -66,6 +67,7 @@ export default function SummaryPage({ params }: { params: Promise<{ caseId: stri
           <div><dt className="sp-micro">Case</dt><dd className="sp-num">{c.case_id.slice(-8)}</dd></div>
         </dl>
         {c.complaint && <blockquote className="sum-complaint">“{c.complaint}”</blockquote>}
+        <ComplaintCall caseId={c.case_id} />
       </header>
 
       <section aria-label="Key frames" className="sum-frames">
@@ -150,21 +152,32 @@ function KeyFrames({ j, mm, loading, possible, foundText }: { j?: JourneyObject;
 function Tile({ n, title, frame, row, caption, note, empty }: {
   n: string; title: string; frame?: FrameRef; row?: ExpectedNext; caption?: string; note?: string; empty?: string;
 }) {
-  const r = row?.expected_region_px;
-  const b = row?.region_basis_wh_px;
   return (
     <figure className="sum-tile">
       <figcaption className="sum-tile-head"><span className="sum-tile-n sp-num">{n}</span>{title}</figcaption>
       {frame ? (
         <div className="sum-shot">
           <FadeImg src={signedUrl(frame.frame_url)} alt={`${title}: original frame ${frame.frame_index} of ${cam(frame.camera_id)}`} />
-          {r && b && <span className="sum-expect" aria-hidden style={{ left: `${(r[0] / b[0]) * 100}%`,
-            top: `${(r[1] / b[1]) * 100}%`, width: `${((r[2] - r[0]) / b[0]) * 100}%`, height: `${((r[3] - r[1]) / b[1]) * 100}%` }} />}
+          {row && <ExpectedMark row={row} />}
           <span className="sum-shot-tag">original · frame {frame.frame_index}</span>
         </div>
       ) : <div className="sum-shot sum-shot-empty"><p>{empty ?? caption}</p></div>}
       {frame && <p className="sum-tile-cap">{caption}</p>}
       {note && <p className="sp-caption">{note}</p>}
     </figure>
+  );
+}
+
+/** The customer's complaint call (J4): its transcript is case input, with the original audio one click away. */
+function ComplaintCall({ caseId }: { caseId: string }) {
+  const voice = useVoice(caseId);
+  const calls = (voice.data?.items ?? []).filter((v) => v.kind === "complaint_call");
+  if (!voice.data) return null;
+  return (
+    <section className="sum-call" aria-labelledby="sum-call-h">
+      <h2 className="sp-micro" id="sum-call-h">Complaint call</h2>
+      {calls.length ? calls.map((v) => <Transcript key={v.voice_transcript_id} v={v} />)
+        : <VoiceRecorder caseId={caseId} kind="complaint_call" label="Record the complaint call" />}
+    </section>
   );
 }

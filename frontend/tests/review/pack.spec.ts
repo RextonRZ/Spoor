@@ -239,3 +239,15 @@ test("report document, full length (QUEUE G: scan history, CCTV reviewed, contin
   await expect(page.getByRole("heading", { name: /CCTV reviewed/ })).toBeVisible();
   await page.screenshot({ path: `review_pack/${info.project.name}/26_report_document_full.png`, fullPage: true });
 });
+
+test("J3 Malaysian context: web-grounded, cited, dated, official sources marked", async ({ page }, info) => {
+  await role(page, "site_admin");
+  await page.goto("/operator");
+  await page.getByRole("tab", { name: "Model calls" }).click();
+  const panel = page.getByTestId("legal-context");
+  await expect(panel).toContainText("Postal Services Act 2012", { timeout: 30_000 });
+  await expect(panel).toContainText("official");
+  await expect(panel).toContainText("Unavailable: no API key");
+  await page.waitForTimeout(800);
+  await panel.screenshot({ path: `review_pack/${info.project.name}/40_j3_malaysian_context.png` });
+});

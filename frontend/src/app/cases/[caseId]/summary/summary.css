@@ -73,3 +73,7 @@
   .sum-grid { grid-template-columns: 1.4fr 1fr; }
   .sp-panel, .sp-card, .sp-tint { box-shadow: none !important; break-inside: avoid; }
 }
+
+/* complaint call (J4) */
+.sum-call { display: flex; flex-direction: column; gap: 8px; max-width: 72ch; margin-top: 4px; }
+.sum-call .sp-micro { margin: 0; }

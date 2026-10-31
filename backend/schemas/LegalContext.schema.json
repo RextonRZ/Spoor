@@ -1,0 +1,196 @@
+{
+  "$defs": {
+    "ContextAnswer": {
+      "additionalProperties": false,
+      "properties": {
+        "question": {
+          "title": "Question",
+          "type": "string"
+        },
+        "sentences": {
+          "items": {
+            "$ref": "#/$defs/ContextSentence"
+          },
+          "title": "Sentences",
+          "type": "array"
+        },
+        "dropped_uncited": {
+          "description": "sentences the model wrote without a citation (not shown)",
+          "minimum": 0,
+          "title": "Dropped Uncited",
+          "type": "integer"
+        },
+        "dropped_narration": {
+          "default": 0,
+          "description": "the model's own tool narration, e.g. 'Now I'll open\u2026'",
+          "minimum": 0,
+          "title": "Dropped Narration",
+          "type": "integer"
+        },
+        "searches": {
+          "minimum": 0,
+          "title": "Searches",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "question",
+        "sentences",
+        "dropped_uncited",
+        "searches"
+      ],
+      "title": "ContextAnswer",
+      "type": "object"
+    },
+    "ContextSentence": {
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "sources": {
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 1,
+          "title": "Sources",
+          "type": "array"
+        }
+      },
+      "required": [
+        "text",
+        "sources"
+      ],
+      "title": "ContextSentence",
+      "type": "object"
+    },
+    "ContextSource": {
+      "additionalProperties": false,
+      "properties": {
+        "n": {
+          "description": "citation number as shown in the report, [n]",
+          "minimum": 1,
+          "title": "N",
+          "type": "integer"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "domain": {
+          "title": "Domain",
+          "type": "string"
+        },
+        "official": {
+          "description": "a .gov.my source (statute portal, regulator)",
+          "title": "Official",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "n",
+        "url",
+        "title",
+        "domain",
+        "official"
+      ],
+      "title": "ContextSource",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "legal_context_id": {
+      "maxLength": 96,
+      "pattern": "^lctx_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Legal Context Id",
+      "type": "string"
+    },
+    "site_id": {
+      "maxLength": 96,
+      "pattern": "^site_[A-Za-z0-9][A-Za-z0-9_-]*$",
+      "title": "Site Id",
+      "type": "string"
+    },
+    "jurisdiction": {
+      "const": "MY",
+      "default": "MY",
+      "title": "Jurisdiction",
+      "type": "string"
+    },
+    "model": {
+      "title": "Model",
+      "type": "string"
+    },
+    "provider": {
+      "const": "meta_model_api",
+      "default": "meta_model_api",
+      "title": "Provider",
+      "type": "string"
+    },
+    "response_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Response Ids",
+      "type": "array"
+    },
+    "answers": {
+      "items": {
+        "$ref": "#/$defs/ContextAnswer"
+      },
+      "title": "Answers",
+      "type": "array"
+    },
+    "sources": {
+      "items": {
+        "$ref": "#/$defs/ContextSource"
+      },
+      "title": "Sources",
+      "type": "array"
+    },
+    "searches": {
+      "minimum": 0,
+      "title": "Searches",
+      "type": "integer"
+    },
+    "usd_estimate": {
+      "title": "Usd Estimate",
+      "type": "number"
+    },
+    "retrieved_at": {
+      "format": "date-time",
+      "title": "Retrieved At",
+      "type": "string"
+    },
+    "label": {
+      "default": "Background from the web, cited and dated. Not case evidence; check the source before relying on it.",
+      "title": "Label",
+      "type": "string"
+    },
+    "content_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Content Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "legal_context_id",
+    "site_id",
+    "model",
+    "response_ids",
+    "answers",
+    "sources",
+    "searches",
+    "usd_estimate",
+    "retrieved_at",
+    "content_sha256"
+  ],
+  "title": "LegalContext",
+  "type": "object"
+}

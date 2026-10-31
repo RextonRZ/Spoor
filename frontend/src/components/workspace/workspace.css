@@ -96,6 +96,10 @@
   .sp-ws[data-tab="cameras"] > [data-pane]:not([data-pane~="cameras"]),
   .sp-ws[data-tab="case"] > [data-pane]:not([data-pane~="case"]) { display: none; }
   .sp-ws-scene { height: 68vh; min-height: 360px; }
+  /* the 2D plan sizes to its content on a phone (review F-039 P2 #2); 3D keeps the fixed stage */
+  .sp-ws-scene[data-view="plan"] { height: auto; min-height: 0; }
+  .sp-ws-scene[data-view="plan"] .sp-scene-wrap { flex: none; }
+  .sp-ws-scene[data-view="plan"] .sp-plan2 { position: relative; inset: auto; }
   .sp-ws-time { max-height: none; }
   .sp-ws-right .sp-panel-head { display: none; }
   .sp-ws { --tl-label: 92px; }
@@ -226,3 +230,25 @@
 .sc-title { margin: 0; font-weight: 640; color: var(--ink-strong); font-size: 14px; }
 .sc-facts { margin: 0; font-size: 13px; color: var(--ink); }
 .sc-meta { margin: 0; font-size: 11.5px; color: var(--ink-muted); }
+
+/* expected place (design_sprint §G). Prefix xm-. Before analysis a named pin, never a box; after: red dashed "not seen". */
+.xm-box { position: absolute; min-width: 8px; min-height: 8px; border: 2px dashed var(--ev-contradicted); border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55); pointer-events: none; }
+.xm-pin { position: absolute; width: 0; height: 0; pointer-events: none; }
+.xm-dot { position: absolute; left: -6px; top: -6px; width: 12px; height: 12px; border-radius: 50%; background: #fff;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.55), 0 1px 4px rgba(0, 0, 0, 0.6); }
+.xm-label { position: absolute; left: 0; bottom: 12px; transform: translateX(-50%); padding: 4px 8px; border-radius: 8px;
+  background: rgba(11, 12, 16, 0.86); color: #f4f5f7; font-size: 11.5px; font-weight: 600; white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4); }
+.xm-sub { color: #a4a8b0; font-weight: 500; }
+.xm-pin[data-below] .xm-label { bottom: auto; top: 12px; }
+.xm-pin[data-side="left"] .xm-label { transform: translateX(calc(-100% + 14px)); }
+.xm-pin[data-side="right"] .xm-label { transform: translateX(-14px); }
+
+/* 3D aids (design_sprint §H): landmark labels quiet, a compass that turns with the view */
+.sp-scene-labels .sp-chip[data-tone="land"] { background: rgba(14, 16, 18, 0.55); color: #c9ccd3; font-weight: 600; border-color: transparent; }
+.sp-compass { position: absolute; left: 12px; bottom: 12px; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(14, 16, 18, 0.72); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); pointer-events: none; }
+.sp-compass-needle { position: relative; width: 4px; height: 26px; border-radius: 2px;
+  background: linear-gradient(to bottom, #f4f5f7 0 50%, #5a5f69 50% 100%); transition: transform 60ms linear; }
+.sp-compass-n { position: absolute; left: 50%; top: -15px; transform: translateX(-50%); color: #f4f5f7; font-size: 10px; font-weight: 700; }

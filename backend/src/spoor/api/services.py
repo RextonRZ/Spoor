@@ -58,6 +58,7 @@ class Services:
     spark: JsonBackend | None = None  # Meta Muse Spark (video-capable)
     spark_client: Any = None  # sync OpenAI client for Files API uploads
     agent: JsonBackend | None = None  # Evidence/Hypothesis agents
+    voice: Any = None  # Muse Voice Transcribe (spoor.voice.Transcriber), J4
     _case_locks: dict[str, threading.Lock] = field(default_factory=dict)
     _locks_guard: threading.Lock = field(default_factory=threading.Lock)
 
@@ -81,6 +82,9 @@ class Services:
             svc.sam = MetaSamBackend(AsyncOpenAI(api_key=key, base_url=s.meta_base_url), s.sam_model)
             svc.spark_client = OpenAI(api_key=key, base_url=s.meta_base_url)
             svc.spark = MetaResponsesBackend(svc.spark_client, s.spark_model)
+            from spoor.voice import MetaVoiceTranscriber
+
+            svc.voice = MetaVoiceTranscriber(key, s.meta_base_url)
         if s.agent_backend == "meta":
             svc.agent = svc.spark
         elif s.agent_backend == "baseten" and s.baseten_api_key is not None and s.baseten_model_id:

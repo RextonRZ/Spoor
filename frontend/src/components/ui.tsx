@@ -22,6 +22,10 @@ export const Icon = {
   scan: () => <svg {...P}><path d="M2 5V3h2M12 3h2v2M14 11v2h-2M4 13H2v-2M5 6v4M7.5 6v4M10 6v4" /></svg>,
   warn: () => <svg {...P}><path d="M8 2.2 14.3 13H1.7z" /><path d="M8 6.5v3M8 11.3v.1" /></svg>,
   ext: () => <svg {...P}><path d="M9 2.5h4.5V7M13.5 2.5 7.5 8.5M12 9.5v4H2.5V4h4" /></svg>,
+  search: () => <svg {...P}><circle cx="7" cy="7" r="4.5" /><path d="m10.4 10.4 3.4 3.4" /></svg>,
+  doc: () => <svg {...P}><path d="M4 1.8h5.5L12.5 5v9.2H4z" /><path d="M9.5 1.8V5h3" /></svg>,
+  parcel: () => <svg {...P}><path d="M8 1.8 14 5v6l-6 3.2L2 11V5z" /><path d="M2 5l6 3.2L14 5M8 8.2v6M5 3.4l6 3.2" /></svg>,
+  check: () => <svg {...P}><path d="m3.5 8.2 3 3 6-6.4" /></svg>,
 };
 
 export function Loading({ label = "Loading", lines = 3 }: { label?: string; lines?: number }) {

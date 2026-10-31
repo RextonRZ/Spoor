@@ -36,7 +36,6 @@ export function HubDashboard({ siteId }: { siteId?: string }) {
     <section className="dash" aria-labelledby="dash-h">
       <div className="sp-row sp-wrap" style={{ justifyContent: "space-between", gap: 10 }}>
         <h2 className="sp-h2" id="dash-h">Hub dashboard</h2>
-        <span className="sp-chip sp-chip-sim">{d.data.label}</span>
       </div>
       <dl className="dash-kpis">
         <Kpi label="Open cases" value={String(k.open_cases)} hint={`of ${k.cases}`} />

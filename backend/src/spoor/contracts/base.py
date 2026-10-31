@@ -59,6 +59,8 @@ ID_PREFIXES = {
     "site_plan": "plan",
     "search_task": "srch",
     "search_outcome": "sout",
+    "legal_context": "lctx",
+    "voice_transcript": "vtr",
     "reel": "reel",
 }
 
