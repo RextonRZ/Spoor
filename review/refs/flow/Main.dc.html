@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Spoor hub</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0C10}
+a{color:#A5B4FC;text-decoration:none}a:hover{color:#C7D2FE}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+</helmet>
+<div style="min-height: 900px; background: #0B0C10; color: #F4F5F7; font-family: Inter, 'Google Sans Flex', system-ui, sans-serif; font-feature-settings: 'tnum' 1;">
+
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 24px; padding: 14px 32px; border-bottom: 1px solid rgba(255,255,255,0.07); background: #0E0F14;">
+    <a href="Main.dc.html" style="display: flex; align-items: center; gap: 10px; color: #F4F5F7;">
+      <img src="/_blob/604bdf8cdccf490f44ff1072f3756d56" alt="" style="width: 28px; height: 28px; object-fit: contain">
+      <span style="font-size: 19px; font-weight: 700; letter-spacing: -0.02em;">Spoor</span>
+    </a>
+    <nav aria-label="Main" style="display: flex; gap: 4px;">
+      <a href="Main.dc.html" style="padding: 8px 14px; border-radius: 10px; background: #1B1D24; color: #F4F5F7; font-size: 14px; font-weight: 600;">Hub</a>
+      <a href="Case.dc.html" style="padding: 8px 14px; border-radius: 10px; color: #8B909B; font-size: 14px; font-weight: 500;">Cases</a>
+      <a href="Cameras.dc.html" style="padding: 8px 14px; border-radius: 10px; color: #8B909B; font-size: 14px; font-weight: 500;">Cameras</a>
+    </nav>
+    <div style="flex: 1 1 280px; display: flex; justify-content: center;">
+      <label for="find" class="sr">Find a parcel by tracking number</label>
+      <input id="find" type="search" placeholder="Find a parcel by tracking number" style="width: 100%; max-width: 440px; height: 40px; box-sizing: border-box; padding: 0 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.10); background: #14151B; color: #F4F5F7; font: inherit; font-size: 14px;">
+    </div>
+    <span style="font-size: 12px; color: #8B909B; padding: 6px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.10);">Synthetic demo hub</span>
+    <button type="button" aria-label="Account menu" style="width: 36px; height: 36px; border-radius: 50%; border: 0; background: #23252D; color: #C9CCD3; font: inherit; font-size: 13px; font-weight: 600;">RZ</button>
+  </header>
+
+  <main style="max-width: 1376px; margin: 0 auto; padding: 32px 32px 48px; display: flex; flex-wrap: wrap; gap: 28px;">
+
+    <section style="flex: 999 1 700px; min-width: 0; display: flex; flex-direction: column; gap: 18px;">
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px;">
+        <div>
+          <p style="margin: 0 0 6px; font-size: 14px; color: #8B909B;">CONTOH Express · Klang Valley hub · updated 14:47</p>
+          <h1 style="margin: 0; font-size: 34px; line-height: 1.15; font-weight: 700; letter-spacing: -0.03em;">3 parcels need attention</h1>
+        </div>
+        <div role="group" aria-label="Filter" style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: #14151B; border: 1px solid rgba(255,255,255,0.07);">
+          <button type="button" style="height: 34px; padding: 0 12px; border-radius: 9px; border: 0; background: #23252D; color: #F4F5F7; font: inherit; font-size: 13px; font-weight: 600;">All 3</button>
+          <button type="button" style="height: 34px; padding: 0 12px; border-radius: 9px; border: 0; background: transparent; color: #8B909B; font: inherit; font-size: 13px;">Records disagree 1</button>
+          <button type="button" style="height: 34px; padding: 0 12px; border-radius: 9px; border: 0; background: transparent; color: #8B909B; font: inherit; font-size: 13px;">Stalled 2</button>
+        </div>
+      </div>
+
+      <article style="background: #14151B; border: 1px solid rgba(248,113,113,0.35); border-radius: 20px; padding: 18px; display: flex; flex-wrap: wrap; gap: 20px; align-items: stretch;">
+        <a href="Investigate.dc.html" style="flex: 0 0 240px; position: relative; display: block; border-radius: 12px; overflow: hidden;">
+          <img src="/_blob/fcb4327719e29e1c688b451e473a8c0e" alt="Last camera sighting near the exception store" style="width: 100%; height: 100%; min-height: 135px; object-fit: cover; display: block;">
+          <span style="position: absolute; left: 8px; bottom: 8px; font-size: 12px; font-weight: 600; color: #F4F5F7; background: rgba(11,12,16,0.8); padding: 4px 8px; border-radius: 6px;">CAM 19 · 14:32:38</span>
+        </a>
+        <div style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 10px;">
+          <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+            <span style="font-size: 12px; font-weight: 700; color: #FCA5A5; padding: 4px 10px; border-radius: 999px; background: rgba(248,113,113,0.14);">Records disagree</span>
+            <span style="font-size: 13px; color: #8B909B;">Customer called 2 days ago · COD RM 189</span>
+          </div>
+          <h2 style="margin: 0; font-size: 21px; line-height: 1.3; font-weight: 600; letter-spacing: -0.01em;">Records say it left on truck D07. The last camera saw it go into the exception store.</h2>
+          <div aria-label="How far it got" style="display: flex; align-items: center; gap: 6px; margin-top: 2px;">
+            <span style="width: 10px; height: 10px; border-radius: 50%; background: #60A5FA;"></span><span style="width: 28px; height: 2px; background: #3A3D47;"></span>
+            <span style="width: 10px; height: 10px; border-radius: 50%; background: #60A5FA;"></span><span style="width: 28px; height: 2px; background: #3A3D47;"></span>
+            <span style="width: 10px; height: 10px; border-radius: 50%; background: #60A5FA;"></span><span style="width: 28px; height: 2px; background: #3A3D47;"></span>
+            <span style="width: 10px; height: 10px; border-radius: 50%; background: #4ADE80;"></span><span style="width: 28px; height: 2px; background: #3A3D47;"></span>
+            <span style="width: 12px; height: 12px; border-radius: 50%; border: 2px solid #F87171;"></span>
+            <span style="margin-left: 10px; font-size: 13px; color: #8B909B;">Tunnel · Sorter · Chute · Store · Truck?</span>
+          </div>
+          <p style="margin: 0; font-size: 14px; color: #8B909B;">CTX971442173782 · 25 × 18 × 10 cm</p>
+        </div>
+        <div style="flex: 0 0 auto; display: flex; flex-direction: column; justify-content: center; gap: 8px;">
+          <a href="Investigate.dc.html" style="height: 44px; display: inline-flex; align-items: center; justify-content: center; padding: 0 20px; border-radius: 12px; background: #5558EE; color: #FFFFFF; font-size: 15px; font-weight: 600;">Investigate</a>
+          <span style="font-size: 12px; color: #8B909B; text-align: center;">about 1 min · ~US$0.30</span>
+        </div>
+      </article>
+
+      <article style="background: #14151B; border: 1px solid rgba(255,255,255,0.07); border-radius: 20px; padding: 16px 18px; display: flex; flex-wrap: wrap; gap: 20px; align-items: center;">
+        <span style="flex: 0 0 160px; position: relative; display: block; border-radius: 10px; overflow: hidden;">
+          <img src="/_blob/5010a5bb355017ff746f79b1ada8523c" alt="Last sighting at the chutes" style="width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block;">
+          <span style="position: absolute; left: 6px; bottom: 6px; font-size: 11px; font-weight: 600; background: rgba(11,12,16,0.8); padding: 3px 6px; border-radius: 5px;">CAM 10 · 14:29</span>
+        </span>
+        <div style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 6px;">
+          <span style="align-self: flex-start; font-size: 12px; font-weight: 700; color: #FCD34D; padding: 4px 10px; border-radius: 999px; background: rgba(251,191,36,0.12);">Stalled 18 min</span>
+          <span style="font-size: 17px; font-weight: 600;">Went into chute C02 at 14:29. No bag scan since.</span>
+          <span style="font-size: 14px; color: #8B909B;">CTX254328969559 · next: bag scan at C02</span>
+        </div>
+        <a href="Investigate.dc.html" style="height: 40px; display: inline-flex; align-items: center; padding: 0 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.14); color: #F4F5F7; font-size: 14px; font-weight: 600;">Investigate</a>
+      </article>
+
+      <article style="background: #14151B; border: 1px solid rgba(255,255,255,0.07); border-radius: 20px; padding: 16px 18px; display: flex; flex-wrap: wrap; gap: 20px; align-items: center;">
+        <span style="flex: 0 0 160px; position: relative; display: block; border-radius: 10px; overflow: hidden;">
+          <img src="/_blob/f4740dfcbf92ad412dfbd915bcdbe76e" alt="Last sighting at induction" style="width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block;">
+          <span style="position: absolute; left: 6px; bottom: 6px; font-size: 11px; font-weight: 600; background: rgba(11,12,16,0.8); padding: 3px 6px; border-radius: 5px;">CAM 04 · 14:33</span>
+        </span>
+        <div style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 6px;">
+          <span style="align-self: flex-start; font-size: 12px; font-weight: 700; color: #FCD34D; padding: 4px 10px; border-radius: 999px; background: rgba(251,191,36,0.12);">Stalled 14 min</span>
+          <span style="font-size: 17px; font-weight: 600;">Read at the scan tunnel at 14:33. Never loaded onto the sorter.</span>
+          <span style="font-size: 14px; color: #8B909B;">CTX719788691932 · next: carrier load</span>
+        </div>
+        <a href="Investigate.dc.html" style="height: 40px; display: inline-flex; align-items: center; padding: 0 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.14); color: #F4F5F7; font-size: 14px; font-weight: 600;">Investigate</a>
+      </article>
+
+      <p style="margin: 0; font-size: 13px; color: #8B909B;">A parcel shows here when its next scan is late and the next scanner kept working. You hear about it before the customer calls.</p>
+    </section>
+
+    <aside style="flex: 1 1 340px; min-width: 0; display: flex; flex-direction: column; gap: 20px;">
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
+        <div style="background: #14151B; border: 1px solid rgba(255,255,255,0.07); border-radius: 16px; padding: 16px;">
+          <p style="margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -0.02em;">5</p>
+          <p style="margin: 4px 0 0; font-size: 13px; color: #8B909B;">found today</p>
+        </div>
+        <div style="background: #14151B; border: 1px solid rgba(255,255,255,0.07); border-radius: 16px; padding: 16px;">
+          <p style="margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -0.02em;">11<span style="font-size: 16px; color: #8B909B; font-weight: 500;"> min</span></p>
+          <p style="margin: 4px 0 0; font-size: 13px; color: #8B909B;">median time to find</p>
+        </div>
+      </div>
+      <div style="background: #14151B; border: 1px solid rgba(255,255,255,0.07); border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline;">
+          <h2 style="margin: 0; font-size: 16px; font-weight: 600;">Where today's trails ended</h2>
+          <a href="Cameras.dc.html" style="font-size: 13px;">Open 3D hub</a>
+        </div>
+        <img src="/_blob/91ff8de5f858b3268b5e8e3bb60bdc58" alt="Floor plan of the hub with the open case's route from the scan tunnel to the exception store" style="width: 100%; border-radius: 12px; display: block;">
+      </div>
+      <p style="margin: 0; font-size: 13px; color: #5A5F69;">Every parcel leaves a trail.</p>
+    </aside>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

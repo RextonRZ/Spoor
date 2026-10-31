@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Investigating CTX971442173782</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0C10}
+a{color:#A5B4FC;text-decoration:none}a:hover{color:#C7D2FE}
+</style>
+</helmet>
+<div style="min-height: 900px; background: #0B0C10; color: #F4F5F7; font-family: Inter, 'Google Sans Flex', system-ui, sans-serif; font-feature-settings: 'tnum' 1;">
+
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 24px; padding: 14px 32px; border-bottom: 1px solid rgba(255,255,255,0.07); background: #0E0F14;">
+    <a href="Main.dc.html" style="display: flex; align-items: center; gap: 10px; color: #F4F5F7;">
+      <img src="/_blob/604bdf8cdccf490f44ff1072f3756d56" alt="" style="width: 28px; height: 28px; object-fit: contain">
+      <span style="font-size: 19px; font-weight: 700; letter-spacing: -0.02em;">Spoor</span>
+    </a>
+    <nav aria-label="Main" style="display: flex; gap: 4px;">
+      <a href="Main.dc.html" style="padding: 8px 14px; border-radius: 10px; color: #8B909B; font-size: 14px; font-weight: 500;">Hub</a>
+      <a href="Case.dc.html" style="padding: 8px 14px; border-radius: 10px; background: #1B1D24; color: #F4F5F7; font-size: 14px; font-weight: 600;">Cases</a>
+      <a href="Cameras.dc.html" style="padding: 8px 14px; border-radius: 10px; color: #8B909B; font-size: 14px; font-weight: 500;">Cameras</a>
+    </nav>
+    <span style="flex: 1 1 40px;"></span>
+    <span style="font-size: 12px; color: #8B909B; padding: 6px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.10);">Synthetic demo hub</span>
+    <button type="button" aria-label="Account menu" style="width: 36px; height: 36px; border-radius: 50%; border: 0; background: #23252D; color: #C9CCD3; font: inherit; font-size: 13px; font-weight: 600;">RZ</button>
+  </header>
+
+  <div style="max-width: 1376px; margin: 0 auto; padding: 22px 32px 0; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px;">
+    <div>
+      <p style="margin: 0 0 6px; font-size: 14px; color: #8B909B;"><a href="Main.dc.html" style="color: #8B909B;">Hub</a> <span aria-hidden="true">›</span> CTX971442173782</p>
+      <h1 style="margin: 0; font-size: 30px; line-height: 1.15; font-weight: 700; letter-spacing: -0.03em;">{{ title }}</h1>
+    </div>
+    <div aria-label="Live meter" style="display: flex; gap: 8px; flex-wrap: wrap;">
+      <span style="padding: 8px 12px; border-radius: 10px; background: #14151B; border: 1px solid rgba(255,255,255,0.07); font-size: 14px;"><strong>US${{ cost }}</strong> <span style="color: #8B909B;">spent</span></span>
+      <span style="padding: 8px 12px; border-radius: 10px; background: #14151B; border: 1px solid rgba(255,255,255,0.07); font-size: 14px;"><strong>{{ checked }}</strong> <span style="color: #8B909B;">of 19 cameras checked</span></span>
+      <span style="padding: 8px 12px; border-radius: 10px; background: #14151B; border: 1px solid rgba(255,255,255,0.07); font-size: 14px;"><strong>{{ secs }} s</strong></span>
+      <button type="button" onClick="{{ replay }}" style="height: 38px; padding: 0 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.14); background: transparent; color: #F4F5F7; font: inherit; font-size: 13px; font-weight: 600;">Replay</button>
+    </div>
+  </div>
+
+  <main style="max-width: 1376px; margin: 0 auto; padding: 18px 32px 40px; display: flex; flex-wrap: wrap; gap: 20px;">
+
+    <section style="flex: 999 1 720px; min-width: 0; display: flex; flex-direction: column; gap: 16px;">
+      <div style="background: #14151B; border: 1px solid rgba(255,255,255,0.07); border-radius: 18px; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px;">
+          <h2 style="margin: 0; font-size: 16px; font-weight: 600;">Search map</h2>
+          <span style="font-size: 13px; color: #8B909B;">The lead picks where to look next. Cameras that show nothing are ruled out.</span>
+        </div>
+        <div style="display: flex; align-items: stretch; gap: 10px;">
+          <sc-for list="{{ cols }}" as="col" hint-placeholder-count="4">
+            <div style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 8px;">
+              <span style="font-size: 12px; color: #5A5F69; font-weight: 600;">{{ col.label }}</span>
+              <sc-for list="{{ col.nodes }}" as="n" hint-placeholder-count="2">
+                <div style="border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; {{ n.box }}">
+                  <span style="font-size: 14px; font-weight: 600; {{ n.nameStyle }}">{{ n.name }}</span>
+                  <span style="font-size: 12px; color: #8B909B;">{{ n.place }}</span>
+                  <span style="font-size: 12px; font-weight: 600; {{ n.statusStyle }}">{{ n.status }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="background: #14151B; border: 1px solid rgba(255,255,255,0.07); border-radius: 18px; padding: 16px 20px; display: flex; flex-direction: column; gap: 8px;">
+        <h2 style="margin: 0 0 4px; font-size: 16px; font-weight: 600;">What the crew did</h2>
+        <sc-for list="{{ log }}" as="l" hint-placeholder-count="5">
+          <div style="display: flex; gap: 12px; align-items: baseline; font-size: 14px; line-height: 1.45;">
+            <span style="flex: 0 0 64px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #5A5F69;">{{ l.t }}</span>
+            <span style="flex: 0 0 150px; font-weight: 600; {{ l.whoStyle }}">{{ l.who }}</span>
+            <span style="color: #C9CCD3; min-width: 0;">{{ l.text }}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+        <sc-if value="{{ done }}" hint-placeholder-val="{{ false }}">
+          <a href="Case.dc.html" style="height: 48px; display: inline-flex; align-items: center; padding: 0 22px; border-radius: 12px; background: #5558EE; color: #FFFFFF; font-size: 15px; font-weight: 600;">See the answer</a>
+        </sc-if>
+        <span style="font-size: 13px; color: #8B909B;">{{ footer }}</span>
+      </div>
+    </section>
+
+    <aside style="flex: 1 1 380px; min-width: 0; display: flex; flex-direction: column; gap: 14px;">
+      <div style="position: relative; border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08); background: #000000; aspect-ratio: 16 / 9;">
+        <sc-if value="{{ heroHas }}" hint-placeholder-val="{{ true }}">
+          <img src="{{ heroImg }}" alt="{{ heroTag }}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+        </sc-if>
+        <sc-if value="{{ heroNo }}" hint-placeholder-val="{{ false }}">
+          <span style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #101116; color: #5A5F69; font-size: 13px;">[{{ heroTag }}: footage after the S2 render]</span>
+        </sc-if>
+        <sc-if value="{{ heroBox }}" hint-placeholder-val="{{ false }}">
+          <span style="position: absolute; left: 55.2%; top: 43.6%; width: 5.4%; height: 7.4%; border: 2px solid #4ADE80; border-radius: 4px;"></span>
+        </sc-if>
+        <span style="position: absolute; right: 10px; top: 10px; font-size: 12px; font-weight: 600; background: rgba(11,12,16,0.82); padding: 5px 9px; border-radius: 7px;">{{ heroTag }}</span>
+      </div>
+
+      <div style="background: #14151B; border: 1px solid rgba(255,255,255,0.07); border-radius: 18px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 600;">The investigation crew</h2>
+        <sc-for list="{{ crew }}" as="c" hint-placeholder-count="6">
+          <div style="display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 12px; {{ c.box }}">
+            <div style="display: flex; justify-content: space-between; gap: 8px; align-items: baseline;">
+              <span style="font-size: 14px; font-weight: 600;">{{ c.role }}</span>
+              <span style="font-size: 12px; color: #A5B4FC;">{{ c.model }}</span>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+              <sc-for list="{{ c.tools }}" as="tool" hint-placeholder-count="2">
+                <span style="font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 3px 7px; border-radius: 6px; {{ tool.style }}">{{ tool.name }}</span>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+        <p style="margin: 0; font-size: 12px; color: #8B909B;">Dashed steps only run when needed.</p>
+      </div>
+    </aside>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { step: 0 }; }
+  componentDidMount() { this.tick(); }
+  componentWillUnmount() { clearTimeout(this.t); }
+  tick() {
+    clearTimeout(this.t);
+    this.t = setTimeout(() => {
+      if (this.state.step < 10) { this.setState({ step: this.state.step + 1 }); this.tick(); }
+    }, 1500);
+  }
+  renderVals() {
+    const n = this.state.step;
+    const IMG = { c10: '/_blob/5010a5bb355017ff746f79b1ada8523c', c07: '/_blob/8fbf58234d8ac9e0772e32dd234a6b6a', c19: '/_blob/fcb4327719e29e1c688b451e473a8c0e', c19o: '/_blob/6bedbc6c0a6ef4c8a3562cc958a18f52', c04: '/_blob/f4740dfcbf92ad412dfbd915bcdbe76e' };
+    // step -> log line, hero, cost, cameras checked
+    const STEPS = [
+      { t: '14:47:02', who: 'Lead investigator', text: 'Read 3 scans. Last: chute C04 at 14:32:31. Then cage RC-864 scanned onto truck D07.', img: IMG.c10, tag: 'Scan records', cost: '0.01', cams: 0 },
+      { t: '14:47:05', who: 'On-site triage', text: 'Glimmer flagged parcel handling on 5 of 19 cameras in the window. Only those clips leave the hub.', img: '', tag: 'Triage on site', cost: '0.02', cams: 0 },
+      { t: '14:47:09', who: 'Lead investigator', text: 'Plan: follow C04’s bag into the cages, then every way out of cage staging. Check CAM 10, CAM 14, CAM 19, CAM 15.', img: IMG.c10, tag: 'Planning', cost: '0.08', cams: 0 },
+      { t: '14:47:14', who: 'Camera analyst', text: 'CAM 10: bagged at C04 and put into cage RC-864 at 14:32:33.', img: IMG.c10, tag: 'Checking CAM 10', cost: '0.12', cams: 1 },
+      { t: '14:47:18', who: 'Camera analyst', text: 'CAM 14: a similar brown box near cage row E at 14:32:34.', img: '', tag: 'Checking CAM 14', cost: '0.15', cams: 2 },
+      { t: '14:47:19', who: 'Verifier', text: 'Rejected: that box would have moved 9 m in 1.1 s, faster than anyone walks. Not our parcel.', img: '', tag: 'Rejected', cost: '0.15', cams: 2 },
+      { t: '14:47:21', who: 'Lead investigator', text: 'Re-plan: RC-864 stands in the west half. Check CAM 13 instead.', img: '', tag: 'Re-planning', cost: '0.19', cams: 2 },
+      { t: '14:47:27', who: 'Tracker', text: 'CAM 13: followed the box frame by frame. Taken out of RC-864 by a worker at 14:32:35.', img: '', tag: 'Tracking on CAM 13', cost: '0.21', cams: 3 },
+      { t: '14:47:33', who: 'Camera analyst', text: 'CAM 19: carried into the exception store at 14:32:38. Same person out empty-handed at 14:32:56.', img: IMG.c19, tag: 'Checking CAM 19', cost: '0.25', cams: 4 },
+      { t: '14:47:38', who: 'Camera analyst', text: 'CAM 15: not seen in RC-864 as it was loaded at D07 (clear view). Records and video disagree.', img: '', tag: 'Checking CAM 15', cost: '0.28', cams: 5 },
+      { t: '14:47:41', who: 'Verifier', text: '4 sightings accepted, 1 rejected. One place left, so no need to ask a person. Search task and report drafted.', img: IMG.c19, tag: 'Verified', cost: '0.29', cams: 5 }
+    ];
+    const cur = STEPS[Math.min(n, STEPS.length - 1)];
+    const WHO = { 'Lead investigator': '#A5B4FC', 'On-site triage': '#A5B4FC', 'Camera analyst': '#93C5FD', 'Verifier': '#FCD34D', 'Tracker': '#86EFAC' };
+    const log = STEPS.slice(0, Math.min(n + 1, STEPS.length)).map(s => ({ t: s.t, who: s.who, text: s.text, whoStyle: 'color: ' + (WHO[s.who] || '#C9CCD3') + ';' }));
+
+    // node state helper
+    const S = {
+      hidden: { box: 'border: 1px dashed rgba(255,255,255,0.08); opacity: 0.35;', nameStyle: 'color: #5A5F69;', statusStyle: 'color: #5A5F69;' },
+      queued: { box: 'border: 1px solid rgba(255,255,255,0.10); background: #181A21;', nameStyle: 'color: #C9CCD3;', statusStyle: 'color: #8B909B;' },
+      checking: { box: 'border: 1px solid #818CF8; background: rgba(99,102,241,0.12); box-shadow: 0 0 0 3px rgba(99,102,241,0.15);', nameStyle: 'color: #F4F5F7;', statusStyle: 'color: #A5B4FC;' },
+      seen: { box: 'border: 1px solid rgba(74,222,128,0.6); background: rgba(74,222,128,0.08);', nameStyle: 'color: #F4F5F7;', statusStyle: 'color: #86EFAC;' },
+      ruled: { box: 'border: 1px solid rgba(255,255,255,0.08); background: #111217;', nameStyle: 'color: #8B909B; text-decoration: line-through;', statusStyle: 'color: #8B909B;' },
+      rejected: { box: 'border: 1px solid rgba(248,113,113,0.6); background: rgba(248,113,113,0.08);', nameStyle: 'color: #FCA5A5; text-decoration: line-through;', statusStyle: 'color: #FCA5A5;' },
+      disagree: { box: 'border: 1px dashed rgba(248,113,113,0.6); background: rgba(248,113,113,0.06);', nameStyle: 'color: #F4F5F7;', statusStyle: 'color: #FCA5A5;' }
+    };
+    const node = (name, place, plan) => {
+      let st = 'hidden', status = 'not chosen';
+      for (const [from, s, label] of plan) { if (n >= from) { st = s; status = label; } }
+      return { name, place, status, ...S[st] };
+    };
+    const cols = [
+      { label: 'Last scan', nodes: [ node('Chute C04', 'scan 14:32:31', [[0, 'seen', 'Last scan']]) ] },
+      { label: 'Into the cages', nodes: [
+        node('CAM 10', 'chutes C01 to C06', [[2, 'queued', 'Picked by the lead'], [3, 'checking', 'Checking…'], [4, 'seen', 'Seen 14:32:33']]),
+        node('CAM 11', 'chutes C07 to C12', [[2, 'ruled', 'Not on this route']])
+      ] },
+      { label: 'Out of the cage', nodes: [
+        node('CAM 14', 'cage staging east', [[2, 'queued', 'Picked by the lead'], [4, 'checking', 'Checking…'], [5, 'rejected', 'Rejected: too fast']]),
+        node('CAM 13', 'cage staging west', [[6, 'queued', 'Re-planned'], [7, 'checking', 'Tracking…'], [8, 'seen', 'Taken out 14:32:35']])
+      ] },
+      { label: 'Ways out', nodes: [
+        node('CAM 19', 'exception store', [[2, 'queued', 'Picked by the lead'], [8, 'checking', 'Checking…'], [9, 'seen', 'Carried in 14:32:38']]),
+        node('CAM 15', 'dock D07', [[2, 'queued', 'Picked by the lead'], [9, 'checking', 'Checking…'], [10, 'disagree', 'Not in the cage']]),
+        node('CAM 17', 'yard', [[2, 'ruled', 'Trucks only, no parcels']])
+      ] }
+    ];
+
+    const T = (name, from, optional) => ({ name, style: optional ? (n >= 10 ? 'border: 1px dashed rgba(255,255,255,0.15); color: #5A5F69;' : 'border: 1px dashed rgba(255,255,255,0.15); color: #8B909B;')
+      : (n >= from ? 'background: rgba(74,222,128,0.12); color: #86EFAC;' : 'background: #1B1D24; color: #8B909B;') });
+    const box = (a, b) => (n >= a && n < b) ? 'background: #181A21; border: 1px solid rgba(129,140,248,0.45);' : 'border: 1px solid rgba(255,255,255,0.06);';
+    const crew = [
+      { role: 'Lead investigator', model: 'Muse Wonder', box: box(0, 3) + (n === 6 ? 'border-color: rgba(129,140,248,0.45);' : ''), tools: [T('read_scans', 1), T('plan', 3), T('pick_cameras', 3), T('re_plan', 7)] },
+      { role: 'On-site triage', model: 'Muse Glimmer · Modal', box: box(1, 2), tools: [T('triage_clips', 2)] },
+      { role: 'Camera analysts', model: 'Muse Spark', box: box(3, 5) + (n === 8 || n === 9 ? 'border-color: rgba(129,140,248,0.45);' : ''), tools: [T('observe_clip ×4', 10)] },
+      { role: 'Tracker', model: 'SAM 3.1', box: box(7, 8), tools: [T('sam_track', 8)] },
+      { role: 'Verifier', model: 'rules, no AI', box: box(5, 6) + (n === 10 ? 'border-color: rgba(129,140,248,0.45);' : ''), tools: [T('verify', 6), T('reject', 6)] },
+      { role: 'Reporter', model: 'Muse Spark Open · Baseten', box: box(10, 11), tools: [T('create_search_task', 10), T('draft_report', 10), T('ask_a_person', 0, true)] }
+    ];
+    const done = n >= 10;
+    return {
+      cols, log, crew, done,
+      title: done ? 'Found where it went.' : 'Investigating…',
+      cost: cur.cost, checked: cur.cams, secs: String(Math.round(n * 4.1 + (done ? 0 : 1))),
+      heroImg: cur.img, heroHas: !!cur.img, heroNo: !cur.img, heroTag: cur.tag, heroBox: n >= 8 && cur.img === IMG.c19,
+      footer: done ? 'Took 41 s and US$0.29. By hand: about 2 to 4 hours of watching 19 cameras.' : 'No one needs to click anything until the answer is ready.',
+      replay: () => { this.setState({ step: 0 }); this.tick(); }
+    };
+  }
+}
+</script>
+</body>
+</html>

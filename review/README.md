@@ -34,6 +34,7 @@ building on top). Then fixes: `# · camera/worker/page · frame or time · probl
 P0 = a CCTV viewer or judge notices in 2 seconds. P1 = noticed on a second look. P2 = polish.
 
 ## Rules
+- OWNER RULE (Rexton): nothing passes through anything — items, people vs assets, people vs people. 1 cm tolerance, every frame. Any hit fails the gate.
 - Builder: after sending a request, **continue with the next queue item**. Check `reviews/` after every step
   and before starting anything new. Apply P0 fixes before new work on the same station/camera/page.
 - Arguing is welcome. If the builder thinks a fix is wrong or not worth it, write a reply with evidence.

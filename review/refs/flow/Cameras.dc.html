@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>All cameras</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0C10}
+a{color:#A5B4FC;text-decoration:none}a:hover{color:#C7D2FE}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+</helmet>
+<div style="min-height: 900px; background: #0B0C10; color: #F4F5F7; font-family: Inter, 'Google Sans Flex', system-ui, sans-serif; font-feature-settings: 'tnum' 1;">
+
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 24px; padding: 14px 32px; border-bottom: 1px solid rgba(255,255,255,0.07); background: #0E0F14;">
+    <a href="Main.dc.html" style="display: flex; align-items: center; gap: 10px; color: #F4F5F7;">
+      <img src="/_blob/604bdf8cdccf490f44ff1072f3756d56" alt="" style="width: 28px; height: 28px; object-fit: contain">
+      <span style="font-size: 19px; font-weight: 700; letter-spacing: -0.02em;">Spoor</span>
+    </a>
+    <nav aria-label="Main" style="display: flex; gap: 4px;">
+      <a href="Main.dc.html" style="padding: 8px 14px; border-radius: 10px; color: #8B909B; font-size: 14px; font-weight: 500;">Hub</a>
+      <a href="Case.dc.html" style="padding: 8px 14px; border-radius: 10px; color: #8B909B; font-size: 14px; font-weight: 500;">Cases</a>
+      <a href="Cameras.dc.html" style="padding: 8px 14px; border-radius: 10px; background: #1B1D24; color: #F4F5F7; font-size: 14px; font-weight: 600;">Cameras</a>
+    </nav>
+    <span style="flex: 1 1 40px;"></span>
+    <span style="font-size: 12px; color: #8B909B; padding: 6px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.10);">Synthetic demo hub</span>
+    <button type="button" aria-label="Account menu" style="width: 36px; height: 36px; border-radius: 50%; border: 0; background: #23252D; color: #C9CCD3; font: inherit; font-size: 13px; font-weight: 600;">RZ</button>
+  </header>
+
+  <main style="max-width: 1376px; margin: 0 auto; padding: 24px 32px 40px; display: flex; flex-direction: column; gap: 16px;">
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px;">
+      <div>
+        <p style="margin: 0 0 6px; font-size: 14px; color: #8B909B;">19 cameras · all playing the same moment</p>
+        <h1 style="margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.03em;">The whole hub at 14:32:38</h1>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+        <div role="group" aria-label="Zone" style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: #14151B; border: 1px solid rgba(255,255,255,0.07);">
+          <sc-for list="{{ zones }}" as="z" hint-placeholder-count="4">
+            <button type="button" onClick="{{ z.pick }}" aria-pressed="{{ z.on }}" style="height: 34px; padding: 0 12px; border-radius: 9px; border: 0; font: inherit; font-size: 13px; {{ z.style }}">{{ z.label }}</button>
+          </sc-for>
+        </div>
+        <div role="group" aria-label="View" style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: #14151B; border: 1px solid rgba(255,255,255,0.07);">
+          <button type="button" onClick="{{ showWall }}" aria-pressed="{{ wallOn }}" style="height: 34px; padding: 0 14px; border-radius: 9px; border: 0; font: inherit; font-size: 13px; font-weight: 600; {{ wallStyle }}">Camera wall</button>
+          <button type="button" onClick="{{ show3d }}" aria-pressed="{{ threeOn }}" style="height: 34px; padding: 0 14px; border-radius: 9px; border: 0; font: inherit; font-size: 13px; font-weight: 600; {{ threeStyle }}">3D hub</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; background: #14151B; border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 10px 14px;">
+      <button type="button" aria-label="Play all cameras" style="width: 40px; height: 40px; border-radius: 10px; border: 0; background: #5558EE; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center;">
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor"></path></svg>
+      </button>
+      <label for="t" class="sr">Time for every camera</label>
+      <input id="t" type="range" min="0" max="100" value="58" style="flex: 1 1 300px; accent-color: #6366F1;">
+      <span style="font-size: 15px; font-weight: 600;">14:32:38</span>
+      <span style="font-size: 13px; color: #8B909B;">Each clip placed by its own clock check</span>
+    </div>
+
+    <sc-if value="{{ wall }}" hint-placeholder-val="{{ true }}">
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;">
+        <sc-for list="{{ cams }}" as="c" hint-placeholder-count="12">
+          <div style="border-radius: 14px; overflow: hidden; background: #14151B; border: 1px solid rgba(255,255,255,0.07);">
+            <sc-if value="{{ c.hasImg }}" hint-placeholder-val="{{ true }}">
+              <img src="{{ c.img }}" alt="{{ c.id }} {{ c.name }}" style="width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block;">
+            </sc-if>
+            <sc-if value="{{ c.noImg }}" hint-placeholder-val="{{ false }}">
+              <span style="display: flex; align-items: center; justify-content: center; width: 100%; aspect-ratio: 16 / 9; background: #101116; color: #5A5F69; font-size: 12px;">[{{ c.id }} footage]</span>
+            </sc-if>
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px;">
+              <span style="display: flex; flex-direction: column; gap: 1px; min-width: 0;">
+                <span style="font-size: 13px; font-weight: 600;">{{ c.id }}</span>
+                <span style="font-size: 12px; color: #8B909B;">{{ c.name }}</span>
+              </span>
+              <sc-if value="{{ c.inCase }}" hint-placeholder-val="{{ false }}">
+                <a href="Proof.dc.html" style="font-size: 12px; font-weight: 600; color: #86EFAC;">In a case</a>
+              </sc-if>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ three }}" hint-placeholder-val="{{ false }}">
+      <div style="position: relative; height: 600px; border-radius: 18px; overflow: hidden; background: radial-gradient(ellipse at 50% 40%, #1B1D24 0%, #0B0C10 75%); border: 1px solid rgba(255,255,255,0.07);">
+        <div style="position: absolute; left: 50%; top: 52%; width: 980px; transform: translate(-50%, -50%) perspective(1400px) rotateX(48deg) rotateZ(-8deg);">
+          <img src="/_blob/91ff8de5f858b3268b5e8e3bb60bdc58" alt="The hub in 3D with every camera and today's trails" style="width: 100%; display: block; border-radius: 12px;">
+        </div>
+        <span style="position: absolute; left: 16px; top: 16px; font-size: 13px; color: #8B909B; background: rgba(11,12,16,0.8); padding: 6px 10px; border-radius: 8px;">[3D: the real Blender hub, hub.glb · drag to orbit · click a camera to fly there]</span>
+        <div style="position: absolute; right: 16px; top: 16px; display: flex; gap: 8px;">
+          <span aria-label="Compass, north is up" style="width: 40px; height: 40px; border-radius: 50%; background: #14151B; border: 1px solid rgba(255,255,255,0.12); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #F4F5F7;">N</span>
+          <button type="button" style="height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.14); background: #14151B; color: #F4F5F7; font: inherit; font-size: 13px; font-weight: 600;">Reset view</button>
+        </div>
+      </div>
+    </sc-if>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { view: 'wall', zone: 'all' }; }
+  renderVals() {
+    const I = { CAM_04: '/_blob/f4740dfcbf92ad412dfbd915bcdbe76e', CAM_07: '/_blob/8fbf58234d8ac9e0772e32dd234a6b6a',
+                CAM_10: '/_blob/5010a5bb355017ff746f79b1ada8523c', CAM_19: '/_blob/fcb4327719e29e1c688b451e473a8c0e' };
+    const all = [
+      ['CAM_01','Dock 01 to 03','in'],['CAM_02','Dock 04 to 06','in'],['CAM_03','Bag opening','in'],['CAM_04','Induction','sort'],
+      ['CAM_05','Scan tunnel exit','sort'],['CAM_06','Sorter west','sort'],['CAM_07','Sorter middle','sort'],['CAM_08','Sorter east','sort'],
+      ['CAM_09','Reject chute','sort'],['CAM_10','Chutes C01 to C06','sort'],['CAM_11','Chutes C07 to C12','sort'],['CAM_12','Exception bench','sort'],
+      ['CAM_13','Cage staging west','out'],['CAM_14','Cage staging east','out'],['CAM_15','Dock 07 to 09','out'],['CAM_16','Dock 10 to 12','out'],
+      ['CAM_17','Yard north','out'],['CAM_18','South aisle','in'],['CAM_19','Exception store','out']
+    ];
+    const caseCams = ['CAM_10','CAM_13','CAM_15','CAM_19'];
+    const zone = this.state.zone;
+    const cams = all.filter(c => zone === 'all' || c[2] === zone).map(c => ({
+      id: c[0].replace('_', ' '), name: c[1], img: I[c[0]] || '', hasImg: !!I[c[0]], noImg: !I[c[0]], inCase: caseCams.includes(c[0])
+    }));
+    const Z = [['all','All 19'],['in','Inbound'],['sort','Sorting'],['out','Outbound']];
+    const zones = Z.map(z => ({ label: z[1], on: z[0] === zone ? 'true' : 'false',
+      style: z[0] === zone ? 'background: #23252D; color: #F4F5F7; font-weight: 600;' : 'background: transparent; color: #8B909B;',
+      pick: () => this.setState({ zone: z[0] }) }));
+    const wall = this.state.view === 'wall';
+    const on = 'background: #23252D; color: #F4F5F7;', off = 'background: transparent; color: #8B909B;';
+    return { cams, zones, wall, three: !wall, wallOn: wall ? 'true' : 'false', threeOn: wall ? 'false' : 'true',
+      wallStyle: wall ? on : off, threeStyle: wall ? off : on,
+      showWall: () => this.setState({ view: 'wall' }), show3d: () => this.setState({ view: '3d' }) };
+  }
+}
+</script>
+</body>
+</html>

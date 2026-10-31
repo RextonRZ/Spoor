@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Case CTX971442173782: proof</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0C10}
+a{color:#A5B4FC;text-decoration:none}a:hover{color:#C7D2FE}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+summary{cursor:pointer}
+</style>
+</helmet>
+<div style="min-height: 900px; background: #0B0C10; color: #F4F5F7; font-family: Inter, 'Google Sans Flex', system-ui, sans-serif; font-feature-settings: 'tnum' 1;">
+
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 24px; padding: 14px 32px; border-bottom: 1px solid rgba(255,255,255,0.07); background: #0E0F14;">
+    <a href="Main.dc.html" style="display: flex; align-items: center; gap: 10px; color: #F4F5F7;">
+      <img src="/_blob/604bdf8cdccf490f44ff1072f3756d56" alt="" style="width: 28px; height: 28px; object-fit: contain">
+      <span style="font-size: 19px; font-weight: 700; letter-spacing: -0.02em;">Spoor</span>
+    </a>
+    <nav aria-label="Main" style="display: flex; gap: 4px;">
+      <a href="Main.dc.html" style="padding: 8px 14px; border-radius: 10px; color: #8B909B; font-size: 14px; font-weight: 500;">Hub</a>
+      <a href="Case.dc.html" style="padding: 8px 14px; border-radius: 10px; background: #1B1D24; color: #F4F5F7; font-size: 14px; font-weight: 600;">Cases</a>
+      <a href="Cameras.dc.html" style="padding: 8px 14px; border-radius: 10px; color: #8B909B; font-size: 14px; font-weight: 500;">Cameras</a>
+    </nav>
+    <span style="flex: 1 1 40px;"></span>
+    <span style="font-size: 12px; color: #8B909B; padding: 6px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.10);">Synthetic demo hub</span>
+    <button type="button" aria-label="Account menu" style="width: 36px; height: 36px; border-radius: 50%; border: 0; background: #23252D; color: #C9CCD3; font: inherit; font-size: 13px; font-weight: 600;">RZ</button>
+  </header>
+
+  <div style="max-width: 1376px; margin: 0 auto; padding: 20px 32px 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px;">
+    <p style="margin: 0; font-size: 14px; color: #8B909B;"><a href="Main.dc.html" style="color: #8B909B;">Hub</a> <span aria-hidden="true">›</span> <a href="Case.dc.html" style="color: #C9CCD3;">CTX971442173782</a> <span aria-hidden="true">›</span> Proof</p>
+    <nav aria-label="Case steps" style="display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: #14151B; border: 1px solid rgba(255,255,255,0.07);">
+      <a href="Case.dc.html" style="padding: 8px 14px; border-radius: 9px; color: #8B909B; font-size: 14px; font-weight: 500;">1 Answer</a>
+      <a href="Proof.dc.html" aria-current="page" style="padding: 8px 14px; border-radius: 9px; background: #23252D; color: #F4F5F7; font-size: 14px; font-weight: 600;">2 Proof</a>
+      <a href="Search.dc.html" style="padding: 8px 14px; border-radius: 9px; color: #8B909B; font-size: 14px; font-weight: 500;">3 Go look</a>
+      <a href="Report.dc.html" style="padding: 8px 14px; border-radius: 9px; color: #8B909B; font-size: 14px; font-weight: 500;">4 Report</a>
+    </nav>
+  </div>
+
+  <main style="max-width: 1376px; margin: 0 auto; padding: 20px 32px 40px; display: flex; flex-wrap: wrap; gap: 24px;">
+
+    <section style="flex: 999 1 680px; min-width: 0; display: flex; flex-direction: column; gap: 14px;">
+      <div role="group" aria-label="View" style="align-self: flex-start; display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: #14151B; border: 1px solid rgba(255,255,255,0.07);">
+        <button type="button" onClick="{{ showVideo }}" aria-pressed="{{ videoOn }}" style="height: 34px; padding: 0 14px; border-radius: 9px; border: 0; font: inherit; font-size: 13px; font-weight: 600; {{ videoStyle }}">Video</button>
+        <button type="button" onClick="{{ show3d }}" aria-pressed="{{ threeOn }}" style="height: 34px; padding: 0 14px; border-radius: 9px; border: 0; font: inherit; font-size: 13px; font-weight: 600; {{ threeStyle }}">3D hub</button>
+      </div>
+      <sc-if value="{{ three }}" hint-placeholder-val="{{ false }}">
+        <div style="position: relative; aspect-ratio: 16 / 9; border-radius: 18px; overflow: hidden; background: radial-gradient(ellipse at 50% 40%, #1B1D24 0%, #0B0C10 75%); border: 1px solid rgba(255,255,255,0.08);">
+          <div style="position: absolute; left: 50%; top: 54%; width: 92%; transform: translate(-50%, -50%) perspective(1300px) rotateX(50deg) rotateZ(-6deg);">
+            <img src="/_blob/91ff8de5f858b3268b5e8e3bb60bdc58" alt="The hub in 3D with this parcel's trail and CAM 19's view" style="width: 100%; display: block; border-radius: 12px;">
+          </div>
+          <span style="position: absolute; left: 14px; top: 14px; font-size: 13px; color: #8B909B; background: rgba(11,12,16,0.8); padding: 6px 10px; border-radius: 8px;">[3D: the real Blender hub · this parcel's trail · flies to {{ sel.cam }}]</span>
+          <span aria-label="Compass, north is up" style="position: absolute; right: 14px; top: 14px; width: 40px; height: 40px; border-radius: 50%; background: #14151B; border: 1px solid rgba(255,255,255,0.12); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700;">N</span>
+        </div>
+      </sc-if>
+      <sc-if value="{{ video }}" hint-placeholder-val="{{ true }}">
+      <div style="position: relative; border-radius: 18px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08); background: #000000; aspect-ratio: 16 / 9;">
+        <sc-if value="{{ sel.hasImg }}" hint-placeholder-val="{{ true }}">
+          <img src="{{ sel.img }}" alt="{{ sel.alt }}" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+        </sc-if>
+        <sc-if value="{{ sel.noImg }}" hint-placeholder-val="{{ false }}">
+          <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: #111217; border: 2px dashed rgba(248,113,113,0.5); border-radius: 18px; text-align: center; padding: 24px;">
+            <span style="font-size: 22px; font-weight: 700; color: #FCA5A5;">Not in the cage when it was loaded</span>
+            <span style="font-size: 15px; color: #C9CCD3; max-width: 52ch; line-height: 1.5;">The records say cage RC-864 went onto truck D07 at 14:33:05 with this parcel. CAM 15 watched the cage being loaded: the parcel was not in it.</span>
+          </div>
+        </sc-if>
+        <sc-if value="{{ sel.box }}" hint-placeholder-val="{{ true }}">
+          <span style="position: absolute; left: 55.2%; top: 43.6%; width: 5.4%; height: 7.4%; border: 2px solid #4ADE80; border-radius: 4px; box-shadow: 0 0 0 4px rgba(74,222,128,0.18);"></span>
+        </sc-if>
+        <span style="position: absolute; left: 16px; top: 48px; font-size: 13px; font-weight: 600; padding: 5px 10px; border-radius: 8px; {{ sel.pillStyle }}">{{ sel.pill }}</span>
+      </div>
+      </sc-if>
+
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; background: #14151B; border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 10px 14px;">
+        <button type="button" aria-label="Play" style="width: 40px; height: 40px; border-radius: 10px; border: 0; background: #5558EE; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center;">
+          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor"></path></svg>
+        </button>
+        <button type="button" aria-label="Back one frame" style="width: 40px; height: 40px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); background: transparent; color: #C9CCD3; font: inherit; font-size: 13px;">−1</button>
+        <button type="button" aria-label="Forward one frame" style="width: 40px; height: 40px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); background: transparent; color: #C9CCD3; font: inherit; font-size: 13px;">+1</button>
+        <label for="scrub" class="sr">Time in the clip</label>
+        <input id="scrub" type="range" min="0" max="100" value="62" style="flex: 1 1 200px; accent-color: #6366F1;">
+        <span style="font-size: 15px; font-weight: 600; min-width: 92px;">{{ sel.time }}</span>
+        <div role="group" aria-label="Speed" style="display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: #0E0F14;">
+          <button type="button" style="height: 32px; padding: 0 10px; border-radius: 8px; border: 0; background: #23252D; color: #F4F5F7; font: inherit; font-size: 13px;">1×</button>
+          <button type="button" style="height: 32px; padding: 0 10px; border-radius: 8px; border: 0; background: transparent; color: #8B909B; font: inherit; font-size: 13px;">4×</button>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: baseline;">
+        <h2 style="margin: 0; font-size: 16px; font-weight: 600;">Every camera on its route, in order</h2>
+        <span style="font-size: 13px; color: #8B909B;">Click a camera to watch that moment</span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px;">
+        <sc-for list="{{ tiles }}" as="t" hint-placeholder-count="6">
+          <button type="button" onClick="{{ t.pick }}" aria-pressed="{{ t.on }}" style="text-align: left; padding: 0; border-radius: 12px; overflow: hidden; background: #14151B; color: #F4F5F7; font: inherit; cursor: pointer; {{ t.frame }}">
+            <sc-if value="{{ t.hasImg }}" hint-placeholder-val="{{ true }}">
+              <img src="{{ t.img }}" alt="" style="width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block;">
+            </sc-if>
+            <sc-if value="{{ t.noImg }}" hint-placeholder-val="{{ false }}">
+              <span style="display: flex; align-items: center; justify-content: center; width: 100%; aspect-ratio: 16 / 9; background: #111217; color: #FCA5A5; font-size: 12px; font-weight: 600;">Not in the cage</span>
+            </sc-if>
+            <span style="display: flex; flex-direction: column; gap: 2px; padding: 8px 10px 10px;">
+              <span style="font-size: 13px; font-weight: 600;">{{ t.cam }}</span>
+              <span style="font-size: 12px; color: #8B909B;">{{ t.place }}</span>
+              <span style="font-size: 12px; font-weight: 600; {{ t.statusStyle }}">{{ t.status }}</span>
+            </span>
+          </button>
+        </sc-for>
+      </div>
+    </section>
+
+    <aside style="flex: 1 1 340px; min-width: 0; display: flex; flex-direction: column; gap: 16px;">
+      <div style="background: #14151B; border: 1px solid rgba(255,255,255,0.07); border-radius: 18px; padding: 20px; display: flex; flex-direction: column; gap: 10px;">
+        <p style="margin: 0; font-size: 13px; color: #8B909B;">{{ sel.cam }} · {{ sel.place }}</p>
+        <h1 style="margin: 0; font-size: 24px; line-height: 1.25; font-weight: 700; letter-spacing: -0.02em;">{{ sel.headline }}</h1>
+        <p style="margin: 0; font-size: 15px; line-height: 1.55; color: #C9CCD3;">{{ sel.body }}</p>
+      </div>
+      <img src="/_blob/91ff8de5f858b3268b5e8e3bb60bdc58" alt="Floor plan with the parcel's route from the scan tunnel to the exception store" style="width: 100%; border-radius: 16px; border: 1px solid rgba(255,255,255,0.07); display: block;">
+      <a href="Search.dc.html" style="height: 48px; display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; background: #5558EE; color: #FFFFFF; font-size: 15px; font-weight: 600;">Go look: exception store</a>
+      <details style="background: #14151B; border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 14px 16px; color: #C9CCD3; font-size: 13px;">
+        <summary style="font-size: 14px; font-weight: 600; color: #F4F5F7;">Evidence details</summary>
+        <p style="margin: 10px 0 0; line-height: 1.6;">Original recording kept unchanged with its fingerprint (SHA-256). Camera clock checked against the sorter's clock. Tracked by SAM 3.1; checked by the verifier. Full list in the report appendix.</p>
+      </details>
+    </aside>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { picked: 3, mode: 'video' }; }
+  renderVals() {
+    const G = 'color: #86EFAC;';
+    const R = 'color: #FCA5A5;';
+    const data = [
+      { cam: 'CAM 04', place: 'Induction', time: '14:32:07.9', img: '/_blob/f4740dfcbf92ad412dfbd915bcdbe76e', status: 'Seen 14:32:07', statusStyle: G, box: false,
+        headline: 'Read at the scan tunnel.', body: 'The label was read as it left the tunnel. The camera shows the parcel on the induction belt at the same moment.', pill: 'Seen · this parcel', pillStyle: 'color: #0B0C10; background: #4ADE80;' },
+      { cam: 'CAM 07', place: 'Sorter', time: '14:32:12.6', img: '/_blob/8fbf58234d8ac9e0772e32dd234a6b6a', status: 'Seen 14:32:12', statusStyle: G, box: false,
+        headline: 'Loaded onto carrier 87.', body: 'It rode the sorter loop for 19 seconds, at the belt speed the records expect.', pill: 'Seen · this parcel', pillStyle: 'color: #0B0C10; background: #4ADE80;' },
+      { cam: 'CAM 10', place: 'Chutes C01–C06', time: '14:32:31.8', img: '/_blob/5010a5bb355017ff746f79b1ada8523c', status: 'Seen 14:32:31', statusStyle: G, box: false,
+        headline: 'Dropped into chute C04.', body: 'Then bagged and put into cage RC-864 for Klang, as planned.', pill: 'Seen · this parcel', pillStyle: 'color: #0B0C10; background: #4ADE80;' },
+      { cam: 'CAM 19', place: 'Exception store doorway', time: '14:32:38.4', img: '/_blob/fcb4327719e29e1c688b451e473a8c0e', status: 'Carried in 14:32:38', statusStyle: G, box: true,
+        headline: 'Carried into the exception store.', body: 'A worker took it out of cage RC-864 and walked it through the only doorway of the store. The cage left without it.', pill: 'Seen · this parcel', pillStyle: 'color: #0B0C10; background: #4ADE80;' },
+      { cam: 'CAM 19', place: 'Exception store doorway', time: '14:32:56.0', img: '/_blob/6bedbc6c0a6ef4c8a3562cc958a18f52', status: 'Came out empty 14:32:56', statusStyle: G, box: false,
+        headline: 'Came out empty-handed.', body: '18 seconds later the same person left the store without the parcel. Nobody carried a parcel out after that.', pill: 'Same person · no parcel', pillStyle: 'color: #F4F5F7; background: rgba(20,21,27,0.85);' },
+      { cam: 'CAM 15', place: 'Dock D07', time: '14:33:05.0', img: '', status: 'Records disagree', statusStyle: R, box: false,
+        headline: 'Records say: loaded on truck D07.', body: 'The cage scan says the parcel left at 14:33:05. The video says it was already in the store.', pill: 'Records vs cameras', pillStyle: 'color: #0B0C10; background: #F87171;' }
+    ];
+    const picked = this.state.picked;
+    const tiles = data.map((d, i) => ({
+      ...d, hasImg: !!d.img, noImg: !d.img, on: i === picked ? 'true' : 'false',
+      frame: i === picked ? 'border: 2px solid #818CF8;' : (d.img ? 'border: 1px solid rgba(255,255,255,0.08);' : 'border: 1px dashed rgba(248,113,113,0.55);'),
+      pick: () => this.setState({ picked: i })
+    }));
+    const s = data[picked];
+    const sel = { ...s, hasImg: !!s.img, noImg: !s.img, alt: s.cam + ' frame at ' + s.time };
+    const v = this.state.mode === 'video';
+    const on = 'background: #23252D; color: #F4F5F7;', off = 'background: transparent; color: #8B909B;';
+    return { tiles, sel, video: v, three: !v, videoOn: v ? 'true' : 'false', threeOn: v ? 'false' : 'true',
+      videoStyle: v ? on : off, threeStyle: v ? off : on,
+      showVideo: () => this.setState({ mode: 'video' }), show3d: () => this.setState({ mode: '3d' }) };
+  }
+}
+</script>
+</body>
+</html>
