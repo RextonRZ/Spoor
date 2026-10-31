@@ -1,0 +1,33 @@
+{
+ "scenario": "S4",
+ "title": "Mis-load onto the wrong truck (RFID cross-read)",
+ "synthetic": true,
+ "subject_id": "RC-169",
+ "subject_kind": "container",
+ "question": "Which truck did roll cage RC-169 go onto?",
+ "waybill": null,
+ "complaint": "The receiving depot says roll cage RC-169 did not arrive on its truck.",
+ "window": {
+  "start": "2026-10-28T14:32:07+08:00",
+  "seconds": 30.0
+ },
+ "cameras": [
+  "CAM_10",
+  "CAM_11",
+  "CAM_13",
+  "CAM_14",
+  "CAM_15",
+  "CAM_16",
+  "CAM_17"
+ ],
+ "scan_log": "assets/hub/build/sim/events_scan_simulated_S4.jsonl",
+ "clips": [
+  "assets/hub/build/renders/S4/CAM_10.mp4",
+  "assets/hub/build/renders/S4/CAM_11.mp4",
+  "assets/hub/build/renders/S4/CAM_13.mp4",
+  "assets/hub/build/renders/S4/CAM_14.mp4",
+  "assets/hub/build/renders/S4/CAM_15.mp4",
+  "assets/hub/build/renders/S4/CAM_16.mp4",
+  "assets/hub/build/renders/S4/CAM_17.mp4"
+ ]
+}

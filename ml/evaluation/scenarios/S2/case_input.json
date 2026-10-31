@@ -1,0 +1,33 @@
+{
+ "scenario": "S2",
+ "title": "Removal into the blind spot",
+ "synthetic": true,
+ "subject_id": "CTX468083768412",
+ "subject_kind": "parcel",
+ "question": "Where is CTX468083768412 now, and when was it last seen?",
+ "waybill": "CTX468083768412",
+ "complaint": "Customer reports parcel CTX468083768412 never arrived.",
+ "window": {
+  "start": "2026-10-28T14:32:07+08:00",
+  "seconds": 90.0
+ },
+ "cameras": [
+  "CAM_01",
+  "CAM_06",
+  "CAM_09",
+  "CAM_11",
+  "CAM_13",
+  "CAM_15",
+  "CAM_19"
+ ],
+ "scan_log": "assets/hub/build/sim/events_scan_simulated_S2.jsonl",
+ "clips": [
+  "assets/hub/build/renders/S2/CAM_01.mp4",
+  "assets/hub/build/renders/S2/CAM_06.mp4",
+  "assets/hub/build/renders/S2/CAM_09.mp4",
+  "assets/hub/build/renders/S2/CAM_11.mp4",
+  "assets/hub/build/renders/S2/CAM_13.mp4",
+  "assets/hub/build/renders/S2/CAM_15.mp4",
+  "assets/hub/build/renders/S2/CAM_19.mp4"
+ ]
+}

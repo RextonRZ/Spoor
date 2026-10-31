@@ -1,0 +1,107 @@
+{
+  "test": "j6_glimmer_triage",
+  "run_at_utc": "2026-10-31T01:02:43.228034+00:00",
+  "model": "meta-models/Muse-Glimmer-30B",
+  "weights": "BF16 from Hugging Face (Apache 2.0)",
+  "provider": "modal",
+  "gpu": "A100-80GB",
+  "vllm": "0.32.0",
+  "input": {
+    "clip": "s2_cam19_finallook_1fps.mp4",
+    "label": "SYNTHETIC footage",
+    "fps": 1.0,
+    "frames": 12
+  },
+  "load_s": 253.4,
+  "inference_s": 24.3,
+  "wall_s": 334.0,
+  "usd_upper_bound": 0.232,
+  "flagged": 4,
+  "rows": [
+    {
+      "t_s": 0.0,
+      "handling": true,
+      "what": "person carrying parcel near exception store",
+      "people": 1,
+      "raw": "parcel. Handling = a person is picking up, carrying, putting down or removing a parcel, or a parcel is leaving a conveyor or chute by hand. Yes person carrying parcel. So handling true. what: \"person carrying parcel near exception store\" maybe at most 12 words. People count: 1.\n\nReturn JSON only.assistant to=user{\"handling\": true, \"what\": \"person carrying parcel near exception store\", \"people\": 1}"
+    },
+    {
+      "t_s": 1.0,
+      "handling": true,
+      "what": "person carrying parcel into exception store",
+      "people": 1,
+      "raw": " parcel is leaving a conveyor or chute by hand. Parcels riding a belt with nobody touching them are not handling. If unsure, handling=false, what=\"unclear\".\n\nPerson carrying a parcel. So handling true. what: \"person carrying parcel into exception store\". At most 12 words. People: 1.\n\nReturn JSON.assistant to=user{\"handling\": true, \"what\": \"person carrying parcel into exception store\", \"people\": 1}"
+    },
+    {
+      "t_s": 2.0,
+      "handling": true,
+      "what": "person carrying parcel at exception store",
+      "people": 1,
+      "raw": "ing, putting down or removing a parcel, or a parcel is leaving a conveyor or chute by hand. Parcels riding a belt with nobody touching them are not handling.\n\nPerson is carrying a parcel. So handling true. what: \"person carrying parcel at exception store\". At most 12 words. people: 1.\n\nReturn JSON.assistant to=user{\"handling\": true, \"what\": \"person carrying parcel at exception store\", \"people\": 1}"
+    },
+    {
+      "t_s": 3.0,
+      "handling": true,
+      "what": "person carrying parcel into exception store",
+      "people": 1,
+      "raw": "ng down or removing a parcel, or a parcel is leaving a conveyor or chute by hand. Parcels riding a belt with nobody touching them are not handling.\n\nWe see a person carrying a parcel. So handling true. what: \"person carrying parcel into exception store\". At most 12 words. people: 1.\n\nReturn JSON.assistant to=user{\"handling\": true, \"what\": \"person carrying parcel into exception store\", \"people\": 1}"
+    },
+    {
+      "t_s": 4.0,
+      "handling": false,
+      "what": "person walking into exception store",
+      "people": 1,
+      "raw": " chute by hand. Parcels riding a belt with nobody touching them are not handling. If unsure, handling=false, what=\"unclear\".\n\nWe see a person walking into exception store, no parcel visible. People count 1. handling false. what maybe \"person walking into exception store\". At most 12 words.\n\nReturn JSON.assistant to=user{\"handling\": false, \"what\": \"person walking into exception store\", \"people\": 1}"
+    },
+    {
+      "t_s": 5.0,
+      "handling": false,
+      "what": "person walking into exception store",
+      "people": 1,
+      "raw": "ute by hand. Parcels riding a belt with nobody touching them are not handling. If unsure, handling=false, what=\"unclear\".\n\nWe see a person walking into exception store, no parcel visible. So handling false. People count 1. what maybe \"person walking into exception store\". At most 12 words.\n\nReturn JSON.assistant to=user{\"handling\": false, \"what\": \"person walking into exception store\", \"people\": 1}"
+    },
+    {
+      "t_s": 6.0,
+      "handling": false,
+      "what": "person standing near exception store entrance",
+      "people": 1,
+      "raw": "y touching them are not handling.\n\nIn image, one person standing near exception store entrance, no parcel visible being handled. People count =1.\n\nSo handling false, what maybe \"person standing near exception store\" or \"unclear\". Probably \"person standing idle\". At most 12 words.\n\nReturn JSON.assistant to=user{\"handling\": false, \"what\": \"person standing near exception store entrance\", \"people\": 1}"
+    },
+    {
+      "t_s": 7.0,
+      "handling": false,
+      "what": "person walking through exception store",
+      "people": 1,
+      "raw": "with nobody touching them are not handling. If unsure, handling=false, what=\"unclear\".\n\nWe see a person walking through exception store, no parcel handling. People count 1.\n\nSo handling false, what maybe \"person walking through exception store\" or \"no parcel handling\". At most 12 words.\n\nReturn JSON.assistant to=user{\"handling\": false, \"what\": \"person walking through exception store\", \"people\": 1}"
+    },
+    {
+      "t_s": 8.0,
+      "handling": false,
+      "what": "person walking through exception store",
+      "people": 1,
+      "raw": "with nobody touching them are not handling. If unsure, handling=false, what=\"unclear\".\n\nWe see a person walking through exception store, no parcel handling. People count 1.\n\nSo handling false, what maybe \"person walking through exception store\" or \"no parcel handling\". At most 12 words.\n\nReturn JSON.assistant to=user{\"handling\": false, \"what\": \"person walking through exception store\", \"people\": 1}"
+    },
+    {
+      "t_s": 9.0,
+      "handling": false,
+      "what": "person walking near exception store",
+      "people": 1,
+      "raw": "g a belt with nobody touching them are not handling. If unsure, handling=false, what=\"unclear\".\n\nWe see a person walking near exception store, no parcel handling. People count 1.\n\nSo handling false, what maybe \"person walking near exception store\" or \"no parcel handling\". At most 12 words.\n\nReturn JSON.assistant to=user{\"handling\": false, \"what\": \"person walking near exception store\", \"people\": 1}"
+    },
+    {
+      "t_s": 10.0,
+      "handling": false,
+      "what": "person standing near exception store entrance",
+      "people": 1,
+      "raw": "are not handling.\n\nIn image, one person standing near exception store, no parcel handling. People count 1.\n\nSo handling false, what maybe \"person standing by exception store\" or \"unclear\". At most 12 words. Probably \"person standing near exception store entrance\". That's 5 words.\n\nReturn JSON.assistant to=user{\"handling\": false, \"what\": \"person standing near exception store entrance\", \"people\": 1}"
+    },
+    {
+      "t_s": 11.0,
+      "handling": false,
+      "what": "person standing by exception store",
+      "people": 1,
+      "raw": "hute by hand. Parcels riding a belt with nobody touching them are not handling. If unsure, handling=false, what=\"unclear\".\n\nWe see one person standing near exception store, no parcel handling. People count 1. handling false. what maybe \"person standing by exception store\". At most 12 words.\n\nReturn JSON.assistant to=user{\"handling\": false, \"what\": \"person standing by exception store\", \"people\": 1}"
+    }
+  ],
+  "label": "triage flags, not evidence: only flagged moments would go to the Model API"
+}

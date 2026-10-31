@@ -1,0 +1,33 @@
+{
+ "scenario": "S3",
+ "title": "Phantom containment",
+ "synthetic": true,
+ "subject_id": "CTX765044089872",
+ "subject_kind": "parcel",
+ "question": "Where is CTX765044089872 now, and when was it last seen?",
+ "waybill": "CTX765044089872",
+ "complaint": "Customer reports parcel CTX765044089872 never arrived.",
+ "window": {
+  "start": "2026-10-28T14:32:07+08:00",
+  "seconds": 30.0
+ },
+ "cameras": [
+  "CAM_09",
+  "CAM_10",
+  "CAM_11",
+  "CAM_13",
+  "CAM_14",
+  "CAM_15",
+  "CAM_16"
+ ],
+ "scan_log": "assets/hub/build/sim/events_scan_simulated_S3.jsonl",
+ "clips": [
+  "assets/hub/build/renders/S3/CAM_09.mp4",
+  "assets/hub/build/renders/S3/CAM_10.mp4",
+  "assets/hub/build/renders/S3/CAM_11.mp4",
+  "assets/hub/build/renders/S3/CAM_13.mp4",
+  "assets/hub/build/renders/S3/CAM_14.mp4",
+  "assets/hub/build/renders/S3/CAM_15.mp4",
+  "assets/hub/build/renders/S3/CAM_16.mp4"
+ ]
+}

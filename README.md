@@ -80,4 +80,4 @@ Test fixtures (synthetic ffmpeg clips, synthesized SAM wire output, scripted age
 [CALIBRATION](docs/CALIBRATION.md) · [MULTIVIEW_3D](docs/MULTIVIEW_3D.md) · [EVIDENCE_SCHEMA](docs/EVIDENCE_SCHEMA.md) ·
 [EVALUATION](docs/EVALUATION.md) · [PRIVACY](docs/PRIVACY.md) · [DATA_RIGHTS](docs/DATA_RIGHTS.md) ·
 [NEW_WORK](docs/NEW_WORK.md) · [LIMITATIONS](docs/LIMITATIONS.md) · [IMPROVEMENTS](docs/IMPROVEMENTS.md) ·
-[DEMO_SCRIPT](docs/DEMO_SCRIPT.md)
+[DEMO_SCRIPT](docs/DEMO_SCRIPT.md) · [DEPLOYMENT](docs/DEPLOYMENT.md)

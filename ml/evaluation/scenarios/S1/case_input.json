@@ -1,0 +1,39 @@
+{
+ "scenario": "S1",
+ "title": "No-read rework",
+ "synthetic": true,
+ "subject_id": "CTX260172023384",
+ "subject_kind": "parcel",
+ "question": "Where is CTX260172023384 now, and when was it last seen?",
+ "waybill": "CTX260172023384",
+ "complaint": "Customer reports parcel CTX260172023384 never arrived.",
+ "window": {
+  "start": "2026-10-28T14:32:07+08:00",
+  "seconds": 90.0
+ },
+ "cameras": [
+  "CAM_01",
+  "CAM_04",
+  "CAM_05",
+  "CAM_06",
+  "CAM_07",
+  "CAM_08",
+  "CAM_09",
+  "CAM_10",
+  "CAM_11",
+  "CAM_12"
+ ],
+ "scan_log": "assets/hub/build/sim/events_scan_simulated_S1.jsonl",
+ "clips": [
+  "assets/hub/build/renders/S1/CAM_01.mp4",
+  "assets/hub/build/renders/S1/CAM_04.mp4",
+  "assets/hub/build/renders/S1/CAM_05.mp4",
+  "assets/hub/build/renders/S1/CAM_06.mp4",
+  "assets/hub/build/renders/S1/CAM_07.mp4",
+  "assets/hub/build/renders/S1/CAM_08.mp4",
+  "assets/hub/build/renders/S1/CAM_09.mp4",
+  "assets/hub/build/renders/S1/CAM_10.mp4",
+  "assets/hub/build/renders/S1/CAM_11.mp4",
+  "assets/hub/build/renders/S1/CAM_12.mp4"
+ ]
+}

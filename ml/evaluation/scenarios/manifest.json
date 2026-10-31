@@ -1,0 +1,11 @@
+[
+ {
+  "scenario": "S2",
+  "title": "Removal into the blind spot",
+  "parcel": "CTX468083768412",
+  "subject_kind": "parcel",
+  "clips": "../../../assets/hub/build/renders/S2",
+  "scans": "../../../assets/hub/build/sim/events_scan_simulated_S2.jsonl",
+  "clip_start": "2026-10-28T14:32:07+08:00"
+ }
+]

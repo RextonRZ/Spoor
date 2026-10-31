@@ -1,0 +1,53 @@
+{
+ "scenario": "S0",
+ "title": "Control path",
+ "synthetic": true,
+ "subject_id": "CTX260172023384",
+ "subject_kind": "parcel",
+ "question": "Where is CTX260172023384 now, and when was it last seen?",
+ "waybill": "CTX260172023384",
+ "complaint": "Customer reports parcel CTX260172023384 never arrived.",
+ "window": {
+  "start": "2026-10-28T14:32:07+08:00",
+  "seconds": 30.0
+ },
+ "cameras": [
+  "CAM_01",
+  "CAM_02",
+  "CAM_03",
+  "CAM_04",
+  "CAM_05",
+  "CAM_06",
+  "CAM_07",
+  "CAM_08",
+  "CAM_09",
+  "CAM_10",
+  "CAM_11",
+  "CAM_12",
+  "CAM_13",
+  "CAM_14",
+  "CAM_15",
+  "CAM_16",
+  "CAM_18"
+ ],
+ "scan_log": "assets/hub/build/sim/events_scan_simulated.jsonl",
+ "clips": [
+  "assets/hub/build/renders/S0/CAM_01.mp4",
+  "assets/hub/build/renders/S0/CAM_02.mp4",
+  "assets/hub/build/renders/S0/CAM_03.mp4",
+  "assets/hub/build/renders/S0/CAM_04.mp4",
+  "assets/hub/build/renders/S0/CAM_05.mp4",
+  "assets/hub/build/renders/S0/CAM_06.mp4",
+  "assets/hub/build/renders/S0/CAM_07.mp4",
+  "assets/hub/build/renders/S0/CAM_08.mp4",
+  "assets/hub/build/renders/S0/CAM_09.mp4",
+  "assets/hub/build/renders/S0/CAM_10.mp4",
+  "assets/hub/build/renders/S0/CAM_11.mp4",
+  "assets/hub/build/renders/S0/CAM_12.mp4",
+  "assets/hub/build/renders/S0/CAM_13.mp4",
+  "assets/hub/build/renders/S0/CAM_14.mp4",
+  "assets/hub/build/renders/S0/CAM_15.mp4",
+  "assets/hub/build/renders/S0/CAM_16.mp4",
+  "assets/hub/build/renders/S0/CAM_18.mp4"
+ ]
+}
