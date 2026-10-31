@@ -26,7 +26,55 @@ EASE = 2  # frames each side of a fix's range: the change ramps in / out (0.33, 
 # ------------------------------------------------------------------------------------------------ the fixes
 # obj: object name; frames: (first, last) inclusive; move_cm: (x, y, z) world offset in cm at full strength;
 # why: the gate row it clears (run, frames, pair, depth). Filled from --propose after review.
-FIXES = [
+FIXES = [  # run 18 (final), from --propose, reviewed 1 Nov
+    dict(obj="flow_parcel_053", frames=(19, 19), move_cm=(0.0, 0.0, 2.3), why="s2_hub_r18: 1 rows f19-19 vs chutes, 1.3 cm"),
+    dict(obj="flow_parcel_054", frames=(117, 117), move_cm=(0.0, 0.0, 2.3), why="s2_hub_r18: 1 rows f117-117 vs chutes, 1.3 cm"),
+    dict(obj="flow_parcel_059", frames=(189, 191), move_cm=(0.0, 0.0, 3.7), why="s2_hub_r18: 3 rows f189-191 vs chutes, 2.7 cm"),
+    dict(obj="flow_parcel_064", frames=(414, 416), move_cm=(0.0, 0.0, 7.0), why="s2_hub_r18: 3 rows f414-416 vs chutes, 6.0 cm"),
+    dict(obj="flow_parcel_064", frames=(598, 598), move_cm=(0.0, 0.0, 2.5), why="s2_hub_r18: 1 rows f598-598 vs flow_parcel_073, 1.5 cm"),
+    dict(obj="flow_parcel_065", frames=(39, 42), move_cm=(0.0, 0.0, 3.4), why="s2_hub_r18: 4 rows f39-42 vs conveyors, 2.4 cm"),
+    dict(obj="flow_parcel_069", frames=(441, 441), move_cm=(0.0, 0.0, 3.1), why="s2_hub_r18: 1 rows f441-441 vs parcels_static_merged, 2.1 cm"),
+    dict(obj="flow_parcel_073", frames=(595, 599), move_cm=(0.0, 5.0, 0.0), why="s2_hub_r18: 1 rows f597 vs chutes, 3.9 cm - into the bin, away from the chute end over it (lifted, it met its underside: pass 2)"),
+    dict(obj="flow_parcel_074", frames=(596, 596), move_cm=(0.0, 0.0, 3.1), why="s2_hub_r18: 1 rows f596-596 vs chutes, 2.1 cm"),
+    dict(obj="flow_parcel_5015", frames=(9, 9), away_from='worker_dock_D05_s', cm=2.3, why="s2_hub_r18: 1 rows f9-9 vs worker_dock_D05_s_body, 1.3 cm"),
+    dict(obj="flow_parcel_5017", frames=(88, 88), away_from='worker_dock_D05_s', cm=2.1, why="s2_hub_r18: 1 rows f88-88 vs worker_dock_D05_s_body, 1.1 cm"),
+    dict(obj="flow_parcel_5018", frames=(120, 122), away_from='worker_dock_D05_n', cm=4.0, why="s2_hub_r18: 3 rows f120-122 vs worker_dock_D05_n_body, 8.4 cm"),
+    dict(obj="flow_parcel_5018", frames=(137, 137), away_from='worker_dock_D05_n', cm=2.5, why="s2_hub_r18: 1 rows f137-137 vs worker_dock_D05_n_body, 1.5 cm"),
+    dict(obj="flow_parcel_5019", frames=(155, 158), away_from='worker_dock_D05_s', cm=4.0, why="s2_hub_r18: 4 rows f155-158 vs worker_dock_D05_s_body, 3.3 cm"),
+    dict(obj="flow_parcel_5020", frames=(208, 209), away_from='worker_dock_D05_n', cm=2.5, why="s2_hub_r18: 2 rows f208-209 vs worker_dock_D05_n_body, 1.5 cm"),
+    dict(obj="flow_parcel_5021", frames=(498, 500), move_cm=(0.0, 0.0, 3.1), why="s2_hub_r18: 3 rows f498-500 vs conveyors, 2.1 cm"),
+    dict(obj="flow_parcel_5021", frames=(223, 226), away_from='worker_dock_D05_s', cm=2.7, why="s2_hub_r18: 2 rows f223-226 vs worker_dock_D05_s_body, 1.7 cm"),
+    dict(obj="flow_parcel_5021", frames=(239, 239), away_from='worker_dock_D05_s', cm=2.1, why="s2_hub_r18: 1 rows f239-239 vs worker_dock_D05_s_body, 1.1 cm"),
+    dict(obj="flow_parcel_5022", frames=(511, 516), move_cm=(0.0, 0.0, 4.0), why="s2_hub_r18: 6 rows f511-516 vs conveyors, 4.0 cm"),
+    dict(obj="flow_parcel_5022", frames=(251, 251), move_cm=(0.0, -2.0, 0.0), why="s2_hub_r18: 1 rows f251-251 vs lorries, 1.0 cm"),
+    dict(obj="flow_parcel_5022", frames=(252, 252), away_from='worker_dock_D05_n', cm=4.0, why="s2_hub_r18: 1 rows f252-252 vs worker_dock_D05_n_body, 3.8 cm"),
+    dict(obj="flow_parcel_5022", frames=(258, 258), away_from='worker_dock_D05_n', cm=4.0, why="s2_hub_r18: 1 rows f258-258 vs worker_dock_D05_n_body, 3.4 cm"),
+    dict(obj="flow_parcel_5022", frames=(273, 273), away_from='worker_dock_D05_n', cm=2.8, why="s2_hub_r18: 1 rows f273-273 vs worker_dock_D05_n_body, 1.8 cm"),
+    dict(obj="flow_parcel_5024", frames=(335, 335), move_cm=(0.0, 0.0, 3.4), why="s2_hub_r18: 1 rows f335-335 vs conveyors, 2.4 cm"),
+    dict(obj="flow_parcel_5024", frames=(354, 354), away_from='worker_dock_D05_n', cm=2.6, why="s2_hub_r18: 1 rows f354-354 vs worker_dock_D05_n_body, 1.6 cm"),
+    dict(obj="flow_parcel_5025", frames=(277, 277), away_from='worker_dock_D05_s', cm=2.6, why="s2_hub_r18: 1 rows f277-277 vs worker_dock_D05_s_body, 1.6 cm"),
+    dict(obj="flow_parcel_5025", frames=(373, 376), away_from='worker_dock_D05_s', cm=4.0, why="s2_hub_r18: 3 rows f373-376 vs worker_dock_D05_s_body, 3.4 cm"),
+    dict(obj="flow_parcel_5025", frames=(388, 388), away_from='worker_dock_D05_s', cm=2.3, why="s2_hub_r18: 1 rows f388-388 vs worker_dock_D05_s_body, 1.3 cm"),
+    dict(obj="flow_parcel_5026", frames=(679, 683), move_cm=(0.0, 0.0, 4.0), why="s2_hub_r18: 5 rows f679-683 vs conveyors, 4.0 cm"),
+    dict(obj="flow_parcel_5026", frames=(399, 402), away_from='worker_dock_D05_n', cm=3.6, why="s2_hub_r18: 3 rows f399-402 vs worker_dock_D05_n_body, 2.6 cm"),
+    dict(obj="flow_parcel_5026", frames=(410, 410), away_from='worker_dock_D05_n', cm=4.0, why="s2_hub_r18: 1 rows f410-410 vs worker_dock_D05_n_body, 3.7 cm"),
+    dict(obj="flow_parcel_5026", frames=(424, 424), away_from='worker_dock_D05_n', cm=2.1, why="s2_hub_r18: 1 rows f424-424 vs worker_dock_D05_n_body, 1.1 cm"),
+    dict(obj="flow_parcel_5027", frames=(449, 450), away_from='worker_dock_D05_s', cm=4.0, why="s2_hub_r18: 2 rows f449-450 vs worker_dock_D05_s_body, 3.9 cm"),
+    dict(obj="flow_parcel_5028", frames=(487, 491), away_from='worker_dock_D05_n', cm=4.0, why="s2_hub_r18: 5 rows f487-491 vs worker_dock_D05_n_body, 4.5 cm"),
+    dict(obj="flow_parcel_5028", frames=(497, 497), away_from='worker_dock_D05_n', cm=3.3, why="s2_hub_r18: 1 rows f497-497 vs worker_dock_D05_n_body, 2.3 cm"),
+    dict(obj="flow_parcel_5028", frames=(510, 510), away_from='worker_dock_D05_n', cm=2.5, why="s2_hub_r18: 1 rows f510-510 vs worker_dock_D05_n_body, 1.5 cm"),
+    dict(obj="flow_parcel_5029", frames=(526, 526), move_cm=(0.0, 2.2, 0.0), why="s2_hub_r18: 1 rows f526-526 vs lorries, 1.2 cm"),
+    dict(obj="flow_parcel_5029", frames=(528, 531), away_from='worker_dock_D05_s', cm=2.4, why="s2_hub_r18: 2 rows f528-531 vs worker_dock_D05_s_body, 1.4 cm"),
+    dict(obj="flow_parcel_5030", frames=(594, 594), away_from='worker_dock_D05_n', cm=2.4, why="s2_hub_r18: 1 rows f594-594 vs worker_dock_D05_n_body, 1.4 cm"),
+    dict(obj="flow_parcel_5031", frames=(629, 629), away_from='worker_dock_D05_s', cm=2.2, why="s2_hub_r18: 1 rows f629-629 vs worker_dock_D05_s_body, 1.2 cm"),
+    dict(obj="flow_parcel_5032", frames=(654, 654), move_cm=(0.0, -2.0, 0.0), why="s2_hub_r18: 1 rows f654-654 vs lorries, 1.0 cm"),
+    dict(obj="flow_parcel_5032", frames=(655, 665), away_from='worker_dock_D05_n', cm=4.0, why="s2_hub_r18: 10 rows f655-665 vs worker_dock_D05_n_body, 9.5 cm"),
+    dict(obj="flow_parcel_5032", frames=(684, 684), away_from='worker_dock_D05_n', cm=2.6, why="s2_hub_r18: 1 rows f684-684 vs worker_dock_D05_n_body, 1.6 cm"),
+    dict(obj="flow_parcel_5034", frames=(781, 781), away_from='worker_dock_D05_s', cm=2.2, why="s2_hub_r18: 1 rows f781-781 vs worker_dock_D05_s_body, 1.2 cm"),
+    dict(obj="flow_parcel_5036", frames=(887, 890), move_cm=(4.0, 0.0, 0.0), why="s2_hub_r18: 4 rows f887-890 vs truck_wall_D05, 4.1 cm"),
+    dict(obj="flow_parcel_5036", frames=(894, 897), away_from='worker_dock_D05_s', cm=4.0, why="s2_hub_r18: 4 rows f894-897 vs worker_dock_D05_s_body, 5.6 cm"),
+    dict(obj="flow_parcel_072", frames=(453, 900), move_cm=(0.0, 0.0, 4.3), why="s2_hub_r18: landed f453 3.3 cm into flow_parcel_059 (at rest since f194), 449 rows: the newcomer goes up"),
+    dict(obj="flow_parcel_5015", frames=(620, 900), move_cm=(0.0, 0.0, 14.0), why="s2_hub_r18: landed f624 14 cm into flow_parcel_059 (bottom 0.73, 059's top 0.868; the gate's 7.9 cm under-read it; from f620: falling past 072 (lifted) it clipped it, pass 2) (at rest since f194), 279 rows: the newcomer goes up"),
 ]
 
 
@@ -92,6 +140,8 @@ def apply(save):
             wp = arm.matrix_world @ arm.pose.bones["Bip01 Pelvis"].head
             d = ob.matrix_world.translation - wp
             d.z = 0.0
+            if "dock" in fx["away_from"]:  # along the boom only: across, away from the north / south unloader
+                d.y = 0.0  # is into the lorry's side wall (9 pairs worse, first touch-up pass)
             off = d.normalized() * fx["cm"] / 100.0
         else:
             off = Vector(fx["move_cm"]) / 100.0
