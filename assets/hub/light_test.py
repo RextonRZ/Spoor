@@ -107,6 +107,7 @@ for y in ROWS_Y:
         ld.shape, ld.size, ld.size_y = "RECTANGLE", SEG - 0.4, 0.15
         ld.energy = args.row_w * (0.72 if dim else 1.0)
         ld.color = (1.0, 0.97, 0.92) if not dim else (1.0, 0.93, 0.82)
+        ld.use_shadow = False  # shadowless fill: 53 shadowed area lights overflowed EEVEE's shadow pool (~140 s/frame)
         lo = bpy.data.objects.new(ld.name, ld)
         lo.location = (x0 + SEG / 2, y, ROW_Z - 0.01)
         coll.objects.link(lo)
@@ -260,5 +261,8 @@ for cid in [c.strip() for c in args.cams.split(",") if c.strip()]:
         bpy.ops.render.render(write_still=True)
         times.append(round(time.perf_counter() - t0, 2))
     print(json.dumps({"preview": cid, "seconds": times, "shadow_lights": n_sh}), flush=True)
-if args.save:
+if args.save:  # the batch render settings travel with the file (measured 30 Oct: 9 s/frame vs 27-140)
+    scene.eevee.use_raytracing = False
+    scene.eevee.shadow_resolution_scale = 0.5
+    scene.eevee.taa_render_samples = 2
     bpy.ops.wm.save_as_mainfile(filepath=str(Path(args.save).resolve()), compress=True)

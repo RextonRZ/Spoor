@@ -21,7 +21,7 @@ if [ -n "$WORKERS" ]; then
 fi
 echo "== CCTV final look $(date +%T)"
 "$B" -b --factory-startup "$SNAP" -P assets/hub/render_cctv.py -- --cams "$CAMS" --frames 1-300 --out "$FR" \
-  --res 1280x720 --samples 2 2>&1 | grep -E "^CCTV|Error"
+  --res 1280x720 --samples 2 --raytrace 0 --shadow-scale 0.5 --exposure 0.15 2>&1 | grep -E "^CCTV|Error"
 for c in ${CAMS//,/ }; do
   uv run --project backend python assets/hub/cctv_batch.py "$FR/$c" "$OUT/$c.mp4" --cam "$c" --codec h264 --width 1280 \
     && rm -rf "${FR:?}/$c"

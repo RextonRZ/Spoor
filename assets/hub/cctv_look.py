@@ -18,24 +18,40 @@ import cv2
 import numpy as np
 
 
+_LENS_CACHE = {}
+
+
+def _lens_maps(h, w, k1, hfov_deg, vignette):
+    """Per-camera constants (the same for every frame - they were rebuilt per frame, ~0.9 s): barrel remap composed
+    with each channel's lateral chromatic shift (one remap per channel), and the vignette."""
+    key = (h, w, round(k1, 5), round(hfov_deg, 3), vignette)
+    if key not in _LENS_CACHE:
+        f = w / (2 * np.tan(np.radians(hfov_deg / 2)))
+        u, v = np.meshgrid(np.arange(w, dtype=np.float32), np.arange(h, dtype=np.float32))
+        maps = []
+        for k in (0.9988, 1.0, 1.0012):  # BGR: blue in, green, red out (lateral CA: a cheap lens)
+            uc, vc = (u - w / 2) * k + w / 2, (v - h / 2) * k + h / 2  # chromatic shift first, then the barrel
+            x, y = (uc - w / 2) / f, (vc - h / 2) / f
+            r2 = x * x + y * y
+            edge = (w / 2 / f) ** 2  # keep the left/right edge midpoints in place, corners bend in (barrel)
+            scale = (1 - k1 * r2) / (1 - k1 * edge)
+            maps.append(cv2.convertMaps((x * scale * f + w / 2).astype(np.float32),
+                                        (y * scale * f + h / 2).astype(np.float32), cv2.CV_16SC2))
+        x, y = (u - w / 2) / f, (v - h / 2) / f
+        r2 = x * x + y * y
+        vig = (1 - vignette * np.sqrt(r2 / r2.max()) ** 2.2).astype(np.float32)
+        _LENS_CACHE[key] = (maps, vig)
+    return _LENS_CACHE[key]
+
+
 def lens(img, k1, hfov_deg=103.0, vignette=0.38, blur_sigma=0.9):
     h, w = img.shape[:2]
-    f = w / (2 * np.tan(np.radians(hfov_deg / 2)))
-    u, v = np.meshgrid(np.arange(w, dtype=np.float32), np.arange(h, dtype=np.float32))
-    x, y = (u - w / 2) / f, (v - h / 2) / f
-    r2 = x * x + y * y
-    edge = (w / 2 / f) ** 2  # keep the left/right edge midpoints in place, corners bend in (barrel)
-    scale = (1 - k1 * r2) / (1 - k1 * edge)
-    mx = (x * scale * f + w / 2).astype(np.float32)
-    my = (y * scale * f + h / 2).astype(np.float32)
-    out = cv2.remap(img, mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
-    rn = np.sqrt(r2 / r2.max())
-    out = out.astype(np.float32) * (1 - vignette * rn ** 2.2)[..., None]
-    # lateral chromatic aberration: red and blue land slightly apart toward the edges (cheap lens)
-    for ch, k in ((2, 1.0012), (0, 0.9988)):
-        sx = ((u - w / 2) * k + w / 2).astype(np.float32)
-        sy = ((v - h / 2) * k + h / 2).astype(np.float32)
-        out[..., ch] = cv2.remap(out[..., ch], sx, sy, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+    maps, vig = _lens_maps(h, w, k1, hfov_deg, vignette)
+    out = np.empty((h, w, 3), np.float32)
+    for ch in range(3):
+        out[..., ch] = cv2.remap(img[..., ch], maps[ch][0], maps[ch][1], cv2.INTER_LINEAR,
+                                 borderMode=cv2.BORDER_REPLICATE)
+    out *= vig[..., None]
     return cv2.GaussianBlur(out, (0, 0), blur_sigma)
 
 
@@ -62,21 +78,25 @@ def dome(img, rng, smudge=False, web=False):
 
 
 def sensor(img, rng, sigma=3.6):
-    lum = img.mean(axis=2, keepdims=True) / 255.0
+    img = img.astype(np.float32, copy=False)
+    h, w = img.shape[:2]
+    lum = img.mean(axis=2, keepdims=True) * (1 / 255.0)
     gain = sigma * (1.6 - lum)  # more grain in the shadows, like a small sensor at high gain
-    luma_noise = rng.normal(0, 1, img.shape[:2])[..., None] * gain
-    chroma_noise = rng.normal(0, 0.4, img.shape) * gain
-    return img + luma_noise + chroma_noise
+    luma_noise = rng.standard_normal((h, w), dtype=np.float32)[..., None]
+    # chroma noise is coarser than luma on a real small sensor (demosaicing): drawn at half resolution
+    chroma_noise = cv2.resize(rng.standard_normal((h // 2, w // 2, 3), dtype=np.float32) * 0.4, (w, h),
+                              interpolation=cv2.INTER_LINEAR)
+    return img + (luma_noise + chroma_noise) * gain
 
 
 def isp(img):
-    img = np.clip(img, 0, 255)
+    img = np.clip(img.astype(np.float32, copy=False), 0, 255)
     blur = cv2.GaussianBlur(img, (0, 0), 1.3)
     img = img + 0.4 * (img - blur)  # mild DSP sharpening halo on edges
     grey = img.mean(axis=2, keepdims=True)
     img = grey + 0.68 * (img - grey)  # low saturation
-    img = img * np.array([1.03, 1.02, 0.94])  # BGR: slight green-cyan cast (cheap sensor AWB under LED)
-    img = 9 + img * (238 / 255)  # slightly lifted blacks, compressed range
+    img *= np.array([1.03, 1.02, 0.94], np.float32) * (238 / 255)  # BGR: green-cyan cast (cheap AWB under LED),
+    img += 9  # slightly lifted blacks, compressed range
     return np.clip(img, 0, 255).astype(np.uint8)
 
 

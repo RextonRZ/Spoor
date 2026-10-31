@@ -27,6 +27,7 @@ from mathutils import Matrix, Vector
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 ap = argparse.ArgumentParser()
 ap.add_argument("--save", default="")
+ap.add_argument("--spec", default="")  # spec variant next to hub_spec.json (e.g. hub_spec_lineAb.json: line A (b))
 ap.add_argument("--preview", default="")
 ap.add_argument("--preview-dir", default="")
 ap.add_argument("--exposure", type=float, default=1.7)
@@ -42,7 +43,7 @@ ap.add_argument("--shadow-radius", type=float, default=22.0)
 args = ap.parse_args(argv)
 
 BUILD = Path(bpy.path.abspath("//")).resolve()
-SPEC = json.loads((BUILD.parent / "hub_spec.json").read_text(encoding="utf-8"))
+SPEC = json.loads((BUILD.parent / (args.spec or "hub_spec.json")).read_text(encoding="utf-8"))
 TRUTH = json.loads((BUILD.parent / "render_truth.json").read_text(encoding="utf-8"))  # render side only
 TP = BUILD / "third_party"
 LM_PER_W = 683.0
@@ -315,7 +316,9 @@ def woven(mat_name, tape_mm=3.0):
     mix.inputs["B"].default_value = (base[0] * 0.8, base[1] * 0.8, base[2] * 0.8, 1)
     links.new(mx.outputs["Value"], mix.inputs["Factor"])
     links.new(mix.outputs["Result"], bsdf.inputs["Base Color"])
-    bsdf.inputs["Roughness"].default_value = 0.7
+    bsdf.inputs["Roughness"].default_value = 0.88  # matte PP tape (0.7 read glossy / ceramic: review 006 #7)
+    if "Specular IOR Level" in bsdf.inputs:
+        bsdf.inputs["Specular IOR Level"].default_value = 0.2
 
 
 for m_ in ("woven_sack", "woven_sack_blue", "woven_sack_grey"):
@@ -335,8 +338,10 @@ def decal_material(name, rgb, rough, mask="strip", alpha_max=0.85, noise_scale=3
     m = bpy.data.materials.new(name)
     if hasattr(m, "use_nodes"):
         m.use_nodes = True
-    if hasattr(m, "surface_render_method"):
-        m.surface_render_method = "DITHERED"
+    if hasattr(m, "surface_render_method"):  # blended: dithered alpha at the batch's 2 samples rendered as a coarse
+        m.surface_render_method = "BLENDED"   # stipple - "fur" along the wall base (B2 pre-review #3)
+    if hasattr(m, "use_transparency_overlap"):
+        m.use_transparency_overlap = False
     nodes, links = _nodes(m)
     bsdf = nodes.get("Principled BSDF") or nodes.new("ShaderNodeBsdfPrincipled")
     bsdf.inputs["Base Color"].default_value = (*rgb, 1)
@@ -381,7 +386,9 @@ def decal_material(name, rgb, rough, mask="strip", alpha_max=0.85, noise_scale=3
     return m
 
 
-def decals(name, quads, mat, z=0.006):
+# floor layers >= 1.2 mm apart (review mesh_hygiene: within 1 mm they z-fought): markings 4-5 mm, arrows 6, dust 7.2,
+# patches 8.4, turn smears 9.6, loop scuffs 10.8, tyre tracks 12.0, oil 13.2
+def decals(name, quads, mat, z=0.012):
     """quads: [(cx, cy, length, width, angle_rad)] -> one object, UV u along length, v across width."""
     me = bpy.data.meshes.new(name)
     bm = bmesh.new()
@@ -433,12 +440,21 @@ for d in SPEC["building"]["doors"]:
         oils.append((cx + inward[0] * random.uniform(0.6, 2.5) + random.uniform(-1.2, 1.2) * (inward[1] != 0),
                      cy + inward[1] * random.uniform(0.6, 2.5) + random.uniform(-1.2, 1.2) * (inward[0] != 0),
                      size, size * random.uniform(0.6, 1.0), random.uniform(0, math.pi)))
-decals("floor_tyre_tracks", tracks, tyre_mat)
-decals("floor_turn_smears", smears, smear_mat, z=0.005)
-decals("floor_oil", oils, oil_mat, z=0.007)
+decals("floor_tyre_tracks", tracks, tyre_mat, z=0.012)
+decals("floor_turn_smears", smears, smear_mat, z=0.0096)
+decals("floor_oil", oils, oil_mat, z=0.0132)
 dust = [(BW / 2, 0.55, BW - 0.4, 0.7, math.pi), (BW / 2, BD - 0.55, BW - 0.4, 0.7, 0.0),
         (0.55, BD / 2, BD - 0.4, 0.7, math.pi / 2), (BW - 0.55, BD / 2, BD - 0.4, 0.7, -math.pi / 2)]
-decals("floor_dust_edges", dust, dust_mat, z=0.004)  # v = 1 at the wall side: dust collects in corners
+decals("floor_dust_edges", dust, dust_mat, z=0.0072)  # v = 1 at the wall side: dust collects in corners
+# inside the loop the floor is only walked for maintenance: a few light scuffs and patch repairs, subtle (QA 001 #7)
+_lr = random.Random(77)  # own stream: the rest of the dressing keeps its random sequence
+inner = [(_lr.uniform(30.5, 47.5), _lr.uniform(12.7, 17.3), _lr.uniform(1.5, 4.0), _lr.uniform(0.25, 0.6),
+          _lr.uniform(-0.3, 0.3)) for _ in range(6)]
+decals("floor_loop_scuffs", inner, smear_mat, z=0.0108)
+patch_mat = decal_material("decal_patch", (0.30, 0.30, 0.29), 0.75, "blob", 0.7, 6.0)
+patches = [(_lr.uniform(31.0, 47.0), _lr.uniform(13.0, 17.0), _lr.uniform(0.8, 1.6), _lr.uniform(0.6, 1.2),
+            _lr.uniform(0.0, 0.2)) for _ in range(3)]
+decals("floor_patch_repairs", patches, patch_mat, z=0.0084)
 wall_grime_mat = decal_material("decal_wall_grime", (0.12, 0.11, 0.09), 0.95, "edge", 0.75, 2.5)
 
 
@@ -528,15 +544,50 @@ prop("tool_cart", 28.1, 20.5, 14)
 prop("plastic_monobloc_chair_01", 25.7, 20.6, 200)
 prop("drawer_cabinet", 23.3, 21.9, 90, radius=0.25)
 # bag opening / induction (Z02, Z03): chairs, shelves, empty-bag piles
-prop("plastic_monobloc_chair_01", 9.6, 25.5, 30)
-prop("plastic_monobloc_chair_01", 10.5, 10.65, 200)  # beside the induct station, not alone in the aisle
+# (a lone chair stood mid-floor in the bag-opening area: removed, B2 pre-review #8)
+if SPEC.get("line_a", {}).get("layout") == "b":  # line A (b): (10.5, 10.65) is on I3's induct belt -> end of the line
+    prop("plastic_monobloc_chair_01", 13.6, 11.2, 200)
+else:
+    prop("plastic_monobloc_chair_01", 10.5, 10.65, 200)  # beside the induct station, not alone in the aisle
 # (no shelving in the bag-opening area: it read as a big table blocking CAM_01; shelving lives in the store)
 prop("compost_bags", 12.2, 27.6, 20)
 prop("compost_bags", 51.0, 21.4, -35)
 prop("tool_cart", 22.6, 12.4, 92)
+
+
+def plain_powder_coat(mat_prefix, rgb):
+    """The tool cart's scratched-paint atlas read as camouflage at CCTV distance (B2 pre-review #7): one flat powder
+    coat, the atlas only keeping its dark parts (wheels, rubber) dark."""
+    for m in [m for m in bpy.data.materials if m.name.startswith(mat_prefix) and m.node_tree]:
+        nt = m.node_tree
+        bsdf = next((n for n in nt.nodes if n.type == "BSDF_PRINCIPLED"), None)
+        lk = bsdf.inputs["Base Color"].links[0] if bsdf and bsdf.inputs["Base Color"].is_linked else None
+        if lk is None:
+            continue
+        bw = nt.nodes.new("ShaderNodeRGBToBW")
+        nt.links.new(lk.from_socket, bw.inputs["Color"])
+        mr = nt.nodes.new("ShaderNodeMapRange")
+        mr.inputs["From Min"].default_value, mr.inputs["From Max"].default_value = 0.06, 0.2
+        mr.inputs["To Min"].default_value, mr.inputs["To Max"].default_value = 0.12, 1.0
+        nt.links.new(bw.outputs["Val"], mr.inputs["Value"])
+        mul = nt.nodes.new("ShaderNodeMix")
+        mul.data_type = "RGBA"
+        mul.blend_type = "MULTIPLY"
+        mul.inputs["Factor"].default_value = 1.0
+        mul.inputs["A"].default_value = (*rgb, 1.0)
+        nt.links.new(mr.outputs["Result"], mul.inputs["B"])
+        nt.links.new(mul.outputs["Result"], bsdf.inputs["Base Color"])
+        m.diffuse_color = (*rgb, 1.0)
+
+
+plain_powder_coat("tool_cart", (0.10, 0.26, 0.13))
 # empty-cage / bag store (Z11, outside the blind corner) and the office
 for k, (sx_, sy_) in enumerate(SPEC["fixtures"]["store_shelves_m"]):
     prop("steel_frame_shelves_02" if k % 2 else "steel_frame_shelves_01", sx_, sy_, 0)
+# the exception store (BLIND_NW, inside the sack racks): steel shelving along the inside of the south rack - S2's
+# removed parcel is set down on it, out of every camera's view (prop() draws no random numbers: stream unchanged)
+for sx_ in (8.9, 10.5):  # x <= 11.05: west of every view through the doorway (s2_perimeter, lens crop on)
+    prop("steel_frame_shelves_01", sx_, 33.87, 0, radius=0.2)
 prop("metal_office_desk", 57.0, 2.2, 0, radius=0.2)
 prop("plastic_monobloc_chair_01", 57.0, 3.1, 180, radius=0.2)
 prop("drawer_cabinet", 59.2, 5.3, 180, radius=0.2)
@@ -561,11 +612,8 @@ def add_box(mat, x0, y0, z0, x1, y1, z1):
     clutter.setdefault(mat, []).append((x0, y0, z0, x1, y1, z1))
 
 
-for fx, fy in ((9.8, 19.6), (13.6, 11.8), (49.9, 22.4)):  # standing fans (crude, hot-climate essential)
-    if clear(fx, fy, 0.3):
-        add_box("black_rubber", fx - 0.25, fy - 0.25, 0, fx + 0.25, fy + 0.25, 0.05)
-        add_box("galvanised_steel", fx - 0.02, fy - 0.02, 0.05, fx + 0.02, fy + 0.02, 1.25)
-        add_box("black_rubber", fx - 0.3, fy - 0.08, 1.05, fx + 0.3, fy + 0.08, 1.65)
+FANS = [(fx, fy, yaw) for fx, fy, yaw in ((9.8, 19.6, 200), (13.6, 11.8, 250), (49.9, 22.4, 160))
+        if clear(fx, fy, 0.3)]  # standing fans (hot-climate essential), built below as real fans
 add_box("galvanised_steel", 22.3, 10.9, 1.8, 22.5, 11.1, 4.6)  # DWS cabinet cable riser + tray to the column
 add_box("galvanised_steel", 22.25, 10.9, 4.5, 22.55, 25.0, 4.6)
 for _ in range(14):  # torn tape scraps near work benches and the bagging aisle
@@ -589,6 +637,35 @@ bm.free()
 for mt in mats:
     me.materials.append(bpy.data.materials[mt])
 dress.objects.link(bpy.data.objects.new("clutter_procedural", me))
+
+
+def standing_fans():
+    """Pedestal fans: round base, pole, motor, round guard facing the work (a black slab on a pole read as a fallen
+    panel: B2 pre-review #8). Opaque guard (owner rule: nothing see-through but glass)."""
+    me_ = bpy.data.meshes.new("standing_fans")
+    bm_ = bmesh.new()
+    for fx, fy, yaw in FANS:
+        R = Matrix.Translation((fx, fy, 0)) @ Matrix.Rotation(math.radians(yaw), 4, "Z")
+        parts = [(0.22, 0.22, 0.04, Matrix.Translation((0, 0, 0.02)), 0),  # base disc
+                 (0.018, 0.018, 1.12, Matrix.Translation((0, 0, 0.6)), 1),  # pole
+                 (0.07, 0.06, 0.16, Matrix.Translation((-0.06, 0, 1.2)) @ Matrix.Rotation(math.pi / 2, 4, "Y"), 0),
+                 (0.24, 0.24, 0.11, Matrix.Translation((0.06, 0, 1.22)) @ Matrix.Rotation(math.pi / 2, 4, "Y")
+                  @ Matrix.Rotation(math.radians(8), 4, "X"), 2)]  # guard, tipped down a little
+        for r1, r2, depth, M, mi in parts:
+            res = bmesh.ops.create_cone(bm_, cap_ends=True, segments=20, radius1=r1, radius2=r2, depth=depth,
+                                        matrix=R @ M)
+            for f in {f for v in res["verts"] for f in v.link_faces}:
+                f.material_index = mi
+    bm_.to_mesh(me_)
+    bm_.free()
+    for mn in ("black_rubber", "galvanised_steel", "painted_frame"):
+        me_.materials.append(bpy.data.materials[mn])
+    for poly in me_.polygons:
+        poly.use_smooth = True
+    dress.objects.link(bpy.data.objects.new("standing_fans", me_))
+
+
+standing_fans()
 
 
 # signs: no smoking (Malay), floor arrows along the forklift lane
@@ -763,6 +840,76 @@ print(json.dumps({"workers": len(placed), "workers_without_clip": [w["name"] for
                               if w["role"] == "walk"]}), flush=True)
 print(json.dumps({"props_skipped_for_walkways_or_missing": skipped, "dim_light": dim.name,
                   "tyre_tracks": len(tracks), "oil_stains": len(oils), "arrows": len(arrows)}), flush=True)
+
+
+def hygiene_pass():
+    """Mesh hygiene at the source (review mesh_hygiene, Rexton's 'spiderweb'): every static mesh - merge vertices
+    closer than 0.1 mm, dissolve degenerate (zero-area / zero-length) faces and edges, triangulate n-gons (> 4 verts)
+    with BEAUTY (no long fans), consistent outward normals on CLOSED meshes only (decals / single-sided planes keep
+    theirs), smooth shading only below 30 deg (sharp edges above). Positions, bounding boxes, materials and UVs are
+    unchanged; the per-object before/after diff goes to build/qa/mesh_hygiene_diff.json."""
+    diff = {}
+    skip = ("worker_", "flow_parcel_", "carrier_", "CAM_", "qa_")
+    for o in [o for o in scene.objects if o.type == "MESH" and not o.name.startswith(skip)]:
+        if o.animation_data and (o.animation_data.action or len(o.animation_data.nla_tracks)):
+            continue
+        me = o.data
+        if me.users > 1:  # shared meshes are cleaned once
+            if me.get("hyg_done"):
+                continue
+        bb0 = [tuple(round(c, 3) for c in v) for v in o.bound_box]
+        mats0 = [m.name if m else None for m in me.materials]
+        nv0, nf0 = len(me.vertices), len(me.polygons)
+        bm = bmesh.new()
+        bm.from_mesh(me)
+        # duplicates merged WITHIN each connected island only (welding separate parts that merely touch - rail
+        # segments, post stripes - made non-manifold edges)
+        seen, islands = set(), []
+        for f0 in bm.faces:
+            if f0.index in seen:
+                continue
+            stack, isl = [f0], set()
+            seen.add(f0.index)
+            while stack:
+                f_ = stack.pop()
+                isl.update(f_.verts)
+                for e_ in f_.edges:
+                    for g_ in e_.link_faces:
+                        if g_.index not in seen:
+                            seen.add(g_.index)
+                            stack.append(g_)
+            islands.append(list(isl))
+        bm.faces.index_update()
+        for isl in islands:
+            bmesh.ops.remove_doubles(bm, verts=[v for v in isl if v.is_valid], dist=1e-4 / max(max(o.scale), 1e-6))
+        bmesh.ops.dissolve_degenerate(bm, edges=bm.edges, dist=1e-6)
+        ngons = [f for f in bm.faces if len(f.verts) > 4]
+        if ngons:
+            bmesh.ops.triangulate(bm, faces=ngons, quad_method="BEAUTY", ngon_method="BEAUTY")
+        closed = all(len(e.link_faces) == 2 for e in bm.edges) and len(bm.edges) > 0
+        if closed:
+            bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+        bm.to_mesh(me)
+        bm.free()
+        if any(pl.use_smooth for pl in me.polygons):
+            try:
+                me.set_sharp_from_angle(angle=math.radians(30))
+            except AttributeError:
+                pass
+        me.update()
+        me["hyg_done"] = 1
+        bb1 = [tuple(round(c, 3) for c in v) for v in o.bound_box]
+        diff[o.name] = dict(verts=[nv0, len(me.vertices)], faces=[nf0, len(me.polygons)], ngons_triangulated=len(ngons),
+                            normals_recalc=closed, bbox_same=bb0 == bb1,
+                            materials_same=mats0 == [m.name if m else None for m in me.materials])
+    bad = [k for k, v in diff.items() if not (v["bbox_same"] and v["materials_same"])]
+    (BUILD / "qa").mkdir(parents=True, exist_ok=True)
+    (BUILD / "qa" / "mesh_hygiene_diff.json").write_text(json.dumps(dict(objects=len(diff), changed_bbox_or_material=bad,
+                                                                         per_object=diff), indent=1), encoding="utf-8")
+    print(json.dumps({"hygiene_pass": len(diff), "bbox_or_material_changed": bad}), flush=True)
+
+
+hygiene_pass()
 if args.save:
     bpy.ops.wm.save_as_mainfile(filepath=str(Path(args.save).resolve()), compress=True)
 

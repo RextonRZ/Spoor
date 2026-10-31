@@ -20,6 +20,7 @@ import bpy
 from mathutils import Matrix, Quaternion, Vector
 
 RB = None  # set by add_workers()
+HEADWEAR_ALLOWED = False  # review 013c (15:18, Rexton's headwear strike): NO caps or hard hats on any worker. Closed
 USE_MIXAMO = False  # owner decision 2026-10-30: every worker is Rocketbox (MIT) + procedural contact (contact.py)
 FACING_OFFSET = math.radians(90)  # Rocketbox avatars face -Y at rest: +90° turns them to face +X at heading 0
 CLIP_FPS = 30.0  # Rocketbox clips; the scene runs at the CCTV rate (10 fps) -> strips play at fps/30 scale
@@ -371,19 +372,46 @@ def _scanner(bm):  # handheld scanner, ~17 cm long, grip down
     _cube(bm, -1.8, 14.0, -1.4, 1.8, 14.3, 2.0, 2)  # scan window
 
 
-def _hard_hat(bm):  # dome + brim, about 27 x 23 cm
-    r = bmesh.ops.create_uvsphere(bm, u_segments=16, v_segments=10, radius=1.0)
+def _hard_hat(bm):  # dome + brim, about 27 x 23 cm (24 x 14 segments, shaded smooth: facets showed at follow-cam range)
+    r = bmesh.ops.create_uvsphere(bm, u_segments=24, v_segments=14, radius=1.0)
     for v in r["verts"]:
         v.co.x, v.co.y, v.co.z = v.co.x * 13.0, v.co.y * 15.0, max(v.co.z, -0.05) * 11.0
     bmesh.ops.create_cone(bm, cap_ends=True, segments=20, radius1=15.5, radius2=15.5, depth=0.8,
                           matrix=Matrix.Translation((0, 1.5, 0.0)) @ Matrix.Diagonal((1.0, 1.15, 1.0, 1.0)))
 
 
-def _cap(bm):  # cloth cap + visor
-    r = bmesh.ops.create_uvsphere(bm, u_segments=16, v_segments=10, radius=1.0)
-    for v in r["verts"]:
-        v.co.x, v.co.y, v.co.z = v.co.x * 10.5, v.co.y * 11.5, max(v.co.z, -0.05) * 7.5
-    _cube(bm, -7.0, 8.0, -0.4, 7.0, 16.5, 0.4, 0)  # visor
+CAP_RX, CAP_RY, CAP_H = 10.0, 11.0, 10.0  # crown radii at the band and height (cm); +Y = the front
+
+
+def _cap(bm):
+    """Baseball-type work cap (cm, origin = centre of the band, +Y front): an OPEN crown (upper half of an ellipsoid,
+    no hidden bottom disc), 10 cm tall, and a curved brim ~7 cm long round the front 140 deg of the band, its sides
+    curving down (review 013: the old squashed sphere read as a mushroom with a flat duckbill)."""
+    r = bmesh.ops.create_uvsphere(bm, u_segments=28, v_segments=14, radius=1.0)
+    bmesh.ops.delete(bm, geom=[v for v in r["verts"] if v.co.z < -1e-4], context="VERTS")
+    for v in bm.verts:
+        v.co.x, v.co.y, v.co.z = v.co.x * CAP_RX, v.co.y * CAP_RY, max(v.co.z, 0.0) * CAP_H
+    nu, nv, L = 15, 5, 7.0
+    rows = []
+    for j in range(nv + 1):
+        vv = j / nv
+        row = []
+        for i in range(nu + 1):
+            th = math.radians(-70 + 140 * i / nu)
+            x0, y0 = 0.985 * CAP_RX * math.sin(th), 0.985 * CAP_RY * math.cos(th)  # joined just inside the crown
+            reach = L * (0.55 + 0.45 * math.cos(th)) * vv  # longest at the middle
+            nx, ny = math.sin(th) * 0.35, 1.0
+            ln = math.hypot(nx, ny)
+            z = -0.15 * reach - 1.4 * (math.sin(th) ** 2) * vv  # a little down, sides curved down
+            row.append(bm.verts.new((x0 + nx / ln * reach, y0 + ny / ln * reach, z)))  # (2 mm below the band
+            # it left a dark slit between crown and brim)
+        rows.append(row)
+    for j in range(nv):
+        for i in range(nu):
+            f = bm.faces.new((rows[j][i], rows[j][i + 1], rows[j + 1][i + 1], rows[j + 1][i]))
+            f.material_index = 0
+    for f in bm.faces:
+        f.smooth = True
 
 
 def _phone(bm):  # smartphone 7.2 x 15 x 0.8 cm: body (0), screen on +Z (1); long axis Y
@@ -765,25 +793,206 @@ def fit_hat(ob, arm, body, head_verts, head_bone, kind, heading):
     me = ev.to_mesh()
     pts = [ev.matrix_world @ me.vertices[i].co for i in head_verts if i < len(me.vertices)]
     ev.to_mesh_clear()
-    up = Vector((0, 0, 1))
-    fwd = Vector((math.cos(heading), math.sin(heading), 0))
+    # the head bone's own up axis (in the rest pose the Rocketbox head is pitched: a cap squared to world-up came out
+    # tilted ~30 deg back once bound), forward = the worker's heading squared to it
+    Mb = arm.matrix_world @ arm.data.bones[head_bone].matrix_local
+    axes = [Vector(Mb.col[i][:3]).normalized() for i in range(3)]
+    up = max((sg * ax for ax in axes for sg in (1, -1)), key=lambda v: v.z)
+    fwd0 = Vector((math.cos(heading), math.sin(heading), 0))
+    fwd = (fwd0 - up * fwd0.dot(up)).normalized()
     side = fwd.cross(up).normalized()
-    top = max(p.z for p in pts)
-    band = [p for p in pts if top - 0.12 < p.z < top - 0.05]
+    top = max(p.dot(up) for p in pts)
+    band = [p for p in pts if top - 0.12 < p.dot(up) < top - 0.05]
     w = (max(p.dot(side) for p in band) - min(p.dot(side) for p in band)) if band else 0.16
     d = (max(p.dot(fwd) for p in band) - min(p.dot(fwd) for p in band)) if band else 0.2
     mid = sum(band, Vector()) / len(band) if band else sum(pts, Vector()) / len(pts)
     w, d = max(w, 0.14), max(d, 0.17)
-    c = Vector((mid.x, mid.y, top))
+    c = mid + up * (top - mid.dot(up))
     if kind == "cap":
-        drop, sx, sy, sz = 0.085, (w / 2 + 0.018) / 0.105, (d / 2 + 0.018) / 0.115, 0.125 / 0.075  # room for hair
+        # rigid (review 013: no shrinkwrap). The band sits 7.5 cm below the top of the head (~2.5 cm above the brows),
+        # sized to the head's cross-section there + 6 mm; the 10 cm crown clears the skull above it
+        L = top - 0.075
+        sec = [p for p in pts if abs(p.dot(up) - L) < 0.012]
+        if len(sec) > 8:
+            xs_, ys_ = [p.dot(side) for p in sec], [p.dot(fwd) for p in sec]
+            w, d = max(xs_) - min(xs_), max(ys_) - min(ys_)
+            mid = side * (max(xs_) + min(xs_)) / 2 + fwd * (max(ys_) + min(ys_)) / 2 + up * L
+        else:
+            mid = c - up * 0.075
+        rx, ry = w / 2 + 0.006, d / 2 + 0.006
+        k_ = 1.0  # widen until no head point above the band pokes through the crown (ellipsoid test)
+        for p in pts:
+            hz = (p - mid).dot(up)
+            if 0.0 < hz < CAP_H / 100:
+                q = ((p - mid).dot(side) / rx) ** 2 + ((p - mid).dot(fwd) / ry) ** 2
+                lim = 1.0 - (hz / (CAP_H / 100)) ** 2
+                if lim > 1e-3:
+                    k_ = max(k_, (q / lim) ** 0.5 / 0.97)
+        rx, ry = rx * k_, ry * k_
+        # the band follows THIS head's own outline (an ellipse sized to its widest points stood 1.7-2.1 cm off the
+        # flatter sides: QA accessory_fit): per 10 deg, the head's radius round the band (+-1.5 cm of its height),
+        # smoothed, + 6 mm; the crown's lowest 4 cm blend from that outline to the ellipse; the brim follows. A rigid
+        # shape made once in the rest pose, on this worker's own copy of the mesh: nothing deforms at run time
+        nb = 36
+        prof = [0.0] * nb
+        for p in pts:
+            d_ = p - mid
+            if abs(d_.dot(up)) < 0.02:
+                x_, y_ = d_.dot(side), d_.dot(fwd)
+                k = int(((math.atan2(y_, x_) + math.pi) / (2 * math.pi)) * nb) % nb
+                prof[k] = max(prof[k], math.hypot(x_, y_))
+        if sum(1 for v in prof if v > 0) > nb * 0.5:  # (a sparse head mesh left too few bins at 0.7)
+            for _ in range(nb // 2):  # empty bins: from the neighbours (repeated: runs of empty bins)
+                for k in range(nb):
+                    if prof[k] == 0.0:
+                        prof[k] = max(prof[(k - 1) % nb], prof[(k + 1) % nb])
+            prof = [(prof[(k - 1) % nb] + 2 * prof[k] + prof[(k + 1) % nb]) / 4 for k in range(nb)]
+            ob.data = ob.data.copy()
+            sxm, sym = rx / CAP_RX, ry / CAP_RY  # m per mesh cm
+
+            def scale_at(vx, vy):
+                X, Y = vx * sxm, vy * sym
+                ang = math.atan2(Y, X)
+                kf = ((ang + math.pi) / (2 * math.pi)) * nb - 0.5
+                k0 = int(math.floor(kf)) % nb
+                t_ = kf - math.floor(kf)
+                want = prof[k0] * (1 - t_) + prof[(k0 + 1) % nb] * t_ + 0.006
+                ce, se = math.cos(ang), math.sin(ang)
+                r_ell = 1.0 / math.sqrt((ce / rx) ** 2 + (se / ry) ** 2)  # the ellipse's radius that way
+                return want / r_ell
+            # ...and above the band the crown never comes within 8 mm of the head at that height (pulled in to the
+            # band outline, the forehead / hair showed through the crown's front: review 014 head sheets)
+            slices = []
+            for z0 in (0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08):
+                pr = [0.0] * nb
+                for p in pts:
+                    d_ = p - mid
+                    if abs(d_.dot(up) - z0) < 0.006:
+                        x_, y_ = d_.dot(side), d_.dot(fwd)
+                        k = int(((math.atan2(y_, x_) + math.pi) / (2 * math.pi)) * nb) % nb
+                        pr[k] = max(pr[k], math.hypot(x_, y_))
+                slices.append((z0, [max(pr[(k - 1) % nb], pr[k], pr[(k + 1) % nb]) for k in range(nb)]))
+
+            def head_r(ang, hz):  # the head's radius that way at height hz above the band (0 = no head there)
+                if hz < 0.005:
+                    return 0.0
+                k = int(((ang + math.pi) / (2 * math.pi)) * nb) % nb
+                lo = max((sl for sl in slices if sl[0] <= hz), key=lambda sl: sl[0], default=slices[0])
+                hi = min((sl for sl in slices if sl[0] >= hz), key=lambda sl: sl[0], default=slices[-1])
+                return max(lo[1][k], hi[1][k])
+            ring_need, pending = {}, []
+            for v in ob.data.vertices:
+                rr = math.hypot(v.co.x / CAP_RX, v.co.y / CAP_RY)
+                if rr < 1e-6:
+                    continue
+                if (v.co.x / CAP_RX) ** 2 + (v.co.y / CAP_RY) ** 2 <= 1.0001 or v.co.z > -1e-3 and rr <= 1.0001:
+                    w = max(0.0, min(1.0, 1.0 - v.co.z / 4.0))  # crown: the lowest 4 cm
+                else:
+                    w = 1.0  # the brim: moves with the band where it joins
+                f_ = 1.0 + w * (scale_at(v.co.x, v.co.y) - 1.0) if w > 0.0 else 1.0
+                X, Y = v.co.x * f_ * sxm, v.co.y * f_ * sym
+                need = head_r(math.atan2(Y, X), v.co.z / 100.0) + 0.008
+                r_now = math.hypot(X, Y)
+                ratio = need / r_now if need > 0.008 and r_now > 1e-6 else 1.0
+                zk = round(v.co.z, 1)
+                ring_need[zk] = max(ring_need.get(zk, 1.0), ratio)
+                pending.append((v, f_, zk))
+            # each height ring inflated evenly by what its tightest point needs (per point, the crown went lumpy
+            # round hair spikes: review 014 sheets)
+            for v, f_, zk in pending:
+                f_ *= ring_need.get(zk, 1.0)
+                v.co.x *= f_
+                v.co.y *= f_
+            ob.data.update()
+        rot = Matrix((side, fwd, up)).transposed().to_4x4()
+        bind_rest(ob, arm, head_bone, Matrix.Translation(mid) @ rot
+                  @ Matrix.Diagonal((rx / CAP_RX, ry / CAP_RY, 0.01, 1.0)))
+        arm.data.pose_position = "POSE"
+        bpy.context.view_layer.update()
+        return
     else:
-        drop, sx, sy, sz = 0.095, (w / 2 + 0.025) / 0.13, (d / 2 + 0.03) / 0.15, 0.135 / 0.11
+        drop, sx, sy, sz = 0.095, (w / 2 + 0.014) / 0.13, (d / 2 + 0.017) / 0.15, 0.135 / 0.11  # shell on its
+        # harness ~2 cm out (2.5 / 3 cm left its rim 3.6-4.2 cm off the skull: QA accessory_fit, max 3.5)
     rot = Matrix((side, fwd, up)).transposed().to_4x4()  # hat x -> side, +y (visor / brim) -> face, z -> up
-    bind_rest(ob, arm, head_bone, Matrix.Translation(c - up * drop) @ rot
-              @ Matrix.Diagonal((0.01 * sx, 0.01 * sy, 0.01 * sz, 1.0)))
+    M = Matrix.Translation(c - up * drop) @ rot @ Matrix.Diagonal((0.01 * sx, 0.01 * sy, 0.01 * sz, 1.0))
+    bind_rest(ob, arm, head_bone, M)
+    if kind == "cap":  # the band hugs THIS skull (review 009d/009e: a rigid dome square to the head touched the
+        _wrap_band(ob, body)  # forehead and stood 2-8 cm off elsewhere; tilted to fit, it sat 25 deg off the head)
     arm.data.pose_position = "POSE"
     bpy.context.view_layer.update()
+
+
+def _wrap_band(ob, body):
+    """A cap's band (the lower half of its dome) is shrinkwrapped onto the head skin, 4 mm off it, fading to the
+    stiff crown; the visor / brim follows the band's front. Evaluated every frame (the body deforms with the clip)."""
+    me = ob.data
+    zs = [v.co.z for v in me.vertices if (v.co.x * v.co.x + v.co.y * v.co.y) ** 0.5 < 13.5]
+    if not zs:
+        return
+    z0, z1 = min(zs), max(zs)
+    vg = ob.vertex_groups.get("band") or ob.vertex_groups.new(name="band")
+    for v in me.vertices:
+        rn = ((v.co.x / 10.5) ** 2 + (v.co.y / 11.5) ** 2) ** 0.5
+        if rn > 0.85 and (v.co.x * v.co.x + v.co.y * v.co.y) ** 0.5 < 13.5:  # the band edge and the dome's lowest
+            w = max(0.0, min(1.0, 1.0 - (v.co.z - z0 - 2.5) / 1.5))  # 2.5-4 cm (never the flat disc inside the head)
+        else:  # crown, the inner disc, the visor
+            w = 0.0
+        if w > 0.0:
+            vg.add([v.index], w, "REPLACE")
+    md = ob.modifiers.new("band_fit", "SHRINKWRAP")
+    md.target = body
+    md.wrap_method = "NEAREST_SURFACEPOINT"
+    md.wrap_mode = "ON_SURFACE"
+    md.offset = 0.004  # WORLD units (measured: not the hat's cm mesh units): 4 mm off the skin
+    md.vertex_group = "band"
+    sm = ob.modifiers.new("band_smooth", "SMOOTH")  # the wrap snapped some band points onto hair cards: a sawtooth
+    sm.vertex_group, sm.factor, sm.iterations = "band", 0.7, 8  # edge (req 013 head sheets) - smoothed along it
+
+
+def _fit_cap(ob, body, head_verts, c, side, fwd, up, sx, sy, sz):
+    """Cap pose on the skull in the rest pose: pitch about the ear-to-ear axis, drop below the crown and size
+    searched so the dome's band ring hugs the head SKIN (smallest 90th-percentile gap) with no cap vertex > 3 mm
+    inside it. Returns the world matrix (None if the head mesh is missing)."""
+    from mathutils.bvhtree import BVHTree
+    dg = bpy.context.evaluated_depsgraph_get()
+    ev = body.evaluated_get(dg)
+    me = ev.to_mesh()
+    hv = set(head_verts)
+    vs = [ev.matrix_world @ v.co for v in me.vertices]
+    polys = [tuple(pl.vertices) for pl in me.polygons if all(i in hv for i in pl.vertices)]
+    ev.to_mesh_clear()
+    if not polys:
+        return None
+    bvh = BVHTree.FromPolygons(vs, polys)
+    loc_v = [v.co.copy() for v in ob.data.vertices]
+    zmin = min(v.z for v in loc_v)
+    ring = [v for v in loc_v if v.z < zmin + 0.6 and (v.x * v.x + v.y * v.y) ** 0.5 < 13.5][::2]
+    dome = [v for v in loc_v if (v.x * v.x + v.y * v.y) ** 0.5 < 13.5][::4]
+
+    def sd(p):
+        hit = bvh.find_nearest(p)
+        return None if hit[0] is None else (p - hit[0]).dot(hit[1])
+    best = None
+    for pitch_d in range(-30, 31, 5):
+        Rp = Matrix.Rotation(math.radians(pitch_d), 3, side)
+        u_, f_ = Rp @ up, Rp @ fwd
+        rot = Matrix((side, f_, u_)).transposed().to_4x4()
+        for drop in (0.07, 0.08, 0.09, 0.10, 0.11, 0.12):
+            for k in (0.84, 0.88, 0.92, 0.96, 1.0, 1.04):
+                M = Matrix.Translation(c - u_ * drop) @ rot @ Matrix.Diagonal((0.01 * sx * k, 0.01 * sy * k,
+                                                                               0.01 * sz, 1.0))
+                inside = 0.0
+                for v in dome:
+                    d_ = sd(M @ v)
+                    if d_ is not None:
+                        inside = max(inside, -d_ - 0.003)
+                gaps = sorted(d_ for d_ in (sd(M @ v) for v in ring) if d_ is not None)
+                if not gaps:
+                    continue
+                score = 100.0 * max(inside, 0.0) + gaps[int(len(gaps) * 0.9)] + 0.5 * gaps[len(gaps) // 2]
+                if best is None or score < best[0]:
+                    best = (score, M)
+    return best[1] if best else None
 
 
 def _fit_props(scene, arm, body, t, heading, props):
@@ -798,8 +1007,8 @@ def _fit_props(scene, arm, body, t, heading, props):
     cm = Matrix.Diagonal((0.01, 0.01, 0.01, 1.0))
     for kind, ob in props:
         if kind == "hat" and pts:
-            fit_hat(ob, arm, body, t["head_verts"], "Bip01 Head", "cap" if ob.name.endswith("_cap") else "hard",
-                    heading)
+            fit_hat(ob, arm, body, t.get("head_skin", t["head_verts"]), "Bip01 Head",
+                    "cap" if ob.name.endswith("_cap") else "hard", heading)
         elif kind == "device":
             dims = {"_terminal": (0.011, (0.04, 0.0825)), "_clipboard": (0.004, (0.115, 0.16)),
                     "_phone": (0.004, (0.036, 0.075))}
@@ -831,11 +1040,16 @@ def _template(scene, avatar):
     gloved = _fix_materials(body, folder)
     head_idx = {g.index for g in body.vertex_groups if g.name == "Bip01 Head"}
     head_verts = [v.index for v in body.data.vertices if any(g.group in head_idx and g.weight > 0.8 for g in v.groups)]
+    # the skull: head vertices on the skin material only (the hair cut-out cards / buns made the cap sit on the hair:
+    # review 009d)
+    skin = {i for pl in body.data.polygons if body.data.materials[pl.material_index]
+            and body.data.materials[pl.material_index].name.endswith("_head") for i in pl.vertices}
+    head_skin = [i for i in head_verts if i in skin] or head_verts
     vest, vest_open = _vest(body, arm), _vest(body, arm, open_front=True)
     hide.objects.link(vest)
     hide.objects.link(vest_open)
     _templates[avatar] = dict(arm=arm, body=body, vest=vest, vest_open=vest_open, gloved=gloved,
-                              head_verts=head_verts)
+                              head_verts=head_verts, head_skin=head_skin)
     return _templates[avatar]
 
 
@@ -986,9 +1200,11 @@ def _instance(scene, coll, st, name, hat_colour):
         dv = bpy.data.objects.new(f"{name}_{st['device']}", device_mesh(st["device"]))
         coll.objects.link(dv)
         props.append(("device", dv))
-    if st.get("hat") and st["avatar"] != "Female_Adult_06":  # the tudung stays as it is
+    if HEADWEAR_ALLOWED and st.get("hat") and st["avatar"] != "Female_Adult_06":  # the tudung stays as it is
         mesh = _prop_mesh("hard_hat", _hard_hat, [_mat("hat_shell", (0.8, 0.8, 0.8), 0.35)]) if st["hat"] == "hard" \
-            else _prop_mesh("work_cap", _cap, [_mat("cap_teal", (0.02, 0.18, 0.17), 0.8)])
+            else _prop_mesh("work_cap", _cap, [_mat("cap_teal", (0.02, 0.18, 0.17), 0.85)])  # cotton: no gloss
+        for poly in mesh.polygons:
+            poly.use_smooth = True
         h = bpy.data.objects.new(f"{name}_{st['hat']}", mesh)
         coll.objects.link(h)
         if st["hat"] == "hard":

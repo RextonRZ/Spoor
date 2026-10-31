@@ -19,11 +19,17 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--cams", default="CAM_07,CAM_13")
 ap.add_argument("--out", required=True)
 ap.add_argument("--res", default="1344x760")
+ap.add_argument("--raytrace", type=int, default=-1)  # -1: as saved
+ap.add_argument("--shadow-scale", type=float, default=-1.0)
 ap.add_argument("--samples", type=int, default=4)
 ap.add_argument("--exposure", type=float, default=None)
 ap.add_argument("--frame", type=int, default=150)
 args = ap.parse_args(sys.argv[sys.argv.index("--") + 1:])
 sc = bpy.context.scene
+if args.raytrace >= 0:
+    sc.eevee.use_raytracing = bool(args.raytrace)
+if args.shadow_scale > 0:
+    sc.eevee.shadow_resolution_scale = args.shadow_scale
 OUT = Path(args.out)
 OUT.mkdir(parents=True, exist_ok=True)
 W, H = (int(v) for v in args.res.split("x"))
@@ -46,6 +52,9 @@ def kind(ob):
     return None
 
 
+for o in sc.objects:
+    if o.type == "LIGHT" and o.name.startswith("ledrow_"):
+        o.data.use_shadow = False
 res = {}
 for cid in args.cams.split(","):
     cam = sc.objects[cid]

@@ -50,7 +50,7 @@ F = int(a.seconds * a.fps)
 ORIGIN = Vector((-1.25, 22.5, 0.0))  # the worker, south of boom_D05 (world); local frame = world turned 180 deg
 BOOM = dict(x0=-2.65, x1=0.0, y0=-0.75, y1=-0.25, top=1.0)  # local; runs -x (out of the lorry)
 WALL_X = 0.35  # wall face (local x)
-COLS = [0.02, 0.40]  # column centres (local y), 12 cm gaps at 0.30 m cartons
+COLS = [0.02, 0.40]  # column centres (local y), 12 cm gaps (0.46 puts the outer column against the trailer wall)
 statics = {"boom": (np.array([BOOM["x0"], BOOM["y0"], 0.80]), np.array([BOOM["x1"], BOOM["y1"], BOOM["top"]]))}
 
 

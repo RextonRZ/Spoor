@@ -20,7 +20,7 @@ HUB = Path(__file__).resolve().parent
 QA = HUB / "build" / "qa"
 FR = QA / "_frames"
 BLENDER = r"C:\Program Files\Blender Foundation\Blender 5.2\blender.exe"
-BLEND = HUB / "build" / "hub_dressed.blend"
+BLEND = HUB / "build" / "hub_dressed_qa.blend"
 ap = argparse.ArgumentParser()
 ap.add_argument("--only", default="")
 ap.add_argument("--batch", type=int, default=6)
@@ -28,7 +28,7 @@ args = ap.parse_args()
 
 TL = json.loads((QA / "timeline.json").read_text(encoding="utf-8"))
 VIS = json.loads((QA / "visibility.json").read_text(encoding="utf-8"))
-CAMS = [f"CAM_{k:02d}" for k in range(1, 19)]
+CAMS = [c["id"] for c in json.loads((HUB / "hub_spec.json").read_text(encoding="utf-8"))["cameras"]]  # (CAM_19: 019)
 jobs = [("worker", n) for n in sorted(TL)] + [("cam", c) for c in CAMS]
 if args.only:
     want = set(args.only.split(","))

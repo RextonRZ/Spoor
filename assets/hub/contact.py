@@ -19,6 +19,7 @@ Why analytic and not Blender IK constraints: the Rocketbox FBX bones' tails do n
 skeleton facts used: the thighs hang from 'Bip01 Spine'; there are no forearm twist bones (Forearm -> Hand).
 """
 import math
+import random
 
 import bpy
 from bpy_extras import anim_utils
@@ -69,6 +70,24 @@ def two_bone(S_, a, b, T, pole):
     return E, T2, clamped
 
 
+def box_pen(Mi, dims, P, Q, r, skip_end=0.0, n=9):
+    """Deepest penetration (m) of a capsule P->Q (radius r) into a box (Mi = world -> box local, dims w d h, origin
+    at the bottom centre). skip_end: the last fraction of the segment is ignored (a forearm at the wrist next to the
+    face it grips)."""
+    w, d, h = dims
+    best = 0.0
+    for i in range(n):
+        u = i / (n - 1) * (1.0 - skip_end)
+        q = Mi @ P.lerp(Q, u)
+        qx, qy, qz = abs(q.x) - w / 2, abs(q.y) - d / 2, abs(q.z - h / 2) - h / 2
+        out = Vector((max(qx, 0.0), max(qy, 0.0), max(qz, 0.0))).length + min(max(qx, qy, qz), 0.0)
+        best = max(best, r - out)
+    return best
+
+
+SWIVELS = [math.radians(a) for a in (0, 10, -10, 20, -20, 30, -30, 40, -40, 50, -50, 60, -60)]
+
+
 class Worker:
     """One Rocketbox worker with contact rigging. heading = direction the FEET face (radians, world)."""
 
@@ -114,6 +133,9 @@ class Worker:
         self.flat = {}  # frame -> 1 when the fingers lie flat on a face
         self.hand_w = {}  # frame -> 0..1: blend from the clip's own arms (0) to the solved contact (1)
         self.last_n = {}
+        self.obst = {}  # frame -> (world matrix, dims) of the carton in the hands: elbows swivel clear of it
+        self.max_shift = 0.12  # m: how far the reach adaptation may move the hips toward the work
+        self.swivel = {}  # side -> last elbow swivel (rad), rate-limited
         self.extra_flex = {}
         self.extra_yaw = {}
         self.clamped = 0
@@ -149,6 +171,7 @@ class Worker:
             R = Mh.to_3x3().inverted()
             self.palm[sd] = dict(offset=Mh.inverted() @ contact, along=(R @ along).normalized(),
                                  normal=(R @ n).normalized())
+        self.flat_q = self._flat_fingers()
         hm = bones["Bip01 Head"].matrix_local.to_3x3()  # head forward axis (avatar faces -Y in armature space)
         cands = [(ax, sg) for ax in range(3) for sg in (1, -1)]
         self.head_fwd = max(cands, key=lambda c: c[1] * Vector(hm.col[c[0]]).normalized().dot(Vector((0, -1, 0))))
@@ -186,25 +209,49 @@ class Worker:
         loc, hd = self.loc0.copy(), self.heading0
         out = []
         timeline = {}
-        rates = []
+        rates, backs = [], []
         for leg in legs:
             f_start, pts = leg[0], leg[1]
             rate = leg[2] if len(leg) > 2 else 1.0  # < 1: slower steps AND slower travel (pushing a cage)
             ts = leg[3] if len(leg) > 3 else turn_s  # longer: a turning step instead of a spin on the spot
+            back = bool(leg[4]) if len(leg) > 4 else False  # walking BACKWARDS (facing against the travel; the
+            # walk clip plays reversed): dragging a sack toward oneself
+            flip = math.pi if back else 0.0
             rates.append(rate)
+            backs.append(back)
             pts = [Vector((x, y, self.loc0.z)) for x, y in pts]
             segs = [(a, b, (b - a).length) for a, b in zip(pts, pts[1:]) if (b - a).length > 1e-3]
             total = sum(d for *_, d in segs)
             n = max(2, int(round(total / (v * rate) * fps)))
+            # a big first turn (walking back the way they came): the travel eases in over k frames while the body
+            # turns with stepping legs, then runs at a constant (slightly higher) speed: no spin, no moonwalk
+            e0 = 0.0
+            if segs:
+                a0, b0 = segs[0][0], segs[0][1]
+                e0 = abs((math.atan2(b0.y - a0.y, b0.x - a0.x) + flip - hd + math.pi) % (2 * math.pi) - math.pi)
+            k = int(round(e0 / math.pi * 10)) if e0 > 1.2 else 3  # every start eases in (a planted foot slid)
+            k = k if n > 2 * k else 0
+            wn = max(2.0 / (ts * fps), 3.9 / k if e0 > 1.2 and k else 0.0)  # critically damped turn (per frame)
+            wmax = math.radians(18)  # a stepping turn: <= 180 deg/s (QA: 29 deg in one frame read as a pop)
+            wv = 0.0
             for g in range(f_start, f_start + n + 1):
-                dist = total * (g - f_start) / n
+                i = g - f_start
+                if k:
+                    dist = total * (i * i if i <= k else k * k + 2 * k * (i - k)) / (2 * k * n - k * k)
+                else:
+                    dist = total * i / n
                 for a, b, d in segs:
                     if dist <= d + 1e-9:
                         loc = a.lerp(b, dist / d)
-                        want = math.atan2(b.y - a.y, b.x - a.x)
+                        want = math.atan2(b.y - a.y, b.x - a.x) + flip
                         break
                     dist -= d
-                hd = hd + ((want - hd + math.pi) % (2 * math.pi) - math.pi) * min(1.0, 1.0 / (ts * fps))
+                if i:
+                    for _ in range(4):  # 4 sub-steps: the turn starts from rest instead of jumping
+                        e = (want - hd + math.pi) % (2 * math.pi) - math.pi
+                        wv += 0.25 * (wn * wn * e - 2 * wn * wv)
+                        wv = max(-wmax, min(wmax, wv))
+                        hd += 0.25 * wv
                 timeline[g] = (loc.copy(), hd)
                 if f_start < g < f_start + n:
                     self.walking.add(g)
@@ -235,11 +282,13 @@ class Worker:
             st.repeat = max(1.0, (f1 - f0 + 4) / ((a1 - a0) * st.scale))
             st.blend_in = st.blend_out = 3
             st.extrapolation = "NOTHING"
+            st.use_reverse = backs[i]
         ad.action = self.motion_act if keep is None else keep
         # the walk clip's own facing offset vs this rig (retargeted Rocketbox clips differ): measure, correct
         if out:
             offs = []
-            inwin = [f for (f0, f1) in out for f in range(f0 + 3, f1 - 2) if f in self.obj]
+            # measured once the start turn has settled (its eased heading biased the offset: a constant slide)
+            inwin = [f for (f0, f1) in out for f in range(f0 + (12 if f1 - f0 > 30 else 3), f1 - 2) if f in self.obj]
             for f in inwin[:40]:
                 self.sc.frame_set(f)
                 mw = arm.matrix_world
@@ -271,6 +320,48 @@ class Worker:
         chest = base + (UP * math.cos(flex) + fwd * math.sin(flex)) * 0.42 - fwd * 0.1 * math.sin(flex)
         return chest, fwd, left, h
 
+    def _flat_fingers(self):
+        """Pose rotations that lay every finger segment - the thumb too - straight IN the palm plane: a flat hand on a
+        face (the rest pose holds the thumb ~45 deg out of the palm, into whatever the palm rests on: collision
+        check, review 009d 'hands through boxes'). Hand-bone rest frame; each segment's pose basis follows from the
+        wanted world (hand-local) rotation and its rest relation to the parent."""
+        bones = self.arm.data.bones
+        out = {}
+        for sd in ("L", "R"):
+            hand = bones[f"Bip01 {sd} Hand"]
+            Hi = hand.matrix_local.to_3x3().inverted()
+            n = self.palm[sd]["normal"]
+            for root in [c for c in hand.children if " Finger" in c.name]:
+                chain = [root]
+                while chain[-1].children:
+                    nxt = [c for c in chain[-1].children if " Finger" in c.name]
+                    if not nxt:
+                        break
+                    chain.append(nxt[0])
+                rest = [Hi @ b.matrix_local.to_3x3() for b in chain]  # hand-local rest rotations
+                # each segment's REAL direction is head -> next head: a Biped finger bone's own Y axis (head -> tail)
+                # is off the finger (flattening the Y axes left the fingers pointing across the palm, into the face
+                # it held: 3-5 cm deep, collision check); the last segment keeps its parent's direction in its frame
+                dirs = [(Hi @ (nb.head_local - b.head_local)).normalized() for b, nb in zip(chain, chain[1:])]
+                if dirs:
+                    dirs.append(rest[-1] @ (rest[-2].inverted() @ dirs[-1]))
+                else:
+                    dirs = [Vector(rest[0].col[1]).normalized()]
+                d0 = dirs[0]
+                tgt = (d0 - n * d0.dot(n))
+                if tgt.length < 1e-4:
+                    continue
+                tgt.normalize()
+                W_prev = None
+                for k, b in enumerate(chain):
+                    dk = dirs[k].normalized()
+                    W = dk.rotation_difference(tgt).to_matrix() @ rest[k]  # wanted hand-local rotation
+                    rel = rest[k] if k == 0 else rest[k - 1].inverted() @ rest[k]
+                    parent = Matrix.Identity(3) if k == 0 else W_prev
+                    out[b.name] = (rel.inverted() @ parent.inverted() @ W).to_quaternion()
+                    W_prev = W
+        return out
+
     def neutral_hands(self, f, kind="ready"):
         """Palm contact points + palm frames for empty hands. ready = in front of the belly, palms in;
         rest = hanging at the sides."""
@@ -280,6 +371,17 @@ class Worker:
             if kind == "ready":
                 p = chest + fwd * 0.28 + left * sg * 0.16 - UP * 0.36
                 along, normal = (fwd * 0.9 - UP * 0.4), -left * sg
+            elif kind == "narrow":  # between two belts (0.55 m aisle): close in and a little higher, clear of the
+                # frames, along the FEET's heading (the idle chest turns toward the next parcel and swung them over
+                # the feed frame)
+                ff = Vector((math.cos(self.heading0), math.sin(self.heading0), 0.0))
+                lf = Vector((-ff.y, ff.x, 0.0))
+                p = chest + ff * 0.30 + lf * sg * 0.10 - UP * 0.30
+                along, normal = (ff * 0.9 - UP * 0.3), -lf * sg
+            elif kind == "relaxed":  # waiting between picks: hands loosely in front of the thighs, elbows a little
+                # bent (inside the body's own footprint: hanging at the sides they met the boom / belt frames)
+                p = chest + fwd * 0.14 + left * sg * 0.12 - UP * 0.52
+                along, normal = (-UP * 0.8 + fwd * 0.4), -left * sg
             else:
                 p = chest + fwd * 0.03 + left * sg * 0.22 - UP * 0.64
                 along, normal = (-UP + fwd * 0.12), -left * sg
@@ -295,7 +397,7 @@ class Worker:
         wrist = palm_point - Rw @ (pm["offset"] * S)
         return Matrix.Translation(wrist) @ Rw.to_4x4()
 
-    def set_hands(self, f, targets, fingers=None, weight=1.0):
+    def set_hands(self, f, targets, fingers=None, weight=1.0, obstacle=None):
         """targets: {sd: (palm_point, R_contact)} in world. fingers: None (the clip's) | 'flat' (laid straight
         along a carton face: no finger through the carton) | 'wrap' (the clip's curl, round a post)."""
         chest, fwd, left, h = self.torso_frame(f)
@@ -308,6 +410,8 @@ class Worker:
             out[sd] = (self.hand_target(sd, p, R), pole, (p, R))
         self.hands[f] = out
         self.hand_w[f] = max(0.0, min(1.0, weight))
+        if obstacle:  # one (world matrix, dims) box or a list of them
+            self.obst[f] = obstacle if isinstance(obstacle, list) else [obstacle]
 
     def set_feet(self, f, feet=None, fy=0.0):
         """feet: explicit world foot matrices (else the pinned frame-1 pose); fy: their yaw (rel. to heading)."""
@@ -426,6 +530,47 @@ class Worker:
         sm_y = self._gauss({f: (v[0],) for f, v in self.trunk.items()}, frames, 1.2)  # twist: follows quickly
         sm_fd = self._gauss({f: (v[1], v[2]) for f, v in self.trunk.items()}, frames, 2.0)  # lean / drop: softer
         self.trunk = {f: (sm_y[f][0], *sm_fd[f]) for f in self.trunk}
+        # the eyes lead the hands (review 009d): every gaze target is taken 0.3 s early
+        if self.look:
+            lead = {f: self.look.get(f + 3, self.look[f]) for f in self.look}
+            self.look = lead
+        # the torso's WORLD facing (heading + twist) turns at most 15 deg per frame: a caller switching what the
+        # twist is relative to (work facing -> walk direction) while the hips turn can't swing the chest
+        prev = None
+        for f in frames:
+            if f not in self.trunk:
+                continue
+            y, fl, dr = self.trunk[f]
+            face = self.heading_at(f) + y
+            if prev is not None:
+                d = (face - prev + math.pi) % (2 * math.pi) - math.pi
+                lim = math.radians(15)
+                if abs(d) > lim:
+                    face = prev + math.copysign(lim, d)
+                    y = (face - self.heading_at(f) + math.pi) % (2 * math.pi) - math.pi
+                    self.trunk[f] = (y, fl, dr)
+            prev = face
+        # glances on and off: the look-at fades in / out over ~0.5 s (the target is held while it fades) instead of
+        # the head snapping between the clip's own head and the target
+        self.look_w = {}
+        if self.look and any(f not in self.look for f in frames):
+            on = {f: 1.0 if f in self.look else 0.0 for f in frames}
+            w = 0.0
+            for f in frames:  # rate-limited both ways
+                w += max(-0.2, min(0.2, on[f] - w))
+                self.look_w[f] = w
+            last = None
+            for f in frames:
+                last = self.look.get(f, last)
+                if last is not None and self.look_w[f] > 0:
+                    self.look[f] = last
+            nxt = None
+            for f in reversed(frames):  # fading in before the first glance: aim at it already
+                nxt = self.look.get(f, nxt)
+                if nxt is not None and f not in self.look and self.look_w[f] > 0:
+                    self.look[f] = nxt
+            for f in frames:
+                self.look_w[f] = smooth(self.look_w[f])
         prev = None
         for f in frames:
             if f not in self.look:
@@ -445,6 +590,19 @@ class Worker:
             pass
 
     def apply(self, frames):
+        """Solve and bake. The other workers are hidden from evaluation meanwhile (their skinned meshes don't touch
+        this solve; evaluating them made every bake frame cost grow with the roster)."""
+        others = [o for o in self.sc.objects if o.name.startswith("worker_") and o is not self.arm
+                  and not o.name.startswith(self.name + "_") and not o.hide_viewport]
+        for o in others:
+            o.hide_viewport = True
+        try:
+            self._apply(frames)
+        finally:
+            for o in others:
+                o.hide_viewport = False
+
+    def _apply(self, frames):
         frames = list(frames)
         arm = self.arm
         ad = arm.animation_data
@@ -462,6 +620,10 @@ class Worker:
         # work (extra hip hinge), drop for low work, and only then shift the hips a little (never while walking:
         # the walk clip's feet are not pinned and would slide). Curves are dilated and smoothed: no steps.
         self.adapt = []
+        # the hips may only drop / shift once the walk clip has blended out and the feet are pinned again (the
+        # strips blend over 3 frames, then the leg IK ramps in): 0 next to a walk frame, full 5 frames away
+        wl = sorted(self.walking)
+        near_walk = {f: (min(1.0, min(abs(f - g) for g in wl) / 5.0) if wl else 1.0) for f in frames}
         for it in range(3):
             act = self._bake(frames)
             if it == 0 and self.walking:
@@ -482,23 +644,26 @@ class Worker:
                 if h.length > 0.12:
                     h *= 0.12 / h.length
                 z = 0.0 if walking else min(0.0, max(rest.z, -0.3))
-                shift[f] = (h.x, h.y, z)
+                shift[f] = (h.x * near_walk[f], h.y * near_walk[f], z * near_walk[f])
                 moved += int(c.length > 0.005)
-            lean = self._gauss({f: max(lean.get(g, 0.0) for g in range(f - 3, f + 4)) for f in lean}, frames, 2.0)
-            turn = self._gauss({f: max(-0.6, min(0.6, 0.8 * e)) for f, e in self._yaw_err.items()}, frames, 1.5)
+            # over every frame (0 where no hand works): the curves ramp in and out instead of starting as a step
+            lean = self._gauss({f: max(lean.get(g, 0.0) for g in range(f - 3, f + 4)) for f in frames}, frames, 2.0)
+            turn = self._gauss({f: max(-0.6, min(0.6, 0.8 * self._yaw_err.get(f, 0.0))) for f in frames}, frames, 1.5)
+            shift = {f: shift.get(f, (0.0, 0.0, 0.0)) for f in frames}
             for f, dy in turn.items():  # short of reach sideways: turn the trunk further toward the work
                 self.extra_yaw[f] = max(-1.2, min(1.2, self.extra_yaw.get(f, 0.0) + dy))
             shift = self._gauss(shift, frames, 2.0)
             for f in frames:
-                if f in lean:
-                    self.extra_flex[f] = self.extra_flex.get(f, 0.0) + lean[f]
+                if f in lean:  # total cap: the passes added up to 2 rad and folded people over the work, head
+                    # into what they held (review 006 P0 #1); past this the knees drop instead
+                    self.extra_flex[f] = min(0.5, self.extra_flex.get(f, 0.0) + lean[f])
                 if f in shift:
                     old = self.shift.get(f, Vector())
                     hx, hy, hz = shift[f]
                     nv = old + Vector((hx, hy, hz))
                     hh = Vector((nv.x, nv.y, 0))
-                    if hh.length > 0.12:
-                        hh *= 0.12 / hh.length
+                    if hh.length > self.max_shift:  # (a station in a tight space lowers it: the narrow induction
+                        hh *= self.max_shift / hh.length  # aisle - the hips pushed the belly into the belt frame)
                     self.shift[f] = Vector((hh.x, hh.y, max(nv.z, -0.3) if f not in self.walking else nv.z))
             self.adapt.append(moved)
             if not moved:
@@ -557,12 +722,21 @@ class Worker:
         Ar0 = self.A(frames[0]).to_3x3().normalized().inverted()
         fwd_a = (Ar0 @ yaw_vec(self.heading_at(frames[0]))).normalized()  # constant in armature space
         flex_axis = Vector((0, 0, 1)).cross(fwd_a).normalized()  # rotating about it tips the top toward fwd_a
+        # life (review 009d: frozen bodies between actions): breathing ~0.25 Hz in the chest, a slow weight shift
+        # from foot to foot every 4-8 s when standing; each worker has its own tempo (+-15 %) and phase
+        lr = random.Random(self.name)
+        tempo, ph_b, ph_w = lr.uniform(0.85, 1.15), lr.uniform(0, 6.28), lr.uniform(0, 6.28)
+        side_a = flex_axis  # (UP x fwd): the body's left in armature space
+        fps_ = self.sc.render.fps or 10
         for f in frames:
             yaw, flex, drop = self.trunk.get(f, (0.0, 0.0, 0.0))
             flex += self.extra_flex.get(f, 0.0)
             yaw += self.extra_yaw.get(f, 0.0)
             fy = fys.get(f, 0.0)  # the pelvis follows the feet; the spine takes the rest of the twist
             walking = f in self.walking
+            t_ = f / fps_
+            flex += 0.012 * math.sin(2 * math.pi * 0.25 * tempo * t_ + ph_b)  # breathing
+            sway = 0.0 if walking else 0.014 * math.sin(2 * math.pi * t_ / (6.0 * tempo) + ph_w)  # weight shift
             for bn, (ky, kf) in split.items():
                 if walking:
                     kf = {"Bip01 Pelvis": 0.0, "Bip01 Spine1": 0.55, "Bip01 Spine2": 0.45}[bn]
@@ -579,6 +753,7 @@ class Worker:
             back = 0.0 if walking else 0.12 * math.sin(flex * 0.55)  # hips go back as the trunk hinges forward
             d_arm = Matrix.Rotation(fy + (yaw - fy) * 0.3, 3, "Z") @ (-fwd_a * back / S + Vector((0, 0, -drop / S)))
             d_arm += Ar0 @ self.shift.get(f, Vector()) / S
+            d_arm += side_a * sway / S
             pb.location = M3.inverted() @ d_arm
             pb.keyframe_insert("location", frame=f, group="Bip01 Pelvis")
         ad.action = keep
@@ -615,7 +790,7 @@ class Worker:
                 d = T - Sh
                 if d.length > reach:
                     c += d.normalized() * (d.length - reach)
-            raw[f] = c
+            raw[f] = c * self.hand_w.get(f, 1.0)  # a hand still blending in only needs part of the reach
             mid = (self.hands[f]["L"][0].translation + self.hands[f]["R"][0].translation) / 2
             pel = mw @ arm.pose.bones["Bip01 Pelvis"].head
             want = math.atan2(mid.y - pel.y, mid.x - pel.x)
@@ -645,6 +820,7 @@ class Worker:
         pbs = arm.pose.bones
         self._measure_hinges(frames)
         fingers = [b.name for b in bones if " Finger" in b.name]
+        prev_head = None  # world rotation of the head on the previous frame (rate limit)
         for f in frames:
             self._f = f
             self.sc.frame_set(f)
@@ -659,7 +835,7 @@ class Worker:
                     names = [f"Bip01 {sd} {n}" for n in ARM_CHAIN]
                     S_w = Aw @ base[names[1]].translation
                     self._chain(base, new, names, Ai @ Mw.translation, Ari @ Mw.to_3x3(), Ai @ (S_w + pole_dir * 0.5),
-                                weight=self.hand_w.get(f, 1.0))
+                                weight=self.hand_w.get(f, 1.0), obstacle=self.obst.get(f), side=sd)
             if f in self.feet:
                 for sd in ("L", "R"):
                     Mw, pole_w = self.feet[f][sd]
@@ -667,14 +843,28 @@ class Worker:
                     self._chain(base, new, names, Ai @ Mw.translation, Ari @ Mw.to_3x3().normalized(),
                                 Ai @ pole_w, weight=getattr(self, "feet_w", {}).get(f, 1.0))
             if f in self.look:
-                self._head(base, new, Ai @ self.look[f])
+                self._head(base, new, Ai @ self.look[f], self.look_w.get(f, 1.0))
+            # the head never turns faster than 12 deg per frame (120 deg/s) in the world, whatever moved it (gaze
+            # target switch, clamp crossing, chest turn): review 006 P0 #5, a 40 deg one-frame snap at the dock
+            Hm = new.get("Bip01 Head", base["Bip01 Head"])
+            A3 = Aw.to_3x3().normalized()
+            qh = (A3 @ Hm.to_3x3().normalized()).to_quaternion()
+            if prev_head is not None:
+                if prev_head.dot(qh) < 0:
+                    qh.negate()
+                ang = prev_head.rotation_difference(qh).angle
+                lim = math.radians(12)
+                if ang > lim:
+                    qh = prev_head.slerp(qh, lim / ang)
+                    new["Bip01 Head"] = Matrix.Translation(Hm.translation) @ (A3.inverted() @ qh.to_matrix()).to_4x4()
+            prev_head = qh
             flat = self.flat.get(f, 0.0)
             if flat or any(self.flat.get(g, 0.0) for g in (f - 2, f - 1, f + 1, f + 2)):
                 u = sum(self.flat.get(g, 0.0) for g in range(f - 2, f + 3)) / 5.0  # ease in / out over 5 frames
                 for bn in fingers:
                     pb = pbs[bn]
                     pb.rotation_mode = "QUATERNION"
-                    pb.rotation_quaternion = pb.rotation_quaternion.slerp(Quaternion(), u)
+                    pb.rotation_quaternion = pb.rotation_quaternion.slerp(self.flat_q.get(bn, Quaternion()), u)
                     pb.keyframe_insert("rotation_quaternion", frame=f, group=bn)
             for bn, M in new.items():
                 parent = bones[bn].parent
@@ -727,7 +917,7 @@ class Worker:
         h = (h - a * h.dot(a)).normalized()
         return Matrix((a, h, a.cross(h))).transposed()
 
-    def _chain(self, base, new, names, T, R_end, pole, weight=1.0):
+    def _chain(self, base, new, names, T, R_end, pole, weight=1.0, obstacle=None, side=None):
         """Two-bone solve in armature space. names = (parent, upper, lower, end). Each bone is oriented by its own
         direction AND the limb's hinge axis (the bend plane through the pole), so the twist is fully determined
         every frame: no flips, whatever the reach."""
@@ -736,6 +926,32 @@ class Worker:
         Eb = base[lo].translation
         Hb = base[end].translation
         a, b = (Eb - S_).length, (Hb - Eb).length
+        if obstacle is not None or side in self.swivel:
+            # elbow swivel round the shoulder-wrist axis: the fixed down-and-out pole put forearms through the back
+            # corners of wide cartons held by their sides (collision check). Smallest swivel that clears the carton
+            # (upper arm r 5.5 cm, forearm r 4.5 cm, not its last 30 % at the wrist), near last frame's, <= 12 deg/frame
+            Aw = self.arm.matrix_world
+            ax_ = (T - S_).normalized()
+            prev = self.swivel.get(side, 0.0)
+            cands = []
+            for th in (SWIVELS if obstacle is not None else [0.0]):
+                pl = S_ + Matrix.Rotation(th, 3, ax_) @ (pole - S_)
+                E_, T_, _ = two_bone(S_, a, b, T, pl)
+                pen = 0.0
+                if obstacle is not None:
+                    Sw, Ew, Tw = Aw @ S_, Aw @ E_, Aw @ T_
+                    for Mo, dims in obstacle:
+                        Mi = Mo.inverted()
+                        pen = max(pen, box_pen(Mi, dims, Sw, Ew, 0.055), box_pen(Mi, dims, Ew, Tw, 0.045, 0.15))  # (0.3 at the wrist
+                        # left the forearm grazing the carton in the turns: phase attribution)
+                cands.append((max(0.0, pen - 0.005) * 100 + abs(th - prev), th))  # cm beyond 5 mm vs 1 cm per rad
+            th = min(cands)[1]
+            th = prev + max(-math.radians(12), min(math.radians(12), th - prev))
+            if obstacle is None and abs(th) < 1e-3:
+                self.swivel.pop(side, None)
+            else:
+                self.swivel[side] = th
+            pole = S_ + Matrix.Rotation(th, 3, ax_) @ (pole - S_)
         E, T2, clamped = two_bone(S_, a, b, T, pole)
         self.clamped += int(clamped)
         if clamped:
@@ -766,7 +982,7 @@ class Worker:
         new[lo] = Matrix.Translation(E) @ Rl.to_4x4()
         new[end] = Matrix.Translation(T2) @ R_end.normalized().to_4x4()
 
-    def _head(self, base, new, look):
+    def _head(self, base, new, look, weight=1.0):
         """Look-at that keeps the head upright (no roll): forward toward the target, the head's up axis toward
         armature up; 75 % over the clip's own head, never more than 70 deg from it."""
         Mh = base["Bip01 Head"]
@@ -779,6 +995,18 @@ class Worker:
             self._head_up = max(cands, key=lambda c: c[1] * Vector(hm.col[c[0]]).dot(Vector((0, 0, 1))))
         ui, us = self._head_up
         want = (look - Mh.translation).normalized()
+        # a neck turns ~75 deg and tilts ~45 deg: clamp the gaze in the chest's frame (a target behind him is looked
+        # at over the shoulder, not by flipping the head round)
+        fwd_h = Vector(R0.col[ax]).normalized() * sg  # the clip's own head forward (armature space)
+        fwd_h.z = 0.0
+        if fwd_h.length > 1e-4:
+            fwd_h.normalize()
+            yaw_t = math.atan2(want.y, want.x) - math.atan2(fwd_h.y, fwd_h.x)
+            yaw_t = (yaw_t + math.pi) % (2 * math.pi) - math.pi
+            yaw_c = max(-math.radians(75), min(math.radians(75), yaw_t))
+            pitch = max(-math.radians(45), min(math.radians(35), math.asin(max(-1.0, min(1.0, want.z)))))
+            base_yaw = math.atan2(fwd_h.y, fwd_h.x) + yaw_c
+            want = Vector((math.cos(base_yaw) * math.cos(pitch), math.sin(base_yaw) * math.cos(pitch), math.sin(pitch)))
         up = Vector((0, 0, 1))
         up_t = (up - want * up.dot(want))
         if up_t.length < 1e-4:
@@ -792,7 +1020,7 @@ class Worker:
         if q0.dot(qt) < 0:
             qt.negate()
         ang = q0.rotation_difference(qt).angle
-        w = 0.75 * min(1.0, math.radians(70) / ang) if ang > 1e-6 else 0.0
+        w = 0.75 * weight * min(1.0, math.radians(70) / ang) if ang > 1e-6 else 0.0
         new["Bip01 Head"] = Matrix.Translation(Mh.translation) @ q0.slerp(qt, w).to_matrix().to_4x4()
 
     # ------------------------------------------------------------------------------------------------ checks
@@ -813,20 +1041,27 @@ def _linear_action(act):
                 kp.interpolation = "LINEAR"
 
 
-def box_sockets(dims, toward, up_frac=0.15, front_frac=0.2, inset=0.01):
+def box_sockets(dims, toward, up_frac=0.15, front_frac=0.72, inset=-0.022, top=False):
     """Two palm contact points + palm frames on a box's lateral faces, in the BOX's local frame.
     dims = (w along local x, d along local y, h along local z; origin at the bottom centre).
     toward = local unit vector (x/y plane) pointing from the box to the worker. The hands grip the faces
-    perpendicular to the lateral axis, palms facing in (1 cm inside the face: slightly inside reads better than
-    floating off), fingers pointing away from the worker and a little down. Returns {'L'|'R': (point, R3)}."""
+    perpendicular to the lateral axis, palms facing in, 2.2 cm OUTSIDE the face (1.2: palm pads / knuckles
+    still 1-2 cm into it, collision check) (owner rule: nothing passes through
+    anything - they were 1 cm inside; palm pads and finger roots stand ~1.5 cm proud of the contact point), toward the near edge (front_frac 0.72: the wrist past the near edge, so the forearm never runs along the face
+    - at 0.4 it lay 1-5 cm inside it; further back the forearms crossed the
+    carton's edges), fingers pointing away from the worker and a little down.
+    Returns {'L'|'R': (point, R3)}."""
     w, d, h = dims
     lat = UP.cross(toward).normalized()
     half = abs(lat.x) * w / 2 + abs(lat.y) * d / 2
     depth = abs(toward.x) * w / 2 + abs(toward.y) * d / 2
     out = {}
-    if h < 0.08:  # flat mailer: both palms on top near the lateral ends (a side grip would put hands in the belt)
+    if h < 0.08 or top:  # flat mailer (a side grip would put hands in the belt) / a carton still in its wall slot:
+        # both palms on top near the lateral ends, fingers over toward the far edge
         for sd, side in (("L", -lat), ("R", lat)):
-            p = side * max(half - 0.06, 0.03) + toward * depth * 0.1 + UP * (h - 0.004)
+            # palms at the NEAR edge, fingers over toward the far one: the wrist is past the edge and the forearm
+            # free (palms mid-lid with the elbows below the lid, the forearms cut its near edge: collision check)
+            p = side * max(half - 0.06, 0.03) + toward * max(depth - 0.02, 0.0) + UP * (h - inset)
             along = (-toward * 0.9 + side * 0.25)
             out[sd] = (p, frame_from(along, -UP))
         return out

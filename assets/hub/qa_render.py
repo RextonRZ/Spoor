@@ -101,7 +101,8 @@ def workbench():
     sh = sc.display.shading
     sh.light, sh.color_type = "STUDIO", "TEXTURE"
     sh.show_cavity, sh.cavity_type = True, "BOTH"
-    sh.show_shadows = True
+    sh.show_shadows = False  # workbench shadows are stencil volumes: they threw radiating white streaks across
+    # big flat faces (Rexton's 'spiderweb' on the D01 shutter, a QA follow-cam): review mesh_hygiene
     sc.display.render_aa = "FXAA"
 
 
@@ -109,7 +110,8 @@ follow = bpy.data.objects.new("qa_follow", bpy.data.cameras.new("qa_follow"))
 sc.collection.objects.link(follow)
 for job in [j for j in args.jobs.split(",") if j]:
     kind, name = job.split(":", 1)
-    d = OUT / name
+    name, _, view = name.partition("@")  # worker:<name>@side / @front (review 009e: side views for pushers, front
+    d = OUT / (name + (f"_{view}" if view else ""))  # for inductors); default = the least blocked 3/4 view
     if (d / "done").exists():
         print("QAR skip", name, flush=True)
         continue
@@ -123,6 +125,11 @@ for job in [j for j in args.jobs.split(",") if j]:
         follow.data.lens = 35
         sc.frame_set(F0)
         yaw = rig.matrix_world.to_euler()[2] - math.radians(90)  # the worker's facing at frame 1
+        pb = rig.pose.bones
+        if "Bip01 L Thigh" in pb:  # true facing from the hips (the rig's own yaw is ~90 deg off for Rocketbox)
+            mw_ = rig.matrix_world
+            lft = (mw_ @ pb["Bip01 L Thigh"].head) - (mw_ @ pb["Bip01 R Thigh"].head)
+            yaw = math.atan2(lft.y, lft.x) - math.pi / 2
         fwd = Vector((math.cos(yaw), math.sin(yaw), 0))
         side = Vector((-fwd.y, fwd.x, 0))
         dg = bpy.context.evaluated_depsgraph_get()
@@ -144,16 +151,36 @@ for job in [j for j in args.jobs.split(",") if j]:
                     hit, loc, nrm, idx, ob, _ = sc.ray_cast(dg, o, d / L, distance=max(0.01, L - clip - 0.15))
                     n += bool(hit and ob.name not in own)
             return n
+        def enclosed(off):
+            """Walls / lorry sides close round the lens (it sees a wall, not the worker): rays out sideways and up."""
+            sc.frame_set(F0)
+            c = rig.matrix_world.translation + off
+            n = 0
+            for k in range(8):
+                a = k * math.pi / 4
+                for dz in (0.0, 0.6):
+                    hit, *_ = sc.ray_cast(dg, c, Vector((math.cos(a), math.sin(a), dz)).normalized(), distance=3.0)
+                    n += bool(hit)
+            hit, *_ = sc.ray_cast(dg, c, Vector((0, 0, 1)), distance=3.0)
+            return n + 3 * bool(hit)
         best = None
-        for ang, dist, up in [(a, d, u) for (d, u) in ((3.1, 2.6), (2.0, 1.9), (1.5, 1.6)) for a in (40, -40, 140, -140)]:
+        opts = [(a, d, u) for (d, u) in ((3.1, 2.6), (2.0, 1.9), (1.5, 1.6))
+                for a in (40, -40, 140, -140, 0, 90, -90, 180)]
+        opts += [(a, 1.3, 3.6) for a in (40, -40, 140, -140, 0, 180)]  # high, looking down into lorries / racks
+        fam = {"side": (90, -90, 70, -70, 110, -110), "front": (0, 20, -20, 35, -35)}.get(view)
+        if fam:
+            opts = [(a, d_, u_) for a in fam for d_, u_ in ((3.1, 1.9), (2.4, 1.7), (1.8, 1.6))]
+        for ang, dist, up in opts:
             a_ = math.radians(ang)  # 3/4 views; closer and lower for workers inside lorries / between racks
             off_ = (fwd * math.cos(a_) + side * math.sin(a_)) * dist + Vector((0, 0, up))
             head_d = (off_ - Vector((0, 0, 1.75))).length  # lens to the top of the head / cap
             clip_ = max(0.1, head_d - 0.7)  # cut only what is > 0.7 m in front of the head (never the cap)
-            nb = blocked(off_, clip_)
+            nb = blocked(off_, clip_) * 10 + enclosed(off_)
             if best is None or nb < best[0]:
                 best = (nb, off_, clip_, ang)
         _, off, clip, view_ang = best
+        print("QAR view", name, "blocked", best[0], "ang", view_ang, "off", tuple(round(v, 2) for v in off),
+              "rig", tuple(round(v, 2) for v in rig.matrix_world.translation), flush=True)
         follow.data.clip_start = clip
         follow.data.clip_end = 200
         prev = None

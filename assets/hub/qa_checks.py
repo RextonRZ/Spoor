@@ -14,6 +14,7 @@ Frames 1-300 = the planned 30 s scenario at 10 fps. Distances in metres, world s
 import csv
 import json
 import math
+import os
 import statistics
 import sys
 import time
@@ -24,9 +25,10 @@ import bpy
 import numpy as np
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
+from mathutils.kdtree import KDTree
 
 HUB = Path(bpy.path.abspath("//")).resolve().parent
-QA = HUB / "build" / "qa"
+QA = Path(os.environ["QA_OUT"]) if os.environ.get("QA_OUT") else HUB / "build" / "qa"  # QA_OUT: parallel runs
 QA.mkdir(parents=True, exist_ok=True)
 SPEC = json.loads((HUB / "hub_spec.json").read_text(encoding="utf-8"))
 WORKERS_JSON = json.loads((HUB / "build" / "truth" / "workers.json").read_text(encoding="utf-8"))
@@ -36,7 +38,7 @@ for _pre, _role in (("worker_dock_", "dock"), ("worker_induct_", "induction"), (
     for _o in bpy.data.objects:
         if _o.type == "ARMATURE" and _o.name.startswith(_pre):
             ROLE.setdefault(_o.name, _role)
-F0, F1, PLAN_FPS = 1, 300, 10
+F0, F1, PLAN_FPS = 1, int(os.environ.get("QA_F1", "300")), 10  # QA_F1: a longer scenario window (S2: 900)
 SAMPLE = 4  # every 4th body vertex for clipping tests
 
 sc = bpy.context.scene
@@ -174,6 +176,24 @@ def is_static(o):
 
 
 STATIC = [o for o in sc.objects if is_static(o)]
+
+
+def _animated(o):
+    p_ = o
+    while p_ is not None:
+        ad = p_.animation_data
+        if ad and (ad.action or len(ad.nla_tracks)):
+            return True
+        p_ = p_.parent
+    return False
+
+
+# moving objects a head can run into (flow parcels, carried sacks): checked as boxes (their local bounds) against a
+# head sphere (review 006 P0 #1: cartons carried through the head; flow parcels are not rig children)
+ANIM_SMALL = [o for o in sc.objects if o.type == "MESH" and not o.name.startswith("worker_") and "cage" not in o.name
+              and _animated(o) and max(o.dimensions) < 1.2]
+PARCELS = [o for o in sc.objects if o.type == "MESH" and o.name.startswith("flow_parcel_")]
+PARCEL_FLAGS = []
 tri_xyz, tri_obj, obj_names = [], [], []
 for oi, o in enumerate(STATIC):
     ev = o.evaluated_get(dg)
@@ -417,20 +437,136 @@ for f in range(F0, F1 + 1):
                 if drift > 0.005:
                     w.flags.append((f, "held_drift", "medium", ob.name, drift, f"{kind} drifted {drift * 100:.1f} cm "
                                                                                f"relative to the hand"))
+    # 3a. head vs moving objects: head sphere r = 11 cm (centre 9 cm above the head joint) vs each object's box
+    for w in workers:
+        hpb = w.rig.pose.bones.get(w.B["head"])
+        if hpb is None:
+            continue
+        hc = w.rig.matrix_world @ hpb.head + Vector((0, 0, 0.09))
+        worst = None
+        for ob in ANIM_SMALL:
+            if ob.hide_render or (ob.matrix_world.translation - hc).length > 1.0:
+                continue
+            lc = ob.matrix_world.inverted() @ hc
+            bb = ob.bound_box
+            lo = Vector((min(c[0] for c in bb), min(c[1] for c in bb), min(c[2] for c in bb)))
+            hi = Vector((max(c[0] for c in bb), max(c[1] for c in bb), max(c[2] for c in bb)))
+            q = Vector((min(max(lc.x, lo.x), hi.x), min(max(lc.y, lo.y), hi.y), min(max(lc.z, lo.z), hi.z)))
+            d = (ob.matrix_world @ q - hc).length
+            if d < 0.11 and (worst is None or d < worst[1]):
+                worst = (ob.name, d)
+        if worst is not None:
+            w.flags.append((f, "held_clip_head", "high", worst[0], 0.11 - worst[1],
+                            f"'{worst[0]}' {(0.11 - worst[1]) * 100:.0f} cm into the head"))
+    # 3a'. flow parcels inside each other (review 006 P0 #4): oriented boxes, 2-D separating axes + height overlap
+    boxes = []
+    for ob in PARCELS:
+        if ob.hide_render:
+            continue
+        M = ob.matrix_world
+        bb = [M @ Vector(c) for c in ob.bound_box]
+        R = M.to_3x3().normalized()
+        boxes.append((ob.name, M.translation.xy, [R.col[0].xy.normalized(), R.col[1].xy.normalized()],
+                      [Vector(c).xy for c in bb], min(v.z for v in bb), max(v.z for v in bb)))
+    for i in range(len(boxes)):
+        na, ca, axa, pa, za0, za1 = boxes[i]
+        for j in range(i + 1, len(boxes)):
+            nb, cb, axb, pb_, zb0, zb1 = boxes[j]
+            if (ca - cb).length > 1.0 or min(za1, zb1) - max(za0, zb0) < 0.01:
+                continue
+            depth = 9.0
+            for ax in axa + axb:
+                if ax.length < 1e-6:
+                    continue
+                a_ = [ax.dot(q) for q in pa]
+                b_ = [ax.dot(q) for q in pb_]
+                depth = min(depth, min(max(a_), max(b_)) - max(min(a_), min(b_)))
+            if depth > 0.01:
+                PARCEL_FLAGS.append((f, "parcel_overlap", "high", f"{na}|{nb}", depth,
+                                     f"{na} and {nb} overlap by {depth * 100:.0f} cm at "
+                                     f"({(ca.x + cb.x) / 2:.1f}, {(ca.y + cb.y) / 2:.1f})"))
+    # 3a''. headwear fit (review 009d): the dome's lowest ring sits on the skull (cap <= 1.5 cm, hard hat <= 3.5 cm on
+    # its harness) and the hat's up axis follows the head's (<= 8 deg) - every frame
+    for w in workers:
+        hats = [c for c in w.rig.children_recursive if c.name.endswith(("_hard", "_cap")) and c.type == "MESH"]
+        if not hats or w.name not in WV:
+            continue
+        if not hasattr(w, "skin_idx"):
+            me_ = w.body.data
+            w.skin_idx = np.array(sorted({i for pl in me_.polygons if me_.materials[pl.material_index]
+                                          and me_.materials[pl.material_index].name.endswith("_head")
+                                          for i in pl.vertices}), dtype=np.int64)
+            w.skin_polys = [tuple(pl.vertices) for pl in me_.polygons if me_.materials[pl.material_index]
+                            and me_.materials[pl.material_index].name.endswith("_head")]
+            hb_ = w.rig.data.bones.get(w.B["head"])
+            Mr = w.rig.matrix_world @ hb_.matrix_local
+            w.head_up_ax = max(((i, sg) for i in range(3) for sg in (1, -1)), key=lambda c: c[1] * Mr.col[c[0]][2])
+        if w.skin_idx.size == 0:
+            continue
+        # distance to the head SURFACE (nearest skin vertex overstated the gap by up to ~1.5 cm: vertices 2-3 cm apart)
+        verts_ = [Vector(v) for v in WV[w.name]]
+        bvh_ = BVHTree.FromPolygons(verts_, w.skin_polys)
+        Hm = w.rig.matrix_world @ w.rig.pose.bones[w.B["head"]].matrix
+        i_, sg_ = w.head_up_ax
+        head_up = Vector(Hm.col[i_][:3]).normalized() * sg_
+        for hat in hats:
+            if hat.hide_render:
+                continue
+            hv0 = [v.co for v in hat.data.vertices]  # ring picked on the rest mesh, measured on the deformed one
+            zmin = min(v.z for v in hv0)
+            # the band edge only: the dome's bottom is a flat disc INSIDE the head (its inner points read as 2-8 cm
+            # "gaps"); hard-hat shell 13 x 15, cap dome 10.5 x 11.5 (mesh cm)
+            if hat.name.endswith("_hard"):
+                idx = [i for i, v in enumerate(hv0) if v.z < zmin + 0.6 and (v.x / 13.0) ** 2 + (v.y / 15.0) ** 2 > 0.85
+                       and (v.x * v.x + v.y * v.y) ** 0.5 < 13.5]
+            else:  # the open crown's band edge: exactly z = 0 (the brim joins it there and hangs lower; each cap's
+                # band is shaped to its head, so no fixed radius)
+                idx = [i for i, v in enumerate(hv0) if abs(v.z) < 0.05 and (v.x * v.x + v.y * v.y) ** 0.5 > 4.0]
+            ev_ = hat.evaluated_get(bpy.context.evaluated_depsgraph_get())
+            me_h = ev_.to_mesh()
+            ring = [me_h.vertices[i].co.copy() for i in idx if i < len(me_h.vertices)]  # dome, not the brim
+            ev_.to_mesh_clear()
+            Mh = hat.matrix_world
+            gaps = sorted(d_ for d_ in (bvh_.find_nearest(Mh @ v)[3] for v in ring[::2]) if d_ is not None)
+            if not gaps:
+                continue
+            gap = gaps[len(gaps) // 2]
+            tilt = math.degrees(Vector(Mh.col[2][:3]).normalized().angle(head_up))
+            lim = 0.015 if hat.name.endswith("_cap") else 0.035
+            if gap > lim or tilt > 8.0:
+                w.flags.append((f, "accessory_fit", "high", hat.name, max(gap - lim, 0.0) + tilt / 1000,
+                                f"{hat.name.rsplit('_', 1)[-1]} rim {gap * 100:.1f} cm off the skull (max "
+                                f"{lim * 100:.1f}), tilted {tilt:.0f} deg from the head"))
     # 3b. hats / caps: on the head every frame (centre within 6 cm of where it sat at frame 1, relative to the head)
     for w in workers:
         for ob in [c for c in w.rig.children_recursive if c.name.endswith(("_hard", "_cap"))]:
             hb = ob.parent_bone or w.B["head"]
             Hm = w.rig.matrix_world @ w.rig.pose.bones[hb].matrix
-            rel = Hm.inverted() @ ob.matrix_world.translation
+            relM = Hm.inverted() @ ob.matrix_world
+            rel = relM.translation
             key = (w.name, ob.name, "hat")
             if key not in HELD_REL:
-                HELD_REL[key] = rel
-            drift = (Hm @ HELD_REL[key] - Hm @ rel).length
-            if drift > 0.02 or ob.hide_render:
+                HELD_REL[key] = relM.copy()
+            drift = (Hm @ HELD_REL[key].translation - Hm @ rel).length
+            q0 = HELD_REL[key].to_3x3().normalized().to_quaternion()
+            turn = math.degrees(q0.rotation_difference(relM.to_3x3().normalized().to_quaternion()).angle)
+            if drift > 0.01 or turn > 3.0 or ob.hide_render:  # accessory_follow (review 013): 1 cm / 3 deg
                 w.flags.append((f, "accessory_off_head", "high", ob.name, drift,
-                                f"{ob.name.rsplit('_', 1)[-1]} moved {drift * 100:.1f} cm on the head"
+                                f"{ob.name.rsplit('_', 1)[-1]} moved {drift * 100:.1f} cm / {turn:.1f} deg on the head"
                                 + (" (hidden)" if ob.hide_render else "")))
+            if f == F0 and ob.name.endswith("_cap") and getattr(w, "skin_idx", None) is not None \
+                    and w.skin_idx.size:  # accessory_face: nothing of the cap in front of the face below the brows
+                Mh_ = ob.matrix_world
+                up_ = Vector(Mh_.col[2][:3]).normalized()
+                fw_ = Vector(Mh_.col[1][:3]).normalized()
+                band_c = Mh_.translation
+                top_ = max(Vector(WV[w.name][i]).dot(up_) for i in w.skin_idx)
+                brow = top_ - 0.10
+                low = [Mh_ @ v.co for v in ob.data.vertices if (Mh_ @ v.co - band_c).dot(fw_) > 0.05]
+                worst = min((v.dot(up_) - brow for v in low), default=1.0)
+                if worst < 0.0:
+                    w.flags.append((f, "accessory_face", "high", ob.name, -worst,
+                                    f"cap {-worst * 100:.1f} cm below the brow line in front of the face"))
     # 3c. owner rule 9: an object clip needs its object; kneeling / sitting needs a real prop under / at the worker
     NEEDS = {"push": "_cage", "pushing": "_cage", "carrying": "_carton", "carrying_turn": "_carton",
              "lifting_object": ("_box_big", "_sack", "_parcel", "_carton"),
@@ -665,6 +801,8 @@ def merge(flags):
 for w in workers:
     for f0, f1, chk, sev, det in merge(w.flags):
         rows.append([w.name, w.role, CLIP[w.name][min(max(f0, F0), F1) - F0], f0, f1, chk, sev, det])
+for f0, f1, chk, sev, det in (merge(PARCEL_FLAGS) if PARCEL_FLAGS else []):
+    rows.append(["parcels", "flow", "-", f0, f1, chk, sev, det])
 for cam, fl in cam_flags.items():
     fl.sort()
     grp = [fl[0]]

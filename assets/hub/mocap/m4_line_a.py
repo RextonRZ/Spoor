@@ -22,6 +22,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent))
 import inductor as I  # noqa: E402
+import line_a_worker as LW  # noqa: E402
 import people  # noqa: E402
 import retarget as R  # noqa: E402
 
@@ -32,6 +33,9 @@ ap.add_argument("--fps", type=float, default=10.0)
 ap.add_argument("--seed", type=int, default=11)
 ap.add_argument("--render", action="store_true")
 ap.add_argument("--avatars", default="")  # override, comma-separated, in station order
+ap.add_argument("--free-hand", default="back")  # one-hand picks: free arm swings back (8 rows >1 cm) or "rail" (50)
+ap.add_argument("--mailers", type=float, default=0.0)  # share of flat mailers (one-hand pick; flow: 60 %)
+ap.add_argument("--pinch", action="store_true")  # mailers by the far long edge (review 018 #4), not the palm on top
 ap.add_argument("--stations", default="0,2")  # staffed tables (option a: I1 + I3; "0,1,2,3" = all four)
 ap.add_argument("--rb", default=str(HERE.parent / "build" / "third_party" / "rocketbox"))
 a = ap.parse_args(sys.argv[sys.argv.index("--") + 1:])
@@ -57,6 +61,9 @@ OP_Y, BELT_Y, BELT_HALF, BELT_TOP, FEED_Y = 11.15, 9.49, 0.36, 1.0, 12.25  # the
 TDX, TY0, TY1, TZ0, TZ1, TW = 0.68, OP_Y + 0.63, OP_Y - 0.10, 0.95, 0.88, 0.5
 IND_D = np.array([math.sqrt(0.5), -math.sqrt(0.5)])  # induct belt direction (45 deg into belt A, downstream)
 IND_HW = 0.25
+# 016 #5 hold-back stop: on this 0.73 m table a waiting carton (0.45 m back, or at the head) sits in the arm's path
+# (40-61 vs 16-21 collision rows per 20 s); off until the table is lengthened to ~1.2 m (feed belt 0.5 m north)
+HOLD_BACK = None
 IND_LEN = (OP_Y - 0.5 - (BELT_Y + BELT_HALF - 0.05)) / math.sqrt(0.5)  # ~1.2 m, ends 5 cm over belt A's edge
 STOP_Y = TY1 - 0.03
 SLOPE = math.atan((TZ0 - TZ1) / (TY0 - TY1))
@@ -76,6 +83,8 @@ M_ST, M_BELT, M_ROL, M_BOX, M_DIV = mat("m4_steel", (0.5, 0.52, 0.55)), mat("m4_
 CARTON_MATS = [M_BOX, mat("m4_carton_dark", (0.42, 0.29, 0.15)), mat("m4_carton_kraft", (0.62, 0.48, 0.30)),
                mat("m4_carton_white", (0.78, 0.78, 0.76))]
 M_LABEL = mat("m4_label", (0.9, 0.9, 0.88))
+MAILER_MATS = [mat("m4_mailer_grey", (0.32, 0.33, 0.35)), mat("m4_mailer_black", (0.05, 0.05, 0.055)),
+               mat("m4_mailer_white", (0.8, 0.8, 0.78))]  # flow.pick_look mailer colours (grey / black / white)
 
 
 def box(name, x0, y0, z0, x1, y1, z1, m, static=True):
@@ -232,70 +241,19 @@ for k, (x0, av) in enumerate(zip(INDUCT_X, AVATARS)):
     if k not in STAFFED:
         continue
     TX = x0 + TDX
-    RAIL_X = TX - TW / 2 - 0.02
-    before_o, before_a = set(sc.objects), set(bpy.data.actions)
-    bpy.ops.import_scene.fbx(filepath=str(Path(a.rb) / av / f"{av}.fbx"))
-    new_o = [o for o in sc.objects if o not in before_o]
-    arm = next(o for o in new_o if o.type == "ARMATURE")
-    body = next(o for o in new_o if o.type == "MESH" and o.parent == arm)
-    people._fix_materials(body, Path(a.rb) / av)
-    for o in new_o:
-        if o.animation_data:
-            o.animation_data.action = None
-    for act in [x for x in bpy.data.actions if x not in before_a]:
-        bpy.data.actions.remove(act)
-    arm.name = f"worker_induct_{k + 1}"
-    try:
-        vest = people._vest(body, arm)
-        sc.collection.objects.link(vest)
-        vest.material_slots[0].link = "OBJECT"
-        vest.material_slots[0].material = people._vest_material(VESTS[k], people.VEST_COLOURS[VESTS[k]], False,
-                                                                vest["front_is_low_y"])
-    except Exception as e:  # noqa: BLE001
-        print("vest failed", repr(e), flush=True)
-    arm.location.x, arm.location.y = x0, OP_Y
-    bpy.context.view_layer.update()
-    # trunk clearance from this avatar's own body (rest pose, facing -y): furthest-forward torso vertex from the
-    # Spine2 line, + the hi-vis vest (~3.5 cm) + 2 cm
-    me_r = body.evaluated_get(bpy.context.evaluated_depsgraph_get()).to_mesh()
-    co_r = np.empty(len(me_r.vertices) * 3)
-    me_r.vertices.foreach_get("co", co_r)
-    co_r = co_r.reshape(-1, 3) @ np.array(body.matrix_world)[:3, :3].T + np.array(body.matrix_world)[:3, 3]
-    body.evaluated_get(bpy.context.evaluated_depsgraph_get()).to_mesh_clear()
-    sp2 = arm.matrix_world @ arm.pose.bones["Bip01 Spine2"].head
-    pel = arm.matrix_world @ arm.pose.bones["Bip01 Pelvis"].head
-    band = (co_r[:, 2] > pel.z) & (co_r[:, 2] < sp2.z + 0.1) & (np.abs(co_r[:, 0] - sp2.x) < 0.2)
-    trunk_clear = float(np.max(sp2.y - co_r[band, 1])) + 0.035 + 0.02
+    arm, body = LW.import_avatar(sc, a.rb, av, VESTS[k], f"worker_induct_{k + 1}", x0, OP_Y)
+    trunk_clear = LW.trunk_clearance(arm, body)
     print("trunk_clear", av, round(trunk_clear, 3), flush=True)
     rnd = random.Random(a.seed * 100 + k)
     # neighbours never start on the same take: rotate the pick pool per worker
     pk_k = picks[k % len(picks):] + picks[:k % len(picks)]
     rig = R.setup(arm, I.take(pk_k[0]["take"]))
-    # palm offset from this avatar's own bind-pose finger curl: how far the little-finger tip sits on the palm side
-    # of the palm point (the held fingers go to the bind pose), + 4 cm
-    bi_, rh_, MRr = rig["bi"], rig["rhead"] * rig["scale"], rig["MR"]
-    curl = 0.0
-    for x_ in ("L", "R"):
-        hd_ = bi_[f"Bip01 {x_} Hand"]
-        n_loc = rig["AT"][hd_].T @ (MRr.T @ np.array([0.0, 0.0, -1.0]))
-        n_rest = rig["rest"][hd_] @ n_loc
-        palm = rh_[hd_] + 0.55 * (rh_[bi_[f"Bip01 {x_} Finger2"]] - rh_[hd_])
-        f41, f42 = rh_[bi_[f"Bip01 {x_} Finger41"]], rh_[bi_[f"Bip01 {x_} Finger42"]]
-        tip = f42 + (f42 - f41) * 0.9
-        curl = max(curl, float(np.dot(tip - palm, n_rest)))
     palm_off = 0.04  # the fingers are un-curled into the palm plane while holding (inductor.build); curl kept for the log
-    print("palm_off", av, round(palm_off, 3), "bind curl", round(curl, 3), flush=True)
+    print("palm_off", av, round(palm_off, 3), "bind curl", round(LW.bind_curl(rig), 3), flush=True)
     S_k, ind_boxes = INDUCT[k]
-    st = dict(x=x0, belt_yaw=0.0, table_pt=(TX, STOP_Y + 0.12, TZ1 + 0.01),
-              place_xy=tuple(S_k + IND_D * 0.22), induct_start=tuple(S_k), induct_dir=tuple(IND_D), induct_half_w=IND_HW,
-              main_y=BELT_Y, clear_y=OP_Y - 0.10, grip_axis_yaw=-math.pi / 2, trunk_clear=trunk_clear, palm_off=palm_off,
-              root_min_y=OP_Y - 0.13, refill_s=1.0 + (TY0 - TY1 - 0.15) / 0.4, divert_s=0.6,
-              pick_root_max=(RAIL_X - max(0.26, trunk_clear - 0.035 + 0.06), 1e9), pick_grip_min_z=TZ1 + 0.045 + 0.05,
-              table_align_x=RAIL_X + 0.02,
-              surfaces=[(5.6, BELT_Y - BELT_HALF, 15.0, BELT_Y + BELT_HALF, BELT_TOP),
-                        (TX - TW / 2, TY1 - 0.03, TX + TW / 2, TY0, TZ0)] + ind_boxes,
-              place_x=(x0 - 0.4, x0 + 0.4), place_y_range=(BELT_Y - BELT_HALF + 0.05, BELT_Y + BELT_HALF - 0.05),
-              belt_top=BELT_TOP, belt_speed=1.5, belt_dir=1.0, table_slope=SLOPE)
+    st = LW.station(x0, trunk_clear, palm_off, HOLD_BACK, a.free_hand, ind_boxes)
+    if a.pinch:
+        st["mailer_grip"] = "far_pinch"
     off = rnd0.randrange(int(1.0 * a.fps), int(4.0 * a.fps))  # start offset 1-4 s: the first approach is off-screen
     Fb = F + off
     import copy
@@ -305,6 +263,12 @@ for k, (x0, av) in enumerate(zip(INDUCT_X, AVATARS)):
     segs0 = copy.deepcopy(segs)
     # review 015 #3: mixed sizes (shoebox .. 45 cm), within a two-hand grip span; colours + labels at keying
     parcels = {n: dict(dims=(rnd.uniform(0.18, 0.40), rnd.uniform(0.14, 0.34), rnd.uniform(0.12, 0.30))) for n in range(80)}
+    if a.mailers > 0:  # flow.MAILER_DIMS (w, d, h): flat mailers / polybags, picked one-handed (M5 step 3 blocker)
+        mrnd = random.Random(a.seed * 7 + k)  # own stream: the cartons' sizes stay as they were
+        for n in parcels:
+            if mrnd.random() < a.mailers:
+                parcels[n] = dict(dims=mrnd.choice([(0.24, 0.17, 0.035), (0.32, 0.24, 0.04), (0.37, 0.27, 0.045),
+                                                    (0.44, 0.31, 0.05)]), grip="one_hand")
     res = I.build(rig, segs, st, parcels, Fb, a.fps, frame0=1 - off, name=f"inductor@{av}#{k}")
     w = dict(k=k, x0=x0, TX=TX, av=av, arm=arm, body=body, rig=rig, st=st, off=off, segs=segs0, parcels=parcels,
              res=res, gap_waits=[sg_.get("gap_wait", 0.0) for sg_ in segs0 if sg_["kind"] == "place"])
@@ -313,6 +277,7 @@ for k, (x0, av) in enumerate(zip(INDUCT_X, AVATARS)):
     merge_fix(w)
 
 print("built", len(workers), flush=True)
+print("BELT_WAITS", [[tr.get("belt_wait_s") for tr in w["res"]["tracks"].values()] for w in workers], flush=True)
 
 
 sc.render.fps = int(a.fps)
@@ -334,7 +299,8 @@ for w in workers:
         w_, d_, h_ = tr["dims"]
         crnd = random.Random(a.seed * 1000 + k * 100 + n)
         ob = box(f"m4_parcel_{k}_{n}", -w_ / 2, -d_ / 2, -h_ / 2, w_ / 2, d_ / 2, h_ / 2,
-                 crnd.choices(CARTON_MATS, weights=(4, 3, 3, 1))[0], static=False)
+                 crnd.choice(MAILER_MATS) if tr.get("one") else crnd.choices(CARTON_MATS, weights=(4, 3, 3, 1))[0],
+                 static=False)
         ob.rotation_mode = "ZYX"
         # shipping label: top (70 %) or a side face, a little off-centre, 1 mm proud
         lw, lh = min(0.10, w_ - 0.04), min(0.15, d_ - 0.04, h_ - 0.03)
@@ -355,24 +321,39 @@ for w in workers:
         lab.parent = ob
         ext_y = 0.5 * (abs(w_ * math.sin(tr["yaw"][0])) + abs(d_ * math.cos(tr["yaw"][0])))
         stop_c = tr["loc"][tr["grasp"]][1]
-        q_c = TY0 - ext_y - 0.02
-        t_in = (lifts[n - 1] + int(round(1.0 * a.fps))) if n - 1 in lifts else -10 ** 6  # divert 0.6 s after the lift, 0.4 s slide
-        tdv = t_in - int(round(0.4 * a.fps))
+        # review 016 #5: zero-pressure table with a hold-back stop HOLD_BACK m before the end stop. Carton n is diverted
+        # when the hold-back is free (0.6 s after carton n-2 is lifted), slides onto the table head, rolls to the
+        # hold-back and waits there; 0.3 s after carton n-1 is lifted it rolls on to the end stop (0.4 m/s)
+        q_c = TY0 - ext_y - 0.02  # table head
+        hb_c = q_c if HOLD_BACK is None else min(q_c, stop_c + HOLD_BACK)  # waiting at the hold-back stop
+        if HOLD_BACK is None:  # no waiting carton: diverted 0.6 s after carton n-1 is lifted, slides 0.4 s, rolls on
+            tdv = (lifts[n - 1] + int(round(0.6 * a.fps))) if n - 1 in lifts else -10 ** 6
+            t_head = tdv + int(round(0.4 * a.fps))
+            t_go = t_head
+        else:
+            t_go = (lifts[n - 1] + int(round(0.3 * a.fps))) if n - 1 in lifts else -10 ** 6
+            tdv = (lifts[n - 2] + int(round(0.6 * a.fps))) if n - 2 in lifts else t_go - int(round(2.0 * a.fps))
+            t_head = tdv + int(round(0.4 * a.fps))  # on the table head after the slide
         for f in range(1, F + 1):
             i = f - 1 + off
             loc = np.array(tr["loc"][i])
             if tr["state"][i] == "table":
-                y = q_c if i < t_in else max(stop_c, q_c - 0.4 * (i - t_in) / a.fps)
+                if i >= t_go:
+                    y = max(stop_c, hb_c - 0.4 * (i - t_go) / a.fps)
+                elif i >= t_head:
+                    y = max(hb_c, q_c - 0.4 * (i - t_head) / a.fps)
+                else:
+                    y = q_c
                 loc = np.array([loc[0], y, table_z(y, h_)])
-                if i < t_in and t_in > -10 ** 5:
+                if i < t_head and t_go > -10 ** 5:
                     if i < tdv:
                         loc = np.array([loc[0] - 0.6 * (tdv - i) / a.fps, FEED_Y, 1.0 + h_ / 2])
                     else:
-                        u_ = (i - tdv) / max(1, t_in - tdv)
+                        u_ = (i - tdv) / max(1, t_head - tdv)
                         loc = np.array([loc[0], FEED_Y + (q_c - FEED_Y) * u_,
                                         1.0 + h_ / 2 + (table_z(q_c, h_) - 1.0 - h_ / 2) * u_])
             ob.location = tuple(loc)
-            ob.rotation_euler = (tr["pitch"][i], 0.0, tr["yaw"][i])
+            ob.rotation_euler = (tr["pitch"][i] + (tr["droop"][i] if "droop" in tr else 0.0), 0.0, tr["yaw"][i])
             vis = loc[0] >= 5.6 and (tr["state"][i] != "belt" or loc[0] < 15.0)
             ob.hide_render = not vis
             lab.hide_render = not vis
@@ -391,7 +372,9 @@ for w in workers:
     vgn = {g_.index: g_.name for g_ in w["body"].vertex_groups}
     w["dom"] = np.array([vgn[max(v.groups, key=lambda g_: g_.weight).group] if len(v.groups) else "-"
                          for v in w["body"].data.vertices])
-    w.update(ev=[], lows=[], pen={}, gaps=[], cos=[])
+    w.update(ev=[], lows=[], pen={}, gaps=[], cos=[], hand_gap={"L": [], "R": []})
+    w["hand_v"] = {x_: np.array([(f"Bip01 {x_} Hand" in d_) or (f"Bip01 {x_} Finger" in d_) for d_ in w["dom"]])
+                   for x_ in ("L", "R")}
 spacing = []
 for f in range(1, F + 1):
     sc.frame_set(f)
@@ -426,6 +409,17 @@ for f in range(1, F + 1):
                 if ins.any():
                     dd = (hb - np.abs(loc[ins])).min(1)
                     hits.append((pob.name, float(dd.max()), str(w["dom"][ins][int(np.argmax(dd))])))
+        # review 016 #3: each hand's skin to the carton it holds (signed: > 0 = off the carton)
+        for n, tr in w["res"]["tracks"].items():
+            i_ = f - 1 + w["off"]
+            if tr["grasp"] <= i_ <= tr["release"] and n in w["pobs"]:
+                Mi = np.array(w["pobs"][n].matrix_world.inverted())
+                hb = np.array(tr["dims"]) / 2
+                for x_ in (("R",) if tr.get("one") else ("L", "R")):  # one-hand: the left hangs free
+                    lc = co[w["hand_v"][x_]] @ Mi[:3, :3].T + Mi[:3, 3]
+                    q_ = np.abs(lc) - hb
+                    sd_ = np.where(np.all(q_ < 0, axis=1), q_.max(1), np.linalg.norm(np.maximum(q_, 0), axis=1))
+                    w["hand_gap"][x_].append((f, float(sd_.min())))
         for nm, dep, part in hits:
             if dep > 0.01:
                 w["pen"].setdefault(nm, []).append((f, round(dep * 1000), part.replace("Bip01 ", "")))
@@ -464,6 +458,11 @@ for w in workers:
         worst_over_1cm={nm: max(v, key=lambda e: e[1]) for nm, v in w["pen"].items()},
         gap_waits_s=w["gap_waits"],
         trunk_clear_m=round(w["st"]["trunk_clear"], 3),
+        hand_to_carton_mm={x_: dict(p50=round(float(np.median([g_ for _, g_ in w["hand_gap"][x_]])) * 1000, 1),
+                                    max=round(max(g_ for _, g_ in w["hand_gap"][x_]) * 1000, 1),
+                                    min=round(min(g_ for _, g_ in w["hand_gap"][x_]) * 1000, 1))
+                           for x_ in ("L", "R") if w["hand_gap"][x_]},
+        hand_off_carton_frames=sorted({f_ for x_ in ("L", "R") for f_, g_ in w["hand_gap"][x_] if g_ > 0.01}),
         lean_deg_max=round(res["sol"].get("lean_deg_max", 0.0), 1),
         unstoop_deg_max=round(res["sol"].get("unstoop_deg_max", 0.0), 1)))
 grasps = [[tr["grasp"] - w["off"] for tr in w["res"]["tracks"].values()] for w in workers]

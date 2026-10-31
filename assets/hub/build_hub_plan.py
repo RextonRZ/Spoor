@@ -133,17 +133,33 @@ LOOP = {"south_y": 11.0, "north_y": 19.0, "radius": 4.0, "west_cx": 28.0, "east_
         "speed_note": "owner cap 2.0 m/s: 0.2 m per frame at 10 fps, well under one 0.7 m carrier pitch, so a "
                       "tracker never has to guess which carrier a parcel jumped to between frames"}
 LOOP_LEN = 2 * (LOOP["east_cx"] - LOOP["west_cx"]) + 2 * math.pi * LOOP["radius"]
+# line A layout (reviews 014b / 015 / 016): "a" = the shared feed run at y 10.85 (current flow + stations);
+# "b" = one induct point per inductor: the feed line moves north to y 12.25 (x 5-13), 4 roller tables, 4 induct
+# belts at 45 deg into the induction belt, D02's boom joins through a stub into the feed corner. build_hub builds
+# the line-A pieces from "line_a"; flow / stations follow at M5 (assets/hub/mocap/M5_PLAN.md).
+LINE_A_LAYOUT = "b"  # rendered layout (builder note 1040: the canonical spec is layout b)
+LINE_A_FEED_Y = 12.25
 CONVEYORS = [
     {"id": "telescopic_D%02d" % (i + 1), "kind": "telescopic", "path": [[-3.0, y], [4.4, y]], "height": 1.0}
     for i, y in enumerate((7.0, 11.0, 15.0, 19.0, 23.0, 27.0))
 ] + [  # fmt: skip
     # the collector turns east into a slow accumulation (feed) belt that stops at its end; inductors stand between
     # it and the induction belt, take parcels off the queue and place them label-up into gaps (stations.py)
-    {"id": "collector", "kind": "belt", "path": [[5.0, 28.0], [5.0, 10.85], [9.2, 10.85]], "height": 1.0},
+    {"id": "collector", "kind": "belt", "path": [[5.0, 28.0], [5.0, 10.85], [9.2, 10.85]] if LINE_A_LAYOUT == "a" else
+     [[5.0, 28.0], [5.0, LINE_A_FEED_Y], [13.0, LINE_A_FEED_Y]], "height": 1.0},
     {"id": "induction", "kind": "belt", "path": [[5.6, 9.5], [17.5, 9.5]], "height": 1.0},
     {"id": "tunnel_line", "kind": "belt", "path": [[17.5, 9.5], [23.0, 9.5]], "height": DECK},
     {"id": "merge", "kind": "belt", "path": [[23.0, 9.5], [27.6, 9.5], [30.0, 11.0]], "height": DECK},
-]
+    # induction line B (B2 pre-review #4: a 2nd induction line, 30-35 % carrier occupancy): a manual induction
+    # workstation on the free floor between the forklift lane (y <= 5) and the loop - two inductors take parcels from
+    # bulk gaylords (brought in by forklift) onto belt B, which ramps up to the deck through DWS arch B and merges
+    # diagonally onto the south straight 16.6 m east of the main merge. Crosses no walkway or lane; starts 0.5 m
+    # east of the XO-1 south stair (from x 39.6 its first 0.7 m ran into the stair at 0.9 m: stairs_clear check).
+    {"id": "induction_B", "kind": "belt", "path": [[40.8, 7.6], [44.0, 7.6], [45.6, 9.2], [46.6, 11.0]],
+     "height": 1.0, "heights": [1.0, 1.0, DECK, DECK]},
+] + ([{"id": "d02_stub", "kind": "belt", "path": [[5.0, 10.6], [5.0, LINE_A_FEED_Y - 0.45]], "height": 1.0,
+       "note": "D02's boom joins here and runs north into the feed corner (line A layout b)"}]
+     if LINE_A_LAYOUT == "b" else [])
 # C01 first after the east curve (westbound); a 2.8 m gap between C06 and C07 lands crossover XO-1
 CHUTE_X = [48.6 - 1.5 * k for k in range(6)] + [38.3 - 1.5 * k for k in range(6)]
 DESTS = ["Pulau Pinang", "Kedah / Perlis", "Perak (Ipoh)", "Klang", "Kuala Lumpur", "Negeri Sembilan", "Melaka",
@@ -210,6 +226,9 @@ SCAN_POINTS = [  # id, device kind, zone, xyz, clock domain, event kinds
     ("SP-IN-N", "handheld", "Z01", (3.5, 23.0, 1.1), "clkd_handheld", "arrived_facility"),
     ("SP-BAGOPEN", "handheld", "Z02", (7.5, 23.0, 1.1), "clkd_handheld", "container_remove (bag opened)"),
     ("SP-INDUCT", "sorter_plc", "Z03", (12.0, 9.5, 1.1), "clkd_wcs", "inducted (photo-eye)"),
+    ("SP-INDUCT-B", "sorter_plc", "Z05", (42.0, 7.6, 1.1), "clkd_wcs", "inducted (photo-eye, line B)"),
+    ("SP-TUNNEL-B", "tunnel", "Z05", (45.6, 9.2, DECK + 0.2), "clkd_wcs",
+     "tunnel_read / tunnel_no_read on line B (DWS arch at the top of the ramp)"),
     ("SP-TUNNEL", "tunnel", "Z04", (22.2, 9.5, DECK + 0.2), "clkd_wcs",
      "tunnel_read / tunnel_no_read (read point = tunnel exit); weight + dims from the weigh section are merged "
      "into this one event"),
@@ -242,15 +261,21 @@ CAMERA_SPECS = [
      "truss drop-pole", "Which truck and bag did the parcel arrive in (doors 04–06)?", []),
     ("CAM_03", "Z02", (5.6, 17.5, 9.5, 28.5, 1.0), [(11.5, 23.0, 180), (12.0, 20.0, 160)], (4.0, 5.0, 6.0),
      "recognise", "truss drop-pole", "Did every parcel from the opened bag reach the belt?", []),
-    ("CAM_04", "Z03", (5.6, 2.0, 17.5, 12.5, 1.0), [(17.5, 1.0, 145), (18.5, 3.0, 160), (16.5, 4.5, 165)],
-     (5.0, 6.0, 7.0), "observe", "truss drop-pole",
-     "Was the parcel put on the belt, and when (incl. oversize manual scan)?", [(19.4, 9.5, 1.0, "detect")]),
+    # cctv_setup_0025 #2: framed for line A layout b (tables / induct belts x 6-13, y 9-12.6, M5); from (18.5, 3.0) the
+    # XO-2 stair filled the middle and the old duty area (layout a) left the new line in a corner
+    ("CAM_04", "Z03", (5.6, 8.8, 15.0, 13.0, 1.0), [(18.5, 3.0, 125)],
+     (7.0,), "observe", "truss drop-pole",
+     "Was the parcel put on the belt, and when (incl. oversize manual scan)?", [(19.4, 9.5, 1.0, "detect"), (17.6, 9.5, DECK + 0.2, "observe")],
+     # four poses rendered (qa/review/cctv_reaim): west of the stair loses the weigh section, on it the stair fills
+     # the middle; from the old mount aimed at line A (b) the stair sits in the right third
+     {"pose": {"yaw": 125, "tilt": 45}}),
     ("CAM_05", "Z04", (21.5, 8.0, 27.6, 11.0, DECK + 0.2), [(25.0, 6.5, 150), (26.0, 7.0, 155)], (3.5, 4.0, 4.5),
      "recognise", "truss drop-pole", "Which parcel left the tunnel at the scan time? (clock anchor for the WCS)", []),
     ("CAM_06", "Z05", (23.0, 6.5, 35.0, 20.0, DECK + 0.2), [(29.0, 3.0, 90), (29.0, 5.0, 90)], (6.5, 7.5, 8.5),
      "observe", "truss drop-pole", "Did a parcel fall off or get stuck between carriers (west curve, merge)?",
      [(29.3, 19.0, DECK + 0.3, "detect"), (CHUTE_X[11], 19.0, DECK + 0.3, "detect")]),
-    ("CAM_07", "Z05", (33.0, 6.5, 45.5, 20.0, DECK + 0.2), [(39.0, 3.0, 90), (39.0, 5.0, 90), (39.0, 1.5, 90)],
+    # cctv_setup_0025 #3: off the XO-1 bridge's axis (x 39.7; from x 39.0 the bridge ran through the frame centre)
+    ("CAM_07", "Z05", (33.0, 6.5, 45.5, 20.0, DECK + 0.2), [(36.0, 4.0, 75), (42.8, 4.0, 105), (36.0, 2.0, 80), (42.8, 2.0, 100), (37.0, 1.5, 85)],
      (6.5, 7.5, 8.5), "observe", "truss drop-pole",
      "Did a parcel fall off or get stuck between carriers (middle straights)?", [], {"min_roof": 0.05}),
     ("CAM_08", "Z05", (43.5, 6.5, 54.6, 20.0, DECK + 0.2), [(49.0, 3.0, 90), (49.0, 5.0, 90)], (6.5, 7.5, 8.5),
@@ -287,6 +312,23 @@ CAMERA_SPECS = [
     ("CAM_18", "AISLE_S", (17.5, 0.4, 54.4, 6.4, 1.2), [(53.0, 6.2, 225)], (5.0,), "detect", "truss drop-pole",
      "Which forklift carried which pallet along the south aisle (oversize route), and who used FE-1 / FE-2?",
      [(30.0, 1.0, 1.2, "detect"), (46.0, 1.0, 1.2, "detect")]),
+    # the exception store's entrance (scenarios_v2 S2 #1, 31 Oct): the only way into or out of BLIND_NW is the 1.8 m
+    # gap; CAM_01 / CAM_06 only had it at their frame top (cut by the lens remap). TAPA FSR 2023 7.4.15-16: CCTV on a
+    # high-value cage's entrance; "if the HVC is too small to locate a camera inside, camera coverage of the entrance
+    # is sufficient". Aimed at the doorway from the south-west: what it sees through the gap runs along the east rack,
+    # while the way into the store turns west behind the south rack (from the south-east the view through the gap
+    # ran along that way; the first pose search framed mostly floor with the gap in a corner: whole gap required)
+    # 3.5 m: from 4.0 m it saw over the 3 m south rack into the store's north band (raycast, 31 Oct)
+    # review 019 #1: doorway in the middle third AND the floor approach from cage S11 in the lower half (one shot shows
+    # "walks in carrying it" and "walks out empty-handed"): the duty area runs east along the approach
+    ("CAM_19", "Z10", (13.0, 30.8, 20.0, 33.6, 1.0), [(12.0, 29.0, 65), (11.5, 28.5, 60)],
+     (3.5,), "observe", "truss drop-pole",
+     "Who went into or came out of the exception store (the only way in or out of BLIND_NW)?",
+     [(13.45, 33.3, 1.9, "observe"), (15.15, 33.3, 1.9, "observe"), (13.45, 33.3, 0.1, "observe"),
+      (15.15, 33.3, 0.1, "observe"), (19.0, 32.2, 1.0, "observe"), (14.3, 33.3, 2.3, "observe")],
+     # the search framed it at tilt 20 (top third wall) or 40 (doorway cut at the top, half the frame empty floor):
+     # aimed at 30 so the doorway + its sign fill the middle and the approach the lower half
+     {"pose": {"yaw": 65, "tilt": 30}}),
 ]
 
 # ----------------------------------------------------------------------------------------------- geometry helpers
@@ -519,7 +561,8 @@ OSD_LABELS = {"CAM_01": "DOCK 01-03", "CAM_02": "DOCK 04-06", "CAM_03": "BAG OPE
               "CAM_05": "SCAN TUNNEL EXIT", "CAM_06": "SORTER WEST", "CAM_07": "SORTER MID", "CAM_08": "SORTER EAST",
               "CAM_09": "REJECT CHUTE", "CAM_10": "CHUTES C01-C06", "CAM_11": "CHUTES C07-C12",
               "CAM_12": "EXCEPTION BENCH", "CAM_13": "CAGE STAGING W", "CAM_14": "CAGE STAGING E",
-              "CAM_15": "DOCK 07-09", "CAM_16": "DOCK 10-12", "CAM_17": "YARD NORTH", "CAM_18": "SOUTH AISLE"}
+              "CAM_15": "DOCK 07-09", "CAM_16": "DOCK 10-12", "CAM_17": "YARD NORTH", "CAM_18": "SOUTH AISLE",
+              "CAM_19": "EXCEPTION STORE"}
 CAMERA_VIEW = {}
 CAMERA_DUTY = {s_[0]: s_[2][:4] for s_ in CAMERA_SPECS}
 
@@ -532,6 +575,9 @@ def place_camera(spec):
     poses = [{"pos": [mx, my, h], "yaw": (yc + dy) % 360, "tilt": t}
              for mx, my, yc in spec[3] for h in spec[4] for dy in range(-45, 46, 5) for t in range(15, 66, 5)]
     view = spec[9] if len(spec) > 9 else {}
+    if view.get("pose"):  # framed by hand (an installer's aim, reviewed on a still): no search
+        mx, my, h = spec[3][0][0], spec[3][0][1], spec[4][0]
+        return {"pos": [mx, my, h], "yaw": view["pose"]["yaw"] % 360, "tilt": view["pose"]["tilt"]}
     coarse = sorted(poses, key=lambda c: pose_score(c, pts, False), reverse=True)[:25]
     scored = [(pose_score(c, pts, True), c) for c in coarse]
     best = max(scored, key=lambda t: t[0])
@@ -711,6 +757,9 @@ def floor_obstacles():
     obs.append(((19.5, 8.6, 22.0, 10.4), "scan tunnel"))
     obs += [(r, "sack rack") for r in RACKS]
     obs += [(r, name) for name, r in BENCHES]
+    obs.append(((40.75, 5.6, 44.05, 7.2), "line B workstation (inductors + gaylords, stations.LINE_B)"))
+    if LINE_A_LAYOUT == "b":  # the 4 induct points: tables, inductors and induct belts between feed and induction belt
+        obs.append(((6.4, 9.95, 13.1, LINE_A_FEED_Y - 0.45), "line A workstation (tables, inductors, induct belts)"))
     return obs
 
 
@@ -733,6 +782,9 @@ def circulation_checks(cams):
     bad = [f"{wid} x {name}" for wid, r, _ in WALKWAYS for o, name in obs if overlap(r, o)]
     bad += [f"{wid} x loop" for wid, r, _ in WALKWAYS if hits_loop(r, 0.1)]
     res["walkways_clear"] = {"pass": not bad, "conflicts": bad}
+    # crossover stairs: clear of machines and fixtures (belt B started inside the XO-1 south stair)
+    bad = [f"{sn} x {name}" for sr, sn in stairs for o, name in obs if overlap(sr, o)]
+    res["stairs_clear"] = {"pass": not bad, "conflicts": bad}
     # forklift lane: clear of everything, >= 0.5 m from the loop guard, crosses walkways only at zebras
     bad = [f"lane x {name}" for lr in lanes for o, name in obs + stairs if overlap(lr, o)]
     bad += ["lane x loop (< 0.5 m)" for lr in lanes if hits_loop(lr, 0.5)]
@@ -1036,7 +1088,9 @@ ASSETS = [  # zone, item, source name, url, licence, found/build, author (CC BY 
     ("people", "Workers (realistic)", "Construction Worker in Safety Vest", SF + "construction-worker-in-safety-vest-0ee4e54dc78b45f9bb7e26fb0d000f7e", BY, "found (rigged on Mixamo; decimated to 30k tris; shirt / vest colour variants)", "Nitoktris (sketchfab.com/mr.sinankaba)"),
     ("people", "Workers (rigged)", "Worker Man Rigged", SF + "worker-man-rigged-ca5d218c51e04c3ba96929dbe8f9b68e", BY, "not used (unclothed base body; kept out of renders)", "aayushbhattarai"),
     ("people", "Workers (CC0 base)", "Quaternius Universal Base Characters", "https://quaternius.com/packs/universalbasecharacters.html", CC0, "not used (Rocketbox chosen)", "Quaternius"),
-    ("people", "Workers (crowd): 8 adults + 24 clips", "Microsoft Rocketbox avatars and animations", "https://github.com/microsoft/Microsoft-Rocketbox", "MIT", "found", "Microsoft (Rocketbox)"),
+    ("people", "Workers: 11 adults (F01, F04, F06, F07, F09, F13, F17, M04, M05, M09, M12; only flat-shoed ones work the floor) + 24 clips", "Microsoft Rocketbox avatars and animations", "https://github.com/microsoft/Microsoft-Rocketbox", "MIT", "found", "Microsoft (Rocketbox)"),
+    ("people", "Worker handling motion (reach / pick / carry / place), retargeted; per-file list in assets/mocap/sources.csv", "AndyData-lab-onePerson (Xsens BVH + action/posture labels)", "https://zenodo.org/records/3254403 (doi:10.5281/zenodo.3254403)", BY, "found", "Maurice, Malaisé, Ivaldi, Rochel, Amiot, Paris, Richard, Fritzsche (2019)"),
+    ("people", "Worker walking / backward walk / idle, retargeted", "100STYLE (BVH, Neutral style)", "https://zenodo.org/records/8127870 (doi:10.1145/3522618)", BY, "found", "Ian Mason, Sebastian Starke, Taku Komura (2022)"),
     ("signs", "Dock door number font", "Barlow Condensed Bold", "https://github.com/jpt/barlow", "OFL 1.1", "found", "The Barlow Project Authors"),
 ]  # fmt: skip
 EXCLUDED = [  # url, licence found, reason
@@ -1103,7 +1157,7 @@ RENDER_TRUTH_CLOCKS = {  # evaluator-only (seconds offset, ppm drift, lens k1)
     "CAM_01": (+3.2, 12), "CAM_02": (-1.8, -8), "CAM_03": (+0.6, 5), "CAM_04": (+7.4, 40), "CAM_05": (-2.5, 15),
     "CAM_06": (+1.1, -20), "CAM_07": (+4.9, 30), "CAM_08": (-0.7, 6), "CAM_09": (+2.3, -12), "CAM_10": (-3.6, 18),
     "CAM_11": (+0.2, 4), "CAM_12": (+5.5, -25), "CAM_13": (-1.2, 9), "CAM_14": (+2.8, 14), "CAM_15": (-4.1, -30),
-    "CAM_16": (+6.0, 22), "CAM_17": (-2.2, 10), "CAM_18": (+1.6, -14),
+    "CAM_16": (+6.0, 22), "CAM_17": (-2.2, 10), "CAM_18": (+1.6, -14), "CAM_19": (-2.9, -17),
 }
 
 SCENARIOS = [  # name, zones, cameras in play (the evidence), note
@@ -1119,7 +1173,8 @@ SCENARIOS = [  # name, zones, cameras in play (the evidence), note
     ("Mis-load onto wrong truck (RFID cross-read)", "Z10→Z12", ["CAM_13", "CAM_14", "CAM_15", "CAM_16", "CAM_17"], ""),
     ("Look-alike pair", "Z03→Z05", ["CAM_04", "CAM_05", "CAM_06"], ""),
     ("Camera outage", "Z10", ["CAM_13"], "CAM_13 rendered with a 20 min video-loss gap"),
-    ("Removal into blind spot", "Z10→Z11 BLIND_NW", ["CAM_13"], "CAM_13 films the approach; nothing inside"),
+    ("Removal into blind spot", "Z10→Z11 BLIND_NW", ["CAM_13", "CAM_19"],
+     "CAM_13 films the cage, CAM_19 the store entrance (the only way in or out); nothing inside"),
     ("Return-to-sender (re-induct with new label)", "Z01→Z03", ["CAM_01", "CAM_02", "CAM_04", "CAM_05"], ""),
     ("Mixed up while opening an inbound bag", "Z02", ["CAM_02", "CAM_03"], ""),
     ("Stuck on the cover plate between carriers", "Z05", ["CAM_06", "CAM_07", "CAM_08"], ""),
@@ -1435,6 +1490,7 @@ def main():
                    "size_m": [round(p[2][0] - p[0][0], 1), round(p[2][1] - p[0][1], 1)] if p else None,
                    "realism": r} for z, n, k, p, r in ZONES],
         "blind_corner": BLIND,
+        "line_a": {"layout": LINE_A_LAYOUT},
         "machines": {"loop": LOOP | {"length_m": round(LOOP_LEN, 1), "carriers": round(LOOP_LEN / 0.7)},
                      "conveyors": CONVEYORS, "chutes": CHUTES,
                      "chute_layout_note": "Chutes on ONE side of the loop (north straight) is a deliberate "
@@ -1519,7 +1575,9 @@ def main():
             seen.add(u)
             credits.append(f"| {n} | {a} | {lic} | {u} | {i} ({z}) |")
     credits += ["", "CC BY credit line (README / video end card): models by " +
-                ", ".join(sorted({a for *_, lic, _, a in used if lic == BY})) + " on Sketchfab, licensed CC BY 4.0.",
+                ", ".join(sorted({a for _, _, _, u, lic, _, a in used if lic == BY and u.startswith(SF)})) +
+                " on Sketchfab, licensed CC BY 4.0. Motion data: AndyData-lab-onePerson (Maurice et al. 2019) and "
+                "100STYLE (Mason, Starke, Komura 2022), CC BY 4.0, retargeted.",
                 "", "## Licence notices", "",
                 "**Microsoft Rocketbox** (avatars and animations) — MIT License, Copyright (c) 2020 Microsoft. "
                 "Permission is hereby granted, free of charge, to any person obtaining a copy of this software and "

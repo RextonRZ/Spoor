@@ -37,9 +37,9 @@ STATIONS = [
     # walking between stations: W1 -> zebra ZX2 across the forklift lane, and back
     # walking from the office door the full length of walkway W1 towards the docks (48 m = the whole 30 s)
     dict(role="walk", clip="walking", path=[(51.0, 1.35), (5.9, 1.35)], one_way=True, shirt="teal", vest="orange",
-         hat="cap"),  # starts west of the supervisor: never passes through him
+         hat=None),  # starts west of the supervisor: never passes through him
     dict(role="walk", clip="walking", path=[(57.5, 23.8), (14.0, 23.8)], one_way=True, shirt="grey", vest="lime",
-         hat="hard"),  # bagging aisle W3
+         hat=None),  # bagging aisle W3
     # lifting: heavy parcel from the west pallet in Z09 (clear of the forklift lane, x < 7.5) and a full bag at C08
     # picking up: induction (one parcel at a time, scan gesture) and bagging at a chute
     # pushing roll cages at walking pace with the calm Push clip (Pushing leans in like a heavy load: owner said too
@@ -52,19 +52,19 @@ STATIONS = [
     dict(role="cages", clip="walking", rate=0.62, path=[(49.0, 37.7), (49.0, 28.85), (25.6, 28.85)], one_way=True,
          shirt="teal",
          vest="yellow",
-         cage=True, hat="hard", lead_frames=25),  # bringing an emptied cage back from door D12 to staging
+         cage=True, hat=None, lead_frames=25),  # bringing an emptied cage back from door D12 to staging
     # technician at an HMI next to the DWS tunnel (Button Pushing), then waiting (Breathing Idle)
     dict(role="technician", seq=[("button_pushing", 9.0), ("breathing_idle", None)], at=(21.2, 13.05), face=90,
-         shirt="grey", vest="yellow", hat="cap", hmi=(21.2, 13.65)),
+         shirt="grey", vest="yellow", hat=None, hmi=(21.2, 13.65)),
     # dock-control box beside outbound door D09
     dict(role="dock", seq=[("button_pushing", "once"), ("breathing_idle", None)], at=(39.35, 39.25), face=90,
-         shirt="teal", vest="lime", hat="hard", dockbox=(39.35, 39.8)),  # presses once, then watches the door
+         shirt="teal", vest="lime", hat=None, dockbox=(39.35, 39.8)),  # presses once, then watches the door
     # talking at a station: partner of the Rocketbox talker at the outbound queue
     dict(role="idle", clip="talking", at=(37.0, 36.65), face=90, shirt="red", vest="orange"),
     # the ONE supervisor, on walkway W1 outside the office: on the phone, then pacing (its own slow drift)
     # (both clips start where the phone is already at his ear: they open with the hand coming up from his side)
     dict(role="supervisor", seq=[("talking_on_phone", None, 80)], at=(52.6, 1.0), face=180, shirt="navy",
-         vest="orange", hat="hard", device="phone"),  # standing call (the pacing clip's feet slid: QA)
+         vest="orange", hat=None, device="phone"),  # standing call (the pacing clip's feet slid: QA)
     # exception bench: seated on a raised stool (bench top 0.9 m) at the east corner, settles in to type, types
     # (faces 60°, not 90°: square to the bench he would face CAM_12 across it for the whole clip)
     dict(role="exception", seq=[("typing", 5.0), ("sit_to_type", "once"), ("typing", None)], at=(27.35, 20.55),

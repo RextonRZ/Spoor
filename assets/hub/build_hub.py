@@ -36,6 +36,7 @@ ap.add_argument("--samples", type=int, default=16)
 args = ap.parse_args(argv)
 SPEC = json.loads(Path(args.spec).read_text(encoding="utf-8"))
 random.seed(20261028)
+BALE_RND = random.Random(20261031)  # rack bale heights (own stream: the global one drives the rest of the hub)
 
 BW, BD = SPEC["building"]["footprint_m"]
 EAVES = SPEC["building"]["eaves_m"]
@@ -140,7 +141,8 @@ M = {
     "sack_blue": material("woven_sack_blue", "#3d6fb0", 0.9, noise=60.0),
     "brand": material("brand_teal", BRAND, 0.5),
     "lamp": material("lamp_emit", "#fff4e6", 0.5, emit=8.0),
-    "lightbar": material("tunnel_lightbar", "#ffffff", 0.5, emit=15.0),
+    "lightbar": material("tunnel_lightbar", "#ff6a2a", 0.5, emit=10.0),  # red-orange LED scanner light
+    "scan_led": material("tunnel_scan_led", "#ff4a1a", 0.4, emit=6.0),
     "exit": material("exit_green_emit", "#1fa64a", 0.5, emit=6.0),
     "screen": material("screen_emit", "#7fc7ff", 0.3, emit=2.0),
     "sign": material("sign_board", "#fafafa", 0.6),
@@ -259,6 +261,9 @@ def sack_rings(kind, seed):
     """Woven sack hung from the rim, mouth clipped open: empty (limp), half, full (resting on the floor)."""
     rnd = random.Random(seed)
     ph = rnd.uniform(0, 6.28)
+    # parcel corners pushing the weave out: local sharp bumps (angle, depth along the bag, size)
+    bumps = [] if kind == "empty" else [(rnd.uniform(0, 6.28), rnd.uniform(0.3 if kind == "half" else 0.15, 0.9),
+                                         rnd.uniform(0.05, 0.11)) for _ in range(rnd.randint(6, 10))]
     rings = [[(x * 1.06, y * 1.06, RIM - 0.07) for x, y, _ in superellipse(SACK_A, SACK_B)],  # lip folded over rim
              [(x * 1.02, y * 1.02, RIM + 0.015) for x, y, _ in superellipse(SACK_A, SACK_B)]]
     for k in range(12):
@@ -267,10 +272,10 @@ def sack_rings(kind, seed):
             z, sc, amp = RIM - 0.72 * t, 1.0 - 0.5 * t, 0.07
         elif kind == "half":
             z = RIM - 0.86 * t
-            sc = 0.93 + 0.2 * math.sin(math.pi * min(max((t - 0.4) / 0.6, 0), 1))
+            sc = 0.93 + 0.1 * math.sin(math.pi * min(max((t - 0.4) / 0.6, 0), 1))
             amp = 0.06 if t < 0.45 else 0.015
-        else:  # full
-            z, sc, amp = RIM - 0.86 * t, 1.0 + 0.15 * math.sin(math.pi * min(max((t - 0.05) / 0.95, 0), 1)), 0.012
+        else:  # full: fills the frame almost like a box (a big belly under a narrow rim read as a vase: review 006)
+            z, sc, amp = RIM - 0.86 * t, 1.0 + 0.05 * math.sin(math.pi * min(max((t - 0.05) / 0.95, 0), 1)), 0.012
         if t > 0.92 and kind != "empty":
             sc *= 0.92  # flattened where it sits on the floor
         ring = []
@@ -283,6 +288,9 @@ def sack_rings(kind, seed):
             w += lump * (math.sin(2 * th + ph * 1.7) + 0.6 * math.sin(3 * th + ph * 0.6))
             if t < 0.22:
                 w += 0.05 * (1 - t / 0.22) * math.sin(11 * th + ph)
+            for bth, bt, ba in bumps:
+                dth = (th - bth + math.pi) % (2 * math.pi) - math.pi
+                w += ba * math.exp(-(dth / 0.22) ** 2 - ((t - bt) / 0.1) ** 2)
             ring.append((x * sc * w + lean, y * sc * w, z))
         rings.append(ring)
     return rings
@@ -294,6 +302,8 @@ def tied_sack_rings(seed):
     ph = rnd.uniform(0, 6.28)
     prof = [(0.0, 0.8), (0.04, 0.95), (0.2, 1.05), (0.45, 1.08), (0.6, 0.95), (0.68, 0.6), (0.73, 0.15), (0.76, 0.12),
             (0.84, 0.3), (0.88, 0.05)]
+    # parcel corners pushing the weave out (a smooth body read as a white ball / vase: review 006 #7)
+    bumps = [(rnd.uniform(0, 6.28), rnd.uniform(0.08, 0.6), rnd.uniform(0.06, 0.12)) for _ in range(rnd.randint(6, 9))]
     rings = []
     for z, sc in reversed(prof):
         ring = []
@@ -301,6 +311,9 @@ def tied_sack_rings(seed):
         for x, y, th in superellipse(0.36, 0.28, p=3.0):
             w = 1 + 0.05 * math.sin(9 * th + 7 * z + ph) + (0.09 * (math.sin(2 * th + ph) + 0.5 * math.sin(3 * th - ph))
                                                              if body else 0.0)
+            for bth, bz, ba in bumps:
+                dth = (th - bth + math.pi) % (2 * math.pi) - math.pi
+                w += ba * math.exp(-(dth / 0.25) ** 2 - ((z - bz) / 0.09) ** 2)
             ring.append((x * sc * w + 0.04 * z * math.sin(ph), y * sc * w, z))
         rings.append(ring)
     return rings
@@ -451,7 +464,8 @@ def image_sign(name, sign_id, centre, facing, size=(0.3, 0.4), double=False, col
 
 # ------------------------------------------------------------------------------------------------ ground + shell
 DOORS = SPEC["building"]["doors"]
-boxes("floor_slab", {"floor": [mat_aabb(0, 0, -0.3, BW, BD, 0)]}, C["Shell"])
+boxes("floor_slab", {"floor": [mat_aabb(0.003, 0.003, -0.3, BW - 0.003, BD - 0.003, 0)]}, C["Shell"])  # its edges
+# 3 mm inside the walls' outer faces (flush, they z-fought along the building's base: mesh_hygiene)
 boxes("ground", {"ground": [mat_aabb(-45, -25, YARD_Z - 0.3, BW + 30, BD + 40, YARD_Z - 0.02)]}, C["Yard"])
 yard = next(z for z in SPEC["zones"] if z["id"] == "Z14")["polygon_m"]
 for side, poly in yard.items():
@@ -472,15 +486,18 @@ def wall(side):
         if a > cur:
             pieces.append((cur, a, zbot, EAVES))
         if b > a:
-            pieces.append((a, b, zbot, 0.0))  # below the opening (dock face / plinth)
+            pieces.append((a, b, zbot, -0.003))  # below the opening (dock face / plinth), 3 mm under the slab top
+            # (at z 0 its top z-fought with the slab in every doorway: mesh_hygiene)
             pieces.append((a, b, hgt, EAVES))  # lintel and wall above
         cur = b
     mats = []
     for a, b, z0, z1 in pieces:
         if horizontal:
             mats.append(mat_aabb(a, fixed, z0, b, fixed + WALL_T, z1))
-        else:
-            mats.append(mat_aabb(fixed, a, z0, fixed + WALL_T, b, z1))
+        else:  # W / E fit between the N and S walls (full length, their ends z-fought in the corners)
+            a, b = max(a, WALL_T), min(b, BD - WALL_T)
+            if b - a > 1e-4:
+                mats.append(mat_aabb(fixed, a, z0, fixed + WALL_T, b, z1))
     boxes(f"wall_{side}", {"cladding": mats}, C["Shell"])
 
 
@@ -595,23 +612,25 @@ dock_furniture()
 # ------------------------------------------------------------------------------------------------ steel structure
 col_items = {"frame": [], "yellow": []}
 for x, y in SPEC["building"]["columns"]:
-    x = min(max(x, 0.25), BW - 0.25)
-    y = min(max(y, 0.25), BD - 0.25)
+    # 3 mm clear of the walls' inner faces (flush, they z-fought with the walls: mesh_hygiene)
+    x = min(max(x, WALL_T + 0.153), BW - WALL_T - 0.153)
+    y = min(max(y, WALL_T + 0.203), BD - WALL_T - 0.203)
     col_items["frame"] += [mat_aabb(x - 0.15, y - 0.2, 0, x + 0.15, y - 0.17, EAVES),  # I-section: two flanges
                            mat_aabb(x - 0.15, y + 0.17, 0, x + 0.15, y + 0.2, EAVES),
                            mat_aabb(x - 0.01, y - 0.17, 0, x + 0.01, y + 0.17, EAVES)]  # web
     if 0 < y < BD - 1:
         col_items["yellow"].append(mat_aabb(x - 0.3, y - 0.3, 0, x + 0.3, y + 0.3, 1.0))  # forklift guard
 TRUSS_BOTTOM = EAVES - 1.2
-for x in (0.25, 12, 24, 36, 48, BW - 0.25):  # trusses span north-south: chords + zig-zag web
-    col_items["frame"] += [mat_aabb(x - 0.08, 0, EAVES - 0.25, x + 0.08, BD, EAVES - 0.05),
-                           mat_aabb(x - 0.06, 0, TRUSS_BOTTOM, x + 0.06, BD, TRUSS_BOTTOM + 0.15)]
+for x in (WALL_T + 0.083, 12, 24, 36, 48, BW - WALL_T - 0.083):  # trusses span north-south: chords + zig-zag web
+    col_items["frame"] += [mat_aabb(x - 0.08, WALL_T, EAVES - 0.25, x + 0.08, BD - WALL_T, EAVES - 0.05),
+                           mat_aabb(x - 0.06, WALL_T, TRUSS_BOTTOM, x + 0.06, BD - WALL_T, TRUSS_BOTTOM + 0.15)]
+    # (ending flush with the walls' outer faces, the chords z-fought with them: mesh_hygiene)
     for k in range(int(BD / 1.5)):
-        y0_, y1_ = 1.5 * k, 1.5 * (k + 1)
+        y0_, y1_ = max(1.5 * k, WALL_T + 0.003), min(1.5 * (k + 1), BD - WALL_T - 0.003)
         za, zb = (TRUSS_BOTTOM + 0.15, EAVES - 0.25) if k % 2 == 0 else (EAVES - 0.25, TRUSS_BOTTOM + 0.15)
         col_items["frame"].append(mat_seg((x, y0_, za), (x, y1_, zb), 0.05, 0.05))
 for y in [1.5 + 2.5 * k for k in range(16)]:  # purlins
-    col_items["frame"].append(mat_aabb(0, y - 0.05, EAVES - 0.1, BW, y + 0.05, EAVES))
+    col_items["frame"].append(mat_aabb(WALL_T + 0.003, y - 0.05, EAVES - 0.1, BW - WALL_T - 0.003, y + 0.05, EAVES))
 boxes("structure", col_items, C["Structure"])
 roof_items = {"steel": [], "black": [], "pipe_red": []}
 for y in (8.5, 21.5, 31.0):  # ladder cable trays under the trusses, with cable bundles and drop rods
@@ -627,6 +646,8 @@ boxes("roof_services", roof_items, C["Structure"])
 # ------------------------------------------------------------------------------------------------ conveyors
 conv = {"belt": [], "steel": [], "frame": []}
 BOOM_SPOTS = []
+BOOM_END_X = 4.55  # booms end at the collector's west side frame (x 4.57); flow.py hands over from here
+BOOM_YS = [cv["path"][0][1] for cv in SPEC["machines"]["conveyors"] if cv["kind"] == "telescopic"]
 door_at_y = {d["centre"][1]: d["id"] for d in DOORS if d["wall"] == "W"}
 for cv in SPEC["machines"]["conveyors"]:
     if cv["kind"] != "telescopic":
@@ -634,8 +655,9 @@ for cv in SPEC["machines"]["conveyors"]:
     y, h = cv["path"][0][1], cv["height"]
     extended = door_at_y.get(y) in LORRY_DOCKS  # boom runs out through the door into the lorry body
     conv["frame"].append(mat_aabb(1.4, y - 0.5, 0.35, 4.4, y + 0.5, h - 0.15))  # base unit on legs
-    conv["frame"].append(mat_aabb(1.4, y - 0.33, h - 0.2, 5.0, y + 0.33, h - 0.05))  # belt bed up to the collector
-    conv["belt"].append(mat_aabb(1.4, y - 0.29, h - 0.05, 5.0, y + 0.29, h))
+    # belt bed up to the collector's edge (to x 5.0 it ran into the collector; owner rule: nothing through anything)
+    conv["frame"].append(mat_aabb(1.4, y - 0.33, h - 0.2, BOOM_END_X, y + 0.33, h - 0.05))
+    conv["belt"].append(mat_aabb(1.4, y - 0.29, h - 0.05, BOOM_END_X, y + 0.29, h))
     for lx in (1.5, 4.3):
         for ly in (y - 0.42, y + 0.42):
             conv["steel"].append(mat_aabb(lx - 0.04, ly - 0.04, 0, lx + 0.04, ly + 0.04, 0.35))
@@ -643,29 +665,90 @@ for cv in SPEC["machines"]["conveyors"]:
     # unloaders stand just inside the doors where the hall cameras can see them)
     sections = [(0.6, 1.4, 0.62)] + ([(-1.2, 0.6, 0.56)] if extended else [])
     for k, (xa, xb, wd) in enumerate(sections):
-        zt = h - 0.03 * k  # each nested section sits a little lower
+        zt = h - 0.03 * k  # each nested section's frame sits a little lower ...
         conv["frame"].append(mat_aabb(xa, y - wd / 2, zt - 0.2, xb, y + wd / 2, zt - 0.05))
-        conv["belt"].append(mat_aabb(xa, y - wd / 2 + 0.04, zt - 0.05, xb, y + wd / 2 - 0.04, zt))
+        # ... but one belt runs over all of them at h (a 3 cm step up at x 0.6 put stalled parcels 2-3 cm into it)
+        conv["belt"].append(mat_aabb(xa, y - wd / 2 + 0.04, zt - 0.05, xb, y + wd / 2 - 0.04, h))
     if extended:  # parcels riding the boom out of the lorry
         BOOM_SPOTS.extend((random.uniform(-5.5, 1.0), y + random.uniform(-0.12, 0.12), h - 0.06) for _ in range(5))
+# line A option (b) (reviews 015 / 016): one induct point per inductor. Active only when the spec carries
+# "line_a": {"layout": "b", ...}; the collector's path in that spec already turns east at the new feed line.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import line_a_geom  # noqa: E402  (line A (b) geometry, shared with flow / stations)
+
+LA, LA_MOUTHS, LA_INDUCT, LA_MERGES = line_a_geom.derive(SPEC.get("line_a"))
+LINE_A_B = LA.get("layout") == "b"
+_r2 = math.sqrt(0.5)
 for cv in SPEC["machines"]["conveyors"]:
     if cv["kind"] == "telescopic":
         continue
     path, h = cv["path"], cv["height"]
     w = 0.6 if cv["kind"] == "telescopic" else 0.8
+    if cv["id"] in ("merge", "induction_B"):  # the belt ends where its corners clear the carriers' band (+-0.425 m
+        # round the loop line + 5 cm); drawn to the loop line, the carriers ran through its end. The parcel crosses
+        # the last stretch onto its booked carrier (flow.py)
+        (ax_, ay_), (bx_, by_) = path[-2], path[-1]
+        th_ = math.atan2(by_ - ay_, bx_ - ax_)
+        y_end = LOOP["south_y"] - 0.475 - (w / 2 + 0.05) * abs(math.cos(th_))
+        u_ = (y_end - ay_) / (by_ - ay_)
+        path = path[:-1] + [[ax_ + (bx_ - ax_) * u_, y_end]]
     for (ax, ay), (bx, by) in zip(path, path[1:]):
         za = zb = h
+        if cv.get("heights"):  # per-point heights (line B's ramp up to the deck)
+            ki = path.index([ax, ay])
+            za, zb = cv["heights"][ki], cv["heights"][ki + 1]
         if cv["id"] == "induction" and bx > 15:  # last stretch inclines up to the tunnel deck
             za, zb = h, DECK
             mid = (15.0, ay)
             conv["belt"].append(mat_seg((ax, ay, h - 0.06), (mid[0], mid[1], h - 0.06), w, 0.12))
             ax = 15.0
         conv["belt"].append(mat_seg((ax, ay, za - 0.06), (bx, by, zb - 0.06), w, 0.12))
-        for s in (-1, 1):  # side frames
+        k_seg = path.index([bx, by]) - 1 if [bx, by] in path else 0
+        ln_ = math.hypot(bx - ax, by - ay) or 1
+        dx, dy = (bx - ax) / ln_, (by - ay) / ln_
+        turn_in = turn_out = 0.0  # corners: the inner side frame stops short of the other belt (it crossed it)
+        if k_seg + 2 < len(path):  # a corner at this segment's end
+            cx_, cy_ = path[k_seg + 2][0] - bx, path[k_seg + 2][1] - by
+            turn_out = 1.0 if dx * cy_ - dy * cx_ > 0 else -1.0
+        if k_seg > 0:  # a corner at this segment's start
+            px_, py_ = ax - path[k_seg - 1][0], ay - path[k_seg - 1][1]
+            turn_in = 1.0 if px_ * dy - py_ * dx > 0 else -1.0
+        for s in (-1, 1):  # side frames (s = +1: left of travel)
             nx, ny = -(by - ay), (bx - ax)
             ln = math.hypot(nx, ny) or 1
             ox, oy = s * nx / ln * (w / 2 + 0.03), s * ny / ln * (w / 2 + 0.03)
-            conv["frame"].append(mat_seg((ax + ox, ay + oy, za - 0.05), (bx + ox, by + oy, zb - 0.05), 0.04, 0.18))
+            cut = w / 2 + 0.05
+            a0 = cut if turn_in == s else 0.0  # the inner side of a left turn is the left frame (s = +1)
+            b0 = cut if turn_out == s else 0.0
+            spans = [(a0, ln_ - b0)]
+            if LINE_A_B and cv["id"] == "collector" and s == -1 and abs(dy) < 0.1:  # line A (b): table mouths (south)
+                # + where D02's stub comes in from the south at the feed's corner (a closed frame there: collision check)
+                t_ = (5.0 - ax) / dx if dx else -1  # (0.5: a carton sliding across from the stub to the feed's middle
+                # caught the frame's start at 0.38, hub run 4)
+                spans = [(u0, u1) for (lo, hi) in spans
+                         for (u0, u1) in ((lo, min(hi, t_ - 0.5)), (max(lo, t_ + 0.5), hi)) if u1 - u0 > 0.05]
+                for mx_ in LA_MOUTHS:
+                    t_ = (mx_ - ax) / dx if dx else -1
+                    spans = [(u0, u1) for (lo, hi) in spans
+                             for (u0, u1) in ((lo, min(hi, t_ - LA["table_w"] / 2 - 0.05)),
+                                              (max(lo, t_ + LA["table_w"] / 2 + 0.05), hi)) if u1 - u0 > 0.05]
+            if LINE_A_B and cv["id"] == "induction" and s == 1 and abs(dy) < 0.1:  # line A (b): induct belts merge (north)
+                for mx_ in LA_MERGES:
+                    t_ = (mx_ - ax) / dx if dx else -1
+                    spans = [(u0, u1) for (lo, hi) in spans
+                             for (u0, u1) in ((lo, min(hi, t_ - 0.42)), (max(lo, t_ + 0.42), hi)) if u1 - u0 > 0.05]
+            # openings where the booms feed in (west side). D02's stub too: in line A (b) its boom hands over there, and
+            # a closed frame put every D02 parcel 4 cm into it (hub run 3, CAM_01)
+            if cv["id"] in ("collector", "d02_stub") and ox < 0 and abs(dx) < 0.1:
+                for by_ in BOOM_YS:
+                    t_ = (by_ - ay) / dy if dy else -1
+                    if 0 < t_ < ln_:
+                        spans = [(u0, u1) for (lo, hi) in spans
+                                 for (u0, u1) in ((lo, min(hi, t_ - 0.38)), (max(lo, t_ + 0.38), hi)) if u1 - u0 > 0.05]
+            for u0, u1 in spans:
+                p0 = (ax + dx * u0 + ox, ay + dy * u0 + oy, za + (zb - za) * u0 / ln_ - 0.05)
+                p1 = (ax + dx * u1 + ox, ay + dy * u1 + oy, za + (zb - za) * u1 / ln_ - 0.05)
+                conv["frame"].append(mat_seg(p0, p1, 0.04, 0.18))
         n = max(1, int(math.hypot(bx - ax, by - ay) / 2.0))
         for k in range(n + 1):
             t = k / n
@@ -677,17 +760,87 @@ for cv in SPEC["machines"]["conveyors"]:
     if cv["id"] == "collector":  # the accumulation (feed) run ends at a steel end plate: parcels queue against it
         ex, ey = path[-1]
         conv["steel"].append(mat_aabb(ex + 0.02, ey - w / 2 - 0.03, h - 0.08, ex + 0.06, ey + w / 2 + 0.03, h + 0.14))
+if LINE_A_B:
+    for (sx, sy), (ex, ey) in LA_INDUCT:  # induct belts (0.5 m wide), both ends cut parallel to belt A's edge
+        wi = LA["induct_w"]
+        # sheared boxes (parallelograms): along the belt (45 deg) x along x, so the far end meets belt A's frame flush
+        # and the near end squares up to the worker (a square end poked 18 cm into belt A)
+        dvx, dvy = ex - sx, ey - sy
+        kx = wi / abs(dvy / math.hypot(dvx, dvy))  # x-length of a cut with the perpendicular width wi
+
+        def slab(cx, cy, cz, ln_x, ht, ex_=1.0):
+            m = Matrix(((dvx * ex_, ln_x, 0, cx), (dvy * ex_, 0, 0, cy), (0, 0, ht, cz), (0, 0, 0, 1)))
+            return m
+        cxm, cym = (sx + ex) / 2, (sy + ey) / 2
+        conv["belt"].append(slab(cxm, cym, 0.94, kx, 0.12))
+        ln_i = math.hypot(dvx, dvy)
+        cut_e = 0.12  # the side guides stop 12 cm short of belt A: a carton turning onto A at the merge caught their
+        # ends (1-5 cm, hub run 4)
+        cxf, cyf = cxm - dvx / ln_i * (cut_e / 2 - 0.01), cym - dvy / ln_i * (cut_e / 2 - 0.01)
+        for sg in (-1, 1):
+            off = sg * (kx / 2 + 0.03 / abs(dvy / ln_i))
+            conv["frame"].append(slab(cxf + off, cyf, 0.95, 0.04 / abs(dvy / ln_i), 0.18, (ln_i - cut_e) / ln_i))
+            for u in (0.15, 0.85):
+                lx, ly = sx + dvx * u + off * 0.8, sy + dvy * u
+                conv["steel"].append(mat_aabb(lx - 0.03, ly - 0.03, 0, lx + 0.03, ly + 0.03, 0.88))
+    t_hi, t_lo = LA["table_top"]
+    y0t, y1t = LA["op_y"] - 0.10, LA["op_y"] - 0.10 + LA["table_len"]  # near end (stop) .. head (at the feed)
+    for tx in LA_MOUTHS:  # gravity roller tables falling towards the operator, guides 3 cm above the rollers
+        tw = LA["table_w"]
+        for j in range(9):
+            u = j / 8
+            y = y1t + (y0t - y1t) * u
+            z = t_hi + (t_lo - t_hi) * u
+            conv["steel"].append(mat_aabb(tx - tw / 2, y - 0.025, z - 0.05, tx + tw / 2, y + 0.025, z))
+        ym = (y0t + y1t) / 2
+        for sg in (-1, 1):
+            conv["frame"].append(mat_aabb(tx + sg * tw / 2 - 0.02, y0t - 0.03, 0.80, tx + sg * tw / 2 + 0.02, ym,
+                                          t_lo + 0.045))
+            conv["frame"].append(mat_aabb(tx + sg * tw / 2 - 0.02, ym, 0.80, tx + sg * tw / 2 + 0.02, y1t, t_hi + 0.03))
+            for yy in (y0t + 0.05, y1t - 0.08):
+                conv["steel"].append(mat_aabb(tx + sg * 0.2 - 0.02, yy - 0.02, 0, tx + sg * 0.2 + 0.02, yy + 0.02, 0.8))
+        conv["frame"].append(mat_aabb(tx - tw / 2, y0t - 0.06, 0.85, tx + tw / 2, y0t - 0.03, 0.92))  # low end stop
 boxes("conveyors", conv, C["Machines"])
+if LINE_A_B:  # diverter paddles at the table mouths (yellow; flow.py swings them)
+    feed_y = next(cv for cv in SPEC["machines"]["conveyors"] if cv["id"] == "collector")["path"][-1][1]
+    boxes("line_a_diverters", {"yellow": [mat_aabb(tx + LA["table_w"] / 2 + 0.05 - 0.64, feed_y + 0.37 - 0.0125, 1.01,
+                                                   tx + LA["table_w"] / 2 + 0.05, feed_y + 0.37 + 0.0125, 1.11)
+                                          for tx in LA_MOUTHS]}, C["Machines"])
 
 # scan tunnel (DWS): open front/back box, light bars, display; weigh platform before it
-tun = {"steel": [mat_aabb(19.5, 8.6, DECK + 1.3, 22.0, 10.4, DECK + 1.4),
+# (B2 pre-review #5: it read as a plain white box) painted body, red-orange LED bars and scanner strips glowing
+# inside, scanner heads on the roof, yellow guard posts at the corners; the DWS screen on its stand beside it
+tun = {"frame": [mat_aabb(19.5, 8.6, DECK + 1.3, 22.0, 10.4, DECK + 1.4),
                  mat_aabb(19.5, 8.6, DECK - 0.4, 22.0, 8.7, DECK + 1.4),
-                 mat_aabb(19.5, 10.3, DECK - 0.4, 22.0, 10.4, DECK + 1.4)],
+                 mat_aabb(19.5, 10.3, DECK - 0.4, 22.0, 10.4, DECK + 1.4),
+                 mat_aabb(22.1, 10.5, 0, 22.7, 11.1, 1.8)],
        "lightbar": [mat_aabb(19.7 + 0.5 * k, 8.75, DECK + 1.2, 19.9 + 0.5 * k, 10.25, DECK + 1.28) for k in range(4)],
-       "yellow": [mat_aabb(17.5, 9.05, DECK - 0.08, 19.0, 9.95, DECK - 0.04)],
-       "frame": [mat_aabb(22.1, 10.5, 0, 22.7, 11.1, 1.8)],
+       "scan_led": [mat_aabb(19.85 + 0.7 * k, y0, DECK + 0.1, 19.9 + 0.7 * k, y1, DECK + 1.15)
+                    for k in range(3) for (y0, y1) in ((8.7, 8.72), (10.28, 10.3))],
+       "black": [mat_aabb(19.9 + 0.75 * k, 9.2, DECK + 1.4, 20.25 + 0.75 * k, 9.8, DECK + 1.58) for k in range(3)]
+       + [mat_aabb(x - 0.06, y - 0.06, 1.0, x + 0.06, y + 0.06, 1.12) for x in (19.35, 22.15) for y in (8.45, 10.55)],
+       "yellow": [mat_aabb(17.52, 9.07, DECK - 0.08, 18.98, 9.93, DECK - 0.04)],  # 2 mm in from the belt's
+       # start and edges (flush, they z-fought: mesh_hygiene)
        "screen": [mat_aabb(22.15, 10.49, 1.3, 22.65, 10.5, 1.7)]}
+tun["yellow"] += [mat_aabb(x - 0.05, y - 0.05, 0.0, x + 0.05, y + 0.05, 1.0) for x in (19.35, 22.15)
+                  for y in (8.45, 10.55)]  # guard posts at the corners, black caps above
 boxes("scan_tunnel_DWS-01", tun, C["Machines"])
+# DWS arch B on induction line B's ramp (SP-TUNNEL-B): two posts and a head beam square to the belt, red-orange LED
+# strips inside, a scanner head on top
+_lb = next(cv for cv in SPEC["machines"]["conveyors"] if cv["id"] == "induction_B")
+_pa, _pb = Vector((*_lb["path"][1], _lb["heights"][1])), Vector((*_lb["path"][2], _lb["heights"][2]))
+_pc = _pa.lerp(_pb, 0.75)  # near the top of the ramp
+_d = (_pb - _pa).normalized()
+_n = Vector((-_d.y, _d.x, 0.0)).normalized()
+arch = {"frame": [], "scan_led": [], "black": []}
+for _sg in (-1, 1):
+    _base = _pc + _n * _sg * 0.5
+    arch["frame"].append(mat_seg(_base - Vector((0, 0, 0.1)), _base + Vector((0, 0, 1.0)), 0.12, 0.12))
+    arch["scan_led"].append(mat_seg(_pc + _n * _sg * 0.43 + Vector((0, 0, 0.1)), _pc + _n * _sg * 0.43 + Vector((0, 0, 0.9)),
+                                    0.02, 0.05))
+arch["frame"].append(mat_seg(_pc - _n * 0.56 + Vector((0, 0, 1.0)), _pc + _n * 0.56 + Vector((0, 0, 1.0)), 0.16, 0.12))
+arch["black"].append(mat_seg(_pc - _n * 0.18 + Vector((0, 0, 1.12)), _pc + _n * 0.18 + Vector((0, 0, 1.12)), 0.2, 0.12))
+boxes("scan_arch_DWS-B", arch, C["Machines"])
 sign("tunnel_plate", "DWS-01", (20.75, 8.58, DECK + 1.0), "-Y", 0.18)
 
 # ------------------------------------------------------------------------------------------------ cross-belt loop
@@ -705,6 +858,24 @@ def loop_samples(step=0.25):
 
 LS = loop_samples()
 CHUTES = SPEC["machines"]["chutes"]
+def merge_gaps(y_line, clear=0.3):
+    """x ranges where a merge belt (main merge, line B) crosses the horizontal line y = y_line: the outer guard rail
+    and the machine fence are open there (parcels on the merge belts ran through the rail: collision check)."""
+    gaps = []
+    for cv in SPEC["machines"]["conveyors"]:
+        if cv["id"] not in ("merge", "induction_B"):
+            continue
+        for (ax, ay), (bx, by) in zip(cv["path"], cv["path"][1:]):
+            if (ay - y_line) * (by - y_line) > 0 or ay == by:
+                continue
+            u = (y_line - ay) / (by - ay)
+            xc = ax + (bx - ax) * u
+            half = 0.4 / abs(math.sin(math.atan2(by - ay, bx - ax))) + clear  # belt half-width along the line
+            gaps.append((xc - half, xc + half))
+    return gaps
+
+
+RAIL_GAPS = merge_gaps(LOOP["south_y"] - 0.64)
 loop_items = {"frame": [], "steel": [], "yellow": []}
 for i, (x, y, t) in enumerate(LS):
     x2, y2, _ = LS[(i + 1) % len(LS)]
@@ -714,6 +885,8 @@ for i, (x, y, t) in enumerate(LS):
         ox, oy = x + side * nx * 0.64, y + side * ny_ * 0.64
         if side == -1 and abs(t - math.pi) < 1e-6 and any(abs(x - c["x"]) < 0.55 for c in CHUTES):
             continue
+        if side == -1 and abs(t) < 1e-6 and any(min(x, x2) < g1 and max(x, x2) > g0 for g0, g1 in RAIL_GAPS):
+            continue  # open where a merge belt comes in
         loop_items["yellow"].append(mat_seg((ox, oy, DECK + 0.2), (x2 + side * nx * 0.64, y2 + side * ny_ * 0.64,
                                                                    DECK + 0.2), 0.04, 0.4))
     if i % 12 == 0:
@@ -731,7 +904,12 @@ def fence_runs():
     sy, ny, wcx, ecx, r = (LOOP[k] for k in ("south_y", "north_y", "west_cx", "east_cx", "radius"))
     off = r + 0.62 + 0.5  # loop centreline radius + half deck + clearance
     cy = (sy + ny) / 2
-    runs = [[(30.4, sy - 1.12), (ecx, sy - 1.12)]]  # south: from just east of the merge belt
+    runs, x0 = [], 30.4  # south: from just east of the merge belt, open where line B's ramp comes through
+    for g0, g1 in sorted(merge_gaps(sy - 1.12, 0.15)):
+        if g0 > x0:
+            runs.append([(x0, sy - 1.12), (g0, sy - 1.12)])
+            x0 = g1
+    runs.append([(x0, sy - 1.12), (ecx, sy - 1.12)])
     east = [(ecx + off * math.cos(a), cy + off * math.sin(a)) for a in [math.radians(d) for d in range(-90, 91, 15)]]
     runs.append(east[:-1] + [(ecx + 0.6, ny + 1.0)])  # round the east curve up to the chute row
     west = [(wcx + off * math.cos(a), cy + off * math.sin(a)) for a in [math.radians(d) for d in range(90, 271, 15)]]
@@ -786,8 +964,9 @@ for k, (lx, ly) in enumerate(((30.6, LOOP["south_y"] - 1.12), (40.6, LOOP["south
           C["Machines"])
 
 # carriers: 850 x 440 mm belts at 700 mm pitch; the 260 mm between them is the cover plate (deck top)
-carrier_src = boxes("carrier_src", {"carrier": [mat_aabb(-0.22, -0.425, -0.06, 0.22, 0.425, -0.02)],
-                                    "belt": [mat_aabb(-0.2, -0.41, -0.02, 0.2, 0.41, 0.0)]}, C["Machines"])
+carrier_src = boxes("carrier_src", {"carrier": [mat_aabb(-0.22, -0.425, -0.063, 0.22, 0.425, -0.023)],
+                                    "belt": [mat_aabb(-0.2, -0.41, -0.023, 0.2, 0.41, -0.003)]}, C["Machines"])
+# (carrier tops 3 mm under the deck line: level with the merge belts' end they z-fought - mesh_hygiene)
 seglen = [math.dist(LS[i][:2], LS[(i + 1) % len(LS)][:2]) for i in range(len(LS))]
 total = sum(seglen)
 n_car = round(total / 0.7)
@@ -824,10 +1003,11 @@ for c in CHUTES:
                               0.03, 0.3))
         ch["steel"].append(mat_aabb(x + sgn * 0.45 - 0.03, c["mouth_y"] + 0.15, 0, x + sgn * 0.45 + 0.03,
                                     c["mouth_y"] + 0.21, DECK - 0.1))  # hanger legs under the mouth
-    for _ in range(random.choice([0, 1, 2, 3, 4])):  # parcels piling on the chute above the bag
-        t = random.uniform(0.55, 0.92)
-        CHUTE_SPOTS.append((x + random.uniform(-0.3, 0.3), c["mouth_y"] + t * (c["end_y"] - c["mouth_y"]),
-                            DECK - 0.05 + t * (lip - DECK + 0.05) + 0.02))
+    # (no static parcels resting on the chutes: on an open chute a parcel slides on into the bag - they only pile
+    # up on a chute closed for a full bag - and the sorted parcels slid through them: collision check)
+    random.choice([0, 1, 2, 3, 4])  # keeps the random stream (and every later placement) as it was
+    for _ in range(0):
+        CHUTE_SPOTS.append((x, c["mouth_y"], DECK))
     if reject:  # blue rework bin under the reject lip
         y0, y1 = c["bin"]["y"]
         bw, _, bh = c["bin"]["size_m"]
@@ -845,8 +1025,16 @@ for c in CHUTES:
                  ((xa, ya, 0.1), (xa, yb, 0.1), 0.016), ((xb, ya, 0.1), (xb, yb, 0.1), 0.016),
                  ((xa, yb, 0.1), (xb, yb, 0.1), 0.016)]
         tubes_into(frame_bm, segs, 0)
-        clips += [mat_aabb(px - 0.03, py - 0.03, rim - 0.02, px + 0.03, py + 0.03, rim + 0.04)
-                  for px, py in ((x, ya), (x, yb), (xa, by + fd / 2), (xb, by + fd / 2))]
+        # spring clips: thin plates OUTSIDE the sack's lip folded over the rim tube (solid cubes on the tube ran
+        # through the lip: owner rule - nothing passes through anything)
+        for px, py, ox, oy in ((x, ya, 0, -1), (x, yb, 0, 1), (xa, by + fd / 2, -1, 0), (xb, by + fd / 2, 1, 0)):
+            c0, c1 = 0.034, 0.046  # out from the tube centre: tube 2 cm + lip ~1.2 cm
+            if ox:
+                clips.append(mat_aabb(px + ox * c0 if ox > 0 else px - c1, py - 0.03, rim - 0.05,
+                                      px + c1 if ox > 0 else px - c0, py + 0.03, rim + 0.035))
+            else:
+                clips.append(mat_aabb(px - 0.03, py + oy * c0 if oy > 0 else py - c1, rim - 0.05,
+                                      px + 0.03, py + c1 if oy > 0 else py - c0, rim + 0.035))
         k = int(c["id"][1:]) - 1
         kind = FILL[k]
         mat = ["sack", "sack", "sack_blue", "sack", "sack_grey", "sack", "sack_blue", "sack", "sack", "sack_grey",
@@ -861,7 +1049,8 @@ for c in CHUTES:
             boxes("sack_spare_C03", {"sack": [mat_aabb(xb + 0.03, by + 0.12, 0.25, xb + 0.045, by + 0.62, 0.86)],
                                      "steel": [mat_aabb(xb, by + 0.35, 0.86, xb + 0.06, by + 0.39, 0.9)]}, C["Clutter"])
         if kind != "empty":  # parcels visible in the mouth
-            zf = 0.42 if kind == "half" else 0.8
+            zf = 0.42 if kind == "half" else 0.65  # (0.8 left no room under the chute lip for the next parcel: it
+            # rested against the chute, collision check)
             BAG_SPOTS += [(x + random.uniform(-0.25, 0.25), by + fd / 2 + random.uniform(-0.18, 0.18), zf)
                           for _ in range(random.randint(3, 5))]
     label = "REJECT / NO READ" if reject else f"{c['id']}  {SORT[c['id']].upper()}"
@@ -882,6 +1071,16 @@ c05 = next(c for c in CHUTES if c["id"] == "C05")  # one tied + tagged sack wait
 place(TIED, "sack_tied_waiting_C05", (c05["x"] + 0.1, c05["bag_frame_y"] + 1.25, 0.0), 0.3)
 boxes("sack_tag_C05", {"label": [mat_aabb(c05["x"] + 0.12, c05["bag_frame_y"] + 1.24, 0.66, c05["x"] + 0.2,
                                           c05["bag_frame_y"] + 1.25, 0.76)]}, C["Clutter"])
+# yellow pedestrian barrier between the break table (stations.BREAK_TABLE, 4.55 / 31.35) and the dock lane / the
+# collector's tail (review 006b): 1 m posts every ~1.3 m, rails at 0.5 and 1.0 m
+_bar = []
+_bx0, _bx1, _by = 3.2, 6.0, 30.25
+for _k in range(4):
+    _x = _bx0 + (_bx1 - _bx0) * _k / 3
+    _bar.append(mat_aabb(_x - 0.03, _by - 0.03, 0.0, _x + 0.03, _by + 0.03, 1.02))
+for _z in (0.5, 0.98):
+    _bar.append(mat_aabb(_bx0, _by - 0.02, _z - 0.02, _bx1, _by + 0.02, _z + 0.02))
+boxes("break_barrier", {"yellow": _bar}, C["Clutter"])
 
 # ------------------------------------------------------------------------------------------------ fixtures
 FX = SPEC["fixtures"]
@@ -902,14 +1101,29 @@ for r in FX["racks"]:  # pallet racking: blue uprights, orange beams, shelves of
         for e in (0, 1):
             ux, uy = (px, py + e * (y1 - y0)) if along_x else (px + e * (x1 - x0), py)
             fx["rack_blue"].append(mat_aabb(ux - 0.05, uy - 0.05, 0, ux + 0.05, uy + 0.05, r["height_m"]))
-    for z in (0.9, 1.9, 2.9):
-        fx["orange"].append(mat_aabb(x0, y0, z - 0.1, x1, y1, z))
-        for k in range(int(((x1 - x0) if along_x else (y1 - y0)) / 0.9)):
-            a = k * 0.9 + 0.1
-            if random.random() < 0.8:
-                hgt = random.uniform(0.3, 0.75)
-                fx["sack"].append(mat_aabb(x0 + a, y0 + 0.05, z, x0 + a + 0.75, y1 - 0.05, z + hgt) if along_x else
-                                  mat_aabb(x0 + 0.05, y0 + a, z, x1 - 0.05, y0 + a + 0.75, z + hgt))
+    # loaded from the floor up and packed (these racks wall the BLIND_NW corner: a camera must not see through
+    # them - raycast check 30 Oct: CAM_01 saw into the corner under the first beam and between sparse piles)
+    # S2 perimeter raycast 31 Oct: 16 % of the corner was still seen through the 4-18 cm slots between the bale tops
+    # and the next beam and the 0.5 m left open at each run's end -> bales fill each bay end to end, pressed up to
+    # 1-3 cm under the next beam (wrapped bales of folded sacks are stacked to the beam)
+    run = (x1 - x0) if along_x else (y1 - y0)
+    nb = math.ceil(run / 0.9)
+    for z in (0.0, 0.9, 1.9, 2.9):
+        if z > 0:
+            fx["orange"].append(mat_aabb(x0, y0, z - 0.1, x1, y1, z))
+        else:
+            fx["frame"].append(mat_aabb(x0 + 0.02, y0 + 0.02, 0.0, x1 - 0.02, y1 - 0.02, 0.12))  # floor pallets
+        if z > 2.5:
+            continue  # the top beam carries nothing (sprinkler clearance)
+        base = z + (0.12 if z == 0 else 0.0)
+        top = (0.9 if z == 0 else z + 1.0) - 0.1  # underside of the next beam
+        for _ in range(int(run / 0.9)):  # the old bales' draws: keeps the global stream (the rest of the hub) as it was
+            random.uniform(0.62, 0.76)
+        for k in range(nb):
+            a, b = k * run / nb + 0.005, (k + 1) * run / nb - 0.005
+            hgt = top - base - BALE_RND.uniform(0.01, 0.03)
+            fx["sack"].append(mat_aabb(x0 + a, y0 + 0.04, base, x0 + b, y1 - 0.04, base + hgt) if along_x else
+                              mat_aabb(x0 + 0.04, y0 + a, base, x1 - 0.04, y0 + b, base + hgt))
 # supervisor office: walls 3 m, glass north wall, door on the west wall onto walkway W1
 ox0, oy0, ox1, oy1 = 54.6, 0.2, 59.8, 6.0
 fx["white"] += [mat_aabb(ox0, oy0, 0, ox0 + 0.15, 0.55, 3.0), mat_aabb(ox0, 1.45, 0, ox0 + 0.15, oy1, 3.0),
@@ -918,7 +1132,8 @@ fx["white"] += [mat_aabb(ox0, oy0, 0, ox0 + 0.15, 0.55, 3.0), mat_aabb(ox0, 1.45
 fx["frame"].append(mat_aabb(56.0, 4.6, 0.72, 58.0, 5.4, 0.76))  # desk
 fx["screen"].append(mat_aabb(56.8, 5.2, 0.76, 57.4, 5.25, 1.12))
 boxes("fixtures", fx, C["Fixtures"])
-boxes("office_glass", {"glass": [mat_aabb(ox0, oy1 - 0.1, 0.9, ox1, oy1 - 0.05, 2.7)]}, C["Fixtures"])
+boxes("office_glass", {"glass": [mat_aabb(ox0 + 0.003, oy1 - 0.1, 0.9, ox1 - 0.003, oy1 - 0.05, 2.7)]},
+      C["Fixtures"])  # 3 mm in from the frame (mesh_hygiene)
 
 # roll cages (0.72 x 0.80 x 1.80 m): mesh-wire box + base; in staging bays and nested in the empty-cage store
 def _cage(bm):
@@ -1084,8 +1299,9 @@ for z in CI["zebra_crossings"]:
     image_sign(f"sign_{z['id']}_forklift", "ws115_forklift", ((x0 + x1) / 2, (y0 + y1) / 2, 3.0),
                "+Y" if (x1 - x0) < (y1 - y0) else "-X", size=(0.4, 0.6), double=True)  # 400 x 600, hung on chains
     hx, hy = ((x0 + x1) / 2, (y0 + y1) / 2)
-    marks["black"] += [mat_aabb(hx + dx - 0.004, hy - 0.004, 3.3, hx + dx + 0.004, hy + 0.004, EAVES - 1.2)
-                       for dx in (-0.15, 0.15)]  # suspension chains
+    marks.setdefault("steel", [])  # galvanised suspension chains (black ones read as cables down to the floor
+    marks["steel"] += [mat_aabb(hx + dx - 0.004, hy - 0.004, 3.3, hx + dx + 0.004, hy + 0.004, EAVES - 1.2)
+                       for dx in (-0.15, 0.15)]  # where the sign was seen edge-on: B2 pre-review #9)
 z09 = next(z for z in SPEC["zones"] if z["id"] == "Z09")["polygon_m"]
 marks["yellow"] += [mat_aabb(z09[0][0] + 0.3, 2.0, 0.001, z09[1][0] - 0.3, 2.1, 0.004)]  # oversize box line
 boxes("floor_markings", marks, C["Circulation"])
@@ -1378,14 +1594,16 @@ for k, (x, y, z, yaw, (kind, _, di)) in enumerate(CAGE_PARCEL_SPOTS):
 parcels("chute_piles", CHUTE_SPOTS)
 parcels("bag_contents", BAG_SPOTS)
 parcels("bag_opening", [(random.uniform(6.4, 7.8), random.uniform(19.2, 26.8), 0.9) for _ in range(14)])
-parcels("reject_crate", [(29.3 + random.uniform(-0.2, 0.2), 22.1 + random.uniform(-0.15, 0.15), 0.35)
+# on top of what is already in the rework bin (y 20.6-21.2, rim 0.6 m). They floated 0.35 m up, 0.9 m past the bin,
+# over a crate that was never built (B2 pre-review P0 #2); same random draws, so every later placement is unchanged
+parcels("reject_crate", [(29.3 + random.uniform(-0.2, 0.2), 20.9 + random.uniform(-0.15, 0.15), 0.45)
                          for _ in range(3)])
 parcels("exception_bench", [(random.uniform(23.8, 27.8), random.uniform(21.3, 22.5), 0.9) for _ in range(6)])
 # parcels on the floor where workers pick them up (mixamo_workers 'Picking Up Object' bends to the floor): the
 # overflow pile beside the induction belt and one that missed the C04 bag
 # ONE deliberate floor parcel (registered, tagged): it missed the C04 bag and lies by the frame - realistic mess,
 # not a false lead (QA review 001 #4)
-parcel("floor_spill_000", 44.2, 21.12, 0.0, tags=["dropped_on_floor"])
+parcel("floor_spill_000", 44.82, 21.62, 0.0, tags=["dropped_on_floor"])  # aisle side of the C04 frame, not under it
 # scenario 5 look-alike pair: same mailer, colour, size and sticker, side by side on bag-opening bench 2; only the
 # labels differ (tile 30 -> C12 Kuching, tile 31 -> C03 Ipoh). Both IDs are in the scenario truth, nowhere else.
 for k, (tile, (lx, ly)) in enumerate(((30, (7.05, 25.15)), (31, (7.15, 25.62)))):
@@ -1442,8 +1660,10 @@ def wall_details():
     items = {"panel_grey": [], "cork": [], "white": [], "pipe_red": [], "black": []}
     pipes = bmesh.new()
     # electrical distribution boards + conduit risers (W wall south end, N wall east end, E wall north)
-    for (x0, y0, x1, y1) in ((WALL_T, 1.4, WALL_T + 0.25, 2.2), (WALL_T, 2.6, WALL_T + 0.25, 3.4),
-                             (55.4, BD - WALL_T - 0.25, 56.4, BD - WALL_T), (BW - WALL_T - 0.25, 34.0, BW - WALL_T, 34.9)):
+    G = 0.003  # 3 mm proud of the wall (review mesh_hygiene: never coplanar)
+    for (x0, y0, x1, y1) in ((WALL_T + G, 1.4, WALL_T + 0.25, 2.2), (WALL_T + G, 2.6, WALL_T + 0.25, 3.4),
+                             (55.4, BD - WALL_T - 0.25, 56.4, BD - WALL_T - G),
+                             (BW - WALL_T - 0.25, 34.0, BW - WALL_T - G, 34.9)):
         items["panel_grey"].append(mat_aabb(x0, y0, 0.9, x1, y1, 2.1))
         cxp, cyp = (x0 + x1) / 2, (y0 + y1) / 2
         tubes_into(pipes, [((cxp, cyp, 2.1), (cxp, cyp, 3.8), 0.025)], 0)
@@ -1467,7 +1687,8 @@ def wall_details():
     me.materials.append(M["pipe_red"])
     C["Shell"].objects.link(bpy.data.objects.new("wall_conduit_hosereels", me))
     # notice boards with pinned sheets
-    for (x, y, facing) in ((55.5, BD - WALL_T - 0.03, "-Y"), (38.5, WALL_T + 0.03, "+Y")):
+    for (x, y, facing) in ((53.3, BD - WALL_T - 0.03, "-Y"), (38.5, WALL_T + 0.03, "+Y")):  # (at x 55.5 it
+        # overlapped the electrical board beside it: B2 stills CAM_14 / CAM_16)
         along = (1, 0)
         items["cork"].append(mat_aabb(x - 0.6, y - 0.02, 1.1, x + 0.6, y + 0.02, 2.0))
         for k in range(6):
@@ -1480,7 +1701,7 @@ def wall_details():
     # the office, walkway sign where W1 starts, moving-machinery / no-walking-on-conveyor zip-tied to the loop guards
     E, Wx, S_, N_ = BW - WALL_T - 0.005, WALL_T + 0.005, WALL_T + 0.005, BD - WALL_T - 0.005
     plan = [("ws053_cctv", (E, 10.3, 1.8), "-X"), ("ms017_vest", (E, 13.7, 1.8), "-X"), ("ms027_shoes", (E, 14.1, 1.8), "-X"),
-            ("ms017_vest", (Wx, 31.0, 1.8), "+X"), ("ms027_shoes", (Wx, 31.4, 1.8), "+X"), ("ws053_cctv", (Wx, 3.2, 2.0), "+X"),
+            ("ms017_vest", (Wx, 31.0, 1.8), "+X"), ("ms027_shoes", (Wx, 31.4, 1.8), "+X"), ("ws053_cctv", (Wx, 3.2, 2.45), "+X"),
             ("ms017_vest", (25.6, N_, 1.8), "-Y"), ("ms027_shoes", (26.0, N_, 1.8), "-Y"), ("ws053_cctv", (53.5, N_, 2.0), "-Y"),
             ("p002_nosmoking", (35.0, S_, 1.8), "+Y"), ("e003_firstaid", (E, 7.6, 1.8), "-X"),
             ("ms038_walkway", (51.0, S_, 1.8), "+Y")]
@@ -1499,38 +1720,85 @@ sign("sign_bukabeg", "BUKA BEG DI SINI", (11.0, 29.0, 3.0), "-Y", 0.2, board=(2.
 sign("sign_label", "LABEL MENGHADAP ATAS", (11.0, 9.5, 2.4), "-Y", 0.14, board=(2.2, 0.35))
 sign("sign_mesin", "DILARANG MASUK - ZON MESIN", (39.0, 6.2, 2.6), "-Y", 0.16, board=(3.2, 0.4), ink="ink_red")
 sign("sign_kosong", "SANGKAR KOSONG", (20.0, 30.2, 2.6), "-Y", 0.18, board=(2.2, 0.4))
+# the exception store's doorway (BLIND_NW entrance gap x 13.4-15.2; review 019 #2, scenarios_v2 S2 #4: a lawful
+# reason to carry a parcel in there, readable in CAM_19): a header beam across the two rack ends, the sign under it
+# (1 cm short of each rack end: flush, its end faces z-fought the uprights' faces, mesh_hygiene 31 Oct)
+boxes("store_header", {"orange": [mat_aabb(13.36, 32.95, 2.92, 15.24, 33.05, 3.0)]}, C["Fixtures"])
+sign("sign_stor", "STOR PENGECUALIAN", (14.3, 32.96, 2.72), "-Y", 0.13, board=(1.75, 0.40))  # bolted under the beam
+text("sign_stor_en", "EXCEPTION STORE", (14.3, 32.93, 2.57), FACE["-Y"], 0.09, "ink", C["Signs"])
 sign("sign_pejabat", "PEJABAT PENYELIA", (54.55, 3.0, 2.5), "-X", 0.13, board=(1.8, 0.3))
 sign("brand_inside", "CONTOH Express", (WALL_T + 0.02, 33.0, 7.0), "+X", 0.9, ink="brand")
 sign("brand_outside", "CONTOH Express", (39.0, BD + 0.03, 7.5), "+Y", 1.6, ink="brand")
 
 # ------------------------------------------------------------------------------------------------ yard: lorries
-lorry_box = {"brand": [], "white": [], "black": [], "frame": []}
+lorry_box = {"brand": [], "white": [], "black": [], "frame": [], "glass": [], "steel": [], "yellow": [],
+             "line_yellow": []}
+LORRY_WHEELS = []  # (centre, axis) - round tyres, built below
+
+
+def lorry(d):
+    """A rigid box lorry backed onto door d, in its own frame: u out from the wall, v across, z up. Hollow box open
+    at the door, cab with windscreen / grille / bumper (~3 m above the yard), chassis rails, side underrun bars,
+    twin round wheels (the CCTV yard camera showed block lorries on a flat slab: B2 pre-review #6)."""
+    cx, cy = d["centre"]
+    west = d["wall"] == "W"
+
+    def box(key, u0, u1, v0, v1, z0, z1):
+        if west:
+            lorry_box[key].append(mat_aabb(-u1, cy + v0, z0, -u0, cy + v1, z1))
+        else:
+            lorry_box[key].append(mat_aabb(cx + v0, BD + u0, z0, cx + v1, BD + u1, z1))
+
+    def wheel(u, v):
+        LORRY_WHEELS.append(((-u, cy + v, YARD_Z + 0.5) if west else (cx + v, BD + u, YARD_Z + 0.5), "Y" if west else "X"))
+
+    box("white", 0.15, 7.2, -1.2, 1.2, -0.12, 0.0)  # floor (dock level)
+    box("white", 0.15, 7.2, -1.2, 1.2, 2.5, 2.6)  # roof
+    box("white", 0.15, 7.2, -1.2, -1.12, 0.0, 2.5)  # side walls
+    box("white", 0.15, 7.2, 1.12, 1.2, 0.0, 2.5)
+    box("white", 7.12, 7.2, -1.12, 1.12, 0.0, 2.5)  # front wall
+    box("brand", 0.4, 7.0, -1.21, -1.2, 1.0, 1.6)  # livery band, outside only
+    box("brand", 0.4, 7.0, 1.2, 1.21, 1.0, 1.6)
+    box("black", 0.3, 9.3, -0.5, -0.38, YARD_Z + 0.55, -0.12)  # chassis rails
+    box("black", 0.3, 9.3, 0.38, 0.5, YARD_Z + 0.55, -0.12)
+    for sv in (-1.17, 1.07):  # side underrun bars between the axles
+        box("steel", 2.6, 4.9, sv, sv + 0.1, YARD_Z + 0.55, YARD_Z + 0.65)
+    box("frame", 7.3, 9.4, -1.15, 1.15, YARD_Z + 0.75, 1.75)  # cab: 3 m above the yard
+    box("glass", 9.4, 9.42, -1.02, 1.02, 0.75, 1.55)  # windscreen
+    for sv in (-1.16, 1.14):  # side windows
+        box("glass", 7.6, 8.9, sv, sv + 0.02, 0.85, 1.5)
+    box("black", 9.4, 9.43, -0.8, 0.8, YARD_Z + 0.95, YARD_Z + 1.55)  # grille
+    box("black", 9.35, 9.55, -1.2, 1.2, YARD_Z + 0.5, YARD_Z + 0.8)  # bumper
+    for sv in (-1.32, 1.22):  # mirrors
+        box("black", 9.2, 9.3, sv, sv + 0.1, 0.9, 1.3)
+    for u in (2.0, 5.5, 8.6):  # twin tyres on the rear axles, singles at the front
+        for sv in ((-0.95, -0.65, 0.65, 0.95) if u < 8 else (-0.95, 0.95)):
+            wheel(u, sv)
+    box("line_yellow", 0.0, 12.0, -1.75, -1.65, YARD_Z + 0.001, YARD_Z + 0.004)  # bay lines either side
+    box("line_yellow", 0.0, 12.0, 1.65, 1.75, YARD_Z + 0.001, YARD_Z + 0.004)
+    box("yellow", 0.25, 0.45, -1.0, -0.6, YARD_Z, YARD_Z + 0.12)  # wheel stops
+    box("yellow", 0.25, 0.45, 0.6, 1.0, YARD_Z, YARD_Z + 0.12)
+
+
 for d in DOORS:
     if d["id"] in LORRY_DOCKS:
-        cx, cy = d["centre"]
-        if d["wall"] == "W":  # backed up to the west wall, body 7 m, cab further out; hollow, open at the door
-            lorry_box["white"] += [mat_aabb(-7.2, cy - 1.2, -0.12, -0.15, cy + 1.2, 0.0),  # floor (dock level)
-                                   mat_aabb(-7.2, cy - 1.2, 2.5, -0.15, cy + 1.2, 2.6),  # roof
-                                   mat_aabb(-7.2, cy - 1.2, 0.0, -0.15, cy - 1.12, 2.5),  # side walls
-                                   mat_aabb(-7.2, cy + 1.12, 0.0, -0.15, cy + 1.2, 2.5),
-                                   mat_aabb(-7.2, cy - 1.12, 0.0, -7.12, cy + 1.12, 2.5)]  # front wall
-            lorry_box["brand"] += [mat_aabb(-7.0, cy - 1.21, 1.0, -0.4, cy - 1.2, 1.6),  # livery band, outside only
-                                   mat_aabb(-7.0, cy + 1.2, 1.0, -0.4, cy + 1.21, 1.6)]
-            lorry_box["frame"].append(mat_aabb(-9.4, cy - 1.15, YARD_Z + 0.5, -7.3, cy + 1.15, 1.6))
-            lorry_box["black"] += [mat_aabb(x - 0.5, cy - 1.25, YARD_Z, x + 0.5, cy + 1.25, YARD_Z + 1.0)
-                                   for x in (-8.6, -5.5, -2.0)]
-        else:
-            lorry_box["white"] += [mat_aabb(cx - 1.2, BD + 0.15, -0.12, cx + 1.2, BD + 7.2, 0.0),
-                                   mat_aabb(cx - 1.2, BD + 0.15, 2.5, cx + 1.2, BD + 7.2, 2.6),
-                                   mat_aabb(cx - 1.2, BD + 0.15, 0.0, cx - 1.12, BD + 7.2, 2.5),
-                                   mat_aabb(cx + 1.12, BD + 0.15, 0.0, cx + 1.2, BD + 7.2, 2.5),
-                                   mat_aabb(cx - 1.12, BD + 7.12, 0.0, cx + 1.12, BD + 7.2, 2.5)]
-            lorry_box["brand"] += [mat_aabb(cx - 1.21, BD + 0.4, 1.0, cx - 1.2, BD + 7.0, 1.6),
-                                   mat_aabb(cx + 1.2, BD + 0.4, 1.0, cx + 1.21, BD + 7.0, 1.6)]
-            lorry_box["frame"].append(mat_aabb(cx - 1.15, BD + 7.3, YARD_Z + 0.5, cx + 1.15, BD + 9.4, 1.6))
-            lorry_box["black"] += [mat_aabb(cx - 1.25, y - 0.5, YARD_Z, cx + 1.25, y + 0.5, YARD_Z + 1.0)
-                                   for y in (BD + 2.0, BD + 5.5, BD + 8.6)]
+        lorry(d)
+M["line_yellow"] = M["yellow"]
 boxes("lorries", lorry_box, C["Yard"])
+_wme = bpy.data.meshes.new("lorry_wheels")
+_wbm = bmesh.new()
+for (wx, wy, wz), ax in LORRY_WHEELS:
+    rot = Matrix.Rotation(math.pi / 2, 4, "Y" if ax == "X" else "X")
+    for r_, w_, mi in ((0.5, 0.3, 0), (0.28, 0.32, 1)):  # tyre, then the hub just proud of it
+        res = bmesh.ops.create_cone(_wbm, cap_ends=True, segments=24, radius1=r_, radius2=r_, depth=w_,
+                                    matrix=Matrix.Translation((wx, wy, wz)) @ rot)
+        for f in {f for v in res["verts"] for f in v.link_faces}:
+            f.material_index = mi
+_wbm.to_mesh(_wme)
+_wbm.free()
+for mt in ("black", "steel"):
+    _wme.materials.append(M[mt])
+C["Yard"].objects.link(bpy.data.objects.new("lorry_wheels", _wme))
 for d in DOORS:
     # D02 / D05 are being unloaded: their stacked parcel wall and the unloaders are built by stations.py (flow
     # stage), because the parcels the workers lift become flow parcels on the booms

@@ -810,6 +810,9 @@
   "why": "inside corner of the L-flow, behind 3 m sack racks (entrance gap at x 13.4–15.2 facing south); no camera is aimed here and the racks block oblique views",
   "used_by": "scenario 'removal into blind spot': last seen entering Z11 from Z10; Spoor must say 'no coverage'"
  },
+ "line_a": {
+  "layout": "b"
+ },
  "machines": {
   "loop": {
    "south_y": 11.0,
@@ -927,11 +930,11 @@
      ],
      [
       5.0,
-      10.85
+      12.25
      ],
      [
-      9.2,
-      10.85
+      13.0,
+      12.25
      ]
     ],
     "height": 1.0
@@ -984,6 +987,51 @@
      ]
     ],
     "height": 1.5
+   },
+   {
+    "id": "induction_B",
+    "kind": "belt",
+    "path": [
+     [
+      40.8,
+      7.6
+     ],
+     [
+      44.0,
+      7.6
+     ],
+     [
+      45.6,
+      9.2
+     ],
+     [
+      46.6,
+      11.0
+     ]
+    ],
+    "height": 1.0,
+    "heights": [
+     1.0,
+     1.0,
+     1.5,
+     1.5
+    ]
+   },
+   {
+    "id": "d02_stub",
+    "kind": "belt",
+    "path": [
+     [
+      5.0,
+      10.6
+     ],
+     [
+      5.0,
+      11.8
+     ]
+    ],
+    "height": 1.0,
+    "note": "D02's boom joins here and runs north into the feed corner (line A layout b)"
    }
   ],
   "chutes": [
@@ -1780,6 +1828,11 @@
    "id": "clkd_cam_18",
    "kind": "camera",
    "devices": "CAM_18"
+  },
+  {
+   "id": "clkd_cam_19",
+   "kind": "camera",
+   "devices": "CAM_19"
   }
  ],
  "scan_points": [
@@ -1798,6 +1851,10 @@
     {
      "camera": "CAM_01",
      "ppm": 109
+    },
+    {
+     "camera": "CAM_04",
+     "ppm": 72
     }
    ]
   },
@@ -1855,7 +1912,51 @@
     },
     {
      "camera": "CAM_04",
-     "ppm": 108
+     "ppm": 101
+    }
+   ]
+  },
+  {
+   "id": "SP-INDUCT-B",
+   "device_kind": "sorter_plc",
+   "zone": "Z05",
+   "position_m": [
+    42.0,
+    7.6,
+    1.1
+   ],
+   "clock_domain": "clkd_wcs",
+   "events": "inducted (photo-eye, line B)",
+   "visible_by": [
+    {
+     "camera": "CAM_07",
+     "ppm": 133
+    },
+    {
+     "camera": "CAM_18",
+     "ppm": 137
+    }
+   ]
+  },
+  {
+   "id": "SP-TUNNEL-B",
+   "device_kind": "tunnel",
+   "zone": "Z05",
+   "position_m": [
+    45.6,
+    9.2,
+    1.7
+   ],
+   "clock_domain": "clkd_wcs",
+   "events": "tunnel_read / tunnel_no_read on line B (DWS arch at the top of the ramp)",
+   "visible_by": [
+    {
+     "camera": "CAM_07",
+     "ppm": 128
+    },
+    {
+     "camera": "CAM_08",
+     "ppm": 174
     }
    ]
   },
@@ -1895,7 +1996,7 @@
    "visible_by": [
     {
      "camera": "CAM_04",
-     "ppm": 117
+     "ppm": 142
     }
    ]
   },
@@ -2175,7 +2276,7 @@
    "visible_by": [
     {
      "camera": "CAM_07",
-     "ppm": 67
+     "ppm": 64
     },
     {
      "camera": "CAM_10",
@@ -2197,7 +2298,7 @@
    "visible_by": [
     {
      "camera": "CAM_07",
-     "ppm": 67
+     "ppm": 63
     },
     {
      "camera": "CAM_10",
@@ -2219,7 +2320,7 @@
    "visible_by": [
     {
      "camera": "CAM_07",
-     "ppm": 66
+     "ppm": 63
     },
     {
      "camera": "CAM_10",
@@ -2245,7 +2346,7 @@
    "visible_by": [
     {
      "camera": "CAM_07",
-     "ppm": 66
+     "ppm": 63
     },
     {
      "camera": "CAM_10",
@@ -2271,7 +2372,7 @@
    "visible_by": [
     {
      "camera": "CAM_07",
-     "ppm": 66
+     "ppm": 62
     },
     {
      "camera": "CAM_10",
@@ -2300,6 +2401,10 @@
    "events": "container_add (parcel into bag)",
    "visible_by": [
     {
+     "camera": "CAM_07",
+     "ppm": 62
+    },
+    {
      "camera": "CAM_10",
      "ppm": 162
     },
@@ -2321,10 +2426,6 @@
    "clock_domain": "clkd_handheld",
    "events": "container_add (parcel into bag)",
    "visible_by": [
-    {
-     "camera": "CAM_07",
-     "ppm": 65
-    },
     {
      "camera": "CAM_10",
      "ppm": 155
@@ -2352,10 +2453,6 @@
    "events": "container_add (parcel into bag)",
    "visible_by": [
     {
-     "camera": "CAM_07",
-     "ppm": 64
-    },
-    {
      "camera": "CAM_10",
      "ppm": 152
     },
@@ -2381,10 +2478,6 @@
    "clock_domain": "clkd_handheld",
    "events": "container_add (parcel into bag)",
    "visible_by": [
-    {
-     "camera": "CAM_07",
-     "ppm": 64
-    },
     {
      "camera": "CAM_10",
      "ppm": 149
@@ -2412,10 +2505,6 @@
    "events": "container_add (parcel into bag)",
    "visible_by": [
     {
-     "camera": "CAM_07",
-     "ppm": 64
-    },
-    {
      "camera": "CAM_09",
      "ppm": 224
     },
@@ -2437,10 +2526,6 @@
    "clock_domain": "clkd_handheld",
    "events": "container_add (parcel into bag)",
    "visible_by": [
-    {
-     "camera": "CAM_07",
-     "ppm": 63
-    },
     {
      "camera": "CAM_09",
      "ppm": 257
@@ -2471,10 +2556,6 @@
    "clock_domain": "clkd_handheld",
    "events": "container_add (parcel into bag)",
    "visible_by": [
-    {
-     "camera": "CAM_07",
-     "ppm": 63
-    },
     {
      "camera": "CAM_09",
      "ppm": 301
@@ -2566,6 +2647,10 @@
     {
      "camera": "CAM_15",
      "ppm": 122
+    },
+    {
+     "camera": "CAM_19",
+     "ppm": 76
     }
    ]
   },
@@ -2588,6 +2673,10 @@
     {
      "camera": "CAM_16",
      "ppm": 67
+    },
+    {
+     "camera": "CAM_19",
+     "ppm": 69
     }
    ]
   },
@@ -2610,6 +2699,10 @@
     {
      "camera": "CAM_16",
      "ppm": 75
+    },
+    {
+     "camera": "CAM_19",
+     "ppm": 63
     }
    ]
   },
@@ -2694,6 +2787,10 @@
     {
      "camera": "CAM_15",
      "ppm": 110
+    },
+    {
+     "camera": "CAM_19",
+     "ppm": 69
     }
    ]
   },
@@ -2712,6 +2809,10 @@
     {
      "camera": "CAM_15",
      "ppm": 88
+    },
+    {
+     "camera": "CAM_19",
+     "ppm": 63
     }
    ]
   },
@@ -3008,8 +3109,8 @@
     3.0
    ],
    "height_m": 7.0,
-   "heading_deg": 160,
-   "tilt_down_deg": 50,
+   "heading_deg": 125,
+   "tilt_down_deg": 45,
    "hfov_deg": 103.0,
    "vfov_deg": 58.0,
    "resolution": [
@@ -3021,33 +3122,38 @@
    "duty_area_m": {
     "x": [
      5.6,
-     17.5
+     15.0
     ],
     "y": [
-     2.0,
-     12.5
+     8.8,
+     13.0
     ],
     "parcel_height_m": 1.0
    },
    "duty_covered_at_target": 0.96,
    "far_edge": {
     "point_m": [
-     5.9,
-     12.2
+     5.8,
+     12.9
     ],
-    "ppm": 75
+    "ppm": 71
    },
    "meets_target": true,
    "view_fractions": {
-    "floor": 0.643,
-    "wall": 0.292,
+    "floor": 0.771,
+    "wall": 0.027,
     "roof": 0.0,
-    "outside": 0.0,
-    "near_block": 0.036,
-    "object": 0.03,
-    "duty_fill": 0.417
+    "outside": 0.036,
+    "near_block": 0.074,
+    "object": 0.092,
+    "duty_fill": 0.057
    },
-   "view_constraint": null,
+   "view_constraint": {
+    "pose": {
+     "yaw": 125,
+     "tilt": 45
+    }
+   },
    "view_constraint_met": true,
    "clock_domain": "clkd_cam_04",
    "osd_label": "INDUCTION",
@@ -3194,8 +3300,8 @@
    "detail_target": "observe",
    "target_ppm": 62,
    "position_m": [
-    39.0,
-    5.0
+    42.8,
+    4.0
    ],
    "height_m": 8.5,
    "heading_deg": 95,
@@ -3219,23 +3325,23 @@
     ],
     "parcel_height_m": 1.7
    },
-   "duty_covered_at_target": 0.95,
+   "duty_covered_at_target": 0.85,
    "far_edge": {
     "point_m": [
      33.3,
      19.0
     ],
-    "ppm": 74
+    "ppm": 70
    },
-   "meets_target": true,
+   "meets_target": false,
    "view_fractions": {
-    "floor": 0.589,
-    "wall": 0.003,
+    "floor": 0.58,
+    "wall": 0.018,
     "roof": 0.0,
     "outside": 0.0,
-    "near_block": 0.027,
-    "object": 0.381,
-    "duty_fill": 0.488
+    "near_block": 0.003,
+    "object": 0.399,
+    "duty_fill": 0.423
    },
    "view_constraint": {
     "min_roof": 0.05
@@ -3954,6 +4060,74 @@
     "clock": "own offset and drift per camera — evaluator-only values in render_truth.yaml; Spoor must estimate them",
     "defect": "long view down the aisle: soft far end"
    }
+  },
+  {
+   "id": "CAM_19",
+   "zone": "Z10",
+   "question": "Who went into or came out of the exception store (the only way in or out of BLIND_NW)?",
+   "detail_target": "observe",
+   "target_ppm": 62,
+   "position_m": [
+    12.0,
+    29.0
+   ],
+   "height_m": 3.5,
+   "heading_deg": 65,
+   "tilt_down_deg": 30,
+   "hfov_deg": 103.0,
+   "vfov_deg": 58.0,
+   "resolution": [
+    2688,
+    1520
+   ],
+   "fps": 10,
+   "mount": "truss drop-pole",
+   "duty_area_m": {
+    "x": [
+     13.0,
+     20.0
+    ],
+    "y": [
+     30.8,
+     33.6
+    ],
+    "parcel_height_m": 1.0
+   },
+   "duty_covered_at_target": 0.99,
+   "far_edge": {
+    "point_m": [
+     19.8,
+     33.5
+    ],
+    "ppm": 139
+   },
+   "meets_target": true,
+   "view_fractions": {
+    "floor": 0.435,
+    "wall": 0.104,
+    "roof": 0.0,
+    "outside": 0.021,
+    "near_block": 0.39,
+    "object": 0.051,
+    "duty_fill": 0.292
+   },
+   "view_constraint": {
+    "pose": {
+     "yaw": 65,
+     "tilt": 30
+    }
+   },
+   "view_constraint_met": true,
+   "clock_domain": "clkd_cam_19",
+   "osd_label": "EXCEPTION STORE",
+   "realism": {
+    "codec": "H.265, ~2 Mbps at 2688 x 1520 / 15 fps (low bitrate: smeared static background), keyframe every 30 frames",
+    "noise": "sensor grain before encoding, stronger in dark corners; temporal denoise ghosting on moving people",
+    "lens": "mild barrel distortion + vignette + soft edges (2.8 mm wide lens); exact k1 per camera in render_truth.yaml",
+    "exposure": "fixed per camera",
+    "osd": "camera name + date/time burned in top-left, from the camera's OWN drifting clock",
+    "clock": "own offset and drift per camera — evaluator-only values in render_truth.yaml; Spoor must estimate them"
+   }
   }
  ],
  "assets": [
@@ -4643,12 +4817,30 @@
   },
   {
    "zone": "people",
-   "item": "Workers (crowd): 8 adults + 24 clips",
+   "item": "Workers: 11 adults (F01, F04, F06, F07, F09, F13, F17, M04, M05, M09, M12; only flat-shoed ones work the floor) + 24 clips",
    "source": "Microsoft Rocketbox avatars and animations",
    "url": "https://github.com/microsoft/Microsoft-Rocketbox",
    "licence": "MIT",
    "status": "found",
    "credit": "Microsoft (Rocketbox)"
+  },
+  {
+   "zone": "people",
+   "item": "Worker handling motion (reach / pick / carry / place), retargeted; per-file list in assets/mocap/sources.csv",
+   "source": "AndyData-lab-onePerson (Xsens BVH + action/posture labels)",
+   "url": "https://zenodo.org/records/3254403 (doi:10.5281/zenodo.3254403)",
+   "licence": "CC BY 4.0",
+   "status": "found",
+   "credit": "Maurice, Malaisé, Ivaldi, Rochel, Amiot, Paris, Richard, Fritzsche (2019)"
+  },
+  {
+   "zone": "people",
+   "item": "Worker walking / backward walk / idle, retargeted",
+   "source": "100STYLE (BVH, Neutral style)",
+   "url": "https://zenodo.org/records/8127870 (doi:10.1145/3522618)",
+   "licence": "CC BY 4.0",
+   "status": "found",
+   "credit": "Ian Mason, Sebastian Starke, Taku Komura (2022)"
   },
   {
    "zone": "signs",
@@ -5324,9 +5516,16 @@
        "camera": "CAM_01",
        "angle_off_normal_deg": 34,
        "dock_camera": true
+      },
+      {
+       "camera": "CAM_04",
+       "angle_off_normal_deg": 12,
+       "dock_camera": false
       }
      ],
-     "glare_risk": [],
+     "glare_risk": [
+      "CAM_04"
+     ],
      "pass": true
     },
     {
@@ -5336,9 +5535,16 @@
        "camera": "CAM_01",
        "angle_off_normal_deg": 50,
        "dock_camera": true
+      },
+      {
+       "camera": "CAM_04",
+       "angle_off_normal_deg": 23,
+       "dock_camera": false
       }
      ],
-     "glare_risk": [],
+     "glare_risk": [
+      "CAM_04"
+     ],
      "pass": true
     },
     {
@@ -5401,6 +5607,11 @@
        "camera": "CAM_15",
        "angle_off_normal_deg": 27,
        "dock_camera": true
+      },
+      {
+       "camera": "CAM_19",
+       "angle_off_normal_deg": 57,
+       "dock_camera": false
       }
      ],
      "glare_risk": [],
@@ -5413,6 +5624,11 @@
        "camera": "CAM_15",
        "angle_off_normal_deg": 44,
        "dock_camera": true
+      },
+      {
+       "camera": "CAM_19",
+       "angle_off_normal_deg": 62,
+       "dock_camera": false
       }
      ],
      "glare_risk": [],
@@ -5430,6 +5646,11 @@
        "camera": "CAM_16",
        "angle_off_normal_deg": 63,
        "dock_camera": true
+      },
+      {
+       "camera": "CAM_19",
+       "angle_off_normal_deg": 66,
+       "dock_camera": false
       }
      ],
      "glare_risk": [],
@@ -5447,6 +5668,11 @@
        "camera": "CAM_16",
        "angle_off_normal_deg": 56,
        "dock_camera": true
+      },
+      {
+       "camera": "CAM_19",
+       "angle_off_normal_deg": 69,
+       "dock_camera": false
       }
      ],
      "glare_risk": [],
@@ -5469,6 +5695,11 @@
        "camera": "CAM_16",
        "angle_off_normal_deg": 47,
        "dock_camera": true
+      },
+      {
+       "camera": "CAM_19",
+       "angle_off_normal_deg": 72,
+       "dock_camera": false
       }
      ],
      "glare_risk": [],
@@ -5500,12 +5731,17 @@
   },
   "blind_corner": {
    "pass": true,
-   "fraction_seen": 0.0,
+   "fraction_seen": 0.019,
    "approach_seen_by": [
-    "CAM_13"
+    "CAM_13",
+    "CAM_19"
    ]
   },
   "walkways_clear": {
+   "pass": true,
+   "conflicts": []
+  },
+  "stairs_clear": {
    "pass": true,
    "conflicts": []
   },
@@ -5755,7 +5991,7 @@
   },
   "advisory_forklift_lane_filmed": {
    "pass": true,
-   "fraction_seen": 0.98,
+   "fraction_seen": 0.96,
    "unseen_stretches_over_3m": []
   },
   "weigh_section_filmed": {
@@ -5790,7 +6026,8 @@
     "CAM_14",
     "CAM_15",
     "CAM_17",
-    "CAM_18"
+    "CAM_18",
+    "CAM_19"
    ],
    "note": "high-mounted cameras tilted down rarely see each other's mounts; tampering shows up instead as video loss / scene change, which the backend records as a coverage gap"
   }
@@ -5801,7 +6038,7 @@
    "observe": 1.0
   },
   "Z02": {
-   "detect": 0.9,
+   "detect": 0.91,
    "observe": 0.88
   },
   "Z03": {
@@ -5809,12 +6046,12 @@
    "observe": 0.97
   },
   "Z04": {
-   "detect": 0.86,
-   "observe": 0.78
+   "detect": 0.9,
+   "observe": 0.9
   },
   "Z05": {
-   "detect": 0.97,
-   "observe": 0.97
+   "detect": 0.98,
+   "observe": 0.98
   },
   "Z06": {
    "detect": 0.97,
@@ -5826,11 +6063,11 @@
   },
   "Z08": {
    "detect": 1.0,
-   "observe": 0.99
+   "observe": 1.0
   },
   "Z09": {
    "detect": 1.0,
-   "observe": 0.97
+   "observe": 0.74
   },
   "Z10": {
    "detect": 1.0,
@@ -5929,6 +6166,11 @@
   },
   {
    "where": "CAM_18 mount",
+   "kind": "advisory (tamper)",
+   "bridged_by": "video-loss / scene-change"
+  },
+  {
+   "where": "CAM_19 mount",
    "kind": "advisory (tamper)",
    "bridged_by": "video-loss / scene-change"
   }
@@ -6032,9 +6274,10 @@
    "scenario": "Removal into blind spot",
    "zones": "Z10→Z11 BLIND_NW",
    "evidence_cameras": [
-    "CAM_13"
+    "CAM_13",
+    "CAM_19"
    ],
-   "note": "CAM_13 films the approach; nothing inside"
+   "note": "CAM_13 films the cage, CAM_19 the store entrance (the only way in or out); nothing inside"
   },
   {
    "scenario": "Return-to-sender (re-induct with new label)",
@@ -6112,7 +6355,8 @@
      "CAM_09",
      "CAM_12",
      "CAM_17",
-     "CAM_18"
+     "CAM_18",
+     "CAM_19"
     ],
     "render": [
      "CAM_01",
@@ -6132,10 +6376,11 @@
      "CAM_15",
      "CAM_16",
      "CAM_17",
-     "CAM_18"
+     "CAM_18",
+     "CAM_19"
     ],
-    "camera_count": 18,
-    "frames": 5400,
+    "camera_count": 19,
+    "frames": 5700,
     "note": "rendered on all cameras"
    },
    {
@@ -6286,8 +6531,8 @@
      "CAM_06"
     ],
     "neighbours": [
-     "CAM_07",
      "CAM_01",
+     "CAM_07",
      "CAM_09"
     ],
     "render": [
@@ -6324,22 +6569,24 @@
    {
     "scenario": "Removal into blind spot",
     "cameras_in_play": [
-     "CAM_13"
+     "CAM_13",
+     "CAM_19"
     ],
     "neighbours": [
+     "CAM_15",
      "CAM_11",
-     "CAM_09",
-     "CAM_15"
+     "CAM_09"
     ],
     "render": [
      "CAM_09",
      "CAM_11",
      "CAM_13",
-     "CAM_15"
+     "CAM_15",
+     "CAM_19"
     ],
-    "camera_count": 4,
-    "frames": 1200,
-    "note": "CAM_13 films the approach; nothing inside"
+    "camera_count": 5,
+    "frames": 1500,
+    "note": "CAM_13 films the cage, CAM_19 the store entrance (the only way in or out); nothing inside"
    },
    {
     "scenario": "Return-to-sender (re-induct with new label)",
@@ -6352,7 +6599,7 @@
     "neighbours": [
      "CAM_03",
      "CAM_06",
-     "CAM_12"
+     "CAM_19"
     ],
     "render": [
      "CAM_01",
@@ -6361,7 +6608,7 @@
      "CAM_04",
      "CAM_05",
      "CAM_06",
-     "CAM_12"
+     "CAM_19"
     ],
     "camera_count": 7,
     "frames": 2100
@@ -6374,15 +6621,15 @@
     ],
     "neighbours": [
      "CAM_01",
-     "CAM_15",
-     "CAM_12"
+     "CAM_19",
+     "CAM_15"
     ],
     "render": [
      "CAM_01",
      "CAM_02",
      "CAM_03",
-     "CAM_12",
-     "CAM_15"
+     "CAM_15",
+     "CAM_19"
     ],
     "camera_count": 5,
     "frames": 1500
@@ -6397,14 +6644,14 @@
     "neighbours": [
      "CAM_11",
      "CAM_05",
-     "CAM_09"
+     "CAM_10"
     ],
     "render": [
      "CAM_05",
      "CAM_06",
      "CAM_07",
      "CAM_08",
-     "CAM_09",
+     "CAM_10",
      "CAM_11"
     ],
     "camera_count": 6,
@@ -6438,8 +6685,8 @@
     "frames": 2400
    }
   ],
-  "total_frames": 28500,
-  "all_cameras_every_scenario_would_be": 75600,
+  "total_frames": 29100,
+  "all_cameras_every_scenario_would_be": 79800,
   "timing": {
    "status": "MEASURED 2026-10-28 on the DRESSED hub (no animated workers / parcels yet: re-time once scenarios exist)",
    "machine": "laptop: Intel i7-1355U (15 W), Intel Iris Xe integrated GPU, 32 GB RAM; Blender 5.2.3 LTS",
@@ -6468,7 +6715,7 @@
     "settings": "EEVEE 2688 x 1520 (full resolution, owner rule), 8 samples, spot high-bays, shadows only from pools the camera sees within 22 m, 5 cm shadow texels, 2 shadow steps, max shadow pool, PNG write; ray tracing costs ~nothing here",
     "history": "timing-test slice 9.1 s; blockout 5.2 s; dressed (area lights, 16 spp) 11–16 s; spot lights at default 1 mm shadow texels 20–51 s; coarse shadows + 22 m cap 7.8–16.3 s"
    },
-   "hours_for_total": 74.4,
+   "hours_for_total": 76.0,
    "priority_batch": {
     "scenarios": "control path + no-read rework, phantom containment, mis-load, blind spot",
     "frames": 13500,

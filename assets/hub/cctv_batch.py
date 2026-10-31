@@ -11,8 +11,10 @@ Spoor's runtime never reads render_truth: only this render-side script does.
 """
 import argparse
 import json
+import os
 import subprocess
 import tempfile
+from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -32,6 +34,19 @@ def osd_time(cam_truth, t_s):
     return t.strftime("%Y-%m-%d %H:%M:%S")
 
 
+def _frame(job):
+    """One frame through lens / sensor / ISP / OSD. The noise is seeded per frame (same result in any process)."""
+    fp, f, t_s, seed, k1, hfov, cam, label, when, width = job
+    raw = cv2.imread(fp)
+    rng = np.random.default_rng([seed, f])
+    img = L.isp(L.sensor(L.lens(raw, k1, hfov), rng))
+    img = L.osd(img, cam, label, when, mark=True)
+    if width and img.shape[1] > width:
+        h = int(round(img.shape[0] * width / img.shape[1] / 2) * 2)
+        img = cv2.resize(img, (width, h), interpolation=cv2.INTER_AREA)
+    return img
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("frames")
@@ -44,6 +59,7 @@ def main():
     ap.add_argument("--seed", type=int, default=9)
     ap.add_argument("--t0-offset", type=float, default=0.0, help="scenario start relative to T0 (s)")
     ap.add_argument("--keep", action="store_true")
+    ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 4) - 4))
     a = ap.parse_args()
     truth = json.loads((HUB / "render_truth.json").read_text(encoding="utf-8"))["cameras"].get(a.cam, {})
     spec = json.loads((HUB / "hub_spec.json").read_text(encoding="utf-8"))
@@ -52,23 +68,24 @@ def main():
     files = sorted(Path(a.frames).glob("*.png"))
     if not files:
         raise SystemExit(f"no frames in {a.frames}")
-    rng = np.random.default_rng(a.seed + int(a.cam[-2:]))
-    with tempfile.TemporaryDirectory() as td:
-        for i, fp in enumerate(files):
-            raw = cv2.imread(str(fp))
-            f = a.first + i
-            t_s = a.t0_offset + (f - 1) / a.fps
-            img = L.isp(L.sensor(L.lens(raw, truth.get("lens_k1", -0.06), cam.get("hfov_deg", 103.0)), rng))
-            img = L.osd(img, a.cam, label, osd_time(truth, t_s), mark=True)
-            if a.width and img.shape[1] > a.width:
-                h = int(round(img.shape[0] * a.width / img.shape[1] / 2) * 2)
-                img = cv2.resize(img, (a.width, h), interpolation=cv2.INTER_AREA)
-            cv2.imwrite(str(Path(td) / f"{i:05d}.png"), img)
-        enc = ["-c:v", "libx265", "-crf", "30", "-x265-params", "keyint=30:log-level=error"] if a.codec == "h265" \
-            else ["-c:v", "libx264", "-crf", "24", "-g", "30"]
-        Path(a.out).parent.mkdir(parents=True, exist_ok=True)
-        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-framerate", str(a.fps), "-i", str(Path(td) / "%05d.png"),
-                        *enc, "-pix_fmt", "yuv420p", "-movflags", "+faststart", a.out], check=True)
+    k1, hfov = truth.get("lens_k1", -0.06), cam.get("hfov_deg", 103.0)
+    jobs = [(str(fp), a.first + i, a.t0_offset + (a.first + i - 1) / a.fps, a.seed + int(a.cam[-2:]), k1, hfov,
+             a.cam, label, osd_time(truth, a.t0_offset + (a.first + i - 1) / a.fps), a.width) for i, fp in enumerate(files)]
+    probe = _frame(jobs[0])
+    h, w = probe.shape[:2]
+    enc = ["-c:v", "libx265", "-preset", "fast", "-crf", "30", "-x265-params", "keyint=30:log-level=error"]         if a.codec == "h265" else ["-c:v", "libx264", "-crf", "24", "-g", "30"]
+    Path(a.out).parent.mkdir(parents=True, exist_ok=True)
+    # frames go straight into the encoder (raw BGR on stdin: no temp PNGs), processed in parallel, written in order
+    ff = subprocess.Popen(["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "bgr24",
+                           "-s", f"{w}x{h}", "-framerate", str(a.fps), "-i", "-", *enc, "-pix_fmt", "yuv420p",
+                           "-movflags", "+faststart", a.out], stdin=subprocess.PIPE)
+    ff.stdin.write(probe.tobytes())
+    with ProcessPoolExecutor(max_workers=max(1, min(a.workers, len(jobs) - 1))) as ex:
+        for img in ex.map(_frame, jobs[1:], chunksize=4):
+            ff.stdin.write(img.tobytes())
+    ff.stdin.close()
+    if ff.wait() != 0:
+        raise SystemExit(f"ffmpeg failed for {a.out}")
     print(json.dumps({"out": a.out, "frames": len(files), "cam": a.cam,
                       "osd_first": osd_time(truth, a.t0_offset), "codec": a.codec}))
 
