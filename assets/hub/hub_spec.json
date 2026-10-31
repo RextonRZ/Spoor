@@ -2597,6 +2597,19 @@
    ]
   },
   {
+   "id": "SP-STORE-IN",
+   "device_kind": "handheld",
+   "zone": "Z11",
+   "position_m": [
+    15.6,
+    32.85,
+    1.1
+   ],
+   "clock_domain": "clkd_handheld",
+   "events": "store_scan_in (parcel scanned into the exception store at its doorway; handheld in a cradle on the shelf by the door, sign 'IMBAS SETIAP PARSEL MASUK / SCAN EVERY PARCEL IN')",
+   "visible_by": []
+  },
+  {
    "id": "SP-CAGE-W",
    "device_kind": "handheld",
    "zone": "Z10",

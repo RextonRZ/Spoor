@@ -1722,8 +1722,10 @@ sign("sign_mesin", "DILARANG MASUK - ZON MESIN", (39.0, 6.2, 2.6), "-Y", 0.16, b
 sign("sign_kosong", "SANGKAR KOSONG", (20.0, 30.2, 2.6), "-Y", 0.18, board=(2.2, 0.4))
 # the exception store's doorway (BLIND_NW entrance gap x 13.4-15.2; review 019 #2, scenarios_v2 S2 #4: a lawful
 # reason to carry a parcel in there, readable in CAM_19): a header beam across the two rack ends, the sign under it
-# (1 cm short of each rack end: flush, its end faces z-fought the uprights' faces, mesh_hygiene 31 Oct)
-boxes("store_header", {"orange": [mat_aabb(13.36, 32.95, 2.92, 15.24, 33.05, 3.0)]}, C["Fixtures"])
+# (1 cm short of each rack end: flush, its end faces z-fought the uprights' faces, mesh_hygiene 31 Oct; its top 1 cm
+# under the uprights' tops: level with them, it z-fought both, mesh_hygiene run 7; 1 cm in from their front and back
+# faces: flush with them it z-fought both, run 8)
+boxes("store_header", {"orange": [mat_aabb(13.36, 32.96, 2.92, 15.24, 33.04, 2.99)]}, C["Fixtures"])
 sign("sign_stor", "STOR PENGECUALIAN", (14.3, 32.96, 2.72), "-Y", 0.13, board=(1.75, 0.40))  # bolted under the beam
 text("sign_stor_en", "EXCEPTION STORE", (14.3, 32.93, 2.57), FACE["-Y"], 0.09, "ink", C["Signs"])
 sign("sign_pejabat", "PEJABAT PENYELIA", (54.55, 3.0, 2.5), "-X", 0.13, board=(1.8, 0.3))

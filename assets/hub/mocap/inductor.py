@@ -392,8 +392,13 @@ def assemble(rig, segs, station, n_frames, fps, frame0=1, join_s=0.3):
     # the table to the belt in 2 frames (47 deg / frame, hub run 4). The heading is held to 220 deg/s (forward and
     # backward passes averaged: the turn spreads round the corner), each frame's pose turned about its hip centre;
     # the hands' IK works to the carton path, so they still meet it
-    yaw_h = np.unwrap(R.yaw_of(Dw[:, J["Hips"]]))
-    d_y = _rate_limit(yaw_h, times, math.radians(station.get("turn_max_dps", 220.0))) - yaw_h
+    # measured on the hip-joint line, as the motion gate does (the hips joint's own yaw held to 220 deg/s still gave
+    # 27.9 deg / frame on that line: the pelvis pitches and rolls in the reach); the feet locks and the solve on the
+    # avatar add ~25 % (200 deg/s here measured 24.8 deg / frame, run 8): 160 deg/s for the 22 deg / frame limit
+    # (Rexton 31 Oct)
+    hl_ = Pw[:, J["RightHip"]] - Pw[:, J["LeftHip"]]
+    yaw_h = np.unwrap(np.arctan2(hl_[:, 1], hl_[:, 0]))
+    d_y = _rate_limit(yaw_h, times, math.radians(station.get("turn_max_dps", 140.0))) - yaw_h
     hc = (Pw[:, J["LeftHip"]] + Pw[:, J["RightHip"]]) / 2
     for f in np.nonzero(np.abs(d_y) > 1e-6)[0]:
         Rz = R.rz(d_y[f])[0]
@@ -706,7 +711,15 @@ def build(rig, segs, station, parcels, n_frames, fps, frame0=1, name="inductor",
             ax = sol["Hw"][:, bi_["Bip01 R UpperArm"]] - sol["Hw"][:, bi_["Bip01 L UpperArm"]]  # (the shoulder line:
             # the clavicle heads are 1-2 cm apart, ill-conditioned - remover.py, 31 Oct)
         yaw = np.arctan2(ax[:, 1], ax[:, 0])
+        if not (one or pinch):  # two hands across it: the grip line has no sign (the palms crossed over at a clip
+            yaw = np.unwrap(2 * yaw) / 2  # join and flipped it: the carton turned 136 deg in one frame, run 7)
         yaw = np.unwrap(yaw)
+        # in the hands the carton turns / travels no faster than the body can carry it (Rexton 31 Oct, held-object
+        # jumps: 0.46 m and 136 deg in one frame at the pick-to-place join); the hands are IK'd onto it, so they follow
+        t_ = np.arange(F) / fps
+        yaw = _rate_limit(yaw, t_, math.radians(station.get("carry_turn_max_dps", 60.0)))  # (200: the hands IK'd to
+        # a carton turning 20 deg / frame lagged 5-7 cm, slips run 13)
+        mid = np.stack([_rate_limit(mid[:, i_], t_, station.get("carry_axis_max_mps", 1.0)) for i_ in range(3)], 1)
         # the carton sits square on the table (yaw snapped to the table's axes); in the hands it turns rigidly with
         # the hand axis, keeping that offset
         if "grip_axis_yaw" in station:  # snap to the table's axes, preferring the hands across this one (30 deg bias)
@@ -748,9 +761,11 @@ def build(rig, segs, station, parcels, n_frames, fps, frame0=1, name="inductor",
             ang = yaw[r_] - math.atan2(d2[1], d2[0])
             ea = 0.5 * (abs(w_ * math.cos(ang)) + abs(d_ * math.sin(ang)))
             el = 0.5 * (abs(w_ * math.sin(ang)) + abs(d_ * math.cos(ang)))
-            hw = station.get("induct_half_w", 0.25) - 0.02
+            hw = station.get("induct_half_w", 0.25) - 0.07  # (squared up by the guides after
+            # the set-down, its corners swept into them at -0.02: run 14)
             al, lt = _induct_zone(pl_[:2] - S_, S_, d2, n2, ea, el, hw, yaw[r_], w_, d_)
-            pl_[:2] = S_ + d2 * al + n2 * lt  # (_cut_start here and below: hub run 8, induct rows 29 -> 44: off)
+            pl_[:2] = S_ + d2 * (al + 0.12) + n2 * lt  # (_cut_start here and below: hub run 8, induct rows 29 -> 44:
+            # off; +5 cm along: at the zone's start its edge sat on the belt's end frame, run 11)
         else:
             pl_[0] = np.clip(pl_[0], station["place_x"][0], station["place_x"][1])
             ext = 0.5 * (abs(w_ * math.sin(yaw[r_])) + abs(d_ * math.cos(yaw[r_])))  # half extent across the belt
@@ -862,10 +877,10 @@ def build(rig, segs, station, parcels, n_frames, fps, frame0=1, name="inductor",
             ang = yaw[r_] - math.atan2(d2[1], d2[0])
             ea = 0.5 * (abs(w_ * math.cos(ang)) + abs(d_ * math.sin(ang)))
             el = 0.5 * (abs(w_ * math.sin(ang)) + abs(d_ * math.cos(ang)))
-            hw = station.get("induct_half_w", 0.25) - 0.04
+            hw = station.get("induct_half_w", 0.25) - 0.07
             al, lt = _induct_zone(loc[r_][:2] - S_, S_, d2, n2, ea, el, hw, yaw[r_], w_, d_)
             corr = np.zeros(3)
-            corr[:2] = S_ + d2 * al + n2 * lt - loc[r_][:2]
+            corr[:2] = S_ + d2 * (al + 0.12) + n2 * lt - loc[r_][:2]
             if np.linalg.norm(corr) > 1e-4:
                 for f in range(lf, r_ + 1):
                     loc[f] = loc[f] + corr * _smooth((f - lf) / max(1, r_ - lf))
@@ -944,6 +959,18 @@ def build(rig, segs, station, parcels, n_frames, fps, frame0=1, name="inductor",
             for (x0, y0, x1, y1, zt) in belts_:
                 if x0 - ext_ <= loc[f][0] <= x1 + ext_ and y0 - ext_ <= loc[f][1] <= y1 + ext_:
                     need_[f] = max(need_[f], zt + (0.028 if pinch else 0.003) - (loc[f][2] - h_ / 2))
+            for (gs, gd, a0, a1, o0, o1, gt) in station.get("guides", ()):  # over a side guide: clear of its top
+                gd_ = np.array(gd, float)
+                gn_ = np.array([-gd_[1], gd_[0]])
+                gc_ = np.array(gs, float) + gd_ * (a0 + a1) / 2 + gn_ * (o0 + o1) / 2
+                ga_, gh_ = (gd_, gn_), ((a1 - a0) / 2, abs(o1 - o0) / 2)
+                pa_ = (np.array([math.cos(yw[f]), math.sin(yw[f])]), np.array([-math.sin(yw[f]), math.cos(yw[f])]))
+                ph_ = (w_ / 2, d_ / 2)
+                dv_ = loc[f][:2] - gc_
+                sep_ = any(abs(dv_ @ ax_) > sum(h * abs(ax_ @ a) for h, a in zip(ph_, pa_)) + sum(h * abs(ax_ @ a) for h, a in zip(gh_, ga_))
+                           for ax_ in pa_ + ga_)  # (separating axis: both rectangles' own axes)
+                if not sep_:
+                    need_[f] = max(need_[f], gt + 0.005 - (loc[f][2] - h_ / 2))
         need_ = np.maximum(need_, 0.0)  # (far pinch: + 2.5 cm, its hooked fingertips are under it)
         if need_.any():
             k_ = np.exp(-0.5 * (np.arange(-3, 4) / 1.2) ** 2)
@@ -955,6 +982,12 @@ def build(rig, segs, station, parcels, n_frames, fps, frame0=1, name="inductor",
             tracks_dip = float(need_.max())
         else:
             tracks_dip = 0.0
+        # last: the corrections above (trunk clearance, gap holds, zone, the far pinch's straight-up rule, belt / guide
+        # clearance) each ramp in, together they still made a carton (and the hands IK'd to it) jump 0.29 m in a
+        # frame (a pinch, run 9): its held path, across, no faster than 1.2 m/s per axis
+        tg_ = np.arange(g, r_ + 1) / fps
+        for i_ in (0, 1):
+            loc[g:r_ + 1, i_] = _rate_limit(loc[g:r_ + 1, i_], tg_, 1.2)
         pl_ = loc[r_].copy()  # set down where it was released (on the belt, clear of the body)
         pl_[2] = station["belt_top"] + h_ / 2
         tracks[n] = dict(loc=loc, yaw=yw, pitch=pitch, state=state, grasp=g, release=r_, dims=(w_, d_, h_), one=one,

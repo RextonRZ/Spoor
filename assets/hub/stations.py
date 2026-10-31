@@ -28,11 +28,13 @@ import people as P
 UP = Vector((0, 0, 1))
 DOCKS = [dict(door="D02", cy=11.0, belt="boom_D02", seed=21), dict(door="D05", cy=23.0, belt="boom_D05", seed=55)]
 X_BACK, X_FACE, X_NOSE = -7.08, -1.60, -1.20  # lorry front wall (inside), wall face, boom nose (early unload)
-Y_HALF = 1.07  # inside half width of the body (walls at +-1.12)
+Y_HALF = 1.02  # the wall's end columns 10 cm in from the body's side walls (+-1.12): at 1.07 his fingers on an end
+# carton touched the side wall, run 17
 # 0.35 m from the face (reachable: 0.6 m put the cartons out of reach), 0.5 m off the boom's centre line; a carton
 # cleared from the wall is held toward the boom, over it, where there is room (between him and the face it pressed
 # into his chest: owner rule, review 009d)
-WORKER_X, WORKER_DY = -1.25, 0.50
+WORKER_X, WORKER_DY = -1.05, 0.62  # (0.55 at x -1.05: his arm by the boom's nose, run 17)  # (x -1.25: 0.35 m from the carton face, a 0.26 m carton held between them
+# touched the wall or his chest - pushed off one it went into the other, runs 12-16)  # (0.50: his hanging hand lay on the boom's side frame between cartons, run 13)
 BELT_START_X = -1.15
 PLACE_X = -0.98  # carton centre on the nose when set down
 # side +1 (north of the boom): feet face 205 deg (mostly at the wall, a little toward the boom), mirrored for -1
@@ -82,6 +84,10 @@ class Box:
     def depth_x(self):
         w, d, h = self.dims
         return d if abs(math.cos(self.yaw)) < 0.5 else w
+
+    def y_ext(self):
+        w, d, h = self.dims
+        return w if abs(math.cos(self.yaw)) < 0.5 else d
 
     def footprint(self, margin=0.0):
         """World xy corners of the base rectangle (grown by margin)."""
@@ -200,13 +206,16 @@ class Docks:
     READY_KEEP = None  # lines the empty hands wait behind (None: KEEP_OUT)
     # (world matrix, dims) boxes the arms keep clear of (elbow swivel, contact.Worker._chain): for the unloaders the
     # boom's nose sections beside them, x -1.2..1.4, +-0.33 m, up to the belt (forearms rested on its side frame)
-    STATIC_OBST = [(Matrix.Translation((0.1, d["cy"], 0.0)), (2.6, 0.66, 1.0)) for d in DOCKS]
+    STATIC_OBST = [(Matrix.Translation((-0.15, d["cy"], 0.0)), (3.1, 0.7, 1.02)) for d in DOCKS]  # (from x -1.7: the
+    # boom runs on into the lorry - from -1.2 their forearms lay on it there, 3-4 cm, run 11)
     TOP_GRIP = True  # wall cartons: taken by the top out of the slot, hands slide to the sides once it is clear
     # carried cartons keep their far edge on the open side of these lines (n . p >= off + half): the carton face
     # he unloads (QA: the turn swung cartons into the wall)
     KEEP_OUT = [(Vector((1.0, 0.0)), X_FACE + 0.05)]
     PULL_OUT, PULL_LIFT = 0.2, 0.035  # a wall carton slides straight out of its slot
     TURN_LIFT = 0.05  # carried a little higher mid-turn
+    RELEASE_UP = 0.08  # let go 8 cm over the belt (lowered onto it, the forearms under it went 3-4 cm into the boom,
+    # runs 9-12)
     HOLD_LIFTED = False
     STRAIGHT_PULL = True
 
@@ -231,6 +240,10 @@ class Docks:
             w.state, w.cur, w.start = "idle", None, -self.rnd.uniform(0.4, 2.3)  # mid-cycle at frame 1
             w.free_at = w.start
         self.start_t = min(w.start for w in self.workers)
+        # the lorry's side walls (1.1 m each side of the dock's centre line): a carton turned out of the north column
+        # swept 5-8 cm into the wall, run 11
+        self.KEEP_OUT = list(self.KEEP_OUT) + [ln for d in DOCKS for ln in ((Vector((0.0, -1.0)), -(d["cy"] + 1.08)),
+                                                                             (Vector((0.0, 1.0)), d["cy"] - 1.08))]
         self.lock = {d["belt"]: -1e9 for d in DOCKS}  # one unloader over the nose at a time
 
     # ------------------------------------------------------------------------------------------------ planning
@@ -328,20 +341,25 @@ class Docks:
                 box = w.slots.pop(0)
                 pk = Pick(box, w)
                 w_, d_, h_ = box.dims
+                pk.below_top = max([b.pos.z + b.dims[2] for b in w.slots  # the carton under it in its column
+                                    if b.pos.z < box.pos.z - 0.01 and abs(b.pos.y - box.pos.y) < 0.5 * (
+                                        b.y_ext() + box.y_ext()) - 0.01], default=None)
                 low = box.pos.z + h_ * 0.65 < 0.8
                 # weight (review 009d): a full carton moves slower than an empty-feeling one - volume as the proxy
                 heavy = 1.0 + 0.35 * min(w_ * d_ * h_ / 0.03, 1.0)
                 T_reach = rnd.uniform(1.0, 1.35) + (0.4 if low else 0.0)  # real unload: 4-6 s per carton
                 T_settle = rnd.uniform(0.25, 0.35)  # grip, and the small knee dip before the lift (anticipation)
                 T_pull = (rnd.uniform(0.35, 0.5) + (0.2 if low else 0.0)) * heavy
-                pk.T_turn = (rnd.uniform(0.9, 1.2) + (0.2 if low else 0.0)) * heavy
+                pk.T_turn = (rnd.uniform(0.9, 1.2) + (0.2 if low else 0.0)) * heavy * 1.7  # (wall to boom, ~180 deg: at
+                # 0.9-1.2 s the carton swung 30-35 deg and 0.25 m in a frame, held-object gate run 9)
                 pk.T_place = rnd.uniform(0.3, 0.4) * heavy
                 pk.T_ret = rnd.uniform(0.45, 0.6)
                 pk.t = dict(reach=t, settle=t + T_reach, pull=t + T_reach + T_settle,
                             hold=t + T_reach + T_settle + T_pull)
                 yaw_end = box.yaw + self._turn_angle(w, box)
                 hx = abs(math.cos(yaw_end)) * w_ / 2 + abs(math.sin(yaw_end)) * d_ / 2
-                x_c = max(PLACE_X + rnd.uniform(-0.04, 0.04), BELT_START_X + hx + 0.01)
+                x_c = max(PLACE_X + rnd.uniform(-0.04, 0.04), BELT_START_X + hx + 0.05)  # (clear of the nose's end
+                # frame: 1 cm from it, set-downs went 3-4 cm into it, run 12)
                 pk.s = x_c - BELT_START_X
                 pos = belt.at(pk.s)[0]
                 pk.place = (Vector((pos.x, w.dock["cy"], pos.z)), yaw_end)
@@ -437,9 +455,18 @@ class Docks:
             # then is held against the chest with its far face at the wall line (0.32 m from face to worker)
             high = box.pos.z + box.dims[2] > 1.6  # a top-row carton comes out only a little at face height,
             # then is lowered to the chest (slid 20 cm out up there it went into his face: QA held_clip_head)
-            p1 = box.pos + Vector((0.12 if high else self.PULL_OUT, 0.0, self.PULL_LIFT))
+            low = box.pos.z < 0.45  # a bottom-row carton comes up out of its slot first (the column above is gone by
+            # then): pulled 20 cm out at shin height it went 6 cm into his legs, run 9
+            p1 = box.pos + Vector((0.12 if high else (0.06 if low else self.PULL_OUT), 0.0, 0.3 if low else self.PULL_LIFT))
+            # (low: up 0.3 m before it comes out - at 0.15 it still met his forearm and thigh, 8 cm, run 15)
             hold = self._dock_hold(w, box, p1)
             hold.x = max(hold.x, X_FACE + 0.01 + box.depth_x() / 2)
+            ye_ = box.y_ext() / 2  # clear of the lorry's side walls (KEEP_OUT's side lines; at the chest a carton from
+            for n_, off in self.KEEP_OUT:  # the end column stood 4 cm into the wall, run 12)
+                if abs(n_.y) > 0.5:
+                    short = off + ye_ - n_.dot(hold.xy)
+                    if short > 0:
+                        hold += Vector((n_.x, n_.y, 0.0)) * short
         else:
             p1 = box.pos + Vector((out_dir.x, out_dir.y, 0)) * self.PULL_OUT + UP * self.PULL_LIFT
             p1.z = max(p1.z, getattr(pk, "lift_z", 0.0))
@@ -452,6 +479,10 @@ class Docks:
                 if short > 0:
                     hold += Vector((n_.x, n_.y, 0.0)) * short
         hold = self._hold_point(w, box, hold)
+        if self.STRAIGHT_PULL:  # never into the wall it came out of (last: the push off his body went into it)
+            hold.x = max(hold.x, X_FACE + 0.01 + box.depth_x() / 2)
+        hold = self._side_clear(box, hold)  # (after the push off his body: it pushed a carton back into the lorry's
+        # side wall, 4-11 cm, run 14)
         if getattr(self, "HEAP_PULL", False):  # held beside the heap, turned toward where it goes (over the heap the
             # chin-height cap put it back down inside the parcels it came out of: collision check)
             d0 = (box.pos - w.pos).xy
@@ -481,10 +512,11 @@ class Docks:
                 return Vector((lerp(box.pos.x, p1.x, uxy), lerp(box.pos.y, p1.y, uxy), lerp(box.pos.z, p1.z, uz))), box.yaw
             return box.pos.lerp(p1, u), box.yaw
         if t < T["turn"]:  # waiting with it at the chest (p1 -> hold over <= 0.45 s)
-            return self._to_hold(p1, hold, (t - T["hold"]) / 0.45), box.yaw
-        start = self._to_hold(p1, hold, (T["turn"] - T["hold"]) / 0.45)
+            return self._to_hold(p1, hold, (t - T["hold"]) / self._hold_s(p1, hold), pk), box.yaw
+        start = self._to_hold(p1, hold, (T["turn"] - T["hold"]) / self._hold_s(p1, hold), pk)
         place, yaw_end = pk.place
-        above = place + UP * 0.075
+        above = place + UP * (0.075 + self.RELEASE_UP)  # (down 7.5 cm to the let-go point, wherever that is: from
+        # 7.5 to 8 cm it hovered still in his hands, run 13)
         if t < T["place"]:
             u = C.smooth((t - T["turn"]) / (T["place"] - T["turn"]))
             piv = w.pos
@@ -493,8 +525,8 @@ class Docks:
             r0, r1 = (start - piv).xy.length, (above - piv).xy.length
             da = (a1 - a0 + math.pi) % (2 * math.pi) - math.pi
             ty0, ty1 = self._trunk_for(w, start, 1.0)[0], self._trunk_for(w, above, 1.0)[0]
-            if abs(ty1 - ty0) > 0.1 and da * (ty1 - ty0) < 0:  # turn the way the body turns (through the front)
-                da -= math.copysign(2 * math.pi, da)
+            # (the short way to the boom: "the way the body turns" sent cartons round behind him, through his
+            # forearms and back, 4-9 cm, runs 13-17 - an unloader turns the short way)
             if self.KEEP_OUT:  # ...unless that sweeps the carton through the wall he faces: then round the other side
                 hb = max(box.dims[0], box.dims[1]) / 2
 
@@ -504,7 +536,9 @@ class Docks:
                         uu = i / 12
                         aa = a0 + d_a * uu
                         q = piv.xy + Vector((math.cos(aa), math.sin(aa))) * lerp(r0, r1, uu)
-                        m = min([m] + [n_.dot(q) - off - hb for n_, off in self.KEEP_OUT])
+                        m = min([m] + [n_.dot(q) - off - hb for n_, off in self.KEEP_OUT
+                                       if abs(n_.x) > 0.5])  # (the wall face: the lorry's side lines are for the hold
+                        # - counted here they sent a carton the long way round, through his back, run 13)
                     return m
                 alt = da - math.copysign(2 * math.pi, da)
                 if worst(da) < -0.02 and worst(alt) > worst(da):
@@ -516,7 +550,8 @@ class Docks:
             dd = Vector((math.cos(a0 + da * u), math.sin(a0 + da * u)))
             cy_, sy_ = math.cos(box.yaw), math.sin(box.yaw)
             ext = abs(dd.x * cy_ + dd.y * sy_) * box.dims[0] / 2 + abs(-dd.x * sy_ + dd.y * cy_) * box.dims[1] / 2
-            r = r_lin + max(0.0, 0.28 + ext - r_lin) * math.sin(math.pi * u)  # (0.22: chest into it)
+            r = r_lin + max(0.0, 0.42 + ext - r_lin) * math.sin(math.pi * u)  # (0.22: chest into it; 0.28: his
+            # back / spine 9 cm into it going round behind him, run 13)
             d_ = Vector((math.cos(a), math.sin(a)))
             for n_, off in self.KEEP_OUT:  # ...but never out into the wall / the queue beside him
                 nd = n_.dot(d_)
@@ -526,9 +561,9 @@ class Docks:
             dy = (yaw_end - box.yaw + math.pi) % (2 * math.pi) - math.pi
             if abs(da) > math.pi and dy * da < 0:
                 dy += math.copysign(2 * math.pi, da)
-            return Vector((piv.x + r * math.cos(a), piv.y + r * math.sin(a), z)), box.yaw + dy * u
+            return self._side_clear(box, Vector((piv.x + r * math.cos(a), piv.y + r * math.sin(a), z))), box.yaw + dy * u
         u = C.smooth((t - T["place"]) / (T["release"] - T["place"]))
-        return above.lerp(place, u), yaw_end
+        return above.lerp(place + UP * self.RELEASE_UP, u), yaw_end
 
     def _hold_point(self, w, box, hold):
         """The carton's centre at least 0.2 m + its half size (toward him) from his root: never into his body (the
@@ -539,7 +574,8 @@ class Docks:
         u = d.normalized()
         c_, s_ = math.cos(box.yaw), math.sin(box.yaw)
         ext = abs(u.x * c_ + u.y * s_) * box.dims[0] / 2 + abs(-u.x * s_ + u.y * c_) * box.dims[1] / 2
-        need = 0.26 + ext  # (0.2: belly / chest 2-6 cm into the carton, collision check)
+        need = 0.34 + ext  # (0.2: belly / chest 2-6 cm into the carton, collision check; 0.26 / 0.32: leaning over
+        # it, his chest 3-9 cm into it, runs 12-15; he stands 0.2 m further from the wall since run 17)
         if d.length < need:
             hold = Vector((w.pos.x + u.x * need, w.pos.y + u.y * need, hold.z))
         return hold
@@ -557,17 +593,44 @@ class Docks:
         q.y = w.dock["cy"] + side * max(side * (q.y - w.dock["cy"]), 0.33 + ext_y)
         return Vector((q.x, q.y, hold.z))
 
-    def _to_hold(self, p1, hold, u):
+    def _side_clear(self, box, q):
+        """A carton's centre moved in off the lorry's side walls (the KEEP_OUT side lines, y only)."""
+        ye_ = max(box.dims[0], box.dims[1]) / 2  # (any yaw it turns through)
+        for n_, off in self.KEEP_OUT:
+            if abs(n_.y) > 0.5:
+                short = off + ye_ - n_.dot(q.xy)
+                if short > 0:
+                    q = q + Vector((n_.x, n_.y, 0.0)) * short
+        return q
+
+    @staticmethod
+    def _hold_s(p1, hold):
+        """Pull point -> chest: 0.45 s, longer for a big rise (a low carton came up 0.4 m in under 3 frames: 0.26 m in
+        one, held-object gate run 9), at most 0.6 m/s up."""
+        return max(0.45, abs(hold.z - p1.z) / 0.6 + 0.15)
+
+    def _to_hold(self, p1, hold, u, pk=None):
         """Pull point -> chest. A wall carton goes DOWN first, still out at the wall, then in at chest height (on
-        the straight diagonal a top-row carton crossed his face: 0.32 m from the face to him)."""
+        the straight diagonal a top-row carton crossed his face: 0.32 m from the face to him) - never down into the
+        carton under it in its column while it is still within 2 cm of the wall face (a top-row carton pulled only
+        12 cm out went 5 cm into the one below, D05 run 7)."""
         u = min(max(u, 0.0), 1.0)
+        floor_z = getattr(pk, "below_top", None) if pk is not None else None
         if getattr(self, "HEAP_PULL", False):  # across at the lifted height first (clear of the heap), then down
             uxy, uz = C.smooth(min(1.0, u * 1.6)), C.smooth(max(0.0, (u - 0.4) / 0.6))
             return Vector((lerp(p1.x, hold.x, uxy), lerp(p1.y, hold.y, uxy), lerp(p1.z, hold.z, uz)))
         if not self.STRAIGHT_PULL:
             return p1.lerp(hold, C.smooth(u))
         uz, uxy = C.smooth(min(1.0, u * 1.6)), C.smooth(max(0.0, (u - 0.35) / 0.65))
-        return Vector((lerp(p1.x, hold.x, uxy), lerp(p1.y, hold.y, uxy), lerp(p1.z, hold.z, uz)))
+        q = Vector((lerp(p1.x, hold.x, uxy), lerp(p1.y, hold.y, uxy), lerp(p1.z, hold.z, uz)))
+        if pk is not None and q.x + pk.box.depth_x() / 2 > BELT_START_X - 0.07 and \
+                abs(q.y - pk.worker.dock["cy"]) < 0.33 + pk.box.y_ext() / 2:
+            q.z = max(q.z, 1.03)  # over the boom's nose: above its belt (rising from a low slot it went 3 cm in, run 14)
+        if floor_z is not None:  # eased off the floor over the last 3 cm out (no step down)
+            out_ = q.x - pk.box.depth_x() / 2 - (X_FACE + 0.02)
+            q.z = max(q.z, (floor_z + 0.01) * (1.0 - C.smooth(min(1.0, max(0.0, out_ / 0.03)))) +
+                      q.z * C.smooth(min(1.0, max(0.0, out_ / 0.03))))
+        return q
 
     def pre_tracks(self):
         out = {}
@@ -685,7 +748,9 @@ class Docks:
         tl = self._toward_local(w, box)
         high = box.pos.z + box.dims[2] > 1.6  # above the shoulders palms can't go flat on top: grip the sides
         # high instead (the layer order keeps that carton's neighbours lower than it)
-        side = C.box_sockets(box.dims, tl, up_frac=0.25 if (self.TOP_GRIP and high) else 0.15)
+        side = C.box_sockets(box.dims, tl, up_frac=0.25 if (self.TOP_GRIP and high) else 0.45, front_frac=0.8,
+                             inset=-0.035)  # (0.72 / -0.022: at the chest the forearms crossed its near edges 3-7 cm,
+        # run 14)
         if not self.TOP_GRIP or high or t >= pk.t["hold"] + 0.45:
             return side
         top = C.box_sockets(box.dims, tl, top=True)
@@ -797,7 +862,7 @@ class Docks:
                     fingers = "flat" if u > 0.2 else None  # flat before the hand nears the face
                 wk.set_hands(f, tgt, fingers=fingers, obstacle=obst)
                 wk.set_look(f, look)
-            wk.auto_steps(frames)
+            wk.auto_steps(frames, step_s=0.8)  # (0.55 s pivots on top of the trunk turn: 23.8 deg/frame, run 11)
             wk.apply(frames)
             # hats / devices: fitted in rest pose and bone-bound (pose independent)
             if P._pending_props.get(w.name):
@@ -1319,10 +1384,16 @@ class CagePushers:
                     continue
                 cage, wheels, _ = cages[cname]
                 dist, prev = 0.0, None
+                loc1, h1 = wk.obj.get(f1, (wk.loc0, wk.heading0))
+                at_door = (Vector((loc1.x, loc1.y, 0.0)) + yaw_vec3(h1) * BEHIND).y > 38.0
                 for g in frames:
                     gg = min(max(g, f0), f1)
                     loc, h = wk.obj.get(gg, (wk.loc0, wk.heading0))
                     c = Vector((loc.x, loc.y, 0.0)) + yaw_vec3(h) * BEHIND
+                    if at_door and g > f1 + 2:  # let go at the door, it rolls on ~0.22 m and stops (as a cage does):
+                        # parked at arm's length, his turn-away step put a toe 10-11 cm into its base (run 7)
+                        u_ = min(1.0, (g - f1 - 2) / 8)
+                        c = c + yaw_vec3(h) * 0.22 * (1 - (1 - u_) ** 2)
                     r = h + math.pi / 2  # cage local -y (open front) leads
                     if prev is not None:
                         dist += (c - prev).length
@@ -1474,8 +1545,11 @@ def _hanging_bag(name, full=True, rnd=None):
     me = bpy.data.meshes.new(name)
     bm = bmesh.new()
     hx, hy = 0.47, 0.37
-    rings = [(RIM + 0.02, 1.0), (RIM - 0.08, 1.03), (0.62, 1.06 if full else 0.92), (0.32, 1.06 if full else 0.8),
-             (0.08, 0.96 if full else 0.62), (0.01 if full else 0.3, 0.8 if full else 0.45)]
+    rings = [(RIM + 0.02, 1.0), (RIM - 0.08, 1.03), (0.62, 1.06 if full else 1.0), (0.32, 1.06 if full else 1.0),
+             (0.08, 0.96 if full else 0.99), (0.01 if full else 0.03, 0.8 if full else 0.96)]  # (empty: straight down
+    # from the rim's rectangle - narrower below, a parcel landed 12 cm off centre went 8 cm into its wall, run 13)  # (empty: open down to
+    # a flat bottom on the floor - tapered to a 0.2 m cap at 0.3 m, a parcel dropped in stuck 8 cm through its walls,
+    # run 12)
     n = 24
     loops = []
     for k, (z, sc_) in enumerate(rings):
@@ -1485,7 +1559,8 @@ def _hanging_bag(name, full=True, rnd=None):
             cx, cy = math.cos(a), math.sin(a)
             r = 1.0 / max(abs(cx), abs(cy)) ** 0.85  # rounded rectangle
             lump = 1.0 + (0.03 * math.sin(5 * a + k) if 0 < k < len(rings) - 1 else 0.0)
-            loop.append(bm.verts.new((cx * r * hx * sc_ * lump, cy * r * hy * sc_ * lump,
+            sy_ = 1.0 if full or k < 2 else 0.8  # (empty: slack front to back - its calf met it, run 14)
+            loop.append(bm.verts.new((cx * r * hx * sc_ * lump, cy * r * hy * sc_ * sy_ * lump,
                                       z + (rnd.uniform(-0.015, 0.015) if 0 < k < len(rings) - 1 else 0.0))))
         loops.append(loop)
     for la, lb in zip(loops, loops[1:]):
@@ -1681,11 +1756,12 @@ class BagChange:
         T["unclip"] = t
         t += 0.6
         T["lift"] = t
-        t += 1.6  # down to the tied neck (the sack stands on the floor), then pull it forward under the front rail
+        t += 0.8  # down to the tied neck (the sack stands on the floor); then he walks back dragging it out under the
+        # front rail (standing at the frame and pulling it to him, its belly went 6.5 cm into his calves: run 7-9)
         # west of the XO-1 stair (its stringer stands at x 39.1 from y 19.6 to 23.2): out, up the aisle, to the cage,
         # dragging the sack behind (lifting a full sack over the 0.9 m rim needs it at 1.6 m; carried in front or at
         # the side it went through his legs: collision check)
-        self.carry_path = [(BAG_X, BAG_STAND_Y), (BAG_X + 0.2, 22.25), (38.75, 23.5), (BAG_CAGE.x, 26.3)]
+        self.carry_path = [(BAG_X, BAG_STAND_Y), (BAG_X + 0.2, 22.25), (38.75, 23.5), (BAG_CAGE.x, 26.15)]
         # the tied sack's neck when it sits on the sacks already in the cage, well in from the open front
         self.rest_neck = Vector((BAG_CAGE.x, BAG_CAGE.y + 0.05, 0.17 + 0.48 + 0.8))  # ON the lumpy sacks already
         # in the cage (0.7 sank it 9 cm into them: collision check)
@@ -1694,11 +1770,15 @@ class BagChange:
         T["at_cage"] = t
         t += 0.3
         T["place"] = t
-        t += 1.2
+        t += 0.9  # stood upright in front of its cage (staged for loading) and let go
         T["released"] = t
         t += 0.3
-        self.back_path = [(BAG_CAGE.x, 26.3), (38.75, 23.5), (BAG_X - 0.45, 22.15), (BAG_X - 0.62, 21.72)]
-        self.center_path = [(BAG_X - 0.62, 21.72), (BAG_X - 0.3, 21.72), (BAG_X - 0.02, BAG_STAND_Y)]
+        # (the spare is taken 8 cm further back from the frame: turning there his stepping foot went 3.6 cm into
+        # C08's sacks, run 7)
+        self.staged = None  # (neck, yaw) of the full sack stood at its cage
+        self.back_path = [(BAG_CAGE.x, 26.15), (BAG_CAGE.x + 0.65, 25.75), (BAG_CAGE.x + 0.4, 24.85), (38.75, 23.5),
+                          (BAG_X - 0.45, 22.15), (BAG_X - 0.62, 21.80)]  # (round the sack he left in front of him)
+        self.center_path = [(BAG_X - 0.62, 21.80), (BAG_X - 0.3, 21.77), (BAG_X - 0.02, BAG_STAND_Y)]
         T["walk_back"] = t
         t += L(self.back_path) / v
         T["at_spare"] = t
@@ -1718,7 +1798,9 @@ class BagChange:
         # then on to the next chute along (C08) to check how full its bag is: no 6 s of standing idle (review 006)
         # (he stands there to the window's end: at 21.72 his idle arm swing put the left forearm into C08's frame
         # rim, 30 rows in hub run 4; 12 cm further back)
-        self.next_path = [(BAG_X - 0.02, BAG_STAND_Y), (NEXT_BAG_X, 21.84)]
+        # a step back from the frame first, turning as he goes (turning on the spot his first step went 8.1 cm into
+        # the new bag, run 7)
+        self.next_path = [(BAG_X - 0.02, BAG_STAND_Y), (BAG_X - 0.15, BAG_STAND_Y + 0.4), (NEXT_BAG_X, 21.95)]
         T["walk_next"] = t
         T["at_next"] = t + L(self.next_path) / v
         self.T = T
@@ -1747,11 +1829,15 @@ class BagChange:
         for o in (full, new, tied, spare):
             bc.objects.link(o)
         full.location = new.location = frame_c
-        hook = Vector((BAG_X - 0.62, FRAME_Y1 - 0.08, 0.98))  # folded spare on the front-west post, chest high
+        hook = Vector((BAG_X - 0.72, FRAME_Y1 - 0.08, 0.98))  # folded spare on the front-west post, chest high (at -0.62
+        # his right arm went through it while he worked the rim clips, run 9)
         # (outside the post: 9 cm further in it touched his right arm at the frame - collision check):
         # taken from where the bagger stands, without bending over the frame
-        spare.location, spare.rotation_euler = hook, (math.pi / 2, 0, math.pi / 2)
-        f_lift, f_new = F(T["lift"]), F(T["to_rim"] + 0.3)
+        hook_o = hook - Vector((0.4, 0.0, 0.0))  # the folded bag hangs west of the hook (its mesh runs 0.4 m +x from
+        # its origin: from the hook point it hung back over the frame, where his right hand works the clips, run 12)
+        spare.location, spare.rotation_euler = hook_o, (math.pi / 2, 0, math.pi / 2)
+        f_lift, f_new = F(T["lift"]), F(T["to_rim"])  # (the folded spare becomes the hung bag as he reaches the rim:
+        # left floating in front of him for 0.3 s his hands went through it, run 9)
         _key_vis(full, {f for f in frames if f < f_lift}, frames)
         _key_vis(tied, {f for f in frames if f_lift <= f}, frames)
         _key_vis(new, {f for f in frames if f >= f_new}, frames)
@@ -1772,12 +1858,14 @@ class BagChange:
         wk.rig()
         legs = [(F(T["walk_in"]), BAGGER["approach"], 1.0), (F(T["walk_cage"]), self.carry_path, DRAG_RATE, 0.9, True),
                 (F(T["walk_back"]), self.back_path, 1.0, 0.7), (F(T["step_in"]), self.center_path, 0.8, 0.5),
-                (F(T["walk_next"]), self.next_path, 1.0)]
+                (F(T["walk_next"]), self.next_path, 1.0, 0.8)]
         spans = wk.walk(legs, frames)
         rep["legs"] = spans
         # carried / held objects: the tied sack follows the hands' authored pose (object first, hands on it)
-        rim_L = Vector((BAG_X - 0.17, FRAME_Y1 - 0.02, RIM + 0.045))  # either side of the front clip, palms ON the
-        rim_R = Vector((BAG_X + 0.17, FRAME_Y1 - 0.02, RIM + 0.045))  # rim tube and the lip over it (not in it)
+        rim_L = Vector((BAG_X - 0.17, FRAME_Y1 + 0.05, RIM + 0.12))  # either side of the front clip, palms ON the
+        rim_R = Vector((BAG_X + 0.17, FRAME_Y1 + 0.05, RIM + 0.12))  # rim tube's outer side, past the bag's lip
+        # folded over it (on top they went 2 cm into the lip, runs 7-9; at
+        # +4.5 cm the fingers were 1.8-2.4 cm into the full bag's lip and the frame, run 7)
         neck_rest = frame_c + Vector((0, 0.05, RIM + 0.15))  # neck of the full bag at the rim, centre
         tv = [v.co.copy() for v in tied.data.vertices]
 
@@ -1788,7 +1876,7 @@ class BagChange:
         pull_r = BAG_STAND_Y - pull_end.y
         # dragged in FRONT of him while he walks backwards (review 013: a one-handed carry of a full sack at the
         # side is not believable), both hands on the neck, the sack leaning toward him on its far bottom edge
-        DRAG_ANG, DRAG_R = 0.0, 0.55
+        DRAG_ANG, DRAG_R = 0.0, 0.75  # (0.55: the sack stood against his toes and calf at the cage, run 15)
         rail = [(Matrix.Translation((BAG_X, FRAME_Y1, RIM - 0.03)), (1.04, 0.06, 0.06))]  # the frame's front rail
         dropped, trail = None, None
         for f in frames:
@@ -1839,40 +1927,29 @@ class BagChange:
                 def local(ang, r):  # angle from his front toward his right
                     return Vector((loc.x, loc.y, 0.0)) + (fwd * math.cos(ang) + side_r * math.sin(ang)) * r
                 if t < T["at_cage"]:
-                    u = C.smooth(min(1.0, (t - T["walk_cage"]) / 0.6))
-                    nk = pull_end.lerp(local(DRAG_ANG, DRAG_R), u)  # in front of him as he backs away
-                    nk.z = neck_z(SACK_TILT)
+                    u = C.smooth(min(1.0, (t - T["walk_cage"]) / 1.0))
+                    nk = neck_floor.lerp(local(DRAG_ANG, DRAG_R), u)  # out from the frame as he backs away
+                    tl_ = SACK_TILT * u  # (leaning toward him as it comes, not snapped to it)
+                    nk.z = neck_z(tl_)
                     to_him = Vector((loc.x - nk.x, loc.y - nk.y, 0.0))
                     yaw_s = math.atan2(to_him.y, to_him.x)  # its top leans toward him
-                    sack = (nk, SACK_TILT, yaw_s)
+                    sack = (nk, tl_, yaw_s)
                     hands, fingers = ("grip", self._neck_hold(nk, h)), "flat"
                     flex = 0.45  # bent over the sack, both hands on its neck
                     look = nk + UP * 0.2 if (t - T["walk_cage"]) % 3.0 < 2.2 else Vector((loc.x, loc.y, 1.4)) - fwd
                     trail = (nk.copy(), yaw_s)
-                else:
+                else:  # at its cage: stood upright where it is, in front of the cage, staged for loading (lifted
+                    # over him into the cage - swung 180 deg round him, the cage behind - it touched his head, went
+                    # 7 cm into the cage's side bars and jumped 0.27-0.48 m a frame: runs 7-11)
                     u = C.smooth((t - T["place"]) / (T["released"] - T["place"])) if t > T["place"] else 0.0
-                    into = self.rest_neck  # ends exactly where it rests (it jumped 30 cm at the let-go)
-                    d_in = Vector((into.x - loc.x, into.y - loc.y))
-                    a_in = math.atan2(d_in.dot(side_r.xy), d_in.dot(fwd.xy))
-                    uh = C.smooth(max(0.0, (u - 0.3) / 0.7))  # up first, then across into the cage (low across,
-                    a_ = lerp(DRAG_ANG, a_in, uh)  # it went through the cage's front base: collision check)
-                    r_ = lerp(DRAG_R, d_in.length, uh)
-                    r_ = max(r_, lerp(r_, 0.72, math.sin(math.pi * uh)))  # well out round him (11 cm into his
-                    nk = local(a_, r_)  # head at 0.66 m with a 10 cm arc: held_clip_head)
-                    uz = C.smooth(min(1.0, u * 2.2))  # up early: over the cage's front edge and its load
-                    nk.z = lerp(neck_z(SACK_TILT), into.z, uz)  # a two-hand squat lift off the floor
-                    if u >= 1.0 - 1e-6:
-                        nk = into.copy()
-                    sack = (nk, 0.0, lerp(trail[1], h, u) if trail else h)
-                    hold = self._neck_hold(nk, h)
-                    if u < 0.4:  # the free (right) hand comes in from his side to help lift it in
-                        rest = wk.neutral_hands(f, "rest")
-                        k_ = C.smooth(u / 0.4)
-                        hold["R"] = (rest["R"][0].lerp(hold["R"][0], k_), hold["R"][1] if k_ > 0.5 else rest["R"][1])
-                    hands, fingers = ("grip", hold), "flat"
-                    flex = 0.08 + 0.12 * u  # arms do the reach; a deep lean put his face into the sack
-                    drop_ = 0.25 * (1.0 - C.smooth(min(1.0, u * 2.5)))  # squat for the lift, up as it rises
-                    look = into
+                    if self.staged is None:
+                        self.staged = (Vector((trail[0].x, trail[0].y, neck_z(0.0))), trail[1])
+                    nk = self.staged[0].copy()
+                    nk.z = neck_z(SACK_TILT * (1 - u))
+                    sack = (nk, SACK_TILT * (1 - u), self.staged[1])
+                    hands, fingers = ("grip", self._neck_hold(nk, h)), "flat"
+                    flex = 0.45 - 0.2 * u
+                    look = nk
                 neck = sack[0]
                 dropped = neck.copy()
             elif T["released"] <= t < T["walk_back"]:
@@ -1888,15 +1965,23 @@ class BagChange:
                     look = hook
                 elif t < T["step_in"]:
                     u = C.smooth((t - T["take_spare"]) / (T["step_in"] - T["take_spare"]))
-                    hands = ("blend", u, self._rim_hold(hook + Vector((0.0, 0.08, 0.2)),
-                                                        hook + Vector((0.12, -0.05, 0.2))))
+                    sp_c = hook_o + Vector((0.2, 0.0, 0.1))  # (its middle: it hangs west of the hook point; palms
+                    # 7 cm over its top - at 3 cm the fingertips went into it, run 15)
+                    hands = ("blend", u, self._rim_hold(sp_c + Vector((-0.06, 0.0, 0.0)), sp_c + Vector((0.06, 0.0, 0.0))))
                     flex = 0.15 * u
                     look = hook
                 elif t < T["to_rim"]:  # carrying the folded bag to the middle of the frame
-                    held = Vector((loc.x, loc.y, 0.98)) + yaw_vec3(-math.pi / 2) * 0.32
-                    spare.location = held - UP * 0.2
+                    held = Vector((loc.x, loc.y, 1.1)) + yaw_vec3(-math.pi / 2) * 0.42
+                    # the folded bag lies flat (0.4 x 0.5 x 0.06, its origin at a corner): centred on his hands, its top
+                    # just under the palms, 0.42 m out - chest high over the frame's rail (0.92) and clear of his thighs
+                    # and belly (it hung 13 cm under his hands at 0.75-0.81 m, over the rail and into his thigh: run 7);
+                    # off the hook over 0.3 s (it jumped 0.2 m)
+                    u_sp = C.smooth(min(1.0, (t - T["step_in"]) / 0.6))  # (0.3 s: 2.5 m/s off the hook, run 13)
+                    spare.location = hook_o.lerp(held + Vector((-0.2, 0.0, -0.06)), u_sp)
                     spare.keyframe_insert("location", frame=f)
-                    hands = ("grip", self._rim_hold(held + Vector((-0.06, 0, 0)), held + Vector((0.06, 0, 0))))
+                    sp_c = spare.location + Vector((0.2, 0.0, 0.1))  # his palms on it where it is (on the hook's
+                    # east end they met it as it came off, run 14)
+                    hands = ("grip", self._rim_hold(sp_c + Vector((-0.06, 0, 0)), sp_c + Vector((0.06, 0, 0))))
                     flex = 0.12
                     look = neck_rest
                 elif t < T["ready"]:
@@ -1912,18 +1997,18 @@ class BagChange:
                     look = frame_c + UP * 1.6 + Vector((0, -0.6, 0))  # a glance up at the stack light
             if t < T["step_in"] or t >= T["to_rim"]:  # the spare hangs on its hook until it is carried
                 if t < T["step_in"]:
-                    spare.location = hook
+                    spare.location = hook_o
                     spare.keyframe_insert("location", frame=f)
             if sack is not None:  # (location = neck, lean toward the puller about its own y, yaw)
                 tied.location, tied.rotation_euler = sack[0], (0.0, sack[1], sack[2])
                 tied.keyframe_insert("location", frame=f)
                 tied.keyframe_insert("rotation_euler", frame=f)
             elif dropped is not None and t >= T["released"]:
-                into = self.rest_neck
-                tied.location = into
+                tied.location = self.staged[0]
                 tied.keyframe_insert("location", frame=f)
             elif t < T["lift"]:
-                tied.location = neck_rest
+                tied.location = neck_floor  # (hidden till the lift; at the rim it showed there for a frame and
+                # jumped 0.42 m to the floor, run 11)
                 tied.keyframe_insert("location", frame=f)
             wk.set_trunk(f, yaw, flex, drop_)
             if hands is not None:  # the clip's own arms ramp onto the hold (no jump)
@@ -2245,7 +2330,8 @@ class MocapInductors:
     DIVERT_S = 0.6  # the next parcel is diverted 0.6 s after the lift (the bench: hands clear of the table head)
     CURTAIN_S = 0.3  # the induct belt starts once the hands are out of the light curtain: the engine found 0.3 s
     # clear in 36 of 37 bench set-downs; at step 3 it is handed this value (station curtain_s) and reports the rest
-    PLACE_S = 0.22  # set down 0.22 m along the induct belt (the bench's place point)
+    PLACE_S = 0.34  # set down 0.34 m along the induct belt (the engine's set-down, 12 cm further along since run 13:
+    # at 0.22 the release eased each carton back onto the belt's start frame, 4 cm, run 15)
     LOOK_S = 0.7  # the hands are over the belt from 0.7 s before the release (inductor.Planner gap control)
     MAX_WAIT_S = 1.5  # review 017 #3: nobody stands holding a box waiting; at most 1.5 s extra over the belt
     MOUTH_HALF = 0.30  # the mouth cut in the feed's frame: table 0.5 m + 5 cm each side. A parcel whose footprint
@@ -2310,8 +2396,8 @@ class MocapInductors:
                         continue
                     if ext_ > lim_:
                         continue  # wider than the table as it lies: rides on (the feed's guide squares it)
-                    if crossed:
-                        pos = feed.at(q.s - (pos.x - mx))[0]  # caught centred on the mouth
+                    # (crossed: kept where it is - snapped back onto the mouth it jumped up to 0.32 m in a frame,
+                    # run 12; the table's guides centre it, lat_to)
                     pos = pos + Vector((-math.sin(yaw), math.cos(yaw), 0.0)) * q.lat
                     feed.items.remove(q)
                     # its place in the queue stays taken while the paddle pushes it across (the next parcel moved up
@@ -2321,7 +2407,8 @@ class MocapInductors:
                     self.ghosts.append(g_)
                     p0, tyaw = tb.at(0.0)
                     q.belt, q.s = tb.name, max(0.0, p0.y - pos.y)
-                    q.lat, q.lat_to = -(pos.x - mx), 0.0  # (table runs -y: its left is -x) side guides centre it
+                    q.lat, q.lat_to = pos.x - mx, 0.0  # (the table runs -y: its left is +x - with -x the parcel was
+                    # mirrored across the mouth, up to 0.32 m in a frame, run 13) side guides centre it
                     q.yaw_off += yaw - tyaw
                     tb.items.append(q)
                     self.diverts.append((round(t, 2), st["k"], q.k))
@@ -3281,11 +3368,14 @@ class BlindRemoval:
                        0.0)
         self.T = {}
 
-    def history_events(self, ev, rnd, ride=None):
-        """The story parcel's earlier shift (before the window): read at the tunnel, sorted, then loose into the
-        S11 cage with a handheld container scan (a mis-sort put aside by the bagger). `ride(chute)`: flow's loop time
-        from the carrier load to the divert (the divert follows the load by exactly that)."""
+    def history_events(self, ev, rnd, ride=None, door=None):
+        """The story parcel's earlier shift (before the window): unloaded at the north door with a handheld scan, read
+        at the tunnel, sorted, then loose into the S11 cage with a handheld container scan (a mis-sort put aside by the
+        bagger). `ride(chute)`: flow's loop time from the carrier load to the divert (the divert follows the load by
+        exactly that). `door()`: flow's door-to-tunnel trip (a parcel cannot reach the tunnel without its unload scan:
+        checkpoint 1, Rexton 31 Oct)."""
         p, t0 = self.parcel, -1310.0 + rnd.uniform(-30, 30)
+        ev(t0 - (door() if door else 37.0), "unload_scan", parcel=p, scan_point="SP-IN-N", device="handheld", history=True)
         w, d, h = p.dims
         ev(t0, "tunnel_read", parcel=p, scan_point="SP-TUNNEL", dims_mm=[int(x * 1000 + rnd.gauss(0, 4)) for x in (w, d, h)],
            weight_g=int(rnd.uniform(800, 2600)), photo=f"tunnel_s2.png", history=True)
@@ -3488,8 +3578,9 @@ class PhantomContainment(Docks):
         T["walk_out"] = T["stand"] + 1.4
         self.T = T
 
-    def history_events(self, ev, rnd, ride=None):
+    def history_events(self, ev, rnd, ride=None, door=None):
         p, t0 = self.parcel, -415.0 + rnd.uniform(-20, 20)
+        ev(t0 - (door() if door else 37.0), "unload_scan", parcel=p, scan_point="SP-IN-N", device="handheld", history=True)
         w, d, h = p.dims
         ev(t0, "tunnel_read", parcel=p, scan_point="SP-TUNNEL", dims_mm=[int(x * 1000 + rnd.gauss(0, 4)) for x in (w, d, h)],
            weight_g=int(rnd.uniform(600, 2000)), photo="tunnel_s3.png", history=True)

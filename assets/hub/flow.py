@@ -110,6 +110,17 @@ def loop_ride_s(chute):
     S2's hard-coded 21.7 s was shorter than the 25.9 s the loop takes, a false 'records disagree')."""
     return ((CHUTE_S[chute] - S_MERGE) % L_LOOP) / V_LOOP
 
+
+def door_ride_s():
+    """North door (SP-IN-N unload scan, as the carton goes on the D05 boom) to the line A tunnel read: boom, collector,
+    feed and tables, as flow's own parcels take it (S2 logs, 31 Oct: 16 parcels 36.3-37.8 s, 433 in the long log from
+    36.3 s). Scenario histories time their unload scan from it, so checkpoint 1 is never skipped. Its own random source:
+    drawing from `rnd` would shift every later draw (cage ID, carriers, spawns) and change the whole run."""
+    return _DOOR_RND.uniform(36.3, 37.8)
+
+
+_DOOR_RND = random.Random(f"door-{args.seed}")
+
 # ------------------------------------------------------------------------------------------------ belts (surface by ray)
 dg = bpy.context.evaluated_depsgraph_get()
 BELT_OBJS = ("conveyors", "telescopic", "booms", "induction", "collector")  # never the tunnel housing roof
@@ -153,8 +164,15 @@ class Belt:
         self.sloped = max(q.z for q in self.pts) - min(q.z for q in self.pts) > 0.005
         self.items = []  # parcels on it, ordered from the end (index 0 = furthest along)
         self.entry = entry or {}  # name of feeding belt -> arc length where it joins this one
+        # its bends: a parcel turns over +-0.3 m round each one (snapped at the vertex, 0 -> 32 deg in a frame at the
+        # merge belt's bend, its corner swept through the inner rail: run 9)
+        self.bends, acc = [], 0.0
+        for (a0, b0, c0) in zip(pts, pts[1:], pts[2:]):
+            acc += math.dist(a0[:2], b0[:2])
+            y_in, y_out = math.atan2(b0[1] - a0[1], b0[0] - a0[0]), math.atan2(c0[1] - b0[1], c0[0] - b0[0])
+            self.bends.append((acc, y_in, y_in + (y_out - y_in + math.pi) % (2 * math.pi) - math.pi))
 
-    def at(self, s):
+    def at(self, s, turned=False):
         if s < 0.0:  # before the start (a boom ending short of the belt it feeds): along the first segment
             p0, yaw0 = self.at(0.0)
             return p0 + Vector((math.cos(yaw0), math.sin(yaw0), 0.0)) * s, yaw0
@@ -167,7 +185,11 @@ class Belt:
         t = (s - self.cum[lo]) / seg
         p = self.pts[lo].lerp(self.pts[hi], t)
         d = self.pts[hi] - self.pts[lo]
-        return p, math.atan2(d.y, d.x)
+        yaw = math.atan2(d.y, d.x)
+        for s_c, y_in, y_out in (self.bends if turned else ()):  # (its heading only: the lateral offset and every
+            if abs(s - s_c) < 0.3:                                  # handoff keep the belt's own direction)
+                yaw = y_in + (y_out - y_in) * (s - s_c + 0.3) / 0.6
+        return p, yaw
 
     def rest(self, s, half_len, n=9):
         """(z, pitch) of a rigid flat-bottomed parcel centred at s on a sloped belt: it rests on the edge of the
@@ -256,7 +278,9 @@ def _s_near(belt, xy):
 _SPB = {sp["id"]: sp["position_m"] for sp in SPEC["scan_points"]}
 # (loop s, scan point, wait margin: how far short of the loop the head parcel waits - clear of the parcels riding
 # the carriers; belt B comes in at 61 deg, so 0.45 m short was still inside their band: QA parcel_overlap)
-MERGES = {"merge": (S_MERGE, "SP-INDUCT", 1.37), "induction_B": (_CB["path"][-1][0] - WCX, "SP-INDUCT-B", 0.83)}
+MERGES = {"merge": (S_MERGE, "SP-INDUCT", 1.82), "induction_B": (_CB["path"][-1][0] - WCX, "SP-INDUCT-B", 0.83)}
+# (line A: 1.82 m - its belt stops where its corners clear the carriers' band; at 1.37 the waiting parcel hung 0.25 m
+# past that end, over nothing: pile gate, run 11)
 # (waiting fully outside the carriers' band: 0.45 m short, line A's head parcel sat over the passing carriers - the
 # merge belts now end at the band's edge, build_hub. Line A's merge timing moves by a fraction of a second)
 READS = {"tunnel": (22.2 - 17.5, "SP-TUNNEL"),  # exit read at x 22.2
@@ -403,6 +427,26 @@ def ev(t, kind, parcel=None, history=False, **kw):
         timespec="milliseconds"), event=kind, _p=parcel, **kw))
 
 
+# handheld scans carry the operator's login, masked (personal data: owner_ideas_0303) - one per station / person
+SCAN_USERS = {"SP-IN-N": "OP-***17", "SP-IN-N/s": "OP-***23", "SP-IN-S": "OP-***31", "SP-IN-S/s": "OP-***36",
+              "SP-BAG": "OP-***08", "SP-CAGE": "OP-***08", "SP-LOAD": "OP-***52", "SP-REWORK": "OP-***44",
+              "SP-STORE": "OP-***44", "SP-OVERSIZE": "OP-***61"}
+
+
+def scan_user(sp, who=""):
+    key = next((k for k in (f"{sp}/s" if who.endswith("_s") else "", sp) if k in SCAN_USERS), None)
+    return SCAN_USERS[key] if key else next((v for k, v in SCAN_USERS.items() if sp.startswith(k)), "OP-***00")
+
+
+def dws_fields(dims_mm, weight_g, dest):
+    """What a DWS record carries besides the read (Mettler-Toledo TLX / SICK DWS: weight, L x W x H, dimensional
+    weight = volume / dim factor; Pos Laju publishes 6000 cm3/kg), and the sort plan's destination."""
+    L_, W_, H_ = sorted((d / 10.0 for d in dims_mm), reverse=True)
+    return dict(weight_kg=round(weight_g / 1000, 3), length_cm=round(L_, 1), width_cm=round(W_, 1),
+                height_cm=round(H_, 1), dim_factor=6000, dim_weight_kg=round(L_ * W_ * H_ / 6000, 2),
+                destination_chute=dest)
+
+
 # ------------------------------------------------------------------------------------------------ station workers
 sys.path.insert(0, str(HUB))
 import people  # noqa: E402
@@ -460,6 +504,25 @@ LB = stations.GaylordInductors(dict(seed=args.seed, DT=DT, F0=F0, F1=F1, T_STOP=
                                     parcels=parcels, preroll=args.preroll))
 if "lineB" in UNSTAFF:  # line B's gaylords wait full; nobody inducts there (no line B traffic)
     LB.workers = []
+    # 021d2: full and waiting = the same parcels laid flat over the WHOLE gaylord, lowest spot first (the working
+    # heap fills only the near half, within reach, and grew into tall stacks that read as leaning)
+    _rl = random.Random(args.seed + 2121)
+    _gw, _gd, _gh = stations.GAYLORD
+    for _gc, _pl in zip(LB.gaylords, LB.piles.values()):
+        _laid = []
+        for _box, _p in sorted(_pl, key=lambda bp: -bp[0].dims[0] * bp[0].dims[1]):  # big ones first, at the bottom
+            _r = max(_box.dims[:2]) / 2 + 0.03
+            _best = None
+            for _ in range(80):
+                _c = stations.Box(_gc.x + _rl.uniform(-(_gw / 2 - _r), _gw / 2 - _r),
+                                  _gc.y + _rl.uniform(-(_gd / 2 - _r), _gd / 2 - _r), _gh, tuple(_box.dims),
+                                  _rl.choice((0.0, math.pi / 2)) + _rl.uniform(-0.15, 0.15))
+                _z = max([b.pos.z + b.dims[2] for b in _laid if b.overlaps_xy(_c)], default=_gh)
+                if _best is None or _z < _best[0] - 1e-6:
+                    _best = (_z, _c)
+            _box.pos, _box.yaw = _best[1].pos.copy(), _best[1].yaw
+            _box.pos.z = _best[0]
+            _laid.append(_box)
 rnd_B, rnd = rnd, _rnd_A
 occ = []  # loop occupancy per frame in the window (B2 pre-review #4 target 30-35 %)
 _bag_reset = [False]
@@ -490,13 +553,13 @@ if SCEN == "S3":  # phantom containment: the dropped parcel at C04 is scanned in
     _reg = next((r for r in REG.get("parcels", REG) if r.get("object") == "floor_spill_000"), None)
     if _reg:  # the same registered identity as the static parcel it replaces
         S3.parcel.forced_tile = _reg["tile"]
-    S3.history_events(ev, rnd, ride=loop_ride_s)
+    S3.history_events(ev, rnd, ride=loop_ride_s, door=door_ride_s)
     S3.scan_event(ev)
 S2 = None
 LOOK = []  # look-alikes that come down the collector like the S5 pair (agent_showcase_0925 #5)
 if SCEN == "S2":  # removal into the blind spot: the story parcel + its earlier shift history
     S2 = stations.BlindRemoval(dict(seed=args.seed, DT=DT, F0=F0, F1=F1, Parcel=Parcel, next_k=_next_k))
-    S2.history_events(ev, rnd, ride=loop_ride_s)
+    S2.history_events(ev, rnd, ride=loop_ride_s, door=door_ride_s)
     # a look-alike of the story carton (same size, kraft with a white label: another customer's parcel) riding line A,
     # the tunnel and the sorter in the window while the real one is in a person's hands by cage S11: the agent's
     # verifier must reject it (it would have had to cross the hub faster than anything can)
@@ -516,6 +579,32 @@ next_spawn = {"boom_D05": -args.preroll, "boom_D02": -args.preroll + 0.6}
 bag_fill = {cid: 0 for cid in CHUTES}
 landed = {cid: [] for cid in CHUTES}
 _dg_static = None
+_n_picks = [0]  # unload scans written for ST.picks[:n]
+
+
+_STATIC_BVH = []
+
+
+def static_hit(box, z, h):
+    """Its box (1 cm in, 5 mm up off what it stands on) inside a sack or a bag's static contents."""
+    from mathutils.bvhtree import BVHTree
+    if not _STATIC_BVH:
+        dg_ = bpy.context.evaluated_depsgraph_get()
+        for n_ in ("sacks_merged", "parcels_static_merged", "chutes", "reject_bin"):  # (+ the chutes' ends and the
+            # rework bin: one rested against the reject chute's end for 30 s, run 17)
+            o_ = sc.objects.get(n_)
+            if o_ is None:
+                continue
+            ev_ = o_.evaluated_get(dg_)
+            me_ = ev_.to_mesh()
+            M_ = ev_.matrix_world
+            _STATIC_BVH.append(BVHTree.FromPolygons([M_ @ v.co for v in me_.vertices], [tuple(q.vertices) for q in me_.polygons]))
+            ev_.to_mesh_clear()
+    fp_ = box.footprint(-0.01)
+    vs_ = [Vector((q.x, q.y, z + 0.005)) for q in fp_] + [Vector((q.x, q.y, z + h)) for q in fp_]
+    fs_ = [(0, 1, 2, 3), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)]
+    bx_ = BVHTree.FromPolygons(vs_, fs_)
+    return any(bx_.overlap(t_) for t_ in _STATIC_BVH)
 
 
 def support_z(box, top=1.6):
@@ -587,6 +676,8 @@ for step in range(steps + 1):
             B[bn].items.append(p)
             parcels.append(p)
             next_spawn[bn] = t + rnd.expovariate(rate) + 0.25
+            sp_u = "SP-IN-N" if bn == "boom_D05" else "SP-IN-S"  # unload scan (ring scanner) as it goes on the boom
+            ev(t, "unload_scan", parcel=p, scan_point=sp_u, device="handheld", scanner_user=scan_user(sp_u))
     if os.environ.get("FLOW_DEBUG_K") and step % 5 == 0:  # trace parcels (debugging only): FLOW_DEBUG_K=12,13
         for q in parcels:
             if q.k in {int(x) for x in os.environ["FLOW_DEBUG_K"].split(",")}:
@@ -687,9 +778,10 @@ for step in range(steps + 1):
                     kg = max(0.08, vol * rr.uniform(90, 260)) if p.meta["kind"] == "box" else rr.uniform(0.1, 1.2)
                     p.meta["weight_g"] = int(kg * 1000)
                     if p.read:
-                        ev(t, "tunnel_read", parcel=p, scan_point=sp_id,
-                           dims_mm=[int(x * 1000 + rr.gauss(0, 4)) for x in (w, d, h)],
-                           weight_g=int(kg * 1000 * rr.uniform(0.98, 1.02)), photo=f"tunnel_{p.k:03d}.png")
+                        dmm_ = [int(x * 1000 + rr.gauss(0, 4)) for x in (w, d, h)]
+                        wg_ = int(kg * 1000 * rr.uniform(0.98, 1.02))
+                        ev(t, "tunnel_read", parcel=p, scan_point=sp_id, dims_mm=dmm_, weight_g=wg_,
+                           photo=f"tunnel_{p.k:03d}.png", **dws_fields(dmm_, wg_, p.target))
                     else:
                         ev(t, "tunnel_no_read", scan_point=sp_id,
                            dims_mm=[int(x * 1000 + rr.gauss(0, 4)) for x in (w, d, h)],
@@ -701,7 +793,7 @@ for step in range(steps + 1):
     for p in B["feed"].items + B["collector"].items + [q for k_ in LA_LINE + (["d02_stub"] if LINE_A_B else [])
                                                          if k_.startswith(("table", "d02")) for q in B[k_].items]:
         if getattr(p, "lat_to", None) is not None and not getattr(p, "frozen", False):
-            p.lat += (p.lat_to - p.lat) * 0.25
+            p.lat += max(-0.1, min(0.1, (p.lat_to - p.lat) * 0.25))  # (the paddle pushed up to 3.2 m/s, run 11)
             if p.belt.startswith("table") or (LINE_A_B and p.belt == "feed"):  # the side guides square it up (the
                 # grip wants it square; yawed, it did not fit between the tables' guides: collision check)
                 p.yaw_off += (round(p.yaw_off / (math.pi / 2)) * (math.pi / 2) - p.yaw_off) * 0.3
@@ -709,6 +801,11 @@ for step in range(steps + 1):
         p.lat = 0.0
     # 2b. unloaders (docks) and inductors (feed queue, stopped parcels only)
     ST.step(t)
+    for pk_ in ST.picks[_n_picks[0]:]:  # each carton the unloaders set on the boom: its unload scan (ring scanner)
+        sp_u = "SP-IN-N" if pk_.worker.dock["belt"] == "boom_D05" else "SP-IN-S"
+        ev(pk_.t_rel, "unload_scan", parcel=pk_.parcel, scan_point=sp_u, device="handheld",
+           scanner_user=scan_user(sp_u, getattr(pk_.worker, "name", "")))
+    _n_picks[0] = len(ST.picks)
     OPEN.step(t)
     LB.step(t)
     if LINE_A_B:
@@ -784,7 +881,7 @@ for step in range(steps + 1):
                 # (the sack's interior, not the whole frame: wider put parcels into the sack walls)
                 base = 0.55
             best = None
-            for _ in range(16):  # where it comes to rest lowest, on top of the parcels already in (QA parcel_overlap)
+            for _ in range(32):  # where it comes to rest lowest, on top of the parcels already in (QA parcel_overlap)
                 cand = stations.Box(*spot(), base, tuple(p.dims), yaw_l)
                 fp_ = cand.footprint()
                 under = c.get("end_y") and min(q.y for q in fp_) < c["end_y"] + 0.03
@@ -795,8 +892,9 @@ for step in range(steps + 1):
                         + [support_z(cand, 1.4)], default=base)  # from above any heap (it started at the
                 # rim, inside heaped static contents: 10 cm deep); chutes / frames over the bag are seen through
                 lim_ = c["lip_z"] - (0.02 if p.target == "REJECT" else 0.06)
-                if wall or (under and z + p.dims[2] > lim_):  # into the sack wall / against the
-                    z += 10.0  # chute's end over the bag (collision check) - only if nothing else is free
+                if wall or (under and z + p.dims[2] > lim_) or static_hit(cand, z, p.dims[2]):  # into the sack
+                    z += 10.0  # wall / against the chute's end / into the bag's static contents beside it - only if
+                    # nothing else is free (run 16: one rested inside C09's static contents, one in C03's sack wall)
                 if best is None or z < best[0] - 1e-6:
                     best = (z, cand)
             best[1].pos.z = best[0] if best[0] < 5.0 else best[0] - 10.0
@@ -819,24 +917,40 @@ for step in range(steps + 1):
             lat_c = math.copysign(min(abs(lat_c), 0.45 - p.half), lat_c)  # clear of the chute's side walls
             # 2 cm above the chute surface: the parcel slides flat on a ~22 deg slope, its corners dug 1.2-1.4 cm in
             top = Vector((c["x"] + lat_c * 0.8, c["mouth_y"] + 0.15, DECK - 0.03))
-            end = Vector((c["x"] + lat_c, c["end_y"] - 0.05, c["lip_z"] + 0.04))
+            end = Vector((c["x"] + lat_c, c["end_y"] - 0.05, c["lip_z"] + 0.07))  # (+4 cm: flattening off the end
+            # its back edge dipped 1-7 cm into the lip, ~30 one-frame rows run 14)
             # it slides on, pitched with the slope, until its back edge is past the chute's end; only then flat and
             # down into the bag (flattened on the chute it dug its corners into the end lip, 1-2.5 cm; going down
             # diagonally from the end its back edge cut the lip, 8.8 cm: hub run 4)
             sl_ = end - top
             dy_e = p.half * 0.9 + 0.05
             end = end + Vector((sl_.x / sl_.y * dy_e, dy_e, sl_.z / sl_.y * dy_e))
-            sliding[p.target] = (t + 0.3 + (end - top).length / 1.4 + 0.35, lat_c)
-            p.anim = [(t, Vector((x0, y0, DECK)), math.pi), (t + 0.3, top, math.pi + 0.3),
-                      (t + 0.3 + (end - top).length / 1.4, end, math.pi + 0.5),
-                      (t + 0.3 + (end - top).length / 1.4 + 0.35, land, yaw_l)]
+            end.z = max(end.z, c["lip_z"] + 0.05)  # (extended down the slope past the end it came back to the lip's
+            # height: its back edge 1-5 cm into the lip, ~20 one-frame rows run 15)
+            t_fall = max(0.35, math.sqrt(2 * max(0.0, end.z - 0.05) / 9.81))  # (a 1 m fall into an empty bag takes 0.45 s)
+            RUN_OFF = 0.4  # s, carrier -> chute top (0.3: 2.5 m/s, over the belts' speed: conveyed gate, run 9)
+            sliding[p.target] = (t + RUN_OFF + (end - top).length / 1.4 + t_fall, lat_c)
+            p.slide_from = top  # (the slide down the chute: pitched with it, wherever it sits in p.anim)
+            p.anim = [(t, Vector((x0, y0, DECK)), math.pi), (t + RUN_OFF, top, math.pi + 0.3),
+                      (t + RUN_OFF + (end - top).length / 1.4, end, math.pi + 0.5),
+                      (t + RUN_OFF + (end - top).length / 1.4 + t_fall, land, yaw_l)]
+            if p.target != "REJECT":  # off the chute end into the bag: over what is under its path, then down (the
+                # straight drop cut the crest of C05's heaped static contents into a hollow: 7.6 cm, run 9)
+                qs_ = [end.lerp(land, k_ / 9) for k_ in range(1, 9)]
+                sups_ = [support_z(stations.Box(q_.x, q_.y, 0.0, tuple(p.dims), yaw_l), 1.4) for q_ in qs_]
+                if any(su_ > q_.z - 0.005 for su_, q_ in zip(sups_, qs_)):
+                    zc_ = max(end.z, max(sups_) + 0.025)
+                    t_e, t_l = p.anim[-2][0], p.anim[-1][0]
+                    p.anim[-1:-1] = [(t_e + 0.1, Vector((end.x, end.y, max(end.z, zc_))), math.pi + 0.5),
+                                     (t_e + 0.22, Vector((land.x, land.y, zc_)), yaw_l)]
+                    p.anim[-1] = (t_l, land, yaw_l)
             # run off the carrier flat at deck height (a cross-belt carrier's belt drives it off sideways), down only
             # once its back edge is past the carrier's (850 mm across: north_y + 0.425); dropping from the start put
             # its bottom 1.7 cm into the carrier edge for a frame (hub run 4: ~25 rows)
             y_off = LOOP["north_y"] + 0.425 + p.half + 0.01
             if y0 < y_off < top.y:
                 u_ = (y_off - y0) / (top.y - y0)
-                p.anim.insert(1, (t + 0.3 * u_, Vector((x0 + (top.x - x0) * u_, y_off, DECK)), math.pi + 0.3 * u_))
+                p.anim.insert(1, (t + RUN_OFF * u_, Vector((x0 + (top.x - x0) * u_, y_off, DECK)), math.pi + 0.3 * u_))
             ev(t, "divert_confirm", parcel=p if p.read else None, scan_point=f"SP-DIV-{p.target}", carrier=k + 1,
                chute=p.target)
             if S1 is not None and p is S1.story and S1.T is None:  # it lands in the rework bin: plan the rework
@@ -861,9 +975,9 @@ for step in range(steps + 1):
                     hl = (p.dims[0] * abs(math.cos(p.yaw_off)) + p.dims[1] * abs(math.sin(p.yaw_off))) / 2
                     z_, pitch = bel.rest(p.s, hl)
                     pos.z = z_
-                    p.track[f] = (pos.copy(), yaw + p.yaw_off, (pitch, yaw))
+                    p.track[f] = (pos.copy(), bel.at(p.s, True)[1] + p.yaw_off, (pitch, yaw))
                 else:
-                    p.track[f] = (pos.copy(), yaw + p.yaw_off)
+                    p.track[f] = (pos.copy(), bel.at(p.s, True)[1] + p.yaw_off)
             elif p.state == "carrier":
                 x, y, hd = loop_at(car_s0[p.car] + V_LOOP * t)
                 p.track[f] = (Vector((x, y, DECK)), hd + math.pi / 2 + p.yaw_off * 0.5)
@@ -877,7 +991,7 @@ for step in range(steps + 1):
                     for i_, ((ta, pa, ya), (tb, pb, yb)) in enumerate(zip(kf, kf[1:])):
                         if ta <= t <= tb:
                             u = (t - ta) / max(tb - ta, 1e-6)
-                            if i_ == len(kf) - 3:  # sliding down the chute (top -> end): flat on its slope (yaw
+                            if pa is getattr(p, "slide_from", None):  # sliding down the chute (top -> end): flat on its slope (yaw
                                 # only dug its corners in); the segment before it may be the run-off the carrier
                                 pitch = math.atan2(pb.z - pa.z, (pb - pa).xy.length)
                                 p.track[f] = (pa.lerp(pb, u), ya + (yb - ya) * u,
@@ -1000,6 +1114,12 @@ else:  # M5 step 3: the inductors on mocap; the engine owns each parcel from the
         dres = dyaw - dyaw_k  # quarter turn) and centre it once it runs: 6 frames after the belt starts
         if info["belt"].startswith("boom"):  # a boom has no guides: the engine's yaw is kept while on it (eased
             dyaw_k, dres = 0.0, dyaw  # out with the offset after it)
+        if info["belt"].startswith("induct"):  # squared with its long side ALONG the belt (across, a long carton
+            q_ = int(round(dyaw_k / (math.pi / 2))) % 2  # over-hung the 0.5 m belt's guides 2-5 cm, runs 13-17)
+            across, other = (p.dims[0], p.dims[1]) if q_ else (p.dims[1], p.dims[0])
+            if across / 2 > 0.24 and other < across:
+                step_ = math.copysign(math.pi / 2, dres if abs(dres) > 1e-6 else 1.0)
+                dyaw_k, dres = dyaw_k + step_, dres - step_
         off.z = 0.0
         _off_max = max(_off_max, off.length)
         _bd = B[info["belt"]].pts[-1] - B[info["belt"]].pts[0]
@@ -1350,8 +1470,8 @@ _HH, _WCS = _RT["handheld_fleet"], _RT["wcs"]
 
 def _domain(e):
     sp = e.get("scan_point") or ""
-    return "clkd_handheld" if sp.startswith(("SP-BAG", "SP-CAGE", "SP-IN-", "SP-REWORK", "SP-OVERSIZE", "SP-LOAD")) \
-        else "clkd_wcs"
+    return "clkd_handheld" if sp.startswith(("SP-BAG", "SP-CAGE", "SP-IN-", "SP-REWORK", "SP-OVERSIZE", "SP-LOAD",
+                                             "SP-STORE")) else "clkd_wcs"
 
 
 with open(BUILD / "sim" / f"events_scan_simulated{SUFFIX}.jsonl", "w", encoding="utf-8") as fh, \
@@ -1361,6 +1481,11 @@ with open(BUILD / "sim" / f"events_scan_simulated{SUFFIX}.jsonl", "w", encoding=
         if q is not None and q.ob is None:
             continue  # its parcel was never materialised (pre-roll only)
         e["parcel_id"] = q.meta.get("parcel_id") if q is not None else None
+        if e["event"] == "tunnel_read":
+            e["barcode"] = e["parcel_id"]  # the waybill barcode the tunnel decoded
+            if "weight_kg" not in e and e.get("dims_mm") and e.get("weight_g"):  # a scenario's history read (S2's
+                # story parcel, stations.py) carries the same DWS record as the sorter loop's
+                e.update(dws_fields(e["dims_mm"], e["weight_g"], q.target if q is not None else None))
         e.pop("device", None)
         t_true = e.pop("t_s")
         dom = _domain(e)
@@ -1368,6 +1493,7 @@ with open(BUILD / "sim" / f"events_scan_simulated{SUFFIX}.jsonl", "w", encoding=
         e["time"] = (T_START + timedelta(seconds=t_true + off)).isoformat(timespec="milliseconds")
         e["clock_domain"] = dom
         if dom == "clkd_handheld":  # handhelds upload in batches: the hub system receives the record later
+            e.setdefault("scanner_user", scan_user(e.get("scan_point") or ""))
             e["received_time"] = (T_START + timedelta(seconds=t_true + off + 60 * _HH.get("batch_upload_delay_min", 0)
                                                       + rnd.uniform(5, 90))).isoformat(timespec="seconds")
         fh.write(json.dumps(e) + "\n")
@@ -1382,6 +1508,101 @@ print("FLOW " + json.dumps({"late_parcels": LATE[:20], "n_late": len(LATE), "bel
                             "events_by_kind": {k: sum(1 for e in events if e['event'] == k) for k in
                                                sorted({e['event'] for e in events})},
                             "bag_fill": {k: v for k, v in bag_fill.items() if v}}), flush=True)
+
+
+def snap_rests():
+    """Rexton 31 Oct (pile gate, run 7: 585 'floating' rows): every parcel at rest stands ON what is under it in the
+    final scene. The bag heaps were built on parcels that never reach the scene (bagged in the pre-roll: dropped as
+    'static contents' the sacks do not have) and, at C07, on the full bag's contents after it was swapped for an empty
+    one. Each still stretch (>= 3 frames, no hand within 0.35 m) is lowered / raised onto the highest of 5 downward
+    rays (centre + 4 points 70 % to the corners, as the motion gate reads it), lowest and earliest first so stacks
+    settle onto the parcels already snapped; the drop into it is stretched over its own frames (no jump)."""
+    hands_ = [(w_, b_) for w_ in sc.objects if w_.type == "ARMATURE" and w_.name.startswith("worker_")
+              for b_ in ("Bip01 L Hand", "Bip01 R Hand", "mixamorig:LeftHand", "mixamorig:RightHand") if b_ in w_.pose.bones]
+    skip_ = {S2.parcel.ob.name} if S2 is not None and S2.parcel.ob is not None else set()
+    segs = []
+    for p in parcels:
+        if p.ob is None or p.ob.name in skip_ or not p.track or p.ob.name not in sc.objects:
+            continue
+        fr_ = sorted(p.track)
+        gone_ = getattr(p, "gone_at", None)
+        # only a rest it keeps to the end of its track (or until it is hidden): a pause on a belt it rides on from
+        # (5 parcels for 3-4 frames at x 28.84, run 8) lowered alone dipped and popped back up
+        run = [fr_[-1]]
+        for a_, b_ in zip(fr_[-2::-1], fr_[::-1]):
+            if a_ == b_ - 1 and (p.track[b_][0] - p.track[a_][0]).length < 1e-4:
+                run.append(a_)
+                continue
+            break
+        if len(run) >= 3:
+            segs.append((run[-1], min(run[0], gone_ - 1) if gone_ else run[0], p))
+    rows, by_f = [], {}
+    for s_ in segs:
+        by_f.setdefault(max(F0, s_[0]), []).append(s_)
+    for f_ in sorted(by_f):
+        sc.frame_set(f_)
+        palms_ = [w_.matrix_world @ w_.pose.bones[b_].tail for w_, b_ in hands_ if not w_.hide_render]
+        dg_ = bpy.context.evaluated_depsgraph_get()
+        for f0_, f1_, p in sorted(by_f[f_], key=lambda s_: s_[2].track[s_[0]][0].z):
+            ob = p.ob
+            if ob.hide_render or not ob.visible_get():
+                continue
+            bb = [ob.matrix_world @ Vector(c) for c in ob.bound_box]
+            lo, cx, cy = min(v.z for v in bb), sum(v.x for v in bb) / 8, sum(v.y for v in bb) / 8
+            if any((q - Vector((cx, cy, (lo + max(v.z for v in bb)) / 2))).length < 0.35 for q in palms_):
+                continue  # held still in the hands
+            xs_, ys_ = sorted(v.x for v in bb), sorted(v.y for v in bb)
+            sup = None
+            # the whole footprint (5 x 5, 1 cm in from its edges): 5 rays 70 % out missed what was under its edges
+            # and lowered it into a sack's narrowing walls / through the edge of a parcel below (run 8)
+            for px_, py_ in [(xs_[0] + 0.01 + (xs_[-1] - xs_[0] - 0.02) * i_ / 4, ys_[0] + 0.01 + (ys_[-1] - ys_[0] - 0.02) * j_ / 4)
+                             for i_ in range(5) for j_ in range(5)]:
+                org = Vector((px_, py_, lo + 0.01))
+                for _ in range(12):
+                    ok_, loc_, _n, _i, hob, _m = sc.ray_cast(dg_, org, Vector((0, 0, -1)), distance=3.0)
+                    if not ok_:
+                        break
+                    if hob.name in (ob.name, ob.name + "_label") or hob.name.startswith("worker_"):
+                        org = loc_ - Vector((0, 0, 1e-4))
+                        continue
+                    sup = loc_.z if sup is None else max(sup, loc_.z)
+                    break
+            if sup is None:
+                continue
+            dz = sup + 0.001 - lo  # (1 mm over it: flush, the gate's ray stepping past its own bottom missed the support)
+            if abs(dz) < 0.005 or not -1.2 < dz < 0.03:
+                continue
+            fc_ = next((fc for _b, fcs in people._channelbag_fcurves(ob.animation_data.action) for fc in fcs
+                        if fc.data_path == "location" and fc.array_index == 2), None) if ob.animation_data and \
+                ob.animation_data.action else None
+            if fc_ is None:  # static (one pose, no keys)
+                ob.location.z += dz
+            else:
+                kz = {int(round(kp.co.x)): kp for kp in fc_.keyframe_points}
+                fa_ = f0_  # the drop into it: back while it was coming down (higher the frame before)
+                while fa_ - 1 in kz and f0_ - (fa_ - 1) <= 6 and kz[fa_ - 1].co.y > kz[fa_].co.y + 1e-4:
+                    fa_ -= 1
+                for g_, kp in kz.items():
+                    if f0_ <= g_ <= f1_:
+                        u_ = 1.0
+                    elif fa_ < g_ < f0_:
+                        u_ = (g_ - fa_) / (f0_ - fa_)
+                    else:
+                        continue
+                    kp.co.y += dz * u_
+                    kp.handle_left.y += dz * u_
+                    kp.handle_right.y += dz * u_
+                fc_.update()
+            for g_ in range(f0_, f1_ + 1):
+                if g_ in p.track:
+                    p.track[g_] = (p.track[g_][0] + Vector((0, 0, dz)),) + tuple(p.track[g_][1:])
+            rows.append((ob.name, f0_, f1_, round(dz, 3), [round(cx, 2), round(cy, 2)]))
+    sc.frame_set(F0)
+    print("SNAP rests", json.dumps(dict(segments=len(segs), moved=len(rows), down_max=min((r[3] for r in rows), default=0),
+                                        rows=rows[:40])), flush=True)
+
+
+snap_rests()
 sc.render.fps = FPS  # the station workers' FBX template imports reset it to 30
 sc.frame_start, sc.frame_end = F0, F1
 if args.save:

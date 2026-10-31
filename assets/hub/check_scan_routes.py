@@ -22,7 +22,7 @@ HUB = Path(__file__).resolve().parent
 SPEC = json.loads((HUB / "hub_spec.json").read_text(encoding="utf-8"))
 assert SPEC["line_a"]["layout"] == "b", "hub_spec.json is not the rendered layout (b)"
 TOL = 0.25  # s: WCS stamps are 0.1 s, the carrier passes its point within one 0.1 s step
-WAIT_MARGIN = {"SP-INDUCT": 1.37, "SP-INDUCT-B": 0.83}  # flow.MERGES: the head parcel waits this far short of the loop
+WAIT_MARGIN = {"SP-INDUCT": 1.82, "SP-INDUCT-B": 0.83}  # flow.MERGES: the head parcel waits this far short of the loop
 L = SPEC["machines"]["loop"]
 R, WCX, ECX, V = L["radius"], L["west_cx"], L["east_cx"], L["speed_mps"]
 L_STR, L_ARC = ECX - WCX, math.pi * R

@@ -89,12 +89,16 @@ class W:
 
 workers = []
 for rig in RIGS:
+    body = next((c for c in rig.children if c.name.endswith("_body")), None)
+    if body is None:  # unstaffed station (021d review): rig kept, body mesh removed
+        log("skip (no body mesh)", rig.name)
+        continue
     w = W()
     w.rig, w.name = rig, rig.name
     w.kind = "mx" if rig.name.startswith("worker_mx") else "rb"
     w.B = BONES[w.kind]
     w.role = ROLE.get(rig.name, "?")
-    w.body = next(c for c in rig.children if c.name.endswith("_body"))
+    w.body = body
     w.held = [c for c in rig.children_recursive if c.type == "MESH" and c.name.endswith(HELD)]
     w.own = {rig.name} | {c.name for c in rig.children_recursive}
     me = w.body.data

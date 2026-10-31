@@ -76,8 +76,12 @@ def new_id(prefix, digits):
 
 
 def domain(sp):
-    return "clkd_handheld" if (sp or "").startswith(("SP-BAG", "SP-CAGE", "SP-IN-", "SP-REWORK", "SP-OVERSIZE", "SP-LOAD")) \
-        else "clkd_wcs"
+    return "clkd_handheld" if (sp or "").startswith(("SP-BAG", "SP-CAGE", "SP-IN-", "SP-REWORK", "SP-OVERSIZE", "SP-LOAD",
+                                                     "SP-STORE")) else "clkd_wcs"
+
+
+USERS = {"SP-IN-N": "OP-***17", "SP-IN-S": "OP-***31", "SP-BAG": "OP-***08", "SP-CAGE": "OP-***08",
+         "SP-LOAD": "OP-***52", "SP-REWORK": "OP-***44", "SP-STORE": "OP-***44", "SP-OVERSIZE": "OP-***61"}  # (flow.py)
 
 
 def stamp(e, t):
@@ -87,6 +91,8 @@ def stamp(e, t):
     e["time"] = (t0 + timedelta(seconds=t + off)).isoformat(timespec="milliseconds")
     e["clock_domain"] = dom
     if dom == "clkd_handheld":
+        sp_ = e.get("scan_point") or ""
+        e.setdefault("scanner_user", next((v for k_, v in USERS.items() if sp_.startswith(k_)), "OP-***00"))
         e["received_time"] = (t0 + timedelta(seconds=t + off + 60 * HH.get("batch_upload_delay_min", 0)
                                              + rnd.uniform(5, 90))).isoformat(timespec="seconds")
     return e
@@ -97,6 +103,7 @@ for r, tr in zip(main_rows, true_rows):
     out.append((float(tr["true_t_s"]), dict(r)))
 ext = [json.loads(l) for l in Path(a.ext).read_text(encoding="utf-8").splitlines() if l.strip()]
 drops = []  # (t, chute) for the bagging model, outside the window
+rejects = []  # reject-bin drops outside the window (rework -> some held in the exception store)
 divs = []  # (t, chute, parcel id): the bagger's per-parcel scans
 n_ext = 0
 # a sim parcel with any line inside the window is left out whole: cut at the window its sequence would just stop (and
@@ -112,7 +119,11 @@ for e in ext:
     for key in ("t_s", "time", "story", "label"):
         e.pop(key, None)
     e["parcel_id"] = synth_id(k) if k is not None else None
+    if e["event"] == "tunnel_read":
+        e["barcode"] = e["parcel_id"]
     out.append((t, dict(label="scan_simulated", **stamp(e, t))))
+    if e["event"] == "reject_bin":
+        rejects.append(t)
     n_ext += 1
     if e["event"] == "bag_drop" and e.get("chute"):
         drops.append((t, e["chute"]))
@@ -180,6 +191,26 @@ for t, ch, pid in divs:
                                                               device="handheld"), ts))))
     n_bagscan += 1
 
+# exception store scan-in (SP-STORE-IN, the handheld at Z11's doorway): a no-read in the reject bin is keyed by hand at
+# rework (its label read there) and about half are held in the exception store, scanned in at its door 2-6 min later.
+# Only before the window: CAM_19 films that door in it, and nobody carries a parcel in there then but the S2 actor
+# (who does not scan it: the story parcel never gets this line)
+n_store = 0
+for i_, tr_ in enumerate(rejects):
+    if rnd.random() < 0.5:
+        continue
+    t_rw = tr_ + rnd.uniform(60, 150)
+    t_in = t_rw + rnd.uniform(120, 360)
+    if t_in >= -5.0:
+        continue
+    pid_ = synth_id(("rework", i_))
+    out.append((t_rw, dict(label="scan_simulated", **stamp(dict(event="manual_encoded", scan_point="SP-REWORK",
+                                                                 parcel_id=pid_, note="waybill keyed at rework (tunnel no-read)"), t_rw))))
+    out.append((t_in, dict(label="scan_simulated", **stamp(dict(event="store_scan_in", scan_point="SP-STORE-IN",
+                                                                 container_id="LOC-Z11-EXCEPTION", item_kind="parcel",
+                                                                 parcel_id=pid_), t_in))))
+    n_store += 1
+
 # the log ends with the window: after it only the sim run's (different) parcels carried on, so the full run's parcels
 # still on the line at the window's end looked lost while "the hub kept working" (5 tunnel reads in its last 5 s)
 t_cut = W
@@ -221,7 +252,7 @@ kinds_after = collections.Counter(r["event"] for _, r in after)
 rep = dict(out=str(outp.relative_to(HUB.parent.parent)).replace("\\", "/"), rows=len(rows), from_full_run=len(main_rows),
            sim_parcels_cut_by_window=len(cut),
            sorter_rows_outside_window=n_ext, bagging_model_rows=n_bag, bagger_parcel_scans=n_bagscan, rows_after_sorter_end_dropped=n_cut_end,
-           synthetic_ids=len(syn),
+           synthetic_ids=len(syn), store_scan_ins=n_store,
            stalled_like_inbox=dict(n=len(stalled), designed=sorted(designed),
                                    not_designed=[x for x in stalled if x["parcel_id"] not in designed][:20]),
            span_true=[(t0 + timedelta(seconds=out[0][0])).isoformat(), (t0 + timedelta(seconds=out[-1][0])).isoformat()],

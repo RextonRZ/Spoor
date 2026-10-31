@@ -33,6 +33,7 @@ F0, F1 = (int(x) for x in a.frames.split("-"))
 sc = bpy.context.scene
 DT = 1.0 / a.fps
 V_LOOP, V_BELT = 2.0, 1.8
+TURN_MAX = 22.0
 
 workers = [o for o in sc.objects if o.type == "ARMATURE" and o.name.startswith("worker_")]
 
@@ -55,6 +56,30 @@ def animated(o):
             return True
         p = p.parent
     return False
+
+
+def resting(o):
+    """On a surface (its bottom within 1.5 cm of what is under its centre): standing on a belt or table, not lifted."""
+    from mathutils import Vector as V_
+    dg_ = bpy.context.evaluated_depsgraph_get()
+    bb_ = [o.matrix_world @ V_(c) for c in o.bound_box]
+    lo_ = min(v.z for v in bb_)
+    cx_, cy_ = sum(v.x for v in bb_) / 8, sum(v.y for v in bb_) / 8
+    xs_, ys_ = sorted(v.x for v in bb_), sorted(v.y for v in bb_)
+    best = None
+    for px_, py_ in [(xs_[0] + 0.01 + (xs_[-1] - xs_[0] - 0.02) * i_ / 4, ys_[0] + 0.01 + (ys_[-1] - ys_[0] - 0.02) * j_ / 4)
+                     for i_ in range(5) for j_ in range(5)]:  # (5 rays fell between rollers, runs 14-16)
+        org = V_((px_, py_, lo_ + 0.01))
+        for _ in range(6):
+            ok_, loc_, _n, _i, ob_, _m = sc.ray_cast(dg_, org, V_((0, 0, -1)), distance=2.0)
+            if not ok_:
+                break
+            if ob_.name == o.name or ob_.name.startswith("worker_"):
+                org = loc_ - V_((0, 0, 1e-4))
+                continue
+            best = loc_.z if best is None else max(best, loc_.z)
+            break
+    return best is not None and lo_ - best < 0.03  # (a pitched parcel's lowest corner is under its centre)
 
 
 objs = [o for o in sc.objects if o.type == "MESH" and animated(o) and not o.name.endswith("_label")
@@ -89,7 +114,7 @@ for f in range(F0, F1 + 1):
                     pv_ = (L_ + R_) / 2
                     turn_all.append(dict(frame=f, worker=w.name, deg=round(dd_, 1),
                                          at=[round(pv_.x, 2), round(pv_.y, 2), round(pv_.z, 2)]))
-                if abs(dd_) > 25.0:
+                if abs(dd_) > TURN_MAX:  # Rexton 31 Oct: under 22 deg/frame (220 deg/s at 10 fps)
                     pv_ = (L_ + R_) / 2
                     turn_rows.append(dict(frame=f, worker=w.name, deg=round(dd_, 1),
                                           at=[round(pv_.x, 2), round(pv_.y, 2), round(pv_.z, 2)]))
@@ -111,7 +136,10 @@ for f in range(F0, F1 + 1):
             j = int(np.argmin(dd))
             if dd[j] < 0.30 and np.linalg.norm(palm_prev[j] - q0["p"]) < 0.30:  # the same palm by it in both frames
                 near = True
-                rel = float(np.linalg.norm((p - q0["p"]) - (palms[j] - palm_prev[j])))
+                # the palm where it would be had it stayed put on the object (its offset in the object's own frame):
+                # a carton turned in the hands moved the palm on its side r * dtheta from its centre (7 cm at 20 deg,
+                # 0.2 m) - not a slip
+                rel = float(np.linalg.norm(palms[j] - (p + Rm @ (q0["R"].T @ (palm_prev[j] - q0["p"])))))
         held = near and rel is not None and rel < 0.05
         on_loop = bool(len(cpos)) and float(np.min(np.linalg.norm(cpos[:, :2] - p[:2], axis=1))) < 0.6
         q = q0
@@ -121,7 +149,8 @@ for f in range(F0, F1 + 1):
             row = dict(frame=f, obj=o.name, d_m=round(d, 3), rot_deg=round(ang, 1), at=[round(float(c), 2) for c in p],
                        rel_to_palm_m=(round(rel, 3) if rel is not None else None))
             pend = q.get("pending")
-            if pend is not None and held:  # off the palm for a frame, back on it the next: a slip / glitch
+            if pend is not None and held and not resting(o):  # off the palm for a frame, back on it the next: a
+                # slip / glitch (not for one standing on a belt / table: a hand trailing a parcel it let go of)
                 jump_rows.append(dict(pend, kind="slip"))
             pending = None
             if (q["held"] or held) and (d > 0.25 or ang > 30.0):  # hands and object teleported together
@@ -132,7 +161,8 @@ for f in range(F0, F1 + 1):
                 regrip.append(row)
             if not near and not q["near"] and not q["held"]:
                 lim = (V_LOOP if (on_loop or q["loop"]) else V_BELT) * 1.2 * DT
-                if d > lim:
+                if float(np.linalg.norm((p - q["p"])[:2])) > lim:  # across only: a parcel falling into an empty bag
+                    # is not a belt running too fast (1 m down in 0.35 s, run 15)
                     conv_rows.append(dict(row, limit_m=round(lim, 3), loop=on_loop))
         else:
             pending = None
@@ -148,12 +178,17 @@ from mathutils import Vector  # noqa: E402
 SPEC_ = json.loads((Path(__file__).resolve().parent / "hub_spec_lineAb.json").read_text(encoding="utf-8"))
 BAGS = [(c["x"] - 0.5, c["bag_frame_y"], c["x"] + 0.5, c["bag_frame_y"] + 0.8) for c in SPEC_["machines"]["chutes"]
         if c.get("bag_frame_y") is not None]  # (the reject bin has none)
+# the rework bin of no-reads is a heap (a mailer on a box in it is not a tower): exempt from "stacked" as the lorry walls
+# and gaylords are; "floating" still applies
+REJ = [(c["x"] - c["bin"]["size_m"][0] / 2, c["bin"]["y"][0], c["x"] + c["bin"]["size_m"][0] / 2, c["bin"]["y"][1])
+       for c in SPEC_["machines"]["chutes"] if c.get("bin")]
 pile_rows = []
 last = {}
-for f in range(F0, F1 + 1, 10):
+for f in range(F0 + 1, F1 + 1, 10):  # pairs (f-1, f): at F0 the "frame before" clamped to F0 itself (all "at rest")
     for g_ in (f - 1, f):
         sc.frame_set(max(F0, g_))
         dg = bpy.context.evaluated_depsgraph_get()
+        palms_f = [w.matrix_world @ w.pose.bones[hb].tail for w in workers if not w.hide_render for hb in hand_bones(w)]
         for o in objs:
             if not o.name.startswith("flow_parcel_"):
                 continue
@@ -170,13 +205,15 @@ for f in range(F0, F1 + 1, 10):
             vis = not o.hide_render and o.visible_get()
             if not vis or q is None or abs(q[0] - cx) + abs(q[1] - cy) + abs(q[2] - lo) > 0.003:
                 continue  # moving / hidden
+            if any((V_h - Vector((cx, cy, (lo + hi) / 2))).length < 0.3 for V_h in palms_f):
+                continue  # still in someone's hands (a hover before the let-go is not a pile)
             # support under it: rays from its centre and 4 points 30 % in from its corners, the highest wins (one ray
             # from the centre fell between gravity rollers / between the two parcels it bridges: "floating" flags on
             # parcels at rest, hub run 4)
             xs_ = sorted(v.x for v in bb)
             ys_ = sorted(v.y for v in bb)
-            pts_ = [(cx, cy)] + [(cx + (xx - cx) * 0.7, cy + (yy - cy) * 0.7) for xx in (xs_[0], xs_[-1])
-                                 for yy in (ys_[0], ys_[-1])]
+            pts_ = [(xs_[0] + 0.01 + (xs_[-1] - xs_[0] - 0.02) * i_ / 4, ys_[0] + 0.01 + (ys_[-1] - ys_[0] - 0.02) * j_ / 4)
+                    for i_ in range(5) for j_ in range(5)]  # the whole footprint (as flow.py's snap reads it)
             z_any, z_str, sup_ = None, None, None
             for px_, py_ in pts_:
                 org = Vector((px_, py_, lo + 0.01))  # from inside its own bottom (4 mm under it started below a support
@@ -203,7 +240,8 @@ for f in range(F0, F1 + 1, 10):
             row = dict(frame=f, obj=o.name, base=round(lo, 3), top=round(hi, 3), at=[round(cx, 2), round(cy, 2)])
             if z_any is not None and lo - z_any > 0.02:
                 pile_rows.append(dict(row, kind="floating", gap_m=round(lo - z_any, 3)))
-            elif z_str is not None and lo > z_str + h + 0.02 and cx > 0.5 and "gaylord" not in (sup_ or ""):
+            elif z_str is not None and lo > z_str + h + 0.02 and cx > 0.5 and "gaylord" not in (sup_ or "")                     and not any(x0 <= cx <= x1 and y0 <= cy <= y1 for x0, y0, x1, y1 in REJ + BAGS):  # (a heap in a
+                # chute's sack is one too; its own rule - top over 1.2 m - below)
                 # (designed stacks are not piles: the parcel walls in the lorries, west of the dock wall, and the
                 # gaylords at line B)
                 pile_rows.append(dict(row, kind="stacked", over_support_m=round(lo - z_str, 3)))
@@ -217,10 +255,14 @@ for f_, wn, z in pel_rows:
     e["frames"] += 1
     e["min_z"] = min(e["min_z"], z)
     e["last"] = f_
-for e in by_w.values():
+for wn, e in by_w.items():
     e["lying"] = e["min_z"] < 0.35
+    # seated at the break table on a monobloc chair (pelvis ~0.52 m; crop checked 31 Oct, s2_hub7/break_check):
+    # a seated pose, not a fault - no in-view rows for it unless it drops below a chair seat
+    e["seated"] = wn.startswith("worker_break_") and e["min_z"] >= 0.45
+SEATED = {wn for wn, e in by_w.items() if e["seated"]}
 res = dict(frames=[F0, F1], pelvis_by_worker=by_w, pelvis_below_0_6=pel_rows, held_jumps=jump_rows, held_fast_walking_0_08=regrip,
-           conveyed_over_speed=conv_rows, piles=pile_rows, turns_over_25deg=turn_rows,
+           conveyed_over_speed=conv_rows, piles=pile_rows, turns_over_max=turn_rows, turn_max_deg=TURN_MAX,
            turns_fastest5=sorted(turn_all, key=lambda r: -abs(r["deg"]))[:5],
            turns_top5={w_: sorted([r for r in turn_rows if r["worker"] == w_], key=lambda r: -abs(r["deg"]))[:5]
                        for w_ in sorted({r["worker"] for r in turn_rows})},
@@ -234,7 +276,7 @@ with open(OUT / "gate_rows.csv", "w", encoding="utf-8", newline="") as fh_:
     wr_.writerow(["frame", "a", "b", "pair_type", "depth_cm", "x", "y", "z", "bone"])
     for r_ in turn_rows:
         wr_.writerow([r_["frame"], r_["worker"], "", "gate-turn", abs(r_["deg"]), *r_["at"], ""])
-    for f_, wn, at_ in pel_at:
+    for f_, wn, at_ in (r_ for r_ in pel_at if r_[1] not in SEATED):
         wr_.writerow([f_, wn, "", "gate-pelvis", "", *at_, ""])
     for r_ in jump_rows:
         wr_.writerow([r_["frame"], r_["obj"], "", "gate-held-" + r_.get("kind", "jump"), round(r_["d_m"] * 100, 1),

@@ -121,7 +121,8 @@ def station(x0, trunk_clear, palm_off=0.04, hold_back=None, free_hand="back", in
     ind_surfaces = induct_qa_boxes(x0)[1] if ind_surfaces is None else ind_surfaces
     roll = (TY0 - TY1 - 0.15) / 0.4
     return dict(x=x0, belt_yaw=0.0, table_pt=(TX, STOP_Y + 0.12, TZ1 + 0.01),
-                place_xy=tuple(S_k + IND_D * 0.22), induct_start=tuple(S_k), induct_dir=tuple(IND_D),
+                place_xy=tuple(S_k + IND_D * 0.34), induct_start=tuple(S_k), induct_dir=tuple(IND_D),  # (with the
+                # engine's set-down 12 cm further along, run 13: at 0.22 the release eased it back onto the belt's start)
                 induct_half_w=IND_HW, main_y=BELT_Y, clear_y=OP_Y - 0.10, grip_axis_yaw=-math.pi / 2,
                 trunk_clear=trunk_clear, palm_off=palm_off, root_min_y=OP_Y - 0.13,
                 refill_s=1.0 + roll if hold_back is None else 0.3 + min(hold_back, TY0 - TY1 - 0.15) / 0.4,
@@ -131,6 +132,12 @@ def station(x0, trunk_clear, palm_off=0.04, hold_back=None, free_hand="back", in
                 surfaces=[(5.6, BELT_Y - BELT_HALF, 15.0, BELT_Y + BELT_HALF, BELT_TOP),
                           (TX - TW / 2, TY1 - 0.03, TX + TW / 2, TY0, TZ0),
                           (TX - TW / 2, STOP_Y - 0.03, TX + TW / 2, STOP_Y, TZ1 + 0.04)] + list(ind_surfaces),  # end stop
+                # the induct belt's side guides (build_hub: 4 cm over the belt, 0.26-0.30 m off its centre line, ending
+                # 12 cm short of belt A): (start xy, dir xy, along from, along to, off from, off to, top) - a carton
+                # carried over one at belt height went 1.6-3.7 cm into it (run 7, all 7 induct-point rows)
+                guides=[(tuple(S_k), tuple(IND_D), -0.06, IND_LEN - 0.12, sg * 0.255, sg * 0.305, BELT_TOP + 0.04)
+                        for sg in (-1, 1)] + [(tuple(S_k), tuple(IND_D), -0.07, 0.03, -0.31, 0.31, BELT_TOP + 0.04)],
+                # (+ its start's end frame across it: carried over that the carton went 2-4 cm in, runs 13-16)
                 place_x=(x0 - 0.4, x0 + 0.4), place_y_range=(BELT_Y - BELT_HALF + 0.05, BELT_Y + BELT_HALF - 0.05),
                 belt_top=BELT_TOP, belt_speed=1.5, belt_dir=1.0, table_slope=SLOPE, free_hand=free_hand,
                 roller_gaps_y=[TY0 + (TY1 - TY0) * (j + 0.5) / 8 for j in range(8)],  # 9 rollers, 5 cm, 9.1 cm pitch
