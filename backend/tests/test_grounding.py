@@ -123,3 +123,21 @@ def test_four_eyes_is_a_site_setting(site, now):
     on = render_html(report, status="draft")
     off = render_html(report, status="draft", second_approver=False)
     assert "DRAFT · not reviewer-approved" in on and "DRAFT" not in off and "Investigation summary" in off
+
+
+def test_spend_sums_the_cost_ledger(tmp_path):
+    """Proof of spend: the ledger summed by provider/model/job; the open-weights share counts Baseten calls."""
+    from datetime import UTC, datetime
+
+    svc = Services.from_settings(Settings(data_dir=tmp_path, model_api_key=None, agent_backend="none"))
+    svc.tokens = TokenRegistry({"t-admin": Principal("admin", Role.SITE_ADMIN, frozenset({"site_demo"}))})
+    from spoor.store import CostEntry
+
+    at = datetime(2026, 10, 31, 1, 0, tzinfo=UTC)
+    svc.store.put(CostEntry(cost_id="cost_a", provider="meta_model_api", model="muse-spark-1.3", request_kind="legal_context_grounding",
+                            input_tokens=10, output_tokens=5, usd_estimate=0.5, at=at))
+    svc.store.put(CostEntry(cost_id="cost_b", provider="baseten", model="muse-spark-open", request_kind="agent", input_tokens=7,
+                            output_tokens=3, usd_estimate=0.25, at=at))
+    got = TestClient(create_app(services=svc)).get("/v1/spend", headers={"Authorization": "Bearer t-admin"}).json()
+    assert got["total_usd"] == 0.75 and got["calls"] == 2 and got["open_weights_share"] == 0.5
+    assert got["rows"][0]["job"] == "legal_context_grounding" and got["rows"][0]["input_tokens"] == 10

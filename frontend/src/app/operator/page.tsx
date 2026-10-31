@@ -5,6 +5,7 @@
  * It cannot set or edit any output: no answer, trace, provenance or metric can be entered here.
  */
 import { useState, useSyncExternalStore } from "react";
+import "./settings.css";
 import { inboxClockWords, readInboxClock, writeInboxClock, type InboxClock } from "@/lib/inboxClock";
 import LegalContextPanel from "@/components/LegalContextPanel";
 import { API_BASE, ApiError, invalidate, useResource } from "@/lib/api";
@@ -22,147 +23,184 @@ async function postForm<T>(path: string, form: FormData): Promise<T> {
   return body as T;
 }
 
-// Sections as tabs (review F-style #1): the page was one 4,300 px scroll.
-type OpTab = "imports" | "cameras" | "footage" | "models" | "evaluation";
+// Settings & data (owner 09:04/09:24): the old Operator page in the flow's look. Data sources, cameras and clocks,
+// models (proof of spend) and evaluation. Imports stay available under "Advanced"; nothing here sets an answer.
+type OpTab = "data" | "cameras" | "models" | "evaluation";
 const OP_TABS: { k: OpTab; label: string }[] = [
-  { k: "imports", label: "Imports" }, { k: "cameras", label: "Cameras and clocks" }, { k: "footage", label: "Footage" },
-  { k: "models", label: "Model calls" }, { k: "evaluation", label: "Evaluation" },
+  { k: "data", label: "Data sources" }, { k: "cameras", label: "Cameras & clocks" }, { k: "models", label: "Models" }, { k: "evaluation", label: "Evaluation" },
 ];
+
+interface Spend { rows: { provider: string; model: string; job: string; calls: number; input_tokens: number; output_tokens: number;
+  billed_units: number; unit: string; usd: number }[]; total_usd: number; calls: number; open_weights_share: number | null; note: string }
 
 export default function OperatorPage() {
   const me = useResource<Me>("/v1/me");
   const caps = useResource<Capabilities>("/v1/capabilities");
   const sites = useResource<Site[]>("/v1/sites");
-  const siteId = sites.data?.[0]?.site_id;
+  const site = sites.data?.[0];
+  const siteId = site?.site_id;
   const cams = useResource<CameraRow[]>(siteId ? `/v1/sites/${siteId}/cameras` : null);
   const media = useResource<MediaRow[]>(siteId ? `/v1/sites/${siteId}/media` : null);
   const domains = useResource<ClockDomainRow[]>(siteId ? `/v1/sites/${siteId}/clock-domains` : null);
+  const scans = useResource<{ total: number }>(siteId ? `/v1/sites/${siteId}/scans?limit=1` : null);
+  const plan = useResource<{ plan_id: string; created_at: string }>(siteId ? `/v1/sites/${siteId}/plan` : null);
   const cases = useResource<CaseListRow[]>("/v1/cases");
   const admin = me.data?.role === "site_admin";
-  const [tab, setTab] = useState<OpTab>("imports");
+  const [tab, setTab] = useState<OpTab>("data");
+  const camsWithFootage = new Set((media.data ?? []).map((m) => m.media.camera_id)).size;
+  const fourEyes = (site as (Site & { require_second_approver?: boolean }) | undefined)?.require_second_approver;
 
   return (
-    <div className="sp-page sp-stack" style={{ gap: 22 }}>
-      <header>
-        <p className="sp-eyebrow">Operator · showcase controls</p>
-        <h1 className="sp-h1">Inputs and inspection</h1>
-        <p className="sp-muted sp-body" style={{ marginTop: 6 }}>
-          Load inputs and inspect what the system did with them. Nothing here can set an answer, a trace or a metric.
-        </p>
-      </header>
-      {me.data && !admin && (
-        <div className="sp-state" role="status">Imports and evaluation need the site admin role. You are signed in as {me.data.role.replace("_", " ")}; switch in the sidebar.</div>
-      )}
-
-      <section aria-labelledby="sys-h" className="sp-tint" style={{ padding: 18 }}>
-        <p className="sp-micro" id="sys-h">Model-backed steps</p>
-        {caps.loading && <Loading lines={2} />}
-        {caps.data && (
-          <ul className="sp-row sp-wrap" style={{ listStyle: "none", padding: 0, margin: "8px 0 0", gap: 18 }}>
-            <Cap on={caps.data.sam} name="SAM 3.1 segmentation and tracking" />
-            <Cap on={caps.data.spark} name="Muse Spark clip reasoning" />
-            <Cap on={caps.data.agents} name={`Language-model agents (${caps.data.agent_backend})`} />
-            <Cap on={caps.data.multiview_xyz} name="Multi-view XYZ" off="disabled until validated" />
-            <Cap on={caps.data.cross_camera_association} name="Cross-camera association" off="disabled until validated" />
-          </ul>
-        )}
-        <p className="sp-caption" style={{ marginTop: 10 }}>Keys stay on the backend. With none configured, each step reports &quot;analysis unavailable&quot; instead of a result.</p>
-      </section>
-
-      <div className="sp-seg" role="tablist" aria-label="Operator sections" style={{ flexWrap: "wrap", alignSelf: "flex-start" }}>
-        {OP_TABS.map((t) => <button key={t.k} role="tab" aria-selected={tab === t.k} onClick={() => setTab(t.k)}>{t.label}</button>)}
-      </div>
-      {tab === "imports" && <>
-        <InboxClockControl />
-      <div className="sp-op-grid">
-        <ImportClip siteId={siteId} cameras={cams.data ?? []} disabled={!admin} />
-        <ImportScans siteId={siteId} disabled={!admin} />
-        <ImportSensors cases={cases.data ?? []} />
-      </div>
-
-      </>}
-      {tab === "cameras" && <>
-      <section className="sp-panel" aria-labelledby="cam-h">
-        <div className="sp-panel-head"><h2 className="sp-h3" id="cam-h">Cameras, clocks and calibration</h2>
-          <span className="sp-caption">Poses from the mounting plan; not surveyed</span></div>
-        <div className="sp-panel-body sp-tablewrap">
-          {cams.loading && <Loading />}
-          {cams.error && <ErrorState error={cams.error} what="cameras" onRetry={cams.reload} />}
-          {cams.data && (
-            <table className="sp-table">
-              <thead><tr><th>Camera</th><th>Zone</th><th>Clock</th><th>Calibration</th><th className="num">Clips</th></tr></thead>
-              <tbody>
-                {cams.data.map((c) => {
-                  const hub = hubCamera(c.camera.camera_id);
-                  const w = clockWarning(c.clock_sync);
-                  return (
-                    <tr key={c.camera.camera_id}>
-                      <td><span className="sp-strong">{camId.toHub(c.camera.camera_id)}</span> <span className="sp-muted">{hub?.osd_label}</span></td>
-                      <td>{hub?.zone}</td>
-                      <td>{c.clock_sync ? <><span className={w ? "sp-chip sp-chip-warn" : "sp-chip sp-chip-safe"}>{w ? "unverified" : fmtUncertainty(c.clock_sync.uncertainty_ms)}</span>
-                        <div className="sp-caption">{c.clock_sync.method}</div></> : <span className="sp-muted">no sync</span>}</td>
-                      <td>{c.calibration ? `${c.calibration.rig_state} v${c.calibration.version}` : <span className="sp-muted">uncalibrated: positions fall back to zone or image only</span>}</td>
-                      <td className="num">{c.coverage.length}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
+    <div className="st">
+      <div className="st-main">
+        <div className="st-head">
+          <div>
+            <p className="st-site">Settings &amp; data</p>
+            <h1 className="st-h1">Settings</h1>
+          </div>
+          <div className="st-seg" role="tablist" aria-label="Settings sections">
+            {OP_TABS.map((t) => <button key={t.k} role="tab" aria-selected={tab === t.k} onClick={() => setTab(t.k)}>{t.label}</button>)}
+          </div>
         </div>
-      </section>
 
-      </>}
-      {tab === "footage" && <>
-      <div className="sp-op-grid">
-        <section className="sp-panel" aria-labelledby="media-h">
-          <div className="sp-panel-head"><h2 className="sp-h3" id="media-h">Footage</h2></div>
-          <div className="sp-panel-body sp-tablewrap">
-            {media.loading && <Loading />}
-            {media.data?.length === 0 && <Empty title="No footage imported" />}
-            {media.data && media.data.length > 0 && (
-              <table className="sp-table">
-                <thead><tr><th>Camera</th><th>Kind</th><th>Start ({TZ_LABEL})</th><th>SHA-256</th></tr></thead>
-                <tbody>{media.data.map((m) => (
-                  <tr key={m.media.media_id}>
-                    <td>{camId.toHub(m.media.camera_id)}</td>
-                    <td><SimulatedChip kind={m.recording_kind.replace("_", " ")} /></td>
-                    <td className="sp-num">{m.coverage[0] ? fmtTime(m.coverage[0].start_utc) : "not placed"}</td>
-                    <td className="sp-mono">{m.media.sha256.slice(0, 12)}…</td>
-                  </tr>
-                ))}</tbody>
-              </table>
-            )}
+        {tab === "data" && <>
+          <div className="st-cards">
+            <div className="st-card"><p className="st-card-n">{media.data?.length ?? 0}</p><p className="st-card-l">clips from {camsWithFootage} of {cams.data?.length ?? 19} cameras</p></div>
+            <div className="st-card"><p className="st-card-n">{scans.data?.total ?? 0}</p><p className="st-card-l">scans in the scan log (simulated)</p></div>
+            <div className="st-card"><p className="st-card-n">{plan.data ? "1" : "0"}</p><p className="st-card-l">{plan.data ? `site plan · ${plan.data.plan_id.slice(-6)}` : "no site plan yet"}</p></div>
           </div>
-        </section>
-        <section className="sp-panel" aria-labelledby="dom-h">
-          <div className="sp-panel-head"><h2 className="sp-h3" id="dom-h">Clock domains</h2></div>
-          <div className="sp-panel-body sp-tablewrap">
-            {domains.loading && <Loading />}
-            {domains.data && (
-              <table className="sp-table">
-                <thead><tr><th>Domain</th><th>Kind</th><th>Fit</th></tr></thead>
-                <tbody>{domains.data.filter((d) => d.domain.kind !== "camera").map((d) => (
-                  <tr key={d.domain.clock_domain_id}>
-                    <td>{d.domain.name}</td><td>{d.domain.kind.replace("_", " ")}</td>
-                    <td>{d.sync ? fmtUncertainty(d.sync.uncertainty_ms) : <span className="sp-chip sp-chip-warn">not fitted: needs matched anchor events</span>}</td>
-                  </tr>
-                ))}</tbody>
-              </table>
-            )}
-            <p className="sp-caption">Per-camera domains are listed with their cameras above.</p>
+          <p className="st-line">Require a second person to approve reports: <strong>{fourEyes === false ? "Off" : "On"}</strong>{fourEyes === false ? " (one-user demo site: a shared report is an investigation summary)." : "."}</p>
+          <details className="st-adv">
+            <summary>Advanced: import footage, a scan log or sensor events</summary>
+            <InboxClockControl />
+            <div className="sp-op-grid">
+              <ImportClip siteId={siteId} cameras={cams.data ?? []} disabled={!admin} />
+              <ImportScans siteId={siteId} disabled={!admin} />
+              <ImportSensors cases={cases.data ?? []} />
+            </div>
+          </details>
+        </>}
+
+        {tab === "cameras" && <>
+          <section className="sp-panel" aria-labelledby="cam-h">
+            <div className="sp-panel-head"><h2 className="sp-h3" id="cam-h">Cameras, clocks and calibration</h2>
+              <span className="sp-caption">Poses from the mounting plan; not surveyed</span></div>
+            <div className="sp-panel-body sp-tablewrap">
+              {cams.loading && <Loading />}
+              {cams.error && <ErrorState error={cams.error} what="cameras" onRetry={cams.reload} />}
+              {cams.data && (
+                <table className="sp-table">
+                  <thead><tr><th>Camera</th><th>Zone</th><th>Clock</th><th>Calibration</th><th className="num">Clips</th></tr></thead>
+                  <tbody>
+                    {cams.data.map((c) => {
+                      const hub = hubCamera(c.camera.camera_id);
+                      const w = clockWarning(c.clock_sync);
+                      return (
+                        <tr key={c.camera.camera_id}>
+                          <td><span className="sp-strong">{camId.toHub(c.camera.camera_id)}</span> <span className="sp-muted">{hub?.osd_label}</span></td>
+                          <td>{hub?.zone}</td>
+                          <td>{c.clock_sync ? <><span className={w ? "sp-chip sp-chip-warn" : "sp-chip sp-chip-safe"}>{w ? "unverified" : fmtUncertainty(c.clock_sync.uncertainty_ms)}</span>
+                            <div className="sp-caption">{c.clock_sync.method}</div></> : <span className="sp-muted">no sync</span>}</td>
+                          <td>{c.calibration ? `${c.calibration.rig_state} v${c.calibration.version}` : <span className="sp-muted">uncalibrated</span>}</td>
+                          <td className="num">{c.coverage.length}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </section>
+          <div className="sp-op-grid">
+            <section className="sp-panel" aria-labelledby="media-h">
+              <div className="sp-panel-head"><h2 className="sp-h3" id="media-h">Footage</h2></div>
+              <div className="sp-panel-body sp-tablewrap">
+                {media.data?.length === 0 && <Empty title="No footage imported yet" />}
+                {media.data && media.data.length > 0 && (
+                  <table className="sp-table">
+                    <thead><tr><th>Camera</th><th>Start ({TZ_LABEL})</th><th>SHA-256</th></tr></thead>
+                    <tbody>{media.data.map((m) => (
+                      <tr key={m.media.media_id}>
+                        <td>{camId.toHub(m.media.camera_id)}</td>
+                        <td className="sp-num">{m.coverage[0] ? fmtTime(m.coverage[0].start_utc) : "not placed"}</td>
+                        <td className="sp-mono">{m.media.sha256.slice(0, 12)}…</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                )}
+              </div>
+            </section>
+            <section className="sp-panel" aria-labelledby="dom-h">
+              <div className="sp-panel-head"><h2 className="sp-h3" id="dom-h">Scanner clocks</h2></div>
+              <div className="sp-panel-body sp-tablewrap">
+                {domains.data && (
+                  <table className="sp-table">
+                    <thead><tr><th>Clock</th><th>Kind</th><th>Check</th></tr></thead>
+                    <tbody>{domains.data.filter((d) => d.domain.kind !== "camera").map((d) => (
+                      <tr key={d.domain.clock_domain_id}>
+                        <td>{d.domain.name}</td><td>{d.domain.kind.replace("_", " ")}</td>
+                        <td>{d.sync ? fmtUncertainty(d.sync.uncertainty_ms) : <span className="sp-muted">not checked yet</span>}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                )}
+              </div>
+            </section>
           </div>
-        </section>
+        </>}
+
+        {tab === "models" && <>
+          <SpendPanel />
+          {caps.data && (
+            <section className="st-card st-models" aria-labelledby="mods-h">
+              <h2 id="mods-h">Models in this run</h2>
+              <ul>
+                <Cap on={caps.data.sam} name="SAM 3.1 tracking" off="off in this demo" />
+                <Cap on={caps.data.spark} name="Muse Spark camera analysts" off="off in this demo" />
+                <Cap on={caps.data.agents} name="Agents" off="off in this demo" />
+              </ul>
+            </section>
+          )}
+          <LegalContextPanel siteId={siteId} admin={admin} />
+          <TracePanel cases={cases.data ?? []} />
+        </>}
+        {tab === "evaluation" && <EvaluationPanel admin={admin} />}
+        <style>{`.sp-op-grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))}`}</style>
       </div>
-
-      </>}
-      {tab === "models" && <>
-        <LegalContextPanel siteId={siteId} admin={admin} />
-        <TracePanel cases={cases.data ?? []} />
-      </>}
-      {tab === "evaluation" && <EvaluationPanel admin={admin} />}
-      <style>{`.sp-op-grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))}`}</style>
     </div>
+  );
+}
+
+/** Proof of spend (agent_showcase_0925): every recorded model call by provider, model and job, from the cost ledger. */
+function SpendPanel() {
+  const sp = useResource<Spend>("/v1/spend");
+  if (!sp.data) return sp.error ? <ErrorState error={sp.error} what="the spend" onRetry={sp.reload} /> : <Loading lines={2} />;
+  const d = sp.data;
+  return (
+    <section className="st-card st-spend" aria-labelledby="spend-h">
+      <div className="st-spend-head">
+        <h2 id="spend-h">Proof of spend</h2>
+        <span>US${d.total_usd.toFixed(2)} · {d.calls} model call{d.calls === 1 ? "" : "s"}{d.open_weights_share !== null ? ` · ${Math.round(d.open_weights_share * 100)} % on open weights` : ""}</span>
+      </div>
+      {d.rows.length === 0 ? <p className="st-muted">No model calls recorded on this store yet.</p> : (
+        <div className="sp-tablewrap">
+          <table className="sp-table">
+            <thead><tr><th>Model</th><th>Job</th><th className="num">Calls</th><th className="num">Tokens in · out</th><th className="num">Units</th><th className="num">US$</th></tr></thead>
+            <tbody>{d.rows.map((r) => (
+              <tr key={`${r.provider}${r.model}${r.job}`}>
+                <td>{r.model} <span className="sp-muted">· {r.provider === "baseten" ? "Baseten (open weights)" : "Meta Model API"}</span></td>
+                <td>{r.job.replace(/_/g, " ")}</td>
+                <td className="num">{r.calls}</td>
+                <td className="num">{r.input_tokens.toLocaleString()} · {r.output_tokens.toLocaleString()}</td>
+                <td className="num">{r.unit === "tokens" ? "" : `${Math.round(r.billed_units)} ${r.unit.replace("tokens + ", "")}`}</td>
+                <td className="num">{r.usd.toFixed(3)}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
+      <p className="st-muted">{d.note}. On-site triage (Muse Glimmer on Modal) runs outside this store; its run is in docs/open_weights_proof.</p>
+    </section>
   );
 }
 

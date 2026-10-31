@@ -23,17 +23,18 @@ const SCREENS: [string, string, RegExp][] = [
   ["Cases", "/", /Cases/],
   ["Cameras", "/wall", /The whole hub at/],
   ["Answer", "", /How sure|No scans of this parcel/],
-  ["Investigating", "/investigate", /Search map/],
+  ["Investigating", "/investigate", /See the answer/], // audited once the run (or its replay) has finished
   ["Proof", "/proof", /Every camera on its route, in order/],
   ["Go look", "/search", /Not here|Send to the floor|Every place checked|Found\. Thank you/],
   ["Report", "/report", /Share report/],
+  ["Settings", "/operator", /Settings/],
 ];
 
 for (const [name, path, content] of SCREENS) {
   test(`${name}: loads, says what it should, no em dash, accessible, one user`, async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message.slice(0, 200)));
-    const url = name === "Hub" || name === "Cases" || name === "Cameras" ? path : `/cases/${await caseId(page)}${path}`;
+    const url = ["Hub", "Cases", "Cameras", "Settings"].includes(name) ? path : `/cases/${await caseId(page)}${path}`;
     await page.goto(url);
     await expect(page.locator("main")).toContainText(content, { timeout: 30_000 });
     await page.waitForLoadState("networkidle");

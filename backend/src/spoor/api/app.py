@@ -692,6 +692,32 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         except KeyError as e:
             raise HTTPException(404, str(e)) from e
 
+    @app.get("/v1/spend")
+    def spend(p: User) -> dict:
+        """Proof of spend (agent_showcase_0925): every recorded model call, summed by provider, model and job; the share
+        of calls on open weights (Muse Spark Open on Baseten). From the cost ledger only, never estimated afresh."""
+        p.require_role(Role.SITE_ADMIN)
+        mine = {c.case_id for c in svc.store.find(Case) if c.site_id in p.site_ids}
+        rows: dict[tuple, dict] = {}
+        for c in svc.store.find(CostEntry):
+            if c.case_id is not None and c.case_id not in mine:
+                continue
+            k = (c.provider, c.model, c.request_kind)
+            r = rows.setdefault(k, {"provider": c.provider, "model": c.model, "job": c.request_kind, "calls": 0, "input_tokens": 0,
+                                    "output_tokens": 0, "billed_units": 0.0, "unit": c.unit, "usd": 0.0, "last_at": None})  # fmt: skip
+            r["calls"] += 1
+            r["input_tokens"] += c.input_tokens
+            r["output_tokens"] += c.output_tokens
+            r["billed_units"] += c.billed_units
+            r["usd"] += c.usd_estimate or 0.0
+            r["last_at"] = max(r["last_at"] or "", c.at.isoformat())
+        out = sorted(rows.values(), key=lambda r: -r["usd"])
+        calls = sum(r["calls"] for r in out)
+        open_w = sum(r["calls"] for r in out if r["provider"] == "baseten")
+        return {"rows": [{**r, "usd": round(r["usd"], 4)} for r in out], "total_usd": round(sum(r["usd"] for r in out), 4),
+                "calls": calls, "open_weights_share": round(open_w / calls, 3) if calls else None,
+                "note": "estimates from recorded token and unit counts at list prices; not a provider invoice"}  # fmt: skip
+
     @app.get("/v1/operator/cases/{case_id}/trace")
     def operator_trace(case_id: str, p: User) -> dict:
         """Operator/judge view (PRD §23): every model call, its cost units, and the agent causal chain."""

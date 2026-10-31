@@ -8,7 +8,7 @@ const STEPS = [["", "1 Answer"], ["/proof", "2 Proof"], ["/search", "3 Go look"]
 export function CaseSteps({ caseId, waybill, said, page, here }: { caseId: string; waybill: string; said?: string | null; page?: string; here: 0 | 1 | 2 | 3 }) {
   return (
     <div className="fl-casebar">
-      <p className="fl-crumb"><Link href="/hub">Hub</Link> <span aria-hidden="true">›</span> {page ? <Link href={`/cases/${caseId}`}>{waybill}</Link> : <span className="fl-crumb-wb">{waybill}</span>}{said ? ` · ${said}` : ""}
+      <p className="fl-crumb"><Link href="/hub">Hub</Link> <span aria-hidden="true">›</span> {page ? <Link href={`/cases/${caseId}`}>{waybill || "Case"}</Link> : <span className="fl-crumb-wb">{waybill || "Case"}</span>}{said ? ` · ${said}` : ""}
         {page && <> <span aria-hidden="true">›</span> <span className="fl-crumb-wb">{page}</span></>}</p>
       <nav aria-label="Case steps" className="fl-steps">
         {STEPS.map(([path, label], i) => (
