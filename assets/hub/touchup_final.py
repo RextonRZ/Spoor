@@ -75,6 +75,9 @@ FIXES = [  # run 18 (final), from --propose, reviewed 1 Nov
     dict(obj="flow_parcel_5036", frames=(894, 897), away_from='worker_dock_D05_s', cm=4.0, why="s2_hub_r18: 4 rows f894-897 vs worker_dock_D05_s_body, 5.6 cm"),
     dict(obj="flow_parcel_072", frames=(453, 900), move_cm=(0.0, 0.0, 4.3), why="s2_hub_r18: landed f453 3.3 cm into flow_parcel_059 (at rest since f194), 449 rows: the newcomer goes up"),
     dict(obj="flow_parcel_5015", frames=(620, 900), move_cm=(0.0, 0.0, 14.0), why="s2_hub_r18: landed f624 14 cm into flow_parcel_059 (bottom 0.73, 059's top 0.868; the gate's 7.9 cm under-read it; from f620: falling past 072 (lifted) it clipped it, pass 2) (at rest since f194), 279 rows: the newcomer goes up"),
+    dict(obj="flow_parcel_5018", frames=(386, 388), move_cm=(0.0, 0.0, 2.5),
+         why="zone repairs 1 Nov: its corner dipped 2.3 cm below belt A's top f387 turning off induct 0 - over the 5 cm "
+             "gap then, into the induct belt's new nose now (7.94, 9.97)"),
 ]
 
 
@@ -84,6 +87,15 @@ STATIC_CUTS = [
     dict(obj="cage_loads_merged", box=(36.3, 37.1, 29.3, 29.95, 0.3, 1.9),
          why="final pass 3: worker_cage_1 walks past the parked cage's load corner, vest 5.9 cm into it f294-295, "
              "CAM_13 - Rexton: too much; the path cannot move (flow), the load items there go"),
+]
+
+
+# static geometry repaired in build_hub.py (the authoritative source): the object's mesh is swapped for the rebuilt one
+# (sync_static.py, materials kept); cut_box: the run-time cut flow.py made in it for this scenario.
+STATIC_SYNC = [
+    dict(obj="conveyors", src="build/hub_lineAb.blend", cut_box=(-6.0, 0.58, 10.4, 11.6, 0.3, 1.3),
+         why="zone audit 1 Nov: belt gaps / open bend corners / 0.4 m before the carriers / 5 cm boom + induct gaps "
+             "(qa/review/zone_audit/defects.md); cut_box = flow.py --unstaff dock_D02 (D02's boom extension)"),
 ]
 
 
@@ -208,8 +220,17 @@ def apply(save):
         bm.to_mesh(ob.data)
         bm.free()
         rep.append((cut["obj"], "cut faces", n_))
+    import sync_static
+    for sy in STATIC_SYNC:
+        rep.append((sy["obj"], "synced (verts old, new, faces cut)", sync_static.sync(sc, sy["obj"], sy["src"], sy["cut_box"])))
+    import static_settle  # loose static items resting on something (as rebuild_lineAb.sh does after dressing)
+    st = static_settle.settle(sc, json.loads((HUB / "hub_spec_lineAb.json").read_text(encoding="utf-8")))
+    rep.append(("static_settle", [(r["obj"], r["at"], r["action"], r["gap_cm"]) for r in st]))
+    rep.append(("separate_on_benches", static_settle.separate_on_benches(sc, json.loads((HUB / "hub_spec_lineAb.json")
+                                                                                     .read_text(encoding="utf-8")))))
     sc.frame_set(sc.frame_start)
-    print("TOUCHUP", len(FIXES), "fixes,", len(STATIC_CUTS), "static cuts:", json.dumps(rep), flush=True)
+    print("TOUCHUP", len(FIXES), "fixes,", len(STATIC_CUTS), "static cuts,", len(STATIC_SYNC), "synced:", json.dumps(rep),
+          flush=True)
     out = Path(save).resolve()
     assert "_final" in out.name and out != Path(bpy.data.filepath).resolve(), "output: a new *_final blend, never the input"
     bpy.ops.wm.save_as_mainfile(filepath=str(out), compress=True)

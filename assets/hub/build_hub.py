@@ -647,6 +647,8 @@ boxes("roof_services", roof_items, C["Structure"])
 conv = {"belt": [], "steel": [], "frame": []}
 BOOM_SPOTS = []
 BOOM_END_X = 4.55  # booms end at the collector's west side frame (x 4.57); flow.py hands over from here
+BOOM_BELT_X = 4.595  # the belt + bed run on through the frame's opening to 5 mm off the collector's belt (zone audit
+# 1 Nov: a 5 cm gap at x 4.55-4.60, the carton crossed over the floor)
 BOOM_YS = [cv["path"][0][1] for cv in SPEC["machines"]["conveyors"] if cv["kind"] == "telescopic"]
 door_at_y = {d["centre"][1]: d["id"] for d in DOORS if d["wall"] == "W"}
 for cv in SPEC["machines"]["conveyors"]:
@@ -656,8 +658,8 @@ for cv in SPEC["machines"]["conveyors"]:
     extended = door_at_y.get(y) in LORRY_DOCKS  # boom runs out through the door into the lorry body
     conv["frame"].append(mat_aabb(1.4, y - 0.5, 0.35, 4.4, y + 0.5, h - 0.15))  # base unit on legs
     # belt bed up to the collector's edge (to x 5.0 it ran into the collector; owner rule: nothing through anything)
-    conv["frame"].append(mat_aabb(1.4, y - 0.33, h - 0.2, BOOM_END_X, y + 0.33, h - 0.05))
-    conv["belt"].append(mat_aabb(1.4, y - 0.29, h - 0.05, BOOM_END_X, y + 0.29, h))
+    conv["frame"].append(mat_aabb(1.4, y - 0.33, h - 0.2, BOOM_BELT_X, y + 0.33, h - 0.05))
+    conv["belt"].append(mat_aabb(1.4, y - 0.29, h - 0.05, BOOM_BELT_X, y + 0.29, h))
     for lx in (1.5, 4.3):
         for ly in (y - 0.42, y + 0.42):
             conv["steel"].append(mat_aabb(lx - 0.04, ly - 0.04, 0, lx + 0.04, ly + 0.04, 0.35))
@@ -689,30 +691,37 @@ for cv in SPEC["machines"]["conveyors"]:
         # the last stretch onto its booked carrier (flow.py)
         (ax_, ay_), (bx_, by_) = path[-2], path[-1]
         th_ = math.atan2(by_ - ay_, bx_ - ax_)
-        y_end = LOOP["south_y"] - 0.475 - (w / 2 + 0.05) * abs(math.cos(th_))
+        # (zone audit 1 Nov: and short of the loop's deck body, y >= south_y - 0.6 at 1.15-1.45 m - the belt's box, its
+        # side guides and end legs stood 7-9 cm in it; the thin nose below runs on over the deck to the carriers)
+        y_end = LOOP["south_y"] - 0.605 - (w / 2 + 0.05) * abs(math.cos(th_))
         u_ = (y_end - ay_) / (by_ - ay_)
         path = path[:-1] + [[ax_ + (bx_ - ax_) * u_, y_end]]
+    hts = cv.get("heights")  # per-point heights (line B's ramp up to the deck)
+    if cv["id"] == "induction" and path[-1][0] > 15:  # last stretch inclines up to the tunnel deck from x 15: its own
+        # segment (the flat run was drawn as a belt only - no side guides, no legs: zone audit 1 Nov, 9.4 m floating)
+        path = path[:-1] + [[15.0, path[-1][1]], path[-1]]
+        hts = [h] * (len(path) - 1) + [DECK]
     for (ax, ay), (bx, by) in zip(path, path[1:]):
         za = zb = h
-        if cv.get("heights"):  # per-point heights (line B's ramp up to the deck)
+        if hts:
             ki = path.index([ax, ay])
-            za, zb = cv["heights"][ki], cv["heights"][ki + 1]
-        if cv["id"] == "induction" and bx > 15:  # last stretch inclines up to the tunnel deck
-            za, zb = h, DECK
-            mid = (15.0, ay)
-            conv["belt"].append(mat_seg((ax, ay, h - 0.06), (mid[0], mid[1], h - 0.06), w, 0.12))
-            ax = 15.0
+            za, zb = hts[ki], hts[ki + 1]
         conv["belt"].append(mat_seg((ax, ay, za - 0.06), (bx, by, zb - 0.06), w, 0.12))
         k_seg = path.index([bx, by]) - 1 if [bx, by] in path else 0
         ln_ = math.hypot(bx - ax, by - ay) or 1
         dx, dy = (bx - ax) / ln_, (by - ay) / ln_
         turn_in = turn_out = 0.0  # corners: the inner side frame stops short of the other belt (it crossed it)
+        straight_in = False  # (a straight continuation - induction's flat run into its incline - is no corner)
         if k_seg + 2 < len(path):  # a corner at this segment's end
             cx_, cy_ = path[k_seg + 2][0] - bx, path[k_seg + 2][1] - by
-            turn_out = 1.0 if dx * cy_ - dy * cx_ > 0 else -1.0
+            if abs(dx * cy_ - dy * cx_) > 1e-6:
+                turn_out = 1.0 if dx * cy_ - dy * cx_ > 0 else -1.0
         if k_seg > 0:  # a corner at this segment's start
             px_, py_ = ax - path[k_seg - 1][0], ay - path[k_seg - 1][1]
-            turn_in = 1.0 if px_ * dy - py_ * dx > 0 else -1.0
+            if abs(px_ * dy - py_ * dx) > 1e-6:
+                turn_in = 1.0 if px_ * dy - py_ * dx > 0 else -1.0
+            else:
+                straight_in = True
         for s in (-1, 1):  # side frames (s = +1: left of travel)
             nx, ny = -(by - ay), (bx - ax)
             ln = math.hypot(nx, ny) or 1
@@ -735,8 +744,11 @@ for cv in SPEC["machines"]["conveyors"]:
             if LINE_A_B and cv["id"] == "induction" and s == 1 and abs(dy) < 0.1:  # line A (b): induct belts merge (north)
                 for mx_ in LA_MERGES:
                     t_ = (mx_ - ax) / dx if dx else -1
+                    # (+0.80 downstream: the induct belt's 45-degree nose reaches merge +0.55 at belt A's edge, and a
+                    # carton coming across still overhangs A's edge for ~0.2 m while it squares up - S2 gate, 1 Nov:
+                    # cartons 1-4 cm into the guide at merge +0.56..+0.73)
                     spans = [(u0, u1) for (lo, hi) in spans
-                             for (u0, u1) in ((lo, min(hi, t_ - 0.42)), (max(lo, t_ + 0.42), hi)) if u1 - u0 > 0.05]
+                             for (u0, u1) in ((lo, min(hi, t_ - 0.42)), (max(lo, t_ + 0.80), hi)) if u1 - u0 > 0.05]
             # openings where the booms feed in (west side). D02's stub too: in line A (b) its boom hands over there, and
             # a closed frame put every D02 parcel 4 cm into it (hub run 3, CAM_01)
             if cv["id"] in ("collector", "d02_stub") and ox < 0 and abs(dx) < 0.1:
@@ -755,11 +767,59 @@ for cv in SPEC["machines"]["conveyors"]:
             px, py, pz = ax + (bx - ax) * t, ay + (by - ay) * t, za + (zb - za) * t
             if px < 0.3 and cv["kind"] == "telescopic":
                 continue  # the boom outside the wall hangs free, no legs
+            if k == 0 and straight_in:
+                continue  # (the run before it has legs here)
+            if cv["id"] in ("merge", "induction_B") and py + w / 2 > LOOP["south_y"] - 0.6:
+                continue  # (it would stand in the loop's deck body: the belt's end is carried by the sorter frame)
             conv["steel"].append(mat_aabb(px - 0.04, py - w / 2, 0, px + 0.04, py - w / 2 + 0.06, pz - 0.12))
             conv["steel"].append(mat_aabb(px - 0.04, py + w / 2 - 0.06, 0, px + 0.04, py + w / 2, pz - 0.12))
     if cv["id"] == "collector":  # the accumulation (feed) run ends at a steel end plate: parcels queue against it
         ex, ey = path[-1]
         conv["steel"].append(mat_aabb(ex + 0.02, ey - w / 2 - 0.03, h - 0.08, ex + 0.06, ey + w / 2 + 0.03, h + 0.14))
+    # corners (zone audit 1 Nov: two square-ended boxes left an open wedge on the outside of every bend - 40 x 40 cm
+    # of floor at the collector's turn onto the feed, right where D02's stub hands over): each side's belt runs on to
+    # the mitre line, 2 / 4 mm under the top (no coplanar faces), and a guard closes the outside of the bend
+    hz = hts or [h] * len(path)
+    for i in range(1, len(path) - 1):
+        c = Vector((*path[i], 0.0))
+        d1 = (c - Vector((*path[i - 1], 0.0))).normalized()
+        d2 = (Vector((*path[i + 1], 0.0)) - c).normalized()
+        th = math.acos(max(-1.0, min(1.0, d1.dot(d2))))
+        if th < math.radians(2):
+            continue
+        zc, e = hz[i], (w / 2) * math.tan(th / 2) - 0.003
+        sl1, sl2 = hz[i] != hz[i - 1], hz[i + 1] != hz[i]  # a ramp: start at the corner (its top rises past it)
+        conv["belt"].append(mat_seg((*(c - d1 * (0 if sl1 else 0.01)).xy, zc - 0.052), (*(c + d1 * e).xy, zc - 0.052),
+                                    w - 0.004, 0.1))
+        conv["belt"].append(mat_seg((*(c - d2 * e).xy, zc - 0.054), (*(c + d2 * (0 if sl2 else 0.01)).xy, zc - 0.054),
+                                    w - 0.004, 0.1))
+        if cv["id"] == "collector":  # (its outside is where the stub comes in: closed by the stub's guard below)
+            continue
+        out_ = -1.0 if d1.x * d2.y - d1.y * d2.x > 0 else 1.0  # left turn: the outside is the right
+        f_off = w / 2 + 0.03  # each outside guard runs on along its own line to where they meet (a mitre); 2 mm gaps
+        # at the guards' ends, the second piece 2 mm inside the first's top / bottom (no coplanar faces)
+        p1 = c + Vector((-d1.y, d1.x, 0)) * out_ * f_off
+        p2 = c + Vector((-d2.y, d2.x, 0)) * out_ * f_off
+        mf = p1 + d1 * f_off * math.tan(th / 2)
+        conv["frame"].append(mat_seg((*(p1 + d1 * 0.002).xy, zc - 0.05), (*mf.xy, zc - 0.05), 0.04, 0.18))
+        conv["frame"].append(mat_seg((*mf.xy, zc - 0.05), (*(p2 - d2 * 0.002).xy, zc - 0.05), 0.04, 0.176))
+    if cv["id"] in ("merge", "induction_B"):  # nose on to 3 cm off the carriers' band, its end square to the loop (as
+        # a sorter's induction belt meets the carriers); 4 cm thick, over the deck rails (top 1.45). Zone audit 1 Nov:
+        # 0.4 m of floor between the belt's end and the carriers
+        ex, ey = path[-1]
+        dd = Vector((bx_ - ax_, by_ - ay_)).normalized()
+        y_n0, y_n1 = ey - (w / 2) * abs(dd.x) - 0.01, LOOP["south_y"] - 0.425 - 0.03
+        y_nc, hn = (y_n0 + y_n1) / 2, hz[-1]
+        ln_n = (y_n1 - y_n0) / dd.y
+        conv["belt"].append(Matrix(((dd.x * ln_n, -(w - 0.004) / abs(dd.y), 0, ex + dd.x / dd.y * (y_nc - ey)),  # (-: a
+                                    # positive determinant - northbound, +x made it a mirror box, faces inward)
+                                    (dd.y * ln_n, 0, 0, y_nc), (0, 0, 0.04, hn - 0.022), (0, 0, 0, 1))))
+    if cv["id"] == "d02_stub":  # on to 5 mm off the feed's belt (it stopped 5 cm short), and its west guard runs on
+        # round the outside of the collector's turn onto the feed (2 mm off the collector's guard)
+        (sx_, sy_), (ex, ey) = path[0], path[-1]
+        conv["belt"].append(mat_aabb(ex - w / 2 + 0.002, ey - 0.01, h - 0.102, ex + w / 2 - 0.002, LA["feed_y"] - LA["feed_half"] - 0.005,
+                                     h - 0.002))
+        conv["frame"].append(mat_aabb(ex - w / 2 - 0.05, ey + 0.002, h - 0.14, ex - w / 2 - 0.01, LA["feed_y"] - 0.002, h + 0.04))
 if LINE_A_B:
     for (sx, sy), (ex, ey) in LA_INDUCT:  # induct belts (0.5 m wide), both ends cut parallel to belt A's edge
         wi = LA["induct_w"]
@@ -773,6 +833,13 @@ if LINE_A_B:
             return m
         cxm, cym = (sx + ex) / 2, (sy + ey) / 2
         conv["belt"].append(slab(cxm, cym, 0.94, kx, 0.12))
+        # nose: on from the end (flush with belt A's frame line, y_end) to 5 mm off belt A's belt, 2 mm under the top
+        # (zone audit 1 Nov: the carton crossed a 5 cm gap over the floor onto A)
+        y_n0, y_n1 = ey + 0.01, LA["belt_a_y"] + LA["belt_a_half"] + 0.005
+        f_n = (y_n1 - y_n0) / dvy
+        y_nc = (y_n0 + y_n1) / 2
+        conv["belt"].append(Matrix(((dvx * f_n, kx - 0.004 / abs(dvy / math.hypot(dvx, dvy)), 0, ex + dvx / dvy * (y_nc - ey)),
+                                    (dvy * f_n, 0, 0, y_nc), (0, 0, 0.1, 0.948), (0, 0, 0, 1))))
         ln_i = math.hypot(dvx, dvy)
         cut_e = 0.12  # the side guides stop 12 cm short of belt A: a carton turning onto A at the merge caught their
         # ends (1-5 cm, hub run 4)
@@ -792,6 +859,9 @@ if LINE_A_B:
             y = y1t + (y0t - y1t) * u
             z = t_hi + (t_lo - t_hi) * u
             conv["steel"].append(mat_aabb(tx - tw / 2, y - 0.025, z - 0.05, tx + tw / 2, y + 0.025, z))
+        # head roller under the feed's edge (zone audit 1 Nov: 4.5 cm open between the feed's belt and the top roller)
+        conv["steel"].append(mat_aabb(tx - tw / 2, y1t + 0.027, t_hi - 0.05, tx + tw / 2,
+                                      LA["feed_y"] - LA["feed_half"] - 0.005, t_hi))
         ym = (y0t + y1t) / 2
         for sg in (-1, 1):
             conv["frame"].append(mat_aabb(tx + sg * tw / 2 - 0.02, y0t - 0.03, 0.80, tx + sg * tw / 2 + 0.02, ym,
@@ -1594,6 +1664,14 @@ for k, (x, y, z, yaw, (kind, _, di)) in enumerate(CAGE_PARCEL_SPOTS):
 parcels("chute_piles", CHUTE_SPOTS)
 parcels("bag_contents", BAG_SPOTS)
 parcels("bag_opening", [(random.uniform(6.4, 7.8), random.uniform(19.2, 26.8), 0.9) for _ in range(14)])
+# the two benches are y 19-22 and 24-27: the ones drawn into the 2 m between them stood on nothing, 0.9 m over the floor
+# (zone audit 1 Nov). Still drawn (the same random draws: every later placement is unchanged), taken out here.
+_benches = [b["rect_m"] for b in FX["benches"] if b["name"].startswith("bag-opening")]
+for _p in [p_ for p_ in PARCELS if p_["object"].startswith("bag_opening_")]:
+    _x, _y = _p["position_m"][:2]
+    if not any(r[0] <= _x <= r[2] and r[1] <= _y <= r[3] for r in _benches):
+        bpy.data.objects.remove(bpy.data.objects[_p["object"]], do_unlink=True)
+        PARCELS.remove(_p)
 # on top of what is already in the rework bin (y 20.6-21.2, rim 0.6 m). They floated 0.35 m up, 0.9 m past the bin,
 # over a crate that was never built (B2 pre-review P0 #2); same random draws, so every later placement is unchanged
 parcels("reject_crate", [(29.3 + random.uniform(-0.2, 0.2), 20.9 + random.uniform(-0.15, 0.15), 0.45)

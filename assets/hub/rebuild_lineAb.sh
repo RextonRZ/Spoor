@@ -30,4 +30,8 @@ step relight
 "$B" -b --factory-startup $H/build/hub_lineAb_dressed_base.blend -P $H/light_test.py -- --cams "" --out $H/build/qa/_light \
   --spots 0.8 --floor-mul 0.35 --floor-rough 0.7 --floor-spec 0.12 --exposure "$EXPOSURE" \
   --save $H/build/hub_lineAb_dressed_lit.blend
+step static_fixes  # (parcels heaped over chute bag lips)
+"$B" -b --factory-startup $H/build/hub_lineAb_dressed_lit.blend -P $H/static_fixes.py
+step static_settle  # loose items resting on something (zone audit 1 Nov)
+"$B" -b --factory-startup $H/build/hub_lineAb_dressed_lit.blend -P $H/static_settle.py --   --save $H/build/hub_lineAb_dressed_lit.blend
 step done

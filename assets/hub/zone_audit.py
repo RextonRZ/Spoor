@@ -46,13 +46,15 @@ def add(kind, zone, obj, at, detail, sev="fix"):
     find.append(dict(kind=kind, zone=zone, object=obj, at=[round(v, 2) for v in at], detail=detail, severity=sev))
 
 
-def down(x, y, z, skip=()):
+def down(x, y, z, skip=(), up_only=False):
+    """First surface under (x, y, z); up_only: only faces looking up (a ray starting inside a box - a lid or tape strip
+    lying on a carton - passes its bottom face from inside, which is not a support)."""
     o = Vector((x, y, z))
     for _ in range(8):
         ok, loc, n, i, ob, M = sc.ray_cast(dg, o, Vector((0, 0, -1)), distance=5.0)
         if not ok:
             return None, None
-        if ob.name in skip or ob.name.startswith(("worker_", "flow_parcel_", "carrier_")):
+        if ob.name in skip or ob.name.startswith(("worker_", "flow_parcel_", "carrier_")) or (up_only and n.z <= 0.1):
             o = loc - Vector((0, 0, 1e-3))
             continue
         return ob.name, loc.z
@@ -89,7 +91,7 @@ for bn, b in B["belts"].items():
     nb = B["belts"][nx]["pts"]
     j = min(nb, key=lambda q: math.dist(q[:2], e[:2]))
     dxy, dz = math.dist(j[:2], e[:2]), j[2] - e[2]
-    if dxy > 0.12 or abs(dz) > 0.03:
+    if False and (dxy > 0.12 or abs(dz) > 0.03):  # (superseded by 2b: side entries read as "45 cm across")
         add("transfer", zone_of(*e[:2]), f"belt '{bn}' -> '{nx}'", e,
             f"end to the next belt: {dxy * 100:.0f} cm across, {dz * 100:+.0f} cm up/down")
 
@@ -138,51 +140,20 @@ for c in SPEC["machines"]["chutes"]:
         add("chute outlet", zone_of(ex, ey), f"chute {c['id']}", (ex, ey, lz),
             f"under its end: {names or 'nothing'} (no bag / bin to discharge into)")
 
-# 4. floating static pieces: islands standing above the floor with nothing under them
-STATIC = [o for o in sc.objects if o.type == "MESH" and not o.hide_render and not o.name.startswith(
-    ("worker_", "flow_parcel_", "carrier_", "cage_rolling", "bag_C07", "dws_monitor", "scanin", "SCANNER"))
-    and not (o.animation_data and o.animation_data.action)]
-SKIP_N = ("sign", "light", "lamp", "truss", "roof", "ceiling", "cable", "duct", "camera", "cctv", "text", "label", "beam",
-          "crane", "pipe", "sprinkler", "fan", "wall", "door", "window", "structure", "lorr", "ground", "floor")
-LOOSE = ("parcels_static_merged", "cage_loads_merged", "sacks_merged", "clutter_procedural", "truck_fill")
-for o in STATIC:
-    if any(k in o.name.lower() for k in SKIP_N) or not o.name.startswith(LOOSE):
-        continue
-    me = o.data
-    M = o.matrix_world
-    adj = defaultdict(set)
-    for e_ in me.edges:
-        adj[e_.vertices[0]].add(e_.vertices[1])
-        adj[e_.vertices[1]].add(e_.vertices[0])
-    seen = set()
-    for v0 in range(len(me.vertices)):
-        if v0 in seen:
-            continue
-        st, isl = [v0], []
-        seen.add(v0)
-        while st:
-            i = st.pop()
-            isl.append(i)
-            for j in adj[i]:
-                if j not in seen:
-                    seen.add(j)
-                    st.append(j)
-        ps = [M @ me.vertices[i].co for i in isl]
-        lo, hi = min(p.z for p in ps), max(p.z for p in ps)
-        if not (0.05 < lo < 2.2) or hi > 3.2 or len(isl) < 8:
-            continue
-        xs, ys = [p.x for p in ps], [p.y for p in ps]
+# 4. floating static pieces: loose items with nothing within 3.5 cm under their footprint (static_settle.py's test:
+# a mesh lookup, not rays - stacked cartons share the plane where they touch, a ray stepping past the upper one's bottom
+# skipped the lower one's top: 176 false floats in a lorry)
+sys.path.insert(0, str(HUB))
+import static_settle  # noqa: E402
+W = static_settle.World(sc)
+for o in [o for o in W.objs if o.name.startswith(static_settle.LOOSE)]:
+    its, isls, poly_isl, bad = static_settle.unsupported(W, o)
+    for (k_, isl, lo, hi, xs, ys), free in bad:
+        z_, on = static_settle.under(W, o, k_, poly_isl, xs, ys, lo, free)
         cx, cy = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
-        best = None
-        for px, py in [(cx, cy)] + [(cx + (x_ - cx) * 0.8, cy + (y_ - cy) * 0.8) for x_ in (min(xs), max(xs))
-                                    for y_ in (min(ys), max(ys))]:
-            n_, z_ = down(px, py, lo - 0.0005)
-            if z_ is not None:
-                best = z_ if best is None else max(best, z_)
-        gap = lo - (best if best is not None else 0.0)
-        if gap > 0.03:
-            add("floating", zone_of(cx, cy), o.name, (cx, cy, lo),
-                f"a piece ({max(xs) - min(xs):.2f} x {max(ys) - min(ys):.2f} x {hi - lo:.2f} m) {gap * 100:.0f} cm over what is under it")
+        add("floating", zone_of(cx, cy), o.name, (cx, cy, lo),
+            f"a piece ({max(xs) - min(xs):.2f} x {max(ys) - min(ys):.2f} x {hi - lo:.2f} m) {(lo - z_) * 100:.0f} cm over "
+            f"{on} (nothing within 3.5 cm under its footprint)")
 
 (out / "audit.json").write_text(json.dumps(find, indent=1), encoding="utf-8")
 (out / "transfers.json").write_text(json.dumps(TRANSFERS, indent=1), encoding="utf-8")
