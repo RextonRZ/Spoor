@@ -78,6 +78,15 @@ FIXES = [  # run 18 (final), from --propose, reviewed 1 Nov
 ]
 
 
+# static: whole loose parts (a sack / parcel of a merged static mesh) whose box meets this region are taken out (never cut
+# open), as static_fixes.py does. obj; box (x0, x1, y0, y1, z0, z1); why.
+STATIC_CUTS = [
+    dict(obj="cage_loads_merged", box=(36.3, 37.1, 29.3, 29.95, 0.3, 1.9),
+         why="final pass 3: worker_cage_1 walks past the parked cage's load corner, vest 5.9 cm into it f294-295, "
+             "CAM_13 - Rexton: too much; the path cannot move (flow), the load items there go"),
+]
+
+
 # ------------------------------------------------------------------------------------------------ propose
 def propose(gates):
     """Per parcel, contiguous frame runs of its visible collision rows -> one entry each: up out of something static or
@@ -168,8 +177,39 @@ def apply(save):
                     n += 1
             fcs[i].update()
         rep.append((ob.name, f"f{f0}-{f1}", [round(v * 100, 1) for v in off], n))
+    import bmesh
+    for cut in STATIC_CUTS:
+        ob = sc.objects[cut["obj"]]
+        M = ob.matrix_world
+        x0, x1, y0, y1, z0, z1 = cut["box"]
+        bm = bmesh.new()
+        bm.from_mesh(ob.data)
+        seen, dead = set(), []
+        for f0_ in bm.faces:
+            if f0_.index in seen:
+                continue
+            isl, st = [], [f0_]
+            seen.add(f0_.index)
+            while st:
+                g = st.pop()
+                isl.append(g)
+                for e in g.edges:
+                    for h in e.link_faces:
+                        if h.index not in seen:
+                            seen.add(h.index)
+                            st.append(h)
+            vs = [M @ v.co for g in isl for v in g.verts]
+            if (min(v.x for v in vs) < x1 and max(v.x for v in vs) > x0 and min(v.y for v in vs) < y1
+                    and max(v.y for v in vs) > y0 and min(v.z for v in vs) < z1 and max(v.z for v in vs) > z0):
+                dead += isl
+        n_ = len({id(g) for g in dead})
+        bmesh.ops.delete(bm, geom=list({id(g): g for g in dead}.values()), context="FACES")
+        bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
+        bm.to_mesh(ob.data)
+        bm.free()
+        rep.append((cut["obj"], "cut faces", n_))
     sc.frame_set(sc.frame_start)
-    print("TOUCHUP", len(FIXES), "fixes:", json.dumps(rep), flush=True)
+    print("TOUCHUP", len(FIXES), "fixes,", len(STATIC_CUTS), "static cuts:", json.dumps(rep), flush=True)
     out = Path(save).resolve()
     assert "_final" in out.name and out != Path(bpy.data.filepath).resolve(), "output: a new *_final blend, never the input"
     bpy.ops.wm.save_as_mainfile(filepath=str(out), compress=True)

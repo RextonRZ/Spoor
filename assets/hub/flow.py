@@ -47,6 +47,7 @@ ap.add_argument("--scan-extend", type=float, default=0.0)
 # filmed (021d question, owner rule "remove what can't be made convincing"); its heap / wall stays, nobody works it
 ap.add_argument("--unstaff", default="")  # "opener", "lineB"  # with --sim-only: run on this long past the window and
 # write its scan log (parcel numbers, not ids: splice_scan_log.py takes the window from the full run, builder note 0445)
+ap.add_argument("--dump-belts", default="")  # zone audit: every belt's path + the points with no belt under them, then stop
 ap.add_argument("--sim-only", default="")  # write the simulation's QA trace (json) here and stop: no workers, no bake
 args = ap.parse_args(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else [])
 rnd = random.Random(args.seed)
@@ -125,6 +126,7 @@ _DOOR_RND = random.Random(f"door-{args.seed}")
 dg = bpy.context.evaluated_depsgraph_get()
 BELT_OBJS = ("conveyors", "telescopic", "booms", "induction", "collector")  # never the tunnel housing roof
 GAPS = {}
+GAP_PTS = []  # (belt, x, y) with no conveyor surface under it (--dump-belts)
 
 
 def belt_z(x, y, default):
@@ -134,11 +136,13 @@ def belt_z(x, y, default):
         hit, loc, nrm, idx, ob, _ = sc.ray_cast(dg, o, Vector((0, 0, -1)), distance=3.0)
         if not hit:
             GAPS[_belt_now[0]] = GAPS.get(_belt_now[0], 0) + 1
+            GAP_PTS.append((_belt_now[0], round(x, 3), round(y, 3)))
             return default
         if any(k in ob.name.lower() for k in BELT_OBJS) and nrm.z > 0.7 and loc.z > 0.5:
             return loc.z
         o = loc + Vector((0, 0, -0.01))
     GAPS[_belt_now[0]] = GAPS.get(_belt_now[0], 0) + 1
+    GAP_PTS.append((_belt_now[0], round(x, 3), round(y, 3)))
     return default
 
 
@@ -283,6 +287,13 @@ MERGES = {"merge": (S_MERGE, "SP-INDUCT", 1.82), "induction_B": (_CB["path"][-1]
 # past that end, over nothing: pile gate, run 11)
 # (waiting fully outside the carriers' band: 0.45 m short, line A's head parcel sat over the passing carriers - the
 # merge belts now end at the band's edge, build_hub. Line A's merge timing moves by a fraction of a second)
+if args.dump_belts:  # (no simulation: the belts as built and where a parcel would ride over nothing)
+    Path(args.dump_belts).write_text(json.dumps(dict(
+        belts={n: dict(pts=[[round(q.x, 3), round(q.y, 3), round(q.z, 3)] for q in b.pts], speed=b.speed, nxt=b.nxt)
+               for n, b in B.items()}, gaps=GAP_PTS, merges={k: v[2] for k, v in MERGES.items()}), indent=1),
+        encoding="utf-8")
+    print("DUMP_BELTS", args.dump_belts, len(B), "belts", len(GAP_PTS), "gap points", flush=True)
+    sys.exit(0)
 READS = {"tunnel": (22.2 - 17.5, "SP-TUNNEL"),  # exit read at x 22.2
          "induction_B": (_s_near(B["induction_B"], _SPB["SP-TUNNEL-B"][:2]), "SP-TUNNEL-B")}
 
