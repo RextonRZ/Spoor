@@ -1,206 +1,137 @@
 "use client";
-import dynamic from "next/dynamic";
-import { use, useEffect, useRef, useState, useSyncExternalStore, Component, type ReactNode } from "react";
-import { WorkspaceProvider, useWorkspace } from "@/components/workspace/context";
-import { CaseOverview, TraceControls } from "@/components/workspace/CaseOverview";
-import Timeline from "@/components/workspace/Timeline";
-import SourcePanel from "@/components/workspace/SourcePanel";
-import AgentPanel from "@/components/workspace/AgentPanel";
-import MissingMoment from "@/components/workspace/MissingMoment";
-import FollowCam from "@/components/workspace/FollowCam";
-import CameraStrip from "@/components/workspace/CameraStrip";
-import CameraGrid from "@/components/workspace/CameraGrid";
-import ScanCard, { activeScan } from "@/components/workspace/ScanCard";
-import LeadPlan from "@/components/workspace/LeadPlan";
-import HubPlan from "@/components/plan/HubPlan";
-import { markerAt, clock, cloudAt, inPlayCameras } from "@/lib/journey";
-import "@/components/workspace/workspace.css";
+/**
+ * Answer, ported from review/refs/flow/Case.dc.html (owner 09:22). The answer first: a status pill, one sentence, a
+ * plain explanation, "How sure" with three reasons, one primary action (Watch the proof), the key frame, and the moments
+ * in order. Everything comes from the case's read models (journey, missing moment, possible places, records conflicts,
+ * floor search); in no-key mode it says what is really known.
+ */
+import Link from "next/link";
+import { use } from "react";
+import { signedUrl, useResource } from "@/lib/api";
+import type { Journey, MissingMoment } from "@/lib/journey";
+import { hms, momentLabel, placeOf, shortPlace } from "@/lib/words";
+import { CaseSteps } from "@/components/flow/CaseSteps";
+import HubPlan, { ZONE_NAMES } from "@/components/plan/HubPlan";
+import "./answer.css";
 
-const PlanScene3D = dynamic(() => import("@/components/workspace/PlanScene3D"), { ssr: false });
-const Scene3D = dynamic(() => import("@/components/workspace/Scene3D"), {
-  ssr: false,
-  loading: () => <div className="sp-scene-note" role="status">Loading 3D scene</div>,
-});
+interface CaseState { case: { case_id: string; target_description: string; complaint?: string | null } }
+interface Possible { objects: { places: { area_id: string; name: string; zone_id: string | null; possible_share: number }[] }[] }
+interface Conflicts { objects: { conflicts: { kind: string; divergence_t: string; statement: string }[] }[] }
+interface SearchView { found: { name: string; by: string; at: string } | null }
 
-type MobileTab = "scene" | "timeline" | "source" | "cameras" | "moment" | "case" | "agent";
+const low = (t: string) => t.charAt(0).toLowerCase() + t.slice(1); // "Into chute C12" -> "into chute C12"
+const clean = (name: string) => name.replace(/^Z\d+ /, "").replace(/\s*\(.*$/, "");
 
-export default function WorkspacePage({ params }: { params: Promise<{ caseId: string }> }) {
+export default function AnswerPage({ params }: { params: Promise<{ caseId: string }> }) {
   const { caseId } = use(params);
+  const st = useResource<CaseState>(`/v1/cases/${caseId}/state`);
+  const jr = useResource<Journey>(`/v1/cases/${caseId}/journey`);
+  const mr = useResource<MissingMoment>(`/v1/cases/${caseId}/missing-moment`);
+  const pr = useResource<Possible>(`/v1/cases/${caseId}/possible-locations`);
+  const cr = useResource<Conflicts>(`/v1/cases/${caseId}/conflicts`);
+  const sr = useResource<SearchView>(`/v1/cases/${caseId}/search-tasks`);
+  const j = jr.data?.objects[0];
+  const mm = mr.data?.objects[0];
+  const scans = j?.scans ?? [];
+  const last = scans.at(-1);
+  const lc = mm?.last_confirmed;
+  const places = (pr.data?.objects[0]?.places ?? []).filter((p) => p.possible_share > 0);
+  const conflicts = cr.data?.objects[0]?.conflicts ?? [];
+  const found = sr.data?.found ?? null;
+  const next = mm?.expected_next ?? [];
+  const withFootage = next.filter((r) => r.result !== "no_footage");
+  const seen = next.filter((r) => r.result === "seen");
+  const waybill = st.data?.case.target_description.split(" ").at(-1) ?? "";
+  const ready = !!(j && mm && pr.data);
+
+  // the answer, in the prototype's shape: pill, one sentence, two sentences of why
+  let pill: [string, string] = ["Lost track", "bad"];
+  let head = "Checking the records";
+  let why = "";
+  if (ready && found) {
+    pill = ["Found", "ok"];
+    head = `Found at ${low(clean(found.name))} at ${hms(found.at)}.`;
+    why = `Floor staff (${found.by}) found it there during the search. The last record before that was ${last ? `${low(momentLabel(last.event_kind, last.station_id))} at ${hms(last.t)}` : "none"}.`;
+  } else if (ready && seen.length) {
+    pill = ["Likely location found", "ok"];
+    head = `Seen on ${seen[0].camera_id.replace("cam_", "").replace("_", " ")} at ${hms(seen[0].predicted_t)}.`;
+    why = "A camera that should show it next did. Watch the proof to see the frame.";
+  } else if (ready && last) {
+    head = `Lost track after ${placeOf(last.event_kind, last.station_id)} at ${hms(last.t)}.`;
+    why = `The last record is ${low(momentLabel(last.event_kind, last.station_id))} at ${hms(last.t)}. ${withFootage.length
+      ? "The cameras that would show where it went next have footage that hasn't been checked yet."
+      : "None of the cameras that would show where it went next has footage yet, so nothing after that is confirmed."}`;
+  } else if (ready) {
+    head = "No scans of this parcel at this hub.";
+  }
+
+  // how sure: three plain reasons from the evidence
+  const level = found ? "high" : seen.length ? "medium" : "low";
+  const reasons: { text: string; tone: "ok" | "bad" | "plain" }[] = [];
+  if (last) reasons.push({ text: `Last scan: ${low(momentLabel(last.event_kind, last.station_id))} at ${hms(last.t)}.`, tone: "ok" });
+  if (next.length) reasons.push({ text: withFootage.length
+    ? `${withFootage.length} of ${next.length} cameras that would show it next have footage, not checked yet.`
+    : `None of the ${next.length} cameras that would show it next has footage yet.`, tone: "plain" });
+  if (conflicts.length) reasons.push({ text: `The sorter's own times don't fit the belt: ${conflicts[0].statement.replace(/: the records conflict$/, "")}.`, tone: "bad" });
+  else if (places.length) reasons.push({ text: `It could be in ${places.length} place${places.length === 1 ? "" : "s"}. Most likely: ${shortPlace(places[0], ZONE_NAMES)}.`, tone: "plain" });
+
+  const frame = lc?.frames?.[0];
+  const conflictAt = conflicts[0]?.divergence_t;
+
   return (
-    <WorkspaceProvider caseId={caseId}>
-      <Workspace />
-    </WorkspaceProvider>
-  );
-}
-
-const noop = () => () => {};
-let webglCache: boolean | null = null;
-function webglAvailable() {
-  if (webglCache !== null) return webglCache;
-  webglCache = detectWebgl();
-  return webglCache;
-}
-
-function detectWebgl() {
-  try {
-    const c = document.createElement("canvas");
-    return !!(c.getContext("webgl2") || c.getContext("webgl"));
-  } catch {
-    return false;
-  }
-}
-
-class SceneBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-  render() {
-    return this.state.failed ? this.props.fallback : this.props.children;
-  }
-}
-
-function Workspace() {
-  const { selection, mode, caps } = useWorkspace();
-  const [chosenView, setView] = useState<"3d" | "plan" | null>(null);
-  const [model3d, setModel3d] = useState<"model" | "plan">("model"); // design_sprint §I: the real hub first
-  const hasWebgl = useSyncExternalStore(noop, webglAvailable, () => null);
-  // The 2D journey is the primary view (journey_view_0030 pass 2): any hub has a plan; 3D is optional.
-  const view = chosenView ?? (hasWebgl === null ? null : "plan");
-  const [rightTab, setRightTab] = useState<"source" | "cameras" | "moment" | "agent">("source");
-  const rightTabRef = useRef(rightTab);
-  useEffect(() => { rightTabRef.current = rightTab; }, [rightTab]);
-  const [tab, setTab] = useState<MobileTab>("scene");
-  const { journey, missing, select } = useWorkspace();
-  const autoOpened = useRef(false);
-  const firstCam = missing.data?.objects[0]?.last_confirmed?.frames?.[0]?.camera_id;
-  const lcT = journey.data?.objects[0]?.last_confirmed?.t;
-  useEffect(() => {
-    // the hero opens on the camera frame at the last confirmed moment instead of "Nothing selected" (§2.2)
-    if (autoOpened.current || selection || !firstCam || !lcT) return;
-    autoOpened.current = true;
-    if (rightTabRef.current !== "source") return; // the user moved on (e.g. to Agent): never pull them back
-    select({ kind: "camera", cameraId: firstCam, time: Date.parse(lcT) });
-  }, [firstCam, lcT, selection, select]);
-  const [prevSelection, setPrevSelection] = useState(selection);
-  if (selection !== prevSelection) {
-    // a new selection always opens its source (state adjusted during render, not in an effect)
-    setPrevSelection(selection);
-    if (selection) {
-      setRightTab("source");
-      if (typeof window !== "undefined" && window.matchMedia("(max-width: 1100px)").matches) setTab("source");
-    }
-  }
-
-  const tabs: { k: MobileTab; label: string }[] = [
-    { k: "scene", label: "Scene" }, { k: "timeline", label: "Timeline" }, { k: "source", label: "Source" },
-    { k: "cameras", label: "Cameras" }, { k: "moment", label: "Moment" }, { k: "case", label: "Case" }, { k: "agent", label: "Agent" },
-  ];
-  return (
-    <div className="sp-ws" data-tab={tab}>
-      <nav className="sp-ws-tabs sp-seg" aria-label="Workspace sections">
-        {tabs.map((t) => (
-          <button key={t.k} aria-pressed={tab === t.k}
-            onClick={() => { setTab(t.k); if (t.k === "source" || t.k === "agent" || t.k === "moment" || t.k === "cameras") setRightTab(t.k); }}>{t.label}</button>
-        ))}
-      </nav>
-      <aside className="sp-ws-left sp-panel" data-pane="case" aria-label="Case overview">
-        <div className="sp-panel-body sp-stack" style={{ gap: 20 }}>
-          <CaseOverview />
-          <hr className="sp-divider" />
-          <TraceControls />
-        </div>
-      </aside>
-      <section className="sp-ws-scene sp-panel" data-pane="scene" data-view={view} aria-label="Hub scene">
-        <div className="sp-panel-head">
-          <span className="sp-micro">{view === "plan" ? "Floor plan" : model3d === "plan" ? "3D · built from the site plan" : "3D · real hub"}</span>
-          <div className="sp-seg" role="group" aria-label="Scene view">
-            <button aria-pressed={view === "plan"} onClick={() => setView("plan")}>2D journey</button>
-            <button aria-pressed={view === "3d"} onClick={() => setView("3d")}>3D</button>
+    <div className="an">
+      <CaseSteps caseId={caseId} waybill={waybill} said={st.data?.case.complaint ? "customer says it never arrived" : null} here={0} />
+      <div className="an-main">
+        <section className="an-left">
+          <div className="an-answer">
+            <span className="an-pill" data-tone={pill[1]}>{pill[0]}</span>
+            <h1 className="an-h1">{head}</h1>
+            {why && <p className="an-why">{why}</p>}
           </div>
-        </div>
-        <div className="sp-scene-wrap">
-          {view === "3d" && (
-            <SceneBoundary fallback={<><WorkspacePlan /><div className="sp-scene-note">3D failed to start; showing the 2D plan.</div></>}>
-              {model3d === "plan" ? <PlanScene3D /> : <Scene3D />}
-              <div className="sp-3d-switch">
-                <div className="sp-seg" role="group" aria-label="3D geometry source">
-                  <button aria-pressed={model3d === "model"} onClick={() => setModel3d("model")}>Real hub</button>
-                  <button aria-pressed={model3d === "plan"} onClick={() => setModel3d("plan")} data-testid="plan-3d">What a hub gets on day one (from the floor plan)</button>
-                </div>
-                <span className="sp-caption" style={{ margin: 0 }}>{model3d === "plan"
-                  ? "What a real hub gets on day one: extruded from its floor plan (walls, zones, conveyors at deck height, racks). No 3D model."
-                  : "The hub's own 3D model, the one the footage was rendered from."}</span>
-              </div>
-            </SceneBoundary>
-          )}
-          {view === "plan" && <WorkspacePlan />}
-          <ReplayStatus />
-          {mode !== "object" && !caps.data?.sam && (
-            <div className="sp-scene-note" role="status" style={{ bottom: 48 }}>
-              No anonymous person tracks: person segmentation needs SAM (no API key).{mode === "all" ? " Showing the parcel only." : ""}
+          {ready && reasons.length > 0 && (
+            <div className="an-sure">
+              <p className="an-sure-h">How sure: <span data-level={level}>{level}</span></p>
+              {reasons.slice(0, 3).map((r) => (
+                <div key={r.text} className="an-reason"><span className="an-dot" data-tone={r.tone} /><span>{r.text}</span></div>
+              ))}
             </div>
           )}
-        </div>
-      </section>
-      <section className="sp-ws-right sp-panel" data-pane="source cameras moment agent" aria-label="Source and agent" id="source-panel">
-        <div className="sp-panel-head">
-          <div className="sp-seg" role="tablist" aria-label="Right panel">
-            <button role="tab" aria-selected={rightTab === "source"} onClick={() => { setRightTab("source"); setTab("source"); }}>Source</button>
-            <button role="tab" aria-selected={rightTab === "cameras"} data-testid="tab-cameras"
-              onClick={() => { setRightTab("cameras"); setTab("cameras"); }}>Cameras</button>
-            <button role="tab" aria-selected={rightTab === "moment"} data-testid="tab-moment"
-              onClick={() => { setRightTab("moment"); setTab("moment"); }}>Missing moment</button>
-            <button role="tab" aria-selected={rightTab === "agent"} onClick={() => { setRightTab("agent"); setTab("agent"); }}>Agent</button>
+          <div className="an-acts">
+            <Link className="an-btn an-btn-primary" href={`/cases/${caseId}/proof`}>Watch the proof</Link>
+            <Link className="an-btn" href={`/cases/${caseId}/search`}>Send someone to look</Link>
           </div>
-        </div>
-        <div className="sp-panel-body" data-right={rightTab} tabIndex={0} role="region" aria-label={`${rightTab} panel`}>
-          <div className="sp-ws-source" hidden={rightTab !== "source"}><ScanCard /><FollowCam /><SourcePanel /></div>
-          <div className="sp-ws-cameras" hidden={rightTab !== "cameras"}>{rightTab === "cameras" && <CameraGrid />}</div>
-          <div className="sp-ws-moment" hidden={rightTab !== "moment"}><MissingMoment /></div>
-          <div className="sp-ws-agent" hidden={rightTab !== "agent"}><LeadPlan /><AgentPanel /></div>
-        </div>
-      </section>
-      <div className="sp-ws-strip" data-pane="strip"><CameraStrip /></div>
-      <section className="sp-ws-time sp-panel" data-pane="timeline" aria-label="Timeline">
-        <Timeline />
-      </section>
-    </div>
-  );
-}
+        </section>
 
-/** What the replay marker rests on at the playhead, in words (live region, so it is announced while playing). */
-function ReplayStatus() {
-  const { journey, possible, playhead } = useWorkspace();
-  const j = journey.data?.objects[0];
-  if (!j || playhead === null) return null;
-  const m = markerAt(j, playhead);
-  const step = cloudAt(possible.data?.objects[0], playhead);
-  const tone = m.kind === "observed" ? "observed" : m.kind === "inferred" ? "inferred" : m.kind === "scan" ? "scan" : "unknown";
-  return (
-    <div className="sp-replay-status" data-tone={tone} role="status" aria-live="polite" data-testid="replay-status">
-      <span className="sp-replay-dot" aria-hidden />
-      {m.kind === "unknown" && m.since ? `Unknown since ${clock(m.since, true)}: no scan and no sighting after it` : m.label}
-      {m.kind === "unknown" && step ? ` · could be anywhere in the hatched ${Math.round(step.area_m2)} m² (computed)` : ""}
-    </div>
-  );
-}
+        <section className="an-right">
+          <Link href={`/cases/${caseId}/proof`} className="an-frame">
+            {frame ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={signedUrl(frame.frame_url)} alt={`${frame.camera_id} at the last scan`} />
+            ) : lc?.xy ? (
+              <HubPlan label="Where it stopped" focus={{ xy: lc.xy, radius_m: 10, tone: "bad" }} legend={false} fit="width" journey={j} quiet />
+            ) : <span className="an-frame-none" />}
+          </Link>
+          <p className="an-cap">{frame ? `${frame.camera_id.replace("cam_", "").replace("_", " ")} · ${lc ? hms(lc.t) : ""}` : lc ? `Where it stopped · ${last ? placeOf(last.event_kind, last.station_id) : ""} · ${hms(lc.t)} · no footage yet` : ""}</p>
+        </section>
 
-/** The 2D journey (H2) in the architectural plan language: backend-typed journey + missing moment + replay marker. */
-function WorkspacePlan() {
-  const { journey, missing, possible, playhead, select, selection, litCameras, mode } = useWorkspace();
-  const j = journey.data?.objects[0];
-  const step = cloudAt(possible.data?.objects[0], playhead);
-  const mm = missing.data?.objects[0];
-  const inPlay = inPlayCameras(litCameras, mm);
-  return (
-    <div className="sp-plan2">
-      <HubPlan label={`Hub floor plan with the journey of ${j?.label ?? "the parcel"}`} journey={mode !== "people" ? j : undefined}
-        missing={mm} marker={j && playhead !== null ? markerAt(j, playhead) : null} litCameras={inPlay}
-        cloud={step ? { polygons: step.polygons, seconds: step.seconds_after, removed: step.removed_by_cameras } : null}
-        selectedScanId={selection?.kind === "scan" ? selection.scanId : null}
-        activeScanId={activeScan(j?.scans, playhead)?.scan_event_id ?? null}
-        onScan={(id) => select({ kind: "scan", scanId: id })} onObservation={(id) => select({ kind: "observation", observationId: id })} />
+        {scans.length > 0 && (
+          <section aria-label="What happened, in order" className="an-moments">
+            {[...scans.map((s) => ({ key: s.scan_event_id, t: s.t, label: momentLabel(s.event_kind, s.station_id), tone: undefined as string | undefined })),
+              ...(conflictAt ? [{ key: "conflict", t: conflictAt, label: "Records disagree. The sorter's times don't fit the belt.", tone: "bad" }] : [])]
+              .sort((x, y) => x.t.localeCompare(y.t)).map((m) => (
+                <div key={m.key} className="an-moment" data-tone={m.tone}>
+                  <span className="an-moment-t">{hms(m.t)}</span>
+                  <span className="an-moment-l">{m.label}</span>
+                </div>
+              ))}
+            {found ? (
+              <div className="an-moment" data-tone="ok"><span className="an-moment-t">{hms(found.at)}</span><span className="an-moment-l">Found by floor staff</span></div>
+            ) : last && (
+              <div className="an-moment" data-tone="unknown"><span className="an-moment-t">after {hms(last.t)}</span><span className="an-moment-l">Not seen since</span></div>
+            )}
+          </section>
+        )}
+      </div>
     </div>
   );
 }

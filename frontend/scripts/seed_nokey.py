@@ -236,6 +236,8 @@ def load_inputs(admin, *, clips_dir: Path, clip_start: str, scans_path: Path, sp
               "polygon_m": poly, "measured": False} for z in spec["zones"] for zid, poly in zone_polys(z)]  # fmt: skip
     site = {"site_id": SITE_ID, "name": "CONTOH Express Klang Valley hub (fictional)",
             "measurement_method": "design plan of a fictional hub (assets/hub/hub_spec.json); not surveyed",
+            # the one-user demo site: no second approver (review F-047..051); real sites keep the default (on)
+            "require_second_approver": False,
             "floors": [{"floor_id": FLOOR_ID, "name": "Ground", "outline_m": outline}], "zones": zones}  # fmt: skip
     if admin.get(f"/v1/sites/{SITE_ID}").status_code == 200:
         log("site exists; re-running imports only (scan import is idempotent)")

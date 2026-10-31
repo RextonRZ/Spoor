@@ -26,7 +26,7 @@ from .search import outcomes_by_area
 
 STEPS_S = (2, 5, 10, 20, 40, 60, 120, 300)
 PLACE_KINDS = ("zone", "store", "blind_spot", "machine")
-LABEL = "possible area, computed from the site plan and the cameras that watched — not an observation"
+LABEL = "possible area, computed from the site plan and the cameras that watched; not an observation"
 
 
 def possible_locations(store: EvidenceStore, case_id: str, *, t: datetime | None = None) -> dict:

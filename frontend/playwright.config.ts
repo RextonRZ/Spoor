@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 /**
- * Smoke tests against the real no-key stack: `npm run backend` (FastAPI, no model keys) + `npm run seed` must have run.
+ * Flow tests against the real no-key stack: the S2 demo store (`SPOOR_DATA=s2 npm run backend`, seeded by seed_nokey.py).
  * The Next.js server is started here if it is not already running.
  */
 export default defineConfig({
@@ -14,7 +14,8 @@ export default defineConfig({
   use: {
     baseURL: process.env.SPOOR_WEB_URL ?? "http://localhost:3000",
     viewport: { width: 1440, height: 900 },
-    launchOptions: { args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] },
+    // fake microphone for the Go look voice-note test
+    launchOptions: { args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"] },
     trace: "retain-on-failure",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } }],

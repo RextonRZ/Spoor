@@ -74,6 +74,9 @@ class Site(Record):
     measurement_method: str = Field(description="How dimensions were obtained, e.g. 'tape measure, ±2 cm'")
     floors: Annotated[list[Floor], Field(min_length=1)]
     zones: list[Zone] = []
+    require_second_approver: bool = Field(
+        default=True, description="Reports need a second person to approve them (four-eyes). Real sites keep it on; "
+        "the one-user demo site turns it off, and its shared reports read 'Investigation summary'.")
 
     @model_validator(mode="after")
     def _zones_reference_floors(self) -> "Site":

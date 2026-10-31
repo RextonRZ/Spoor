@@ -307,7 +307,7 @@ def compose_answer(answers: list[ObjectAnswer], outcomes: list[HypothesisOutcome
         }[a.left_area])  # fmt: skip
     for o in outcomes:
         # Agent wording is shown as wording, never as a verified statement; verified checks are generated text.
-        lines.append(f"Hypothesis ({o.status.value}) — agent's wording: \"{o.claim}\"")
+        lines.append(f"Hypothesis ({o.status.value}) · agent's wording: \"{o.claim}\"")
         for check in o.verified_checks:
             lines.append(f"  verified: {check}")
     if request_ids:

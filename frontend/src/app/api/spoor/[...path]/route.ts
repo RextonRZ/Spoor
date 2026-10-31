@@ -22,8 +22,9 @@ async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[]
   if (!(joined === "healthz" || joined.startsWith("v1/"))) {
     return Response.json({ detail: "not a Spoor API path" }, { status: 404 });
   }
+  // one demo user (owner 09:24): the supervisor, who holds every role. The per-role tokens remain only for tests.
   const role = (await cookies()).get("spoor_role")?.value ?? "investigator";
-  const token = TOKENS[role];
+  const token = process.env.SPOOR_TOKEN_SUPERVISOR ?? TOKENS[role];
   if (!token) {
     return Response.json({ detail: `no token configured for role ${role}; run scripts/setup-local.mjs` },
       { status: 503 });

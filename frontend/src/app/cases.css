@@ -1,0 +1,16 @@
+/* Cases list in the Hub's compact row style (review/refs/flow/Main.dc.html values). Prefix cs-. */
+.cs { color: #F4F5F7; }
+.cs-main { max-width: 1040px; margin: 0 auto; padding: 32px 32px 48px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px; }
+.cs-site { margin: 0 0 6px; font-size: 14px; color: #8B909B; }
+.cs-h1 { margin: 0 0 6px; font-size: 34px; line-height: 1.15; font-weight: 700; letter-spacing: -0.03em; }
+.cs-row { background: #14151B; border: 1px solid rgba(255,255,255,0.07); border-radius: 20px; padding: 16px 18px; display: flex; flex-wrap: wrap; gap: 20px; align-items: center; }
+.cs-body { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.cs-pill { align-self: flex-start; font-size: 12px; font-weight: 700; color: #FCA5A5; padding: 4px 10px; border-radius: 999px; background: rgba(248,113,113,0.14); }
+.cs-pill[data-tone="ok"] { color: #86EFAC; background: rgba(74,222,128,0.12); }
+.cs-say { font-size: 17px; font-weight: 600; }
+.cs-foot { font-size: 14px; color: #8B909B; }
+.tb-app .cs-btn { height: 40px; display: inline-flex; align-items: center; padding: 0 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.14); color: #F4F5F7;
+  font-size: 14px; font-weight: 600; }
+.tb-app .cs-btn:hover { color: #F4F5F7; background: rgba(255,255,255,0.04); }
+.cs-empty { margin: 0; padding: 24px 18px; border-radius: 20px; background: #14151B; border: 1px solid rgba(255,255,255,0.07); font-size: 15px; color: #C9CCD3; }
+@media (max-width: 760px) { .cs-main { padding: 20px 16px 32px; } }

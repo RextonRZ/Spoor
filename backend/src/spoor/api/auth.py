@@ -23,13 +23,14 @@ class Principal:
     user_id: str
     role: Role
     site_ids: frozenset[str]
+    also: frozenset[Role] = frozenset()  # further roles (the single demo supervisor holds all of them)
 
     def require_site(self, site_id: str) -> None:
         if site_id not in self.site_ids:
             raise HTTPException(status.HTTP_403_FORBIDDEN, "no access to this site")
 
     def require_role(self, *roles: Role) -> None:
-        if self.role not in roles:
+        if self.role not in roles and not self.also.intersection(roles):
             raise HTTPException(status.HTTP_403_FORBIDDEN, f"requires role {[r.value for r in roles]}")
 
 
@@ -40,7 +41,8 @@ class TokenRegistry:
     @classmethod
     def from_file(cls, path: Path) -> "TokenRegistry":
         raw = json.loads(path.read_text(encoding="utf-8"))["tokens"]
-        return cls({t: Principal(v["user_id"], Role(v["role"]), frozenset(v["site_ids"])) for t, v in raw.items()})
+        return cls({t: Principal(v["user_id"], Role(v["role"]), frozenset(v["site_ids"]), frozenset(Role(r) for r in v.get("roles", [])))
+                    for t, v in raw.items()})  # fmt: skip
 
     def resolve(self, token: str) -> Principal | None:
         for known, principal in self._tokens.items():

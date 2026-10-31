@@ -17,11 +17,13 @@ if (existsSync(usersPath) && existsSync(envPath)) {
 }
 const tok = () => randomBytes(24).toString("hex");
 const site = "site_contoh_hub";
-const t = { admin: tok(), investigator: tok(), reviewer: tok() };
+const t = { admin: tok(), investigator: tok(), reviewer: tok(), supervisor: tok() };
 writeFileSync(usersPath, JSON.stringify({ tokens: {
   [t.admin]: { user_id: "admin_01", role: "site_admin", site_ids: [site] },
   [t.investigator]: { user_id: "investigator_01", role: "investigator", site_ids: [site] },
   [t.reviewer]: { user_id: "reviewer_01", role: "reviewer", site_ids: [site] },
+  // the one demo user (owner 09:24): a supervisor holding every role; the UI always acts as this user
+  [t.supervisor]: { user_id: "supervisor_01", role: "site_admin", roles: ["investigator", "reviewer", "site_admin"], site_ids: [site] },
 } }, null, 1));
 writeFileSync(join(local, "signing.secret"), tok());
 writeFileSync(envPath, [
@@ -31,6 +33,7 @@ writeFileSync(envPath, [
   `SPOOR_TOKEN_SITE_ADMIN=${t.admin}`,
   `SPOOR_TOKEN_INVESTIGATOR=${t.investigator}`,
   `SPOOR_TOKEN_REVIEWER=${t.reviewer}`,
+  `SPOOR_TOKEN_SUPERVISOR=${t.supervisor}`,
   "",
 ].join("\n"));
 console.log("wrote", usersPath, "and", envPath, "->", dirname(dirname(usersPath)));

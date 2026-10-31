@@ -420,3 +420,16 @@ def test_scan_and_clock_lists(client):
     assert scans["scans"][0]["source_type"] == "scan_simulated"
     assert c.get("/v1/sites/site_demo/scans", params={"start": (T0 + timedelta(seconds=1)).isoformat()},
                  headers=h("t-inv")).json()["total"] == 0  # fmt: skip
+
+
+def test_single_demo_supervisor_holds_every_role():
+    """Owner 09:24: one demo user who can do everything; backend checks stay, the supervisor passes each of them."""
+    p = Principal("supervisor_01", Role.SITE_ADMIN, frozenset({"site_demo"}), frozenset({Role.INVESTIGATOR, Role.REVIEWER}))
+    for r in (Role.INVESTIGATOR, Role.REVIEWER, Role.SITE_ADMIN):
+        p.require_role(r)
+    plain = Principal("inv", Role.INVESTIGATOR, frozenset({"site_demo"}))
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException):
+        plain.require_role(Role.REVIEWER)
+

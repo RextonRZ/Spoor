@@ -24,6 +24,13 @@ const FULL: Ext = { x0: -5.5, x1: 61.5, y0: -4.6, y1: 45.6 };
 
 /** On a narrow plan (phone), frame the journey (scans, routes, last point, expected spots) + a margin, not the site. */
 function frame(props: PlanProps, w: number): Ext {
+  if (props.heat) return { x0: -1.5, x1: 61.5, y0: -1.5, y1: 41.5 }; // the trail-ends map: the building only, readable
+  if (props.focus) {
+    // a thumbnail around one point (Hub rows: where the parcel stopped)
+    const [x, y] = props.focus.xy;
+    const r = props.focus.radius_m ?? 9;
+    return { x0: x - r * 1.5, x1: x + r * 1.5, y0: y - r, y1: y + r };
+  }
   if (w >= 640 || !props.journey) return FULL;
   const pts: XY[] = [];
   props.journey.scans.forEach((s) => s.xy && pts.push(s.xy));
@@ -68,6 +75,10 @@ export interface PlanProps {
   onScan?: (scanId: string) => void;
   onObservation?: (observationId: string) => void;
   legend?: boolean;
+  /** route only, no time chips (the Hub's trails card) */
+  quiet?: boolean;
+  /** frame a small box around one point and pin it (Hub row thumbnails); hides the scale bar */
+  focus?: { xy: XY; radius_m?: number; tone?: "warn" | "bad" };
   label: string;
   minHeight?: number;
   /** "width": the plan takes the card's full width and its own height (summary, hub); default fits the box. */
@@ -107,8 +118,10 @@ export default function HubPlan(props: PlanProps) {
   useChipKnockout(svgRef);
   const narrow = box.w > 0 && box.w < 640;
   const litKey = props.litCameras?.join() ?? "";
+  const fx = props.focus ? props.focus.xy.join() : "";
+  const hk = props.heat ? "heat" : "";
   // eslint-disable-next-line react-hooks/exhaustive-deps -- recompute only when the evidence or the width class changes
-  const ext = useMemo(() => frame(props, box.w), [props.journey, props.missing, litKey, narrow]);
+  const ext = useMemo(() => frame(props, box.w), [props.journey, props.missing, litKey, narrow, fx, hk]);
   const byW = box.w / (ext.x1 - ext.x0);
   const fitW = props.fit === "width" || ext !== FULL; // a zoomed phone plan takes the width; the box shrinks to it
   const S = box.w ? Math.max(4, fitW ? byW : Math.min(byW, (box.h || 1e9) / (ext.y1 - ext.y0))) : 0;
@@ -121,7 +134,13 @@ export default function HubPlan(props: PlanProps) {
           <svg ref={svgRef} className="hp-svg" width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="group" aria-label={props.label}>
             <Base S={S} heat={props.heat} ext={ext} />
             <Overlay S={S} ext={ext} {...props} />
-            <ScaleNorth S={S} W={W} H={H} zoomed={ext !== FULL} />
+            {!props.focus && <ScaleNorth S={S} W={W} H={H} zoomed={ext !== FULL && !props.heat} />}
+            {props.focus && (() => {
+              const [px, py] = [(props.focus.xy[0] - ext.x0) * S, (ext.y1 - props.focus.xy[1]) * S];
+              const col = props.focus.tone === "bad" ? "#f87171" : "#fbbf24";
+              return <g aria-hidden><circle cx={px} cy={py} r={16} fill={col} opacity={0.18} />
+                <circle cx={px} cy={py} r={6} fill={col} stroke="#0b0c10" strokeWidth={2} /></g>;
+            })()}
           </svg>
         )}
       </div>
@@ -255,7 +274,7 @@ function Base({ S, heat, ext }: { S: number; heat?: Record<string, number>; ext:
             {S >= 8 && <text className="hp-t" x={t[0]} y={t[1] + 3} fontSize={fs(9)} fill={C.inkF} fontWeight={600} textAnchor="middle">{ch.id === "REJECT" ? "R" : ch.id.slice(1)}</text>}</g>;
         })}
         {walls}
-        {HUB.zones.filter((z) => LABEL_AT[z.id] && (S >= 8.5 || heat?.[z.id] || !SMALL_ZONES.has(z.id))).map((z) => {
+        {HUB.zones.filter((z) => LABEL_AT[z.id] && (heat ? !!heat[z.id] : S >= 8.5 || !SMALL_ZONES.has(z.id))).map((z) => {
           const [x, y] = P(LABEL_AT[z.id]);
           const n = heat?.[z.id];
           return <g key={z.id} className="hp-zl">
@@ -321,7 +340,7 @@ function placeChips(want: { at: XY; t: string; sub: string; dot: string; rank: n
   return out;
 }
 
-function Overlay({ S, ext, journey: j, missing, marker, cloud, litCameras = [], selectedScanId, activeScanId, onScan, onObservation }: PlanProps & { S: number; ext: Ext }) {
+function Overlay({ S, ext, journey: j, missing, marker, cloud, litCameras = [], selectedScanId, activeScanId, onScan, onObservation, quiet }: PlanProps & { S: number; ext: Ext }) {
   const { P, pts } = mk(S, ext);
   const W = (ext.x1 - ext.x0) * S, H = (ext.y1 - ext.y0) * S;
   const lit = new Set(litCameras);
@@ -334,7 +353,7 @@ function Overlay({ S, ext, journey: j, missing, marker, cloud, litCameras = [], 
   });
   // small plans keep only the chips that carry the story (last confirmed + expected); others stay in bead tooltips
   const compact = S < 12;
-  const chips = j ? placeChips([
+  const chips = j && !quiet ? placeChips([
     ...j.scans.filter((s) => s.xy && (!compact || last?.evidence_id === s.scan_event_id || s.scan_event_id === activeScanId)).map((s) => {
       const isLast = last?.evidence_id === s.scan_event_id;
       return { at: P(s.xy!), t: clock(s.t, true).replace(" MYT", ""), sub: `${isLast ? "Last confirmed · " : ""}${short(describeScan(s).title)}`, dot: C.scan,

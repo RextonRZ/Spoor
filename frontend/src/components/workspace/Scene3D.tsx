@@ -17,6 +17,7 @@ import { routeLink, surfaceHeight } from "@/lib/topology";
 import type { ReplayPoint } from "@/lib/types";
 import { fmtTime } from "@/lib/time";
 import { useWorkspace } from "./context";
+import "./workspace.css"; // the scene, labels, compass and tools (was loaded by the old workspace page)
 
 const HIDE = /^(roof|roof_lights|roof_services|highbay|mounted_fluorescent|wall_S|wall_E|structure)/;
 const r3 = (p: Vec3) => new THREE.Vector3(...siteToRenderer(p));

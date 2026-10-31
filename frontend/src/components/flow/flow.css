@@ -1,0 +1,11 @@
+/* Shared flow pieces (review/refs/flow). Prefix fl-. */
+.fl-casebar { max-width: 1376px; margin: 0 auto; padding: 20px 32px 0; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center;
+  justify-content: space-between; gap: 16px; }
+.fl-crumb { margin: 0; font-size: 14px; color: #8B909B; }
+.tb-app .fl-crumb a { color: #8B909B; }
+.fl-crumb-wb { color: #C9CCD3; }
+.fl-steps { display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: #14151B; border: 1px solid rgba(255,255,255,0.07); }
+.tb-app .fl-steps a { padding: 8px 14px; border-radius: 9px; color: #8B909B; font-size: 14px; font-weight: 500; }
+.tb-app .fl-steps a:hover { color: #F4F5F7; }
+.tb-app .fl-steps a[aria-current="page"] { background: #23252D; color: #F4F5F7; font-weight: 600; }
+@media (max-width: 760px) { .fl-casebar { padding: 16px 16px 0; } .fl-steps { width: 100%; justify-content: space-between; } .tb-app .fl-steps a { padding: 8px 8px; font-size: 13px; } }

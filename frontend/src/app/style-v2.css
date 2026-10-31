@@ -82,13 +82,6 @@
 :root[data-style="v2"] .sp-num { font-family: var(--font); font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
 
 /* shell */
-:root[data-style="v2"] .sp-nav { min-height: 44px; border-radius: 10px; font-weight: 560; font-size: 14px; color: var(--ink-muted); }
-:root[data-style="v2"] .sp-nav:hover { background: var(--fill-1); color: var(--ink-strong); }
-:root[data-style="v2"] .sp-nav[aria-current="page"] { background: var(--fill-2); color: var(--ink-strong); }
-:root[data-style="v2"] .sp-brand-mark { border-radius: var(--radius-xs); }
-:root[data-style="v2"] .sp-side:not(.rl) { background: var(--surface); backdrop-filter: none; } /* same colour as the rail band below it: no seam */
-:root[data-style="v2"] .rl-panel { background: var(--surface); }
-:root[data-style="v2"] .rl-item[aria-current="page"] { background: var(--fill-2); }
 
 /* surfaces: opaque, hairline, doubled shadow, radius grows with size */
 :root[data-style="v2"] .sp-card, :root[data-style="v2"] .sp-panel { border-radius: var(--radius); box-shadow: var(--shadow); }

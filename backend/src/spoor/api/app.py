@@ -529,6 +529,31 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         audit(p, "investigate", case_id, job_id=job.job_id)
         return {"job_id": job.job_id}
 
+    @app.post("/v1/cases/{case_id}/run", status_code=202)
+    def start_run(case_id: str, p: User) -> dict:
+        """The investigation run as typed steps (agent_showcase_0925): stream them from /v1/jobs/{id}/events."""
+        from spoor.forensics.run import investigation_run
+
+        p.require_role(Role.INVESTIGATOR)
+        case_for(p, case_id)
+
+        def work(job):
+            with svc.case_lock(case_id):
+                return investigation_run(svc.store, case_id, now=now(), keyed=svc.spark_client is not None,
+                                         emit=lambda ev: job.emit(ev["type"], **ev))  # fmt: skip
+
+        job = svc.jobs.submit("run", p.user_id, work)
+        audit(p, "investigation_run", case_id, job_id=job.job_id)
+        return {"job_id": job.job_id}
+
+    @app.get("/v1/cases/{case_id}/run")
+    def get_run(case_id: str, p: User) -> dict:
+        from spoor.forensics.run import COLUMNS, CREW, OPTIONAL_TOOLS, TOOLS, latest_run
+
+        case_for(p, case_id)
+        return {"steps": latest_run(svc.store, case_id), "crew": [{"role": k, "who": v[0], "model": v[1], "tools": TOOLS[k]} for k, v in CREW.items()],
+                "optional_tools": sorted(OPTIONAL_TOOLS), "columns": COLUMNS}  # fmt: skip
+
     @app.get("/v1/jobs/{job_id}")
     def job_status(job_id: str, p: User) -> dict:
         job = svc.jobs.jobs.get(job_id)
@@ -1312,7 +1337,8 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         if draft.status != "draft":
             raise HTTPException(409, "only drafts can be approved")
         creator = [a for a in svc.store.find(AuditEntry, target_id=report_id) if a.action == "export_report"]
-        if creator and creator[0].actor.id == p.user_id:
+        site = svc.site(get_or_404(Case, draft.case_id).site_id)
+        if creator and creator[0].actor.id == p.user_id and site.require_second_approver:
             raise HTTPException(403, "a reviewer cannot approve a report they exported")
         head = svc.store.head_revision(draft.case_id)
         if head and head.case_revision_id != draft.case_revision_id:
@@ -1334,7 +1360,9 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         rec = get_or_404(ReportRecord, report_id)
         case_for(p, rec.case_id)
         if format == "html":
-            return HTMLResponse(render_html(rec.content, status=rec.status, approved_by=rec.approved_by))
+            case = get_or_404(Case, rec.case_id)
+            return HTMLResponse(render_html(rec.content, status=rec.status, approved_by=rec.approved_by,
+                                            second_approver=svc.site(case.site_id).require_second_approver))  # fmt: skip
         return {"report_id": rec.report_id, "status": rec.status, "approved_by": rec.approved_by,
                 "sha256": rec.sha256, "manifest": manifest(rec.content), "content": rec.content}
 

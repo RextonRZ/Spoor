@@ -140,7 +140,7 @@ SCAN_SOURCE_LABELS = {"scan_simulated": "Simulated scan log (scan_simulated)", "
 
 def _cam(camera_id: str | None) -> str:
     """'cam_CAM_01' (record id) -> 'CAM_01' (what the recorder and the OSD call it)."""
-    return camera_id.removeprefix("cam_") if camera_id else "—"
+    return camera_id.removeprefix("cam_") if camera_id else "none"
 
 
 def _records_not_held(history: list[dict]) -> list[dict]:
@@ -225,7 +225,7 @@ def build_report(store: EvidenceStore, case_id: str, *, site: Site, now: datetim
     costs = store.find(CostEntry, case_id=case_id)
     sensors = store.find(SensorEvent, site_id=case.site_id)
     report = {
-        "title": f"Spoor investigation-support report — {case.target_description}",
+        "title": f"Spoor investigation-support report · {case.target_description}",
         "disclaimer": DISCLAIMER,
         "custody_note": CUSTODY_NOTE,
         "generated_at": _iso(now),
@@ -328,7 +328,7 @@ MONO_KEYS = {"master_sha256", "sha256", "media_id", "observation_ids", "calibrat
 def fmt_time(iso: str | None, *, date: bool = True) -> str:
     """'2026-10-28T06:32:07.912+00:00' -> '28 Oct 2026, 14:32:07.9 MYT' (tenths of a second, like the scan log)."""
     if not iso:
-        return "—"
+        return "not recorded"
     t = datetime.fromisoformat(iso).astimezone(REPORT_TZ)
     clock = f"{t:%H:%M:%S}.{t.microsecond // 100_000}"
     return f"{t.day} {t:%b %Y}, {clock} MYT" if date else f"{clock} MYT"
@@ -336,7 +336,7 @@ def fmt_time(iso: str | None, *, date: bool = True) -> str:
 
 def fmt_value(v) -> str:
     if v is None or v == "" or v == []:
-        return "—"
+        return "not recorded"
     if isinstance(v, bool):
         return "Yes" if v else "No"
     if isinstance(v, list):
@@ -347,7 +347,7 @@ def fmt_value(v) -> str:
 def _clock_cell(f: dict, notes: list[str]) -> str:
     """One short cell per recorder; the long method text goes once into a numbered footnote (review 012 #6)."""
     if "clock_method" not in f:  # reports stored before review 012 kept only the sentence
-        return f.get("clock_check") or "—"
+        return f.get("clock_check") or "not recorded"
     method, unc, off = f["clock_method"], f.get("clock_uncertainty_ms"), f.get("clock_offset_ms")
     if method is None:
         return "no clock check recorded"
@@ -372,7 +372,7 @@ def _working_copy_cell(f: dict) -> str:
 
 
 def _secs(v) -> str:
-    return "—" if v is None else f"{v:g} s"
+    return "not recorded" if v is None else f"{v:g} s"
 
 
 def _table(rows: list[dict], cols: list[tuple], empty: str) -> str:
@@ -410,7 +410,7 @@ def _legal_html(ctx: dict | None) -> str:
               f"SHA-256 {e(ctx['content_sha256'])}.</p>")
 
 
-def render_html(report: dict, *, status: str, approved_by: str | None = None) -> str:
+def render_html(report: dict, *, status: str, approved_by: str | None = None, second_approver: bool = True) -> str:
     """The document a claims team or investigator hands over (review 012): human labels, one time zone (MYT),
     the complaint the case started from, the sources actually used, and empty states said once in words."""
     e, table, kv = html.escape, _table, _kv
@@ -426,7 +426,9 @@ def render_html(report: dict, *, status: str, approved_by: str | None = None) ->
                 "period": f"{fmt_time(f['period_start'])} → {fmt_time(f['period_end'], date=False)}"}
                for f in report.get("footage_reviewed", [])]  # fmt: skip
     proc = report["processing"]
-    banner = f"APPROVED by {e(approved_by)}" if status == "approved" else "DRAFT — not reviewer-approved"
+    # four-eyes is a site setting (review F-047..051): off on the one-user demo site, where a shared report is a summary
+    banner = (f"APPROVED by {e(approved_by)}" if status == "approved" else "DRAFT · not reviewer-approved" if second_approver
+              else "Investigation summary · decision support")  # fmt: skip
     complaint = (f"<blockquote>{e(claim['complaint'])}</blockquote>" if claim.get("complaint")
                  else "<p class=muted>Not recorded when the case was opened.</p>")  # fmt: skip
     cited = ", ".join(f"{_cam(s['camera_id'])} {s['media_id']}" for s in report["sources"])
@@ -447,7 +449,7 @@ def render_html(report: dict, *, status: str, approved_by: str | None = None) ->
             ("Cameras in scope", ", ".join(_cam(x) for x in c.get("cameras_in_scope", [])) or "none"),
             ("Case window", f"{fmt_time(window['start'])} → {fmt_time(window['end'], date=False)}" if window
              else "not set"),
-            ("Report", f"revision {report['case_revision_id'] or '—'} · generated {fmt_time(report['generated_at'])}"),
+            ("Report", f"revision {report['case_revision_id'] or 'none'} · generated {fmt_time(report['generated_at'])}"),
         ]),
         "<h2>Scan history (where the consignment was scanned, not where it went)</h2>" + table(
             report.get("scan_history", []),
@@ -464,7 +466,7 @@ def render_html(report: dict, *, status: str, approved_by: str | None = None) ->
         "<h2>Direct observations (chronological)</h2>" + table(
             report["direct_observations"],
             [("Time", "time", fmt_time), ("Clock uncertainty", "time_uncertainty_ms",
-                                          lambda v: "—" if v is None else f"±{v:g} ms"),
+                                          lambda v: "not recorded" if v is None else f"±{v:g} ms"),
              ("Camera", "camera_id", _cam), ("Master", "media_id"), ("Frame", "frame_index"), ("Label", "label"),
              ("Quality flags", "quality_flags"), ("Invalidated", "invalidated")],
             "No direct observations recorded."),
@@ -501,7 +503,7 @@ def render_html(report: dict, *, status: str, approved_by: str | None = None) ->
              ("Retain until", "retain_until", fmt_time)],
             "No items entered the case."),
         "<h2>Records a claim usually needs</h2>" + table(
-            report.get("records_not_held", []), [("Record", "record"), ("Held", "held")], "—"),
+            report.get("records_not_held", []), [("Record", "record"), ("Held", "held")], "None listed."),
         "<h2>Malaysian context (from the web, cited and dated)</h2>" + _legal_html(report.get("legal_context")),
         "<h2>Sources used</h2>" + table(
             report.get("sources_used", []),

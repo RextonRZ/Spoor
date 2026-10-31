@@ -189,5 +189,5 @@ def _between(a: Anchor, b: Anchor, net: ConveyorNet | None, covs) -> dict:
                                                    "longer_than_belt" if dwell else "not_checkable"),
             "clock_note": clock_note, "unknown_speed_m": round(route.unknown_speed_m, 2),
             "note": ("recorded gap is longer than the belt needs: it may have waited in accumulation or left the "
-                     "belt and come back — not observed" if dwell else "inferred from the plan's belt route; not seen"),
+                     "belt and come back; not observed" if dwell else "inferred from the plan's belt route; not seen"),
             "covering_camera_ids": sorted({c for x, y, c in covs if x < b.t_ms and y > a.t_ms})}  # fmt: skip

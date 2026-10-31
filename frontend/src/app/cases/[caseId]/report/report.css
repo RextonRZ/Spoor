@@ -1,0 +1,41 @@
+/* Report, values lifted from review/refs/flow/Report.dc.html (owner 09:22). Prefix rp-. */
+.rp { color: #F4F5F7; }
+.rp-main { max-width: 1376px; margin: 0 auto; padding: 24px 32px 40px; box-sizing: border-box; display: flex; flex-direction: column; gap: 24px; }
+.rp-top { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-end; justify-content: space-between; }
+.rp-answer { flex: 1 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.rp-pill { align-self: flex-start; font-size: 13px; font-weight: 600; padding: 6px 12px; border-radius: 999px; color: #FCA5A5; background: rgba(248,113,113,0.14); }
+.rp-pill[data-tone="ok"] { color: #0B0C10; background: #4ADE80; }
+.rp-h1 { margin: 0; font-size: 40px; line-height: 1.12; font-weight: 700; letter-spacing: -0.035em; }
+.rp-p { margin: 0; font-size: 17px; line-height: 1.55; color: #C9CCD3; max-width: 70ch; }
+.rp-acts { display: flex; flex-wrap: wrap; gap: 10px; }
+.rp-btn { height: 44px; padding: 0 18px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.14); background: transparent; color: #F4F5F7; font: inherit;
+  font-size: 14px; font-weight: 600; cursor: pointer; }
+.rp-btn:disabled { opacity: 0.55; cursor: default; }
+.rp-btn-primary { padding: 0 20px; border: 0; background: #5558EE; color: #FFFFFF; }
+.rp-note { margin: -8px 0 0; font-size: 13px; color: #A5B4FC; }
+.rp-reel { width: 100%; max-width: 760px; border-radius: 14px; background: #07080B; }
+.rp-frames { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.rp-fig { margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.rp-fig img, .rp-fig-plan, .rp-fig-none { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 12px; display: block; overflow: hidden; }
+.rp-fig-plan { background: #08090C; border: 1px solid rgba(255,255,255,0.08); }
+.rp-fig-plan .hp { height: 100%; gap: 0; }
+.rp-fig-plan .hp-box { height: 100%; min-height: 0 !important; }
+.rp-fig-none { display: flex; align-items: center; justify-content: center; background: #14151B; border: 1px solid rgba(255,255,255,0.08); color: #8B909B; font-size: 13px; }
+.rp-fig-none[data-tone="bad"] { color: #FCA5A5; border: 1px dashed rgba(248,113,113,0.55); }
+.rp-fig-none[data-tone="ok"] { color: #86EFAC; }
+.rp-fig figcaption { font-size: 13px; color: #C9CCD3; }
+.rp-fig figcaption strong { color: #F4F5F7; }
+.rp-bottom { display: flex; flex-wrap: wrap; gap: 24px; }
+.rp-card { flex: 1 1 520px; min-width: 0; background: #14151B; border: 1px solid rgba(255,255,255,0.07); border-radius: 18px; padding: 20px 22px; display: flex;
+  flex-direction: column; gap: 12px; }
+.rp-card h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.rp-card .rp-h2-gap { margin-top: 8px; }
+.rp-card p { margin: 0; font-size: 15px; line-height: 1.55; color: #C9CCD3; }
+.rp-side { flex: 1 1 380px; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.rp-plan { border-radius: 16px; border: 1px solid rgba(255,255,255,0.07); overflow: hidden; background: #14151B; padding: 6px; }
+.rp-plan .hp-box { min-height: 0 !important; }
+.rp-fine { margin: 0; font-size: 13px; color: #8B909B; }
+.rp-link { padding: 0; border: 0; background: none; color: #A5B4FC; font: inherit; cursor: pointer; }
+.rp-tag { margin: 0; font-size: 13px; color: #8B909B; }
+.rp-back { margin: -12px 0 0; font-size: 13px; }
+@media (max-width: 760px) { .rp-main { padding: 20px 16px 32px; } .rp-h1 { font-size: 30px; } .rp-frames { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

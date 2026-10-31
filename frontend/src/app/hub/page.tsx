@@ -1,153 +1,255 @@
 "use client";
 /**
- * Hub home (QUEUE H15, review F-style #1-#3): the first screen a hub or regional manager opens. Tracking-number search
- * on top, then the exceptions inbox (parcels whose next expected scan is overdue, from the scan log) and the hub
- * dashboard. Alerting comes from the scan log; cameras are only analysed once a case is opened.
+ * Hub, ported from review/refs/flow/Main.dc.html (owner 09:22: follow the prototype 100 %). Same layout, sizes and
+ * copy; the rows come from real data: open cases (a customer asked) and stalled parcels (the scan log shows a late next
+ * scan while the next scanner kept working). The first row is the large card; the rest are compact.
  */
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useSyncExternalStore } from "react";
-import { inboxQuery, readInboxClock, type InboxClock } from "@/lib/inboxClock";
-import { api, ApiError, invalidate, useResource } from "@/lib/api";
-import { describeScan } from "@/lib/scans";
-import { clock } from "@/lib/journey";
-import { fmtDate } from "@/lib/time";
-import { zoneId } from "@/lib/hub";
-import type { CaseListRow, Site } from "@/lib/types";
-import { ErrorState, Loading } from "@/components/ui";
-import { HubDashboard } from "@/components/dashboard/HubDashboard";
-import { ZONE_NAMES } from "@/components/plan/HubPlan";
+import { useEffect, useState } from "react";
+import { api, ApiError, invalidate, signedUrl, useResource } from "@/lib/api";
+import type { Journey } from "@/lib/journey";
+import { hhmm, lastScanSentence, minutes, missingNextSentence } from "@/lib/words";
+import { camId, scanPoint, zoneId } from "@/lib/hub";
+import type { Capabilities, MediaRow, Site } from "@/lib/types";
+import { ErrorState } from "@/components/ui";
+import HubPlan, { ZONE_NAMES } from "@/components/plan/HubPlan";
 import "./hub.css";
 
 interface Inbox {
   as_of: string | null;
-  basis: string;
-  rule?: string;
-  counts: { parcels?: number; stalled?: number; in_progress?: number; closed?: number; cannot_judge?: number };
-  stalled: { waybill: string; last_event_kind: string; raw_code: string | null; raw_description: string | null; read_point: string;
-    zone_id: string | null; last_at: string; age_s: number; allowance_s: number; overdue_s: number; expected_next: string;
-    case_id: string | null; proof?: { station: string; at: string } }[];
+  stalled: { waybill: string; last_event_kind: string; read_point: string; last_at: string; age_s: number; expected_next: string;
+    case_id: string | null }[];
+}
+interface Dashboard {
+  kpis: { open_cases: number; found: number; median_hours_to_locate: number | null };
+  trail_ends_by_zone: { zone_id: string; zone: string; cases: number }[];
+  cases: { case_id: string; target: string; status: string }[];
+}
+type Tone = "bad" | "warn" | "ok";
+const CASE_PILL: Record<string, [string, Tone]> = { found: ["Found", "ok"], located: ["Likely location", "ok"], unknown: ["Lost track", "bad"] };
+const STAGES = ["Tunnel", "Sorter", "Chute", "Cage", "Truck"];
+
+function stageOf(kind: string | undefined): number {
+  switch (kind) {
+    case "inducted": case "induct_to_carrier": case "recirculated": return 1;
+    case "divert_confirmed": case "divert_confirm": case "exception_diverted": return 2;
+    case "bagged": case "bag_scan": case "container_add": case "container_closed": return 3;
+    case "container_loaded": case "departed_facility": return 4;
+    default: return 0;
+  }
 }
 
-const age = (s: number) => (s < 90 ? `${Math.round(s)} s` : s < 5400 ? `${Math.round(s / 60)} min` : `${(s / 3600).toFixed(1)} h`);
+const siteLine = (name: string | undefined) => (name ?? "Hub").replace(/\s*\(fictional\)/i, "").replace(/^CONTOH Express /, "CONTOH Express · ");
+const clockS = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { timeZone: "Asia/Kuala_Lumpur", hour12: false });
 
 export default function HubPage() {
   const sites = useResource<Site[]>("/v1/sites");
   const site = sites.data?.[0];
-  const clockSetting = useSyncExternalStore(() => () => {}, () => JSON.stringify(readInboxClock()), () => "null");
-  const inboxClock: InboxClock = clockSetting === "null" ? { kind: "log", minutes: 0 } : JSON.parse(clockSetting);
-  const inbox = useResource<Inbox>(site ? `/v1/sites/${site.site_id}/exceptions?limit=50&${inboxQuery(inboxClock)}` : null);
-  return (
-    <div className="sp-page sp-stack hub" style={{ gap: 22 }}>
-      <header className="hub-head">
-        <div>
-          <h1 className="sp-h1">Hub</h1>
-        </div>
-        <Search siteId={site?.site_id} />
-      </header>
+  const inbox = useResource<Inbox>(site ? `/v1/sites/${site.site_id}/exceptions?limit=50` : null);
+  const dash = useResource<Dashboard>(site ? `/v1/sites/${site.site_id}/dashboard` : null);
+  const caps = useResource<Capabilities>("/v1/capabilities");
+  const keyed = !!(caps.data?.sam || caps.data?.spark);
+  const [show, setShow] = useState<string>("All");
+  const open = (dash.data?.cases ?? []).filter((c) => c.status !== "found");
+  const inCase = new Set(open.map((c) => c.target.split(" ").at(-1)));
+  const stalled = (inbox.data?.stalled ?? []).filter((s) => !inCase.has(s.waybill));
+  const items = [
+    ...open.map((c) => {
+      const [pill, tone] = CASE_PILL[c.status] ?? CASE_PILL.unknown;
+      return { kind: "case" as const, key: c.case_id, pill, tone, c };
+    }),
+    ...stalled.map((s) => ({ kind: "stalled" as const, key: s.waybill, pill: "Stalled", tone: "warn" as Tone, s })),
+  ];
+  const groups = [...new Set(items.map((i) => i.pill))];
+  const shown = items.filter((i) => show === "All" || i.pill === show);
+  const ready = !!inbox.data && !!dash.data;
+  const err = sites.error ?? inbox.error ?? dash.error;
+  const k = dash.data?.kpis;
+  const tiles = k ? [{ n: String(k.found), u: "", l: "found today" },
+    k.median_hours_to_locate !== null ? { n: String(Math.round(k.median_hours_to_locate * 60)), u: " min", l: "median time to find" }
+      : { n: String(k.open_cases), u: "", l: k.open_cases === 1 ? "open case" : "open cases" }] : [];
 
-      <section className="sp-panel" aria-labelledby="inbox-h">
-        <div className="sp-panel-head">
-          <h2 className="sp-h3" id="inbox-h">Stalled parcels</h2>
-          {inbox.data?.as_of && <span className="sp-caption" style={{ margin: 0 }} data-testid="inbox-clock">as of {fmtDate(inbox.data.as_of)}, {clock(inbox.data.as_of, true)} · {inbox.data.basis} · <Link href="/operator#inbox-clock">change in Operator</Link></span>}
-        </div>
-        <div className="sp-panel-body">
-          {inbox.loading && <Loading lines={3} />}
-          {inbox.error && <ErrorState error={inbox.error} what="the exceptions inbox" onRetry={inbox.reload} />}
-          {inbox.data && inbox.data.stalled.length === 0 && (
-            <div className="hub-empty" data-testid="inbox-empty">
-              <p className="sp-strong" style={{ margin: 0, fontWeight: 620 }}>No stalled parcels.</p>
-              <p className="sp-caption">{inbox.data.counts.parcels ?? 0} parcels in the imported scan log, {inbox.data.counts.in_progress ?? 0} still within the time their next scan is expected
-                {inbox.data.counts.cannot_judge ? `, ${inbox.data.counts.cannot_judge} past it but the log ends before the next point shows the hub kept working (can't judge)` : ""}.
-                A parcel appears here when that time runs out: catch it before the customer complains.</p>
+  return (
+    <div className="hb">
+      <section className="hb-main">
+        <div className="hb-head">
+          <div>
+            <p className="hb-site">{siteLine(site?.name)}{inbox.data?.as_of ? ` · updated ${hhmm(inbox.data.as_of)}` : ""}</p>
+            <h1 className="hb-title" data-testid="hub-title">
+              {!ready ? "Checking the hub" : items.length === 0 ? "Every parcel is on track" : `${items.length} parcel${items.length === 1 ? "" : "s"} need${items.length === 1 ? "s" : ""} attention`}
+            </h1>
+          </div>
+          {groups.length > 1 && (
+            <div role="group" aria-label="Filter" className="hb-filter">
+              {["All", ...groups].map((g) => (
+                <button key={g} type="button" aria-pressed={show === g} onClick={() => setShow(g)}>
+                  {g} {g === "All" ? items.length : items.filter((i) => i.pill === g).length}
+                </button>
+              ))}
             </div>
           )}
-          {inbox.data && inbox.data.stalled.length > 0 && (
-            <div className="sp-tablewrap">
-              <table className="sp-table">
-                <thead><tr><th>Waybill</th><th>Last scan</th><th>Where</th><th>Waiting for</th><th className="num">Overdue</th><th></th></tr></thead>
-                <tbody>{inbox.data.stalled.map((r) => (
-                  <tr key={r.waybill}>
-                    <td className="sp-num">{r.waybill}</td>
-                    <td>{describeScan({ event_kind: r.last_event_kind, raw_code: r.raw_code, raw_description: r.raw_description, device_id: r.read_point, station_id: r.read_point }).title}
-                      <span className="sp-caption"> · {clock(r.last_at, true)}</span></td>
-                    <td>{(r.zone_id && ZONE_NAMES[zoneId.toHub(r.zone_id)]) ?? r.read_point}</td>
-                    <td>{r.expected_next}{r.proof && <span className="sp-caption" style={{ display: "block", margin: 0 }}>
-                      {r.proof.station} kept scanning other parcels ({clock(r.proof.at, false)})</span>}</td>
-                    <td className="num"><span className="sp-chip sp-chip-warn">{age(r.overdue_s)}</span></td>
-                    <td>{r.case_id ? <Link className="sp-btn sp-btn-sm" href={`/cases/${r.case_id}/summary`}>Open case</Link>
-                      : <OpenCase siteId={site!.site_id} waybill={r.waybill} />}</td>
-                  </tr>
-                ))}</tbody>
-              </table>
-            </div>
-          )}
-          {inbox.data && inbox.data.stalled.length > 0 && (inbox.data.counts.cannot_judge ?? 0) > 0 && (
-            <p className="sp-caption">{inbox.data.counts.cannot_judge} more parcels are past their time, but the log ends before the next point shows the hub kept working: not counted.</p>
-          )}
-          {inbox.data?.rule && <p className="sp-caption">Rule: {inbox.data.rule}. Allowances come from the site plan&apos;s belt times plus operating limits for manual steps.</p>}
         </div>
+
+        {err && <ErrorState error={err} what="the hub" onRetry={() => { inbox.reload(); dash.reload(); }} />}
+        {ready && site && shown.map((it, i) => it.kind === "case"
+          ? <CaseCard key={it.key} siteId={site.site_id} c={it.c} pill={it.pill} tone={it.tone} big={i === 0} keyed={keyed} />
+          : <StalledCard key={it.key} siteId={site.site_id} s={it.s} big={i === 0} keyed={keyed} />)}
+        {ready && items.length === 0 && <p className="hb-empty">No open cases and no late scans right now.</p>}
+
+        <p className="hb-note">A parcel shows here when its next scan is late and the next scanner kept working. You hear about it before the customer calls.</p>
       </section>
 
-      <HubDashboard siteId={site?.site_id} />
+      <aside className="hb-side">
+        {tiles.length > 0 && (
+          <div className="hb-tiles">
+            {tiles.map((t) => (
+              <div key={t.l} className="hb-tile"><p className="hb-tile-n">{t.n}{t.u && <span>{t.u}</span>}</p><p className="hb-tile-l">{t.l}</p></div>
+            ))}
+          </div>
+        )}
+        {dash.data && (
+          <div className="hb-trails">
+            <div className="hb-trails-head">
+              <h2>Where today&apos;s trails ended</h2>
+              <Link href="/wall">Open 3D hub</Link>
+            </div>
+            <TrailsPlan dash={dash.data} caseId={open[0]?.case_id} />
+          </div>
+        )}
+        <p className="hb-tag">Every parcel leaves a trail.</p>
+      </aside>
     </div>
   );
 }
 
-function OpenCase({ siteId, waybill, label = "Open a case", primary = false }: { siteId: string; waybill: string; label?: string; primary?: boolean }) {
-  const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+/** Where today's trails ended: the building, the zones where cases end, and the top case's route (as the prototype). */
+function TrailsPlan({ dash, caseId }: { dash: Dashboard; caseId?: string }) {
+  const j = useResource<Journey>(caseId ? `/v1/cases/${caseId}/journey` : null);
   return (
-    <span>
-      <button className={`sp-btn sp-btn-sm${primary ? " sp-btn-primary" : ""}`} disabled={busy} onClick={async () => {
-        setBusy(true);
-        setErr(null);
-        try {
-          const r = await api<{ case: { case_id: string } }>("/v1/cases", { method: "POST", json: {
-            site_id: siteId, question: `Where did parcel ${waybill} go after its last scan?`, target_description: `parcel ${waybill}`,
-            identifiers: [{ scheme: "carrier_waybill", value: waybill }] } });
-          invalidate("/v1/cases");
-          router.push(`/cases/${r.case.case_id}/summary`);
-        } catch (e) {
-          setErr(e instanceof ApiError && e.status === 403 ? "Needs the investigator role" : e instanceof Error ? e.message : String(e));
-          setBusy(false);
-        }
-      }}>{busy ? "Opening" : label}</button>
-      {err && <span className="sp-caption" role="alert"> {err}</span>}
+    <HubPlan label={`Floor plan of the hub: where today's cases end. ${dash.trail_ends_by_zone.map((z) => `${ZONE_NAMES[zoneId.toHub(z.zone_id)] ?? z.zone} ${z.cases}`).join(", ") || "none yet"}`}
+      heat={Object.fromEntries(dash.trail_ends_by_zone.map((z) => [zoneId.toHub(z.zone_id), z.cases]))} journey={j.data?.objects[0]} fit="width" legend={false} quiet />
+  );
+}
+
+/** Thumbnail: a camera's frame of the last scan point at that time, else the plan pinned where it stopped. */
+function Thumb({ siteId, point, at, tone, big }: { siteId: string; point: string | null | undefined; at: string | undefined; tone: Tone; big: boolean }) {
+  const media = useResource<MediaRow[]>(`/v1/sites/${siteId}/media`);
+  const sp = scanPoint(point);
+  const [frame, setFrame] = useState<{ url: string; cam: string } | null>(null);
+  const hit = at && sp ? (media.data ?? []).find((m) => m.media.camera_id && sp.visible_by.includes(camId.toHub(m.media.camera_id))
+    && m.coverage.some((c) => c.start_utc <= at && at <= c.end_utc)) : undefined;
+  const mediaId = hit?.media.media_id;
+  const camHub = hit?.media.camera_id ? camId.toHub(hit.media.camera_id) : null;
+  useEffect(() => {
+    if (!mediaId || !at || !camHub) return;
+    let live = true;
+    api<{ frame_url: string }>(`/v1/media/${mediaId}/frame-at?time=${encodeURIComponent(at)}`)
+      .then((r) => live && setFrame({ url: r.frame_url, cam: camHub })).catch(() => {});
+    return () => { live = false; };
+  }, [mediaId, at, camHub]);
+  const tag = frame && at ? `${frame.cam.replace("_", " ")} · ${big ? clockS(at) : hhmm(at)}` : `Where it stopped${at ? ` · ${hhmm(at)}` : ""}`;
+  return (
+    <span className={big ? "hb-thumb hb-thumb-big" : "hb-thumb"}>
+      {frame ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={signedUrl(frame.url)} alt={`Last camera sighting: ${frame.cam.replace("_", " ")}`} />
+      ) : sp ? (
+        <HubPlan label={`Where it stopped: ${sp.id}`} focus={{ xy: [sp.position_m[0], sp.position_m[1]], radius_m: 8, tone: tone === "bad" ? "bad" : "warn" }}
+          legend={false} fit="contain" minHeight={0} />
+      ) : null}
+      <span className="hb-thumb-tag">{tag}</span>
     </span>
   );
 }
 
-/** Tracking-number search: an open case goes straight to its summary; otherwise the scan count and "Open a case". */
-function Search({ siteId }: { siteId?: string }) {
-  const [q, setQ] = useState("");
-  const [hit, setHit] = useState<{ waybill: string; scans: number; caseId: string | null } | "none" | null>(null);
-  const cases = useResource<CaseListRow[]>("/v1/cases");
+function Trail({ stage }: { stage: number }) {
+  const shown = STAGES.slice(0, Math.min(stage + 2, STAGES.length));
+  return (
+    <div className="hb-trail" aria-label="How far it got">
+      {shown.map((s, i) => (
+        <span key={s} className="hb-trail-step">
+          {i > 0 && <span className="hb-trail-line" />}
+          <span className={i <= stage ? "hb-trail-dot" : "hb-trail-next"} />
+        </span>
+      ))}
+      <span className="hb-trail-words">{shown.map((s, i) => (i > stage ? `${s}?` : s)).join(" · ")}</span>
+    </div>
+  );
+}
+
+function Act({ big, href, label, keyed, onClick, busy }: { big: boolean; href?: string; label: string; keyed: boolean; onClick?: () => void; busy?: boolean }) {
+  const cls = big ? "hb-btn hb-btn-primary" : "hb-btn";
+  const btn = href ? <Link className={cls} href={href}>{label}</Link>
+    : <button type="button" className={cls} onClick={onClick} disabled={busy}>{busy ? "Opening" : label}</button>;
+  if (!big) return btn;
+  return <div className="hb-act">{btn}<span>{keyed ? "about 1 min · ~US$0.30" : "Shows what the scan log knows"}</span></div>;
+}
+
+function CaseCard({ siteId, c, pill, tone, big, keyed }: { siteId: string; c: Dashboard["cases"][number]; pill: string; tone: Tone; big: boolean; keyed: boolean }) {
+  const j = useResource<Journey>(`/v1/cases/${c.case_id}/journey`);
+  const cs = useResource<{ case: { complaint?: string | null; created_at: string } }>(`/v1/cases/${c.case_id}/state`);
+  const run = useResource<{ steps: unknown[] }>(`/v1/cases/${c.case_id}/run`);
+  const scans = j.data?.objects[0]?.scans ?? [];
+  const last = scans.at(-1);
+  const waybill = c.target.split(" ").at(-1) ?? c.target;
+  const dims = scans.find((s) => s.dims_mm)?.dims_mm;
+  const head = last ? `${lastScanSentence(last.event_kind, last.station_id, last.t)} ${missingNextSentence(last.event_kind)}` : "No scans of this parcel at this hub.";
+  const investigated = (run.data?.steps.length ?? 0) > 0;
+  const action = investigated ? { href: `/cases/${c.case_id}`, label: "Open case" } : { href: `/cases/${c.case_id}/investigate`, label: "Investigate" };
+  const context = cs.data?.case.complaint ? `Customer says it never arrived · case opened ${ago(cs.data.case.created_at)}` : null;
+  const foot = `${waybill}${dims ? ` · ${dims.map((d) => Math.round(d / 10)).join(" × ")} cm` : ""}`;
+  return (
+    <article className={big ? "hb-card hb-card-big" : "hb-card"} data-tone={tone}>
+      <Thumb siteId={siteId} point={last?.station_id ?? last?.device_id} at={last?.t} tone={tone} big={big} />
+      <div className="hb-body">
+        <div className="hb-pills"><span className="hb-pill" data-tone={tone}>{pill}</span>{context && big && <span className="hb-context">{context}</span>}</div>
+        {big ? <h2 className="hb-h">{head}</h2> : <span className="hb-h-sm">{head}</span>}
+        {big && <Trail stage={stageOf(last?.event_kind)} />}
+        <p className="hb-foot">{foot}</p>
+      </div>
+      <Act big={big} href={action.href} label={action.label} keyed={keyed} />
+    </article>
+  );
+}
+
+function StalledCard({ siteId, s, big, keyed }: { siteId: string; s: Inbox["stalled"][number]; big: boolean; keyed: boolean }) {
   const router = useRouter();
-  async function go(e: React.FormEvent) {
-    e.preventDefault();
-    const v = q.trim().toUpperCase();
-    if (!siteId || !/^[A-Z0-9]{6,40}$/.test(v)) return;
-    const open = cases.data?.find((c) => c.case.target_description.toUpperCase().endsWith(v));
-    if (open) return router.push(`/cases/${open.case.case_id}/summary`);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const head = `${lastScanSentence(s.last_event_kind, s.read_point, s.last_at)} ${missingNextSentence(s.last_event_kind)}`;
+  async function investigate() {
+    if (s.case_id) return router.push(`/cases/${s.case_id}/investigate`);
+    setBusy(true);
+    setErr(null);
     try {
-      const r = await api<{ scans: unknown[] }>(`/v1/sites/${siteId}/parcels/carrier_waybill/${v}`);
-      setHit(r.scans.length ? { waybill: v, scans: r.scans.length, caseId: null } : "none");
-    } catch {
-      setHit("none");
+      const r = await api<{ case: { case_id: string } }>("/v1/cases", { method: "POST", json: {
+        site_id: siteId, question: `Where did parcel ${s.waybill} go after its last scan?`, target_description: `parcel ${s.waybill}`,
+        identifiers: [{ scheme: "carrier_waybill", value: s.waybill }] } });
+      invalidate("/v1/cases");
+      invalidate("/v1/sites/");
+      router.push(`/cases/${r.case.case_id}/investigate`);
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : String(e));
+      setBusy(false);
     }
   }
   return (
-    <form className="hub-search" onSubmit={go} role="search">
-      <label className="sp-sr" htmlFor="hub-q">Tracking number</label>
-      <input id="hub-q" className="sp-input sp-num" value={q} onChange={(e) => { setQ(e.target.value); setHit(null); }}
-        placeholder="Tracking number, e.g. CTX160258795857" autoComplete="off" />
-      <button className="sp-btn sp-btn-primary" disabled={!siteId || q.trim().length < 6}>Find</button>
-      {hit === "none" && <p className="sp-caption hub-hit">No scans of this tracking number at this hub.</p>}
-      {hit && hit !== "none" && siteId && (
-        <p className="sp-caption hub-hit">{hit.scans} scans of {hit.waybill}, no open case. <OpenCase siteId={siteId} waybill={hit.waybill} primary /></p>
-      )}
-    </form>
+    <article className={big ? "hb-card hb-card-big" : "hb-card"} data-tone="warn">
+      <Thumb siteId={siteId} point={s.read_point} at={s.last_at} tone="warn" big={big} />
+      <div className="hb-body">
+        <span className="hb-pill" data-tone="warn">Stalled {minutes(s.age_s)}</span>
+        {big ? <h2 className="hb-h">{head}</h2> : <span className="hb-h-sm">{head}</span>}
+        {big && <Trail stage={stageOf(s.last_event_kind)} />}
+        <p className="hb-foot">{s.waybill} · next: {s.expected_next}</p>
+        {err && <p className="hb-err" role="alert">{err}</p>}
+      </div>
+      <Act big={big} label="Investigate" keyed={keyed} onClick={investigate} busy={busy} />
+    </article>
   );
+}
+
+function ago(iso: string): string {
+  const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  return d <= 0 ? "today" : d === 1 ? "yesterday" : `${d} days ago`;
 }

@@ -112,3 +112,14 @@ def test_narration_is_dropped_and_orphan_sources_pruned(site, now):
     assert new.answers[0].dropped_narration == 1 and new.answers[0].sentences[0].sources == [1]
     assert [(s.n, s.url) for s in new.sources] == [(1, BLOG)] and new.legal_context_id != "lctx_old"
     assert new.retrieved_at == now and new.content_sha256 != rec.content_sha256
+
+
+def test_four_eyes_is_a_site_setting(site, now):
+    """Review F-047..051: real sites keep the second approver (DRAFT banner until approved); the one-user demo site
+    turns it off and its shared report reads as an investigation summary."""
+    w = World(EvidenceStore(), site, now)
+    report = build_report(w.store, w.case.case_id, site=site, now=now)
+    assert site.require_second_approver is True
+    on = render_html(report, status="draft")
+    off = render_html(report, status="draft", second_approver=False)
+    assert "DRAFT · not reviewer-approved" in on and "DRAFT" not in off and "Investigation summary" in off
