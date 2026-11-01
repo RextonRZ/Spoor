@@ -611,6 +611,16 @@ if SCEN == "S2":  # removal into the blind spot: the story parcel + its earlier 
     pl.t_in, pl.state = args.lookalike_t, "pending"
     LOOK.append(pl)
 
+W2A = None
+if SCEN == "W2":  # six checkpoints W2: the story carton's cage scan (stations.CageAside), its identity from the log
+    W2A = stations.CageAside(dict(seed=args.seed, DT=DT, F0=F0, F1=F1, Parcel=Parcel, next_k=_next_k))
+    if REPLAY:
+        q_ = W2A.parcel
+        q_.forced_tile, q_.read = REPLAY["tile"], True
+        q_.dest = REPLAY["rows"]["tunnel_read"].get("destination_chute") or q_.dest
+        q_.target = REPLAY["rows"]["divert_confirm"]["chute"]
+        q_.meta.update(replay=REPLAY["pid"], chute=q_.dest)
+
 # ------------------------------------------------------------------------------------------------ simulate
 car_s0 = [k * PITCH for k in range(N_CAR)]
 car_booked = {}  # carrier -> the merge parcel on its way to it
@@ -1147,6 +1157,10 @@ if S3 is not None:
     for f_ in range(F0, F1 + 1):
         S3.parcel.track[f_] = (S3.box.pos.copy(), S3.box.yaw)
     parcels.append(S3.parcel)
+if W2A is not None:  # static on C12's bag until the W2 build keys the carry (its height measured there)
+    for f_ in range(F0, F1 + 1):
+        W2A.parcel.track[f_] = (W2A.box.pos.copy(), W2A.box.yaw)
+    parcels.append(W2A.parcel)
 if S2 is not None:  # static on the S11 cage load until the S2 build keys the carry
     for f_ in range(F0, F1 + 1):
         S2.parcel.track[f_] = (S2.box.pos.copy(), S2.box.yaw)
@@ -1361,6 +1375,15 @@ print("FLOW loop occupancy", station_report["loop_occupancy"], flush=True)
 station_report["ambient"] = stations.Ambient(dict(seed=args.seed, DT=DT, F0=F0, F1=F1)).build(sc, people_coll,
                                                                                              range(F0, F1 + 1))
 SCEN_TRUTH = {"scenario": SCEN, "seconds": (F1 - F0 + 1) / FPS, "t0": T_START.isoformat()}
+if W2A is not None:
+    station_report["W2"] = W2A.build(sc, people_coll, range(F0, F1 + 1), SPEC)
+    for e_ in truth:
+        if W2A.parcel.ob is not None and e_["object"] == W2A.parcel.ob.name:
+            e_["track"] = W2A.track_out
+            e_["scenario_note"] = "taken out of C12's bag (a mis-sort: its label says C05) and set on cage S11's mid shelf"
+    SCEN_TRUTH.update(story_parcel=W2A.parcel.meta.get("parcel_id"), story_object=W2A.parcel.ob.name if W2A.parcel.ob else None,
+                      grip_t_s=round(W2A.T["grip"], 2), placed_t_s=W2A.T.get("placed"), rest_xyz=W2A.rest_xyz,
+                      bag_top=station_report["W2"].get("bag_top"))
 if S2 is not None:
     station_report["S2"] = S2.build(sc, people_coll, range(F0, F1 + 1), SPEC)
     for e_ in truth:

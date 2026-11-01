@@ -3541,6 +3541,150 @@ class BlindRemoval:
         return rep
 
 
+# ==================================================================================================== window W2
+# Six checkpoints (Rexton 2 Nov, addendum 1): the story carton's cage scan, filmed. The record says it went down C12
+# although its label says KUL (C05): a bagger at C12 takes the mis-sort off the top of the C12 bag, carries it round
+# the west end of the bay rows to cage S11, sets it on the mid shelf exactly where the S2 window finds it, and scans it
+# into the cage (the record's container_add at the release). Another person than S2's: Female_Adult_17 is used by no
+# station (no clone on screen). Same take as S2's pick and place (AndyData 541 A3/2), the roles the other way round.
+W2_AVATAR = "Female_Adult_17"
+W2_TAKE = "Participant_541_Setup_A_Seq_3_Trial_2"
+W2_BAG = (30.8, 21.05)  # in C12's bag mouth (flow drops parcels at bag_frame_y 20.6 + 0.525; 7.5 cm further from
+# the rail she reaches over: her forearms came down onto it)
+W2_BAG_RIM = (30.3, 21.28, 31.3, 21.46, 0.935)  # the bag's front rim (frame rail + fabric): lifted out over it
+
+
+def w2_place_c():
+    """The carton's centre on S11's mid shelf: S2's frame-1 pose (BlindRemoval's box)."""
+    d = S2_PARCEL_DIMS
+    return (S2_CAGE.x + S2_BOX_DX, S2_CAGE.y - 0.40 + S2_BOX_IN + d[1] / 2, S2_SHELF_Z + d[2] / 2)
+
+
+def w2_legs(pick_c, place_c):
+    """walk up to C12's bag from the north-east -> pick (facing south, into the bag) -> carry west round the bay rows
+    and up the aisle -> place on S11's mid shelf (facing north, into the cage: S2's pick, the other way) -> walk off
+    east along the aisle."""
+    pick = dict(kind="clip", role="pick", take=W2_TAKE, grasp=27.067, lift=27.633, pre_s=(3.6, 4.3), post_s=(1.3, 2.1),
+                mirror=False, at=tuple(pick_c), yaw=math.pi, behind=0.65, t=6.0)  # (0.42 / 0.55: hips on the bag frame)
+    place = dict(kind="clip", role="place", take=W2_TAKE, release=60.9, pre_s=(1.6, 3.0), post_s=(2.4, 3.2),
+                 mirror=False, at=tuple(place_c), yaw=0.0, behind=0.42, lead_in=0.6, lead_out=0.6, rest_s=2.0)
+    return [dict(kind="walk", route=[(33.6, 23.6), (31.9, 22.6)]), pick,
+            dict(kind="walk", route=[(30.0, 23.3), (23.3, 23.7), (23.2, 28.85), (25.4, 28.95)]), place,  # west of
+            # the column at (24, 25) and its fire extinguisher (x 24.2 walked through both: collision check)
+            dict(kind="walk", route=[(27.0, 28.9), (30.0, 28.85), (33.5, 28.85)])]
+
+
+class CageAside(BlindRemoval):
+    """Window W2's actor (w2_legs; bench mocap/w2_bench.py): the S11 cage as S2 builds it, the story carton on top of
+    C12's bag (height measured by ray in the scene being built), carried to S11's mid shelf and left exactly at S2's
+    frame-1 pose. Its cage scan is the record's (not emitted again); T["placed"] is the scan instant."""
+
+    def __init__(self, ctx):
+        self.ctx = ctx
+        self.DT, self.F0, self.F1 = ctx["DT"], ctx["F0"], ctx["F1"]
+        self.rnd = random.Random(ctx["seed"] + 2002)
+        p = ctx["Parcel"](ctx["next_k"]())
+        p.kind, p.dims, p.body = "box", S2_PARCEL_DIMS, "box"
+        p.meta.update(kind="box", dims_m=list(p.dims), body="box", scenario="W2", story=True)
+        p.half = max(p.dims[:2]) / 2
+        p.state = "held"
+        self.parcel = p
+        self.box = Box(W2_BAG[0], W2_BAG[1], 0.70, S2_PARCEL_DIMS, math.pi)  # z: measured at build
+        self.T = {}
+
+    def _avatar(self, scene, coll):  # BlindRemoval's import, this window's person
+        global S2_AVATAR
+        keep, S2_AVATAR = S2_AVATAR, W2_AVATAR
+        try:
+            arm, body = super()._avatar(scene, coll)
+        finally:
+            S2_AVATAR = keep
+        arm.name, body.name = "worker_w2_1", "worker_w2_1_body"
+        return arm, body
+
+    def build(self, scene, coll, frames, spec):
+        import numpy as np
+        RM = _remover_module()
+        I, R = RM.I, RM.R
+        import line_a_worker as LW
+        frames = list(frames)
+        F = len(frames)
+        rep = {"cleared": self._cage(scene, coll, spec)}
+        scene.frame_set(frames[0])
+        dg = bpy.context.evaluated_depsgraph_get()
+        hide = [self.parcel.ob] if self.parcel.ob is not None else []
+        for o in hide:
+            o.hide_set(True)
+        hit, loc_, _n, _i, ob_hit, _m = scene.ray_cast(dg, Vector((W2_BAG[0], W2_BAG[1], 2.5)), Vector((0, 0, -1)), distance=3.0)
+        for o in hide:
+            o.hide_set(False)
+        top = loc_.z if hit else 0.70
+        d = S2_PARCEL_DIMS
+        pick_c = (W2_BAG[0], W2_BAG[1], top + d[2] / 2 + 0.02)
+        place_c = w2_place_c()
+        arm, body = self._avatar(scene, coll)
+        trunk = LW.trunk_clearance(arm, body) - 0.035 + 0.01
+        ap_ = S2_CARRY["above_pelvis"]
+        carry = dict(S2_CARRY, snug_clear=LW.torso_front(arm, body, ap_ - 0.06, ap_ + 0.06) + 0.008)
+        cx, cy = S2_CAGE.x, S2_CAGE.y
+        cfg = dict(fps=1.0 / self.DT, F=F, frame0=self.F0, legs=w2_legs(pick_c, place_c), objects={}, palm_off=0.05,
+                   elbow_out=0.45, trunk_clear=trunk, finger_flat=0.6, carry=carry,
+                   box=dict(c=pick_c, yaw=math.pi, dims=d, support_z=top,
+                            supports=[(cx - 0.34, cy - 0.38, cx + 0.34, cy + 0.38, S2_SHELF_Z), W2_BAG_RIM],
+                            lean_cap=S2_BOX_LEAN_CAP, give_s=1.2, give_rise=0.6),
+                   name="worker_w2_1@remover")
+
+        def lows():
+            out = []
+            for f in frames:
+                scene.frame_set(f)
+                ob_ = body.evaluated_get(bpy.context.evaluated_depsgraph_get())
+                me_ = ob_.to_mesh()
+                co_ = np.empty(len(me_.vertices) * 3)
+                me_.vertices.foreach_get("co", co_)
+                M_ = np.array(ob_.matrix_world)
+                out.append(float((co_.reshape(-1, 3) @ M_[:3, :3].T + M_[:3, 3])[:, 2].min()))
+                ob_.to_mesh_clear()
+            return np.array(out)
+
+        res = None
+        for it in range(2):  # as captured, then lifted so the soles sit on the floor
+            if res is not None:
+                bpy.data.actions.remove(res["action"])
+            rig = R.setup(arm, I.take(cfg["legs"][1]["take"]))
+            res = RM.compose(rig, cfg)
+            if it == 0:
+                cfg["lift"] = -float(np.percentile(lows(), 5))
+        rep.update(res["report"])
+        loc, yaw = np.array(res["loc"]), np.array(res["yaw"])
+        rel = res["report"]["frames"].get("release")
+        if rel is not None:  # set down exactly at S2's frame-1 pose (the whole-body floor lift carried it 14 mm high)
+            r_ = rel - self.F0
+            target = np.array(place_c)
+            for i in range(max(0, r_ - 3), F):
+                u = 1.0 if i >= r_ else (i - (r_ - 3)) / 3.0
+                loc[i] = loc[i] + (target - loc[i]) * u
+                yaw[i] = 0.0 if i >= r_ else yaw[i]
+        p = self.parcel
+        if p.ob is not None:
+            if p.ob.animation_data:
+                p.ob.animation_data_clear()
+            for i, f in enumerate(frames):
+                p.ob.location = Vector((loc[i][0], loc[i][1], loc[i][2] - d[2] / 2))
+                p.ob.rotation_euler = (0.0, 0.0, float(yaw[i]))
+                p.ob.keyframe_insert("location", frame=f)
+                p.ob.keyframe_insert("rotation_euler", frame=f)
+            _lin(p.ob)
+        self.track_out = {f: [round(float(c), 3) for c in (loc[i][0], loc[i][1], loc[i][2] - d[2] / 2)]
+                          for i, f in enumerate(frames)}
+        self.T = dict(grip=float(res["report"]["clips"][0]["event_t"]),
+                      placed=((rel - self.F0) * self.DT if rel is not None else None))
+        self.rest_xyz = [round(float(c), 3) for c in (loc[-1][0], loc[-1][1], loc[-1][2] - d[2] / 2)]
+        rep["bag_top"] = round(top, 3)
+        rep["times"] = {k: (round(v, 2) if v is not None else None) for k, v in self.T.items()}
+        return rep
+
+
 # ==================================================================================================== scenario S3
 # Phantom containment: the parcel that missed the C04 bag lies on the floor at the frame. A bagger picks it up,
 # scans it INTO the C04 bag (handheld container_add, bag ID) - and sets it back down on the floor against the front
