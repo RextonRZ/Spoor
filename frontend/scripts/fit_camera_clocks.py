@@ -8,8 +8,8 @@ both record, never trusted from its on-screen clock or the upload form.
    with the passage nearest to it after the camera's overall offset (the most common difference); the backend's
    robust fit drops mismatched pairs and re-registers the camera's clips on the fitted clock.
 3. A camera without enough sorter events (CAM_19: two RFID reads) is aligned to an already fitted camera whose view
-   overlaps it, from MOVING people both see: the shift that brings their floor paths together (a standing person fits
-   every shift and is skipped). A likely carrier of any case's carton is left out, so a case's evidence never sets
+   overlaps it, from MOVING people both see: the shift that makes their velocity profiles agree (positions would carry
+   the hidden-legs bias of a far, high camera; velocity does not), and a standing or steady walker is skipped. A likely carrier of any case's carton is left out, so a case's evidence never sets
    the clocks it is judged by; the script prints how much including them would change the fit.
 
   cd backend; DATA_DIR=... USERS_FILE=... URL_SIGNING_SECRET=... uv run python ../frontend/scripts/fit_camera_clocks.py
@@ -44,8 +44,10 @@ NEAR_PX = 45  # a parcel passes an event's pixel if its box centre comes this cl
 PAIR_S = 1.0  # an event and a passage pair if within this of the camera's overall offset
 SEARCH_S = 10.0  # cameras may be this far off the reference
 MIN_MOVE_M = 2.0  # a person must cover this much floor to carry timing information
-MEET_M = 0.8  # two cameras' paths of one person agree within this at the right shift
-CONTRAST_M = 0.5  # ... and the right shift beats shifts 2 s off by at least this
+MEET_MPS = 0.3  # two cameras' velocity profiles of one person agree within this at the right shift (m/s)
+CONTRAST_MPS = 0.05  # ... and the right shift beats shifts 1 s off by at least this
+MIN_SHARED = 50  # at least 5 s of shared movement (short, far figures agree by chance)
+SAME_PLACE_M = 2.5  # at the chosen shift the two cameras must place them this close (allows the hidden-legs bias)
 DEBUG = bool(__import__("os").environ.get("SPOOR_DEBUG"))
 REFIT = set(filter(None, __import__("os").environ.get("SPOOR_REFIT", "").split(",")))  # cameras to fit again
 # camera -> fitted camera whose view overlaps it, in order (a chain: CAM_13 from CAM_11's bagging area, then CAM_19)
@@ -73,11 +75,11 @@ def cam_time(o: RawObservation) -> datetime:
     return o.source_frame.camera_clock_utc
 
 
-def fit(cam: str, anchors: list[dict], how: str) -> dict | None:
+def fit(cam: str, anchors: list[dict], how: str, base_ms: float = 100.0) -> dict | None:
     if len(anchors) < 3:
         print(f"  {cam}: only {len(anchors)} anchors, not fitted")
         return None
-    res = api.post(f"/v1/cameras/{cam}/clock-fit", json={"anchors": anchors, "base_uncertainty_ms": 100.0,
+    res = api.post(f"/v1/cameras/{cam}/clock-fit", json={"anchors": anchors, "base_uncertainty_ms": base_ms,
                                                           "description": how})
     body = res.json()
     if res.status_code != 201:
@@ -157,26 +159,51 @@ def case_carriers(paths: dict) -> set[str]:
     return out
 
 
+def velocity(t: np.ndarray, xy: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Smoothed floor velocity over time. A constant position bias (legs hidden behind cages pushes a person's floor
+    point along their path) shifts WHERE they appear, not WHEN they speed up, slow down or turn: velocity carries the
+    timing and is blind to the bias."""
+    k = np.ones(7) / 7
+    sx = np.c_[np.convolve(xy[:, 0], k, "same"), np.convolve(xy[:, 1], k, "same")][3:-3]
+    st = t[3:-3]
+    return st[3:-3], (sx[6:] - sx[:-6]) / (st[6:] - st[:-6])[:, None]
+
+
 def best_shift(dev, xy, rt, rxy):
-    """(median distance, shift, samples, contrast): the shift that brings two floor paths together, and how much better
-    it is than shifts 2 s either side (a standing person fits every shift equally: no timing information)."""
+    """(median velocity difference m/s, shift s, samples, contrast m/s): the shift that makes two cameras' velocity
+    profiles of one person agree, and how much worse shifts 1 s either side are (a steady walk or a standing person
+    looks the same at every shift: no timing information)."""
+    ta, va = velocity(dev, xy)
+    tb, vb = velocity(rt, rxy)
+
     def at(shift):
-        ds = []
-        for i in range(0, len(dev), 3):
-            j = int(np.argmin(np.abs(rt - (dev[i] + shift))))
-            if abs(rt[j] - dev[i] - shift) <= 0.15 and np.isfinite(xy[i]).all() and np.isfinite(rxy[j]).all():
-                ds.append(float(np.linalg.norm(xy[i] - rxy[j])))
-        return (float(np.median(ds)), len(ds)) if len(ds) >= 10 else (np.inf, 0)
-    grid = [(at(sh), sh) for sh in np.arange(-SEARCH_S, SEARCH_S, 0.1)]
+        d = [float(np.linalg.norm(va[i] - vb[j])) for i in range(len(ta)) for j in [int(np.argmin(np.abs(tb - ta[i] - shift)))]
+             if abs(tb[j] - ta[i] - shift) <= 0.06 and np.isfinite(va[i]).all() and np.isfinite(vb[j]).all()]
+        return (float(np.median(d)), len(d)) if len(d) >= 20 else (np.inf, 0)
+    grid = [(at(sh), sh) for sh in np.arange(-SEARCH_S, SEARCH_S, 0.05)]
     (med, n), shift = min(grid, key=lambda g: g[0][0])
     if not np.isfinite(med):
         return None
-    side = min(at(shift - 2.0)[0], at(shift + 2.0)[0])
+    side = min(at(shift - 1.0)[0], at(shift + 1.0)[0])
     return med, float(shift), n, side - med
 
 
+def position_shift(dev, xy, rt, rxy):
+    """Fallback when a walk is too steady for velocity to carry timing: the shift that brings two floor paths together
+    (only sound where neither camera hides the legs: a constant bias along the path would become a time error)."""
+    def at(shift):
+        ds = [float(np.linalg.norm(xy[i] - rxy[j])) for i in range(0, len(dev), 3) for j in [int(np.argmin(np.abs(rt - dev[i] - shift)))]
+              if abs(rt[j] - dev[i] - shift) <= 0.15 and np.isfinite(xy[i]).all() and np.isfinite(rxy[j]).all()]
+        return (float(np.median(ds)), len(ds)) if len(ds) >= 10 else (np.inf, 0)
+    grid = [(at(sh), sh) for sh in np.arange(-SEARCH_S, SEARCH_S, 0.05)]
+    (med, n), shift = min(grid, key=lambda g: g[0][0])
+    if not np.isfinite(med):
+        return None
+    return med, float(shift), n, min(at(shift - 2.0)[0], at(shift + 2.0)[0]) - med
+
+
 def by_overlap(cam: str, ref_cam: str, ref_sync: dict) -> dict | None:
-    """Moving people both cameras see: the shift that brings their floor paths together, against the fitted camera."""
+    """Moving people both cameras see: the shift that makes their movements agree, against the fitted camera."""
     paths = {}
     for c in (cam, ref_cam):
         k = svc.valid_calibration(c)
@@ -196,13 +223,24 @@ def by_overlap(cam: str, ref_cam: str, ref_sync: dict) -> dict | None:
     for tid, dev, xy in paths[cam]:
         for rid, rdev, rxy in paths[ref_cam]:
             b = best_shift(dev, xy, rdev + shift_ref, rxy)
+            how = "movements agree"
+            if not b or b[3] < CONTRAST_MPS:  # too steady for velocity: try positions, with their own guards
+                p = position_shift(dev, xy, rdev + shift_ref, rxy)
+                if p and p[0] <= 0.8 and p[3] >= 0.5 and p[2] >= MIN_SHARED // 3:
+                    b, how = (0.0, p[1], MIN_SHARED, CONTRAST_MPS), f"paths meet ({p[0]:.2f} m apart, {p[3]:.1f} m better than 2 s off)"
             if DEBUG:
                 print("      pair", tid[-6:], rid[-6:], b)
-            if not b or b[0] > MEET_M or b[3] < CONTRAST_M:
+            if not b or b[0] > MEET_MPS or b[3] < CONTRAST_MPS or b[2] < MIN_SHARED:
                 continue
+            gap = [float(np.linalg.norm(xy[i] - rxy[j])) for i in range(0, len(dev), 3)
+                   for j in [int(np.argmin(np.abs(rdev + shift_ref - dev[i] - b[1])))]
+                   if abs(rdev[j] + shift_ref - dev[i] - b[1]) <= 0.15 and np.isfinite(xy[i]).all() and np.isfinite(rxy[j]).all()]
+            if not gap or np.median(gap) > SAME_PLACE_M:
+                continue  # same movement, different places: two different people
             excluded = tid in carriers or rid in carriers
-            print(f"    {tid[-6:]} ~ {rid[-6:]}: paths meet at shift {b[1]:+.1f} s (median {b[0]:.2f} m, {b[2]} samples, "
-                  f"{b[3]:.1f} m better than 2 s off){' - case carrier, left out' if excluded else ''}")
+            detail = how if how != "movements agree" else (f"movements agree ({b[0]:.2f} m/s apart, {b[2]} samples, "
+                                                           f"{b[3]:.2f} m/s better than 1 s off)")
+            print(f"    {tid[-6:]} ~ {rid[-6:]}: shift {b[1]:+.2f} s, {detail}{' - case carrier, left out' if excluded else ''}")
             rows = [{"device_time": datetime.fromtimestamp(dev[i], UTC).isoformat(),
                      "reference_time": datetime.fromtimestamp(dev[i] + b[1], UTC).isoformat(),
                      "anchor_id": f"{tid}~{rid}@{i}"} for i in range(0, len(dev), 10)]
@@ -212,7 +250,9 @@ def by_overlap(cam: str, ref_cam: str, ref_sync: dict) -> dict | None:
                                    .total_seconds() for x in a])
         print(f"    robustness: with the case carrier included the offset would be {off(anchors + held_out) * 1000:+.0f} ms "
               f"instead of {off(anchors) * 1000:+.0f} ms")
-    return fit(cam, anchors, f"moving people seen by both {cam} and {ref_cam} (fitted); case carriers left out")
+    # time step 50 ms + the reference camera's own fit + the spread between body points (feet / head / middle)
+    return fit(cam, anchors, f"movement (velocity) of people seen by both {cam} and {ref_cam} (fitted); case carriers "
+                             "left out", base_ms=200.0)
 
 
 fitted = {}  # cameras already fitted in an earlier run keep their fit
