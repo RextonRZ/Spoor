@@ -1,29 +1,34 @@
 "use client";
 /**
- * Answer, ported from review/refs/flow/Case.dc.html (owner 09:22). The answer first: a status pill, one sentence, a
- * plain explanation, "How sure" with three reasons, one primary action (Watch the proof), the key frame, and the moments
- * in order. Everything comes from the case's read models (journey, missing moment, possible places, records conflicts,
- * floor search); in no-key mode it says what is really known.
+ * Answer (step 1), ops-console style. The answer first: a verdict (status, one sentence, why) with a "how sure" meter
+ * and its reasons; then the six scan checkpoints (what the hub's scanners recorded, and where it stopped); where it
+ * could be (the places it could have reached, and whether any camera watches each); and what happened in order. On the
+ * right, docked: the camera view of the place it was last scanned, which cameras to check next, and the two actions.
+ * Everything comes from the case's read models (journey, missing moment, possible places, conflicts, floor search);
+ * without model keys it says what is really known. The same words as the Hub and the landing page (lib/answer).
  */
 import Link from "next/link";
 import { use } from "react";
-import { signedUrl, useResource } from "@/lib/api";
-import type { Journey, MissingMoment } from "@/lib/journey";
+import { useResource } from "@/lib/api";
+import type { Journey, MissingMoment, Possible } from "@/lib/journey";
+import { caseAnswer } from "@/lib/answer";
+import { buildCheckpoints, CHECKPOINT_LINE, type CaseRecord } from "@/lib/checkpoints";
 import { hms, momentLabel, placeOf, shortPlace } from "@/lib/words";
+import type { Site } from "@/lib/types";
 import { CaseSteps } from "@/components/flow/CaseSteps";
-import HubPlan, { ZONE_NAMES } from "@/components/plan/HubPlan";
+import { CheckpointStrip, ScannerScreen } from "@/components/checkpoints/Checkpoints";
+import { NextCams, View } from "@/components/hub/parts";
+import { Identity } from "@/components/case/Identity";
+import { ZONE_NAMES } from "@/components/plan/HubPlan";
 import "./answer.css";
 
 interface CaseState { case: { case_id: string; target_description: string; complaint?: string | null } }
-interface Possible { objects: { places: { area_id: string; name: string; zone_id: string | null; possible_share: number }[] }[] }
-interface Conflicts { objects: { conflicts: { kind: string; divergence_t: string; statement: string }[] }[] }
+interface Conflicts { objects: { conflicts: { kind: string; divergence_t: string; statement: string }[]; records?: CaseRecord[] }[] }
 interface SearchView { found: { name: string; by: string; at: string } | null }
-
-const low = (t: string) => t.charAt(0).toLowerCase() + t.slice(1); // "Into chute C12" -> "into chute C12"
-const clean = (name: string) => name.replace(/^Z\d+ /, "").replace(/\s*\(.*$/, "");
 
 export default function AnswerPage({ params }: { params: Promise<{ caseId: string }> }) {
   const { caseId } = use(params);
+  const sites = useResource<Site[]>("/v1/sites");
   const st = useResource<CaseState>(`/v1/cases/${caseId}/state`);
   const jr = useResource<Journey>(`/v1/cases/${caseId}/journey`);
   const mr = useResource<MissingMoment>(`/v1/cases/${caseId}/missing-moment`);
@@ -34,103 +39,110 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
   const mm = mr.data?.objects[0];
   const scans = j?.scans ?? [];
   const last = scans.at(-1);
-  const lc = mm?.last_confirmed;
   const places = (pr.data?.objects[0]?.places ?? []).filter((p) => p.possible_share > 0);
   const conflicts = cr.data?.objects[0]?.conflicts ?? [];
   const found = sr.data?.found ?? null;
   const next = mm?.expected_next ?? [];
-  const withFootage = next.filter((r) => r.result !== "no_footage");
-  const seen = next.filter((r) => r.result === "seen");
   const waybill = st.data?.case.target_description.split(" ").at(-1) ?? "";
   const ready = !!(j && mm && pr.data);
+  const siteId = sites.data?.[0]?.site_id;
 
-  // the answer, in the prototype's shape: pill, one sentence, two sentences of why
-  let pill: [string, string] = ["Lost track", "bad"];
-  let head = "Checking the records";
-  let why = "";
-  if (ready && found) {
-    pill = ["Found", "ok"];
-    head = `Found at ${low(clean(found.name))} at ${hms(found.at)}.`;
-    why = `Floor staff (${found.by}) found it there during the search. The last record before that was ${last ? `${low(momentLabel(last.event_kind, last.station_id))} at ${hms(last.t)}` : "none"}.`;
-  } else if (ready && seen.length) {
-    pill = ["Likely location found", "ok"];
-    head = `Seen on ${seen[0].camera_id.replace("cam_", "").replace("_", " ")} at ${hms(seen[0].predicted_t)}.`;
-    why = "A camera that should show it next did. Watch the proof to see the frame.";
-  } else if (ready && last) {
-    head = `Lost track after ${placeOf(last.event_kind, last.station_id)} at ${hms(last.t)}.`;
-    why = `The last record is ${low(momentLabel(last.event_kind, last.station_id))} at ${hms(last.t)}. ${withFootage.length
-      ? "The cameras that would show where it went next have footage that hasn't been checked yet."
-      : "None of the cameras that would show where it went next has footage yet, so nothing after that is confirmed."}`;
-  } else if (ready) {
-    head = "No scans of this parcel at this hub.";
-  }
-
-  // how sure: three plain reasons from the evidence
-  const level = found ? "high" : seen.length ? "medium" : "low";
-  const reasons: { text: string; tone: "ok" | "bad" | "plain" }[] = [];
-  if (last) reasons.push({ text: `Last scan: ${low(momentLabel(last.event_kind, last.station_id))} at ${hms(last.t)}.`, tone: "ok" });
-  if (next.length) reasons.push({ text: withFootage.length
-    ? `${withFootage.length} of ${next.length} cameras that would show it next have footage, not checked yet.`
-    : `None of the ${next.length} cameras that would show it next has footage yet.`, tone: "plain" });
-  if (conflicts.length) reasons.push({ text: `The sorter's own times don't fit the belt: ${conflicts[0].statement.replace(/: the records conflict$/, "")}.`, tone: "bad" });
-  else if (places.length) reasons.push({ text: `It could be in ${places.length} place${places.length === 1 ? "" : "s"}. Most likely: ${shortPlace(places[0], ZONE_NAMES)}.`, tone: "plain" });
-
-  const frame = lc?.frames?.[0];
+  const { pill, head, why, level, reasons } = caseAnswer({ ready, last, next, places, conflicts, found, zoneNames: ZONE_NAMES });
+  const cps = j ? buildCheckpoints({ scans, records: cr.data?.objects[0]?.records ?? [], barcode: waybill || null }) : null;
+  const tunnel = cps?.find((c) => c.id === "tunnel");
   const conflictAt = conflicts[0]?.divergence_t;
+  const meter = level === "high" ? 3 : level === "medium" ? 2 : 1;
+  const events = [
+    ...scans.map((s) => ({ key: s.scan_event_id, t: s.t, label: momentLabel(s.event_kind, s.station_id), tone: "" })),
+    ...(conflictAt ? [{ key: "conflict", t: conflictAt, label: "Records disagree: the sorter's times don't fit the belt", tone: "bad" }] : []),
+  ].sort((a, b) => a.t.localeCompare(b.t));
 
   return (
     <div className="an">
       <CaseSteps caseId={caseId} waybill={waybill} said={st.data?.case.complaint ? "customer says it never arrived" : null} here={0} />
-      <div className="an-main">
-        <section className="an-left">
-          <div className="an-answer">
-            <span className="an-pill" data-tone={pill[1]}>{pill[0]}</span>
-            <h1 className="an-h1">{head}</h1>
+      <div className="an-body">
+        <div className="an-main">
+          <section className="an-verdict" aria-labelledby="an-h" data-level={level}>
+            <span className="an-chip" data-tone={pill[1]}>{pill[0]}</span>
+            {ready ? <h1 id="an-h" className="an-h1">{head}</h1> : <div className="an-skel an-skel-h" aria-busy="true" />}
             {why && <p className="an-why">{why}</p>}
-          </div>
-          {ready && reasons.length > 0 && (
-            <div className="an-sure">
-              <p className="an-sure-h">How sure: <span data-level={level}>{level}</span></p>
-              {reasons.slice(0, 3).map((r) => (
-                <div key={r.text} className="an-reason"><span className="an-dot" data-tone={r.tone} /><span>{r.text}</span></div>
-              ))}
-            </div>
-          )}
-          <div className="an-acts">
-            <Link className="an-btn an-btn-primary" href={`/cases/${caseId}/proof`}>Watch the proof</Link>
-            <Link className="an-btn" href={`/cases/${caseId}/search`}>Send someone to look</Link>
-          </div>
-        </section>
-
-        <section className="an-right">
-          <Link href={`/cases/${caseId}/proof`} className="an-frame">
-            {frame ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={signedUrl(frame.frame_url)} alt={`${frame.camera_id} at the last scan`} />
-            ) : lc?.xy ? (
-              <HubPlan label="Where it stopped" focus={{ xy: lc.xy, radius_m: 10, tone: "bad" }} legend={false} fit="width" journey={j} quiet />
-            ) : <span className="an-frame-none" />}
-          </Link>
-          <p className="an-cap">{frame ? `${frame.camera_id.replace("cam_", "").replace("_", " ")} · ${lc ? hms(lc.t) : ""}` : lc ? `Where it stopped · ${last ? placeOf(last.event_kind, last.station_id) : ""} · ${hms(lc.t)} · no footage yet` : ""}</p>
-        </section>
-
-        {scans.length > 0 && (
-          <section aria-label="What happened, in order" className="an-moments">
-            {[...scans.map((s) => ({ key: s.scan_event_id, t: s.t, label: momentLabel(s.event_kind, s.station_id), tone: undefined as string | undefined })),
-              ...(conflictAt ? [{ key: "conflict", t: conflictAt, label: "Records disagree. The sorter's times don't fit the belt.", tone: "bad" }] : [])]
-              .sort((x, y) => x.t.localeCompare(y.t)).map((m) => (
-                <div key={m.key} className="an-moment" data-tone={m.tone}>
-                  <span className="an-moment-t">{hms(m.t)}</span>
-                  <span className="an-moment-l">{m.label}</span>
-                </div>
-              ))}
-            {found ? (
-              <div className="an-moment" data-tone="ok"><span className="an-moment-t">{hms(found.at)}</span><span className="an-moment-l">Found by floor staff</span></div>
-            ) : last && (
-              <div className="an-moment" data-tone="unknown"><span className="an-moment-t">after {hms(last.t)}</span><span className="an-moment-l">Not seen since</span></div>
+            {ready && reasons.length > 0 && (
+              <div className="an-sure">
+                <p className="an-sure-h">
+                  How sure
+                  <span className="an-meter" role="img" aria-label={`${level} confidence`}>
+                    {[1, 2, 3].map((i) => <i key={i} data-on={i <= meter ? "" : undefined} data-level={level} />)}
+                  </span>
+                  <b data-level={level}>{level}</b>
+                </p>
+                <ul>
+                  {reasons.slice(0, 3).map((r) => <li key={r.text} data-tone={r.tone}>{r.text}</li>)}
+                </ul>
+              </div>
             )}
           </section>
-        )}
+
+          <section className="an-card" aria-labelledby="an-scans">
+            <h2 id="an-scans" className="an-h2">Where it was scanned</h2>
+            {cps ? <CheckpointStrip cps={cps} compact gaps where /> : <div className="an-skel an-skel-row" aria-busy="true" />}
+            <p className="an-line">{CHECKPOINT_LINE}</p>
+            {tunnel?.screen && (
+              <details className="an-more">
+                <summary>Scan tunnel screen for this parcel</summary>
+                <div className="an-dws"><ScannerScreen s={tunnel.screen} at={tunnel.t} /></div>
+              </details>
+            )}
+          </section>
+
+          <section className="an-card" aria-labelledby="an-id">
+            <h2 id="an-id" className="an-h2">How we know it&apos;s this parcel</h2>
+            <Identity siteId={siteId} waybill={waybill} />
+          </section>
+
+          {places.length > 0 && (
+            <section className="an-card" aria-labelledby="an-where">
+              <h2 id="an-where" className="an-h2">Where it could be</h2>
+              <ul className="an-places">
+                {places.slice(0, 5).map((p, i) => (
+                  <li key={p.area_id}>
+                    <span className="an-place-n" aria-hidden="true">{i + 1}</span>
+                    <span className="an-place-t">{shortPlace(p, ZONE_NAMES).replace(/^\w/, (c) => c.toUpperCase())}{i === 0 && <em>most likely</em>}</span>
+                    <span className="an-place-c" data-seen={p.covered_by.length ? "" : undefined}>
+                      {p.covered_by.length ? `Watched by ${p.covered_by.slice(0, 2).map((c) => c.replace(/^cam_/i, "").replace("_", " ")).join(", ")}` : "No camera watches this"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {events.length > 0 && (
+            <section className="an-card" aria-labelledby="an-order">
+              <h2 id="an-order" className="an-h2">What happened, in order</h2>
+              <ol className="an-tl">
+                {events.map((m) => (
+                  <li key={m.key} data-tone={m.tone || undefined}><time>{hms(m.t)}</time><span>{m.label}</span></li>
+                ))}
+                {found ? (
+                  <li data-tone="ok"><time>{hms(found.at)}</time><span>Found by floor staff</span></li>
+                ) : last && (
+                  <li data-tone="unknown"><time>after {hms(last.t)}</time><span>Not seen since</span></li>
+                )}
+              </ol>
+            </section>
+          )}
+        </div>
+
+        <aside className="an-side" aria-label="Where it stopped">
+          {siteId && last && (
+            <View siteId={siteId} point={last.station_id ?? last.device_id} at={last.t} tone={level === "high" ? "ok" : "bad"} place={placeOf(last.event_kind, last.station_id).replace(/^the /, "")} />
+          )}
+          <div className="an-acts">
+            <Link className="hb-btn hb-btn-primary" href={`/cases/${caseId}/proof`}>Watch the proof</Link>
+            <Link className="hb-btn" href={`/cases/${caseId}/search`}>Send someone to look</Link>
+          </div>
+          {mm && next.length > 0 && <NextCams caseId={caseId} />}
+        </aside>
       </div>
     </div>
   );

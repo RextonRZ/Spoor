@@ -1,25 +1,30 @@
 "use client";
 /**
- * Proof, ported from review/refs/flow/Proof.dc.html (owner 09:22). The selected moment in a big player (Video | 3D hub),
- * one set of real player controls, every camera on the route in order, a side card that explains the moment in two
- * sentences, the plan, "Go look", and Evidence details folded. Frames are the original recordings; where a camera has
- * no footage for that moment, the player says so instead of showing anything else.
+ * Proof (step 2), ops-console style: "See it on camera". The selected moment in the big viewer (the same zoom, pan and
+ * full screen as the Cameras page) or the 3D hub; every camera on the route in order below it; on the right, docked, what
+ * this moment shows in two sentences, the floor plan, "Go look" and the evidence details. Frames are the original
+ * recordings; where there is no footage of that exact moment the viewer shows the camera's own view of the place and says
+ * so, and the player controls appear only when there is a recording to play.
  */
 import dynamic from "next/dynamic";
+import { SpoorLoader } from "@/components/brand/SpoorLoader";
 import Link from "next/link";
 import { use, useEffect, useMemo, useRef, useState } from "react";
 import { api, signedUrl, useResource } from "@/lib/api";
-import { camId, scanPoint } from "@/lib/hub";
+import { HUB, camId, scanPoint } from "@/lib/hub";
 import type { Journey, MissingMoment } from "@/lib/journey";
 import type { MediaRow, Site } from "@/lib/types";
 import { hms, momentLabel, placeOf, shortPlace } from "@/lib/words";
 import { CaseSteps } from "@/components/flow/CaseSteps";
 import HubPlan, { ZONE_NAMES } from "@/components/plan/HubPlan";
 import { WorkspaceProvider } from "@/components/workspace/context";
+import { Viewer } from "@/components/cameras/Viewer";
+import "@/app/hub/hub.css";
+import "@/app/wall/cameras.css";
 import "./proof.css";
 
 const Scene3D = dynamic(() => import("@/components/workspace/Scene3D"), { ssr: false,
-  loading: () => <div className="pf-3d-wait">Loading the 3D hub</div> });
+  loading: () => <SpoorLoader label="Loading the 3D hub" size={56} fill /> });
 
 interface CaseState { case: { case_id: string; site_id: string; target_description: string; complaint?: string | null } }
 interface Possible { objects: { places: { area_id: string; name: string; zone_id: string | null; possible_share: number }[] }[] }
@@ -86,9 +91,12 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
       <CaseSteps caseId={caseId} waybill={waybill} page="Proof" here={1} />
       <div className="pf-main">
         <section className="pf-left">
-          <div role="group" aria-label="View" className="pf-seg">
-            <button type="button" aria-pressed={view === "video"} onClick={() => setView("video")}>Video</button>
-            <button type="button" aria-pressed={view === "3d"} onClick={() => setView("3d")}>3D hub</button>
+          <div className="pf-bar">
+            <div role="group" aria-label="View" className="cm-seg">
+              <button type="button" aria-pressed={view === "video"} onClick={() => setView("video")}>Camera view</button>
+              <button type="button" aria-pressed={view === "3d"} onClick={() => setView("3d")}>3D hub</button>
+            </div>
+            {sel && <p className="pf-now">{sel.cam ? camName(sel.cam) : "Records"} · {sel.place} · {hms(sel.t)}</p>}
           </div>
           {view === "3d" ? (
             <div className="pf-3d"><WorkspaceProvider caseId={caseId}><Scene3D /></WorkspaceProvider></div>
@@ -98,7 +106,7 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
 
           <div className="pf-strip-head">
             <h2>Every camera on its route, in order</h2>
-            <span>Click a camera to watch that moment</span>
+            <span>Pick one to open it above</span>
           </div>
           <div className="pf-strip">
             {tiles.map((t) => (
@@ -117,7 +125,7 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
         <aside className="pf-right">
           {sel && (
             <div className="pf-card">
-              <p className="pf-card-meta">{sel.cam ? camName(sel.cam) : "Records"} · {sel.place} · {hms(sel.t)}</p>
+              <span className="pf-chip" data-tone={sel.tone}>{sel.status}</span>
               <h1 className="pf-card-h">{sel.headline}</h1>
               <p className="pf-card-body">{sel.body}</p>
             </div>
@@ -126,7 +134,7 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
             <HubPlan label="Floor plan with the parcel's route" journey={j} missing={mm} fit="width" legend={false} quiet
               litCameras={sel?.cam ? [sel.cam] : []} />
           </div>
-          <Link className="pf-go" href={`/cases/${caseId}/search`}>{top ? `Go look: ${shortPlace(top, ZONE_NAMES)}` : "Start a floor search"}</Link>
+          <Link className="hb-btn hb-btn-primary pf-go" href={`/cases/${caseId}/search`}>{top ? `Go look: ${shortPlace(top, ZONE_NAMES)}` : "Start a floor search"}</Link>
           <details className="pf-details">
             <summary>Evidence details</summary>
             <p>{selMedia ? `Original recording ${selMedia.media.media_id}, kept unchanged with its fingerprint (SHA-256 ${selMedia.media.sha256.slice(0, 16)}…).`
@@ -139,12 +147,16 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
   );
 }
 
-/** A tile's picture: the camera's frame at that moment when the footage exists. */
+/** A tile's picture: the camera's frame at that moment when the footage exists, else the camera's own view of the place. */
 function TileThumb({ tile, media }: { tile: Tile; media?: MediaRow }) {
   const url = useFrame(media?.media.media_id, tile.t);
+  const [still, setStill] = useState(true);
   if (tile.tone === "bad") return <span className="pf-tile-none pf-tile-bad">Records disagree</span>;
   // eslint-disable-next-line @next/next/no-img-element
-  return url ? <img src={signedUrl(url)} alt="" className="pf-tile-img" /> : <span className="pf-tile-none">No footage</span>;
+  if (url) return <img src={signedUrl(url)} alt="" className="pf-tile-img" />;
+  // eslint-disable-next-line @next/next/no-img-element
+  if (tile.cam && still) return <img src={`/cameras/${tile.cam}.jpg`} alt="" className="pf-tile-img pf-tile-still" loading="lazy" onError={() => setStill(false)} />;
+  return <span className="pf-tile-none">No camera</span>;
 }
 
 function useFrame(mediaId: string | undefined, t: string | undefined): string | null {
@@ -159,7 +171,10 @@ function useFrame(mediaId: string | undefined, t: string | undefined): string | 
   return url?.k === k ? url.u : null;
 }
 
-/** One transport (review: one player only): play, ±1 frame (0.1 s at 10 fps), scrub across the moment, 1× / 4×. */
+const PILL_TONE: Record<Tile["tone"], string> = { seen: "seen", notseen: "notseen", none: "none", wait: "none", bad: "none" };
+
+/** The big picture (zoom, pan, full screen). With a recording: the frame at that moment, plus one transport (play, scrub, 1x / 4x).
+ *  Without: the camera's view of the place, labelled as not the moment. */
 function Player({ tile, media }: { tile?: Tile; media?: MediaRow }) {
   const cov = media?.coverage[0];
   const [offset, setOffset] = useState(0); // seconds from the moment
@@ -173,36 +188,33 @@ function Player({ tile, media }: { tile?: Tile; media?: MediaRow }) {
     raf.current = window.setInterval(() => setOffset((o) => Math.min(10, o + 0.5 * speed)), 500); // stops at the end of the window
     return () => { if (raf.current) window.clearInterval(raf.current); };
   }, [playing, speed]);
-  const off = !media;
+  if (tile?.tone === "bad") {
+    return <div className="pf-player pf-player-bad"><span className="pf-player-bad-h">{tile.headline}</span><span className="pf-player-bad-b">{tile.body}</span></div>;
+  }
+  if (!tile?.cam) return <div className="pf-player pf-player-none"><span>No camera watches this moment.</span></div>;
+  const cam = tile.cam;
+  const hub = HUB.cameras.find((c) => c.id === cam);
+  const label = hub ? hub.osd_label.toLowerCase().replace(/^\w/, (c) => c.toUpperCase()).replace(/c(\d{2})-c(\d{2})/, "C$1 to C$2").replace(/(\d{2})-(\d{2})/, "$1 to $2") : "";
   return (
     <>
-      <div className="pf-player">
-        {tile?.tone === "bad" ? (
-          <div className="pf-player-bad"><span className="pf-player-bad-h">{tile.headline}</span><span className="pf-player-bad-b">{tile.body}</span></div>
-        ) : url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={signedUrl(url)} alt={`${tile?.cam} at ${t ? hms(t) : ""}`} />
-        ) : (
-          <div className="pf-player-none">
-            <span>{tile?.cam ? `No footage from ${camName(tile.cam)} for ${hms(tile.t)} yet.` : "No camera watches this moment."}</span>
+      <Viewer key={`${cam}|${tile.key}`} id={cam} label={label} image={url ? signedUrl(url) : undefined} at={t ? hms(t) : undefined}
+        pill={{ text: url ? tile.status : `A view of the place · no footage of ${hms(tile.t)} yet`, tone: url ? PILL_TONE[tile.tone] : "none" }} />
+      {media && (
+        <div className="pf-controls">
+          <button type="button" aria-label={playing ? "Pause" : "Play"} className="pf-play" onClick={() => setPlaying((p) => !p)}>
+            {playing ? <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5h3v11H4zM9 2.5h3v11H9z" fill="currentColor" /></svg>
+              : <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor" /></svg>}
+          </button>
+          <button type="button" aria-label="Back one frame" className="pf-step" onClick={() => setOffset((o) => o - 0.1)}>−1</button>
+          <button type="button" aria-label="Forward one frame" className="pf-step" onClick={() => setOffset((o) => o + 0.1)}>+1</button>
+          <label htmlFor="scrub" className="sp-sr">Time around this moment</label>
+          <input id="scrub" type="range" min={-10} max={10} step={0.1} value={offset} onChange={(e) => setOffset(Number(e.target.value))} />
+          <span className="pf-time">{t ? hms(t) : ""}</span>
+          <div role="group" aria-label="Speed" className="pf-speed">
+            {[1, 4].map((x) => <button key={x} type="button" aria-pressed={speed === x} onClick={() => setSpeed(x)}>{x}×</button>)}
           </div>
-        )}
-        {tile && tile.tone !== "bad" && <span className="pf-player-pill" data-tone={tile.tone}>{tile.status}</span>}
-      </div>
-      <div className="pf-controls">
-        <button type="button" aria-label={playing ? "Pause" : "Play"} className="pf-play" disabled={off} onClick={() => setPlaying((p) => !p)}>
-          {playing ? <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5h3v11H4zM9 2.5h3v11H9z" fill="currentColor" /></svg>
-            : <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor" /></svg>}
-        </button>
-        <button type="button" aria-label="Back one frame" className="pf-step" disabled={off} onClick={() => setOffset((o) => o - 0.1)}>−1</button>
-        <button type="button" aria-label="Forward one frame" className="pf-step" disabled={off} onClick={() => setOffset((o) => o + 0.1)}>+1</button>
-        <label htmlFor="scrub" className="sp-sr">Time around this moment</label>
-        <input id="scrub" type="range" min={-10} max={10} step={0.1} value={offset} disabled={off} onChange={(e) => setOffset(Number(e.target.value))} />
-        <span className="pf-time">{t ? hms(t) : ""}</span>
-        <div role="group" aria-label="Speed" className="pf-speed">
-          {[1, 4].map((s) => <button key={s} type="button" aria-pressed={speed === s} disabled={off} onClick={() => setSpeed(s)}>{s}×</button>)}
         </div>
-      </div>
+      )}
     </>
   );
 }

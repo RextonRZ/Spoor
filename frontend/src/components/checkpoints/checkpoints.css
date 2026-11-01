@@ -1,0 +1,131 @@
+/* Scan checkpoints strip + scanner screen (shared by the landing page and the case Answer).
+   Colours: a scan = evidence green, no scan = grey dashed, records vs cameras = red. */
+.ck {
+  --ck-green: #4ade80; --ck-red: #f87171; --ck-grey: #6b7580;
+  --ck-ease: cubic-bezier(0.23, 1, 0.32, 1); --ck-node: 26px;
+  list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0 14px;
+}
+.ck-step { position: relative; display: flex; flex-direction: column; gap: 4px; min-width: 0; padding-top: 34px; }
+/* the rail to the next step: solid between two scans, dashed when either end has no scan */
+.ck-step::before {
+  content: ""; position: absolute; top: calc(var(--ck-node) / 2 - 1px); left: calc(var(--ck-node) + 2px); right: -14px; height: 2px; border-radius: 2px;
+  background: color-mix(in srgb, var(--ck-green) 55%, transparent); transform-origin: left center;
+}
+.ck-step:last-child::before { display: none; }
+.ck-step[data-state="missing"]::before, .ck-step[data-next="missing"]::before {
+  background: repeating-linear-gradient(90deg, var(--ck-grey) 0 6px, transparent 6px 11px);
+}
+.ck-step[data-next="conflict"]::before { background: linear-gradient(90deg, color-mix(in srgb, var(--ck-green) 55%, transparent), var(--ck-red)); }
+.ck-step[data-state="missing"][data-next="conflict"]::before {
+  background: repeating-linear-gradient(90deg, var(--ck-grey) 0 6px, transparent 6px 11px);
+}
+.ck-node {
+  position: absolute; top: 0; left: 0; width: var(--ck-node); height: var(--ck-node); border-radius: 50%; display: grid; place-items: center;
+  font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; color: #0b130e; background: var(--ck-green);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ck-green) 16%, transparent);
+}
+.ck-step[data-state="missing"] .ck-node { background: transparent; border: 2px dashed var(--ck-grey); box-shadow: none; }
+.ck-step[data-state="conflict"] .ck-node { background: var(--ck-red); color: #1a0606; box-shadow: 0 0 0 4px color-mix(in srgb, var(--ck-red) 18%, transparent); }
+.ck-label { font-size: 15px; font-weight: 640; color: var(--ink-strong); letter-spacing: -0.01em; }
+.ck-step[data-state="missing"] .ck-label { color: var(--ink-muted); }
+.ck-time { font-size: 13px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.ck-none { font-size: 13px; color: var(--ink-muted); font-style: italic; }
+.ck-detail { font-size: 13px; color: var(--ink); }
+.ck-how { font-size: 12px; color: var(--ink-muted); line-height: 1.4; }
+.ck-red { display: grid; gap: 2px; padding: 6px 8px; margin-top: 2px; border-radius: 8px; font-size: 12.5px; line-height: 1.35;
+  color: #fecaca; background: color-mix(in srgb, var(--ck-red) 12%, transparent); border: 1px solid color-mix(in srgb, var(--ck-red) 35%, transparent); }
+.ck-compact .ck-label { font-size: 14px; }
+/* no scan, but the cameras saw it there: red like any other "something is wrong here" step (owner: green or red) */
+.ck-step[data-state="unscanned"] .ck-node { background: var(--ck-red); color: #1a0606; box-shadow: 0 0 0 4px color-mix(in srgb, var(--ck-red) 18%, transparent); }
+.ck-step[data-next="unscanned"]::before, .ck-step[data-state="unscanned"]::before { background: linear-gradient(90deg, color-mix(in srgb, var(--ck-green) 55%, transparent), var(--ck-red)); }
+.ck-step[data-state="unscanned"]::before { background: color-mix(in srgb, var(--ck-red) 70%, transparent); }
+.ck-step[data-state="unscanned"] .ck-none { color: #fca5a5; font-style: normal; font-weight: 600; }
+/* the time between two scans, written over their stretch of rail */
+.ck-gap {
+  position: absolute; top: calc(var(--ck-node) / 2 - 11px); left: calc(50% + var(--ck-node) / 2 + 2px); transform: translateX(-50%);
+  padding: 2px 8px; border-radius: 999px; font-size: 11.5px; line-height: 16px; color: var(--ink-muted); white-space: nowrap;
+  background: var(--surface); border: 1px solid var(--hairline); font-variant-numeric: tabular-nums;
+}
+/* no case yet: the six places as a quiet outline */
+.ck-step[data-state="pending"] .ck-node { background: transparent; color: var(--ink-muted); border: 1px solid var(--hairline-strong); box-shadow: none; }
+.ck-step[data-state="pending"]::before { background: var(--hairline-strong); }
+.ck-step[data-state="pending"] .ck-label { color: var(--ink); }
+
+/* the reveal (opt-in: the parent adds .is-in): the rail draws, each step lands in time order */
+.js .ck-anim .ck-step::before { transform: scaleX(0); transition: transform 520ms var(--ck-ease); transition-delay: calc(var(--i) * 140ms + 120ms); }
+.js .ck-anim .ck-step > :not(.ck-node) { opacity: 0; transform: translateY(6px); transition: opacity 420ms var(--ck-ease), transform 520ms var(--ck-ease); transition-delay: calc(var(--i) * 140ms + 60ms); }
+.js .ck-anim .ck-step > .ck-gap { transition-delay: calc(var(--i) * 140ms + 520ms); }
+.js .ck-anim .ck-node { opacity: 0; transform: scale(0.6); transition: opacity 300ms var(--ck-ease), transform 420ms var(--ck-ease); transition-delay: calc(var(--i) * 140ms); }
+.js .ck-anim.is-in .ck-step::before { transform: none; }
+.js .ck-anim.is-in .ck-step > :not(.ck-node) { opacity: 1; transform: none; }
+.js .ck-anim.is-in .ck-node { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .js .ck-anim .ck-step::before, .js .ck-anim .ck-step > *, .js .ck-anim .ck-node { transform: none !important; transition: opacity 200ms ease !important; transition-delay: 0ms !important; }
+}
+@media (max-width: 820px) {
+  .ck { grid-template-columns: 1fr; gap: 18px; }
+  .ck-step { padding-top: 0; padding-left: calc(var(--ck-node) + 14px); min-height: var(--ck-node); }
+  .ck-step::before { top: calc(var(--ck-node) + 4px); bottom: -16px; left: calc(var(--ck-node) / 2 - 1px); right: auto; width: 2px; height: auto; transform-origin: center top; }
+  .ck-gap { top: auto; bottom: -17px; left: calc(var(--ck-node) / 2 + 9px); transform: none; padding: 0; border: 0; background: none; }
+  .ck-step[data-state="missing"]::before, .ck-step[data-next="missing"]::before,
+  .ck-step[data-state="missing"][data-next="conflict"]::before { background: repeating-linear-gradient(180deg, var(--ck-grey) 0 6px, transparent 6px 11px); }
+  .ck-step[data-next="unscanned"]::before { background: linear-gradient(180deg, color-mix(in srgb, var(--ck-green) 55%, transparent), var(--ck-red)); }
+  .ck-step[data-state="unscanned"]::before { background: color-mix(in srgb, var(--ck-red) 70%, transparent); }
+  .ck-step[data-next="conflict"]::before { background: linear-gradient(180deg, color-mix(in srgb, var(--ck-green) 55%, transparent), var(--ck-red)); }
+  .js .ck-anim .ck-step::before { transform: scaleY(0); }
+}
+
+/* the scanner screen: a DWS monitor for one parcel */
+.dws {
+  margin: 0; border-radius: 14px; padding: 10px; background: #08090b; border: 1px solid #2a2f35;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03), 0 20px 40px -24px rgba(0, 0, 0, 0.8);
+  font-variant-numeric: tabular-nums;
+}
+.dws-top { display: flex; justify-content: space-between; align-items: center; padding: 2px 6px 8px; font-size: 12px; color: #9aa4ad; letter-spacing: 0.02em; }
+.dws-clock { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #cbd5e1; }
+.dws-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 10px; }
+.dws-photo { position: relative; aspect-ratio: 4 / 3; border-radius: 8px; overflow: hidden; background: #14181c; border: 1px solid #22272d; }
+.dws-photo img { width: 100%; height: 100%; object-fit: cover; }
+.dws-photo-none {
+  position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 8px; padding: 12px; text-align: center;
+  font-size: 12px; line-height: 1.4; color: #7c8792;
+  background: repeating-linear-gradient(135deg, #14181c 0 10px, #171b20 10px 20px);
+}
+.dws-photo-none svg { width: 26px; height: 26px; color: #5b6570; }
+.dws-data { margin: 0; display: grid; align-content: start; gap: 2px; padding: 4px 6px; border-radius: 8px; background: #0e1114; border: 1px solid #1d2227; }
+.dws-data > div { display: flex; justify-content: space-between; gap: 12px; padding: 6px 4px; border-bottom: 1px solid #1a1f24; font-size: 13.5px; }
+.dws-data > div:last-child { border-bottom: 0; }
+.dws-data dt { color: #8b95a0; }
+.dws-data dd { margin: 0; color: #e5e7eb; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+.dws-chute dd { color: #a5b4fc; font-weight: 600; }
+.dws-status {
+  margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 9px; border-radius: 8px;
+  font-size: 14px; font-weight: 700; letter-spacing: 0.04em; color: #052e12; background: #4ade80;
+}
+.dws-status.is-bad { color: #fff; background: #ef4444; }
+.dws-led { width: 8px; height: 8px; border-radius: 50%; background: currentColor; opacity: 0.8; }
+@media (max-width: 560px) {
+  .dws-body { grid-template-columns: 1fr; }
+  .dws-photo { aspect-ratio: 16 / 9; }
+}
+/* vertical by choice (a narrow side panel), the same as the phone layout */
+.ck.ck-vertical { grid-template-columns: 1fr; gap: 16px; }
+.ck-vertical .ck-step { padding-top: 0; padding-left: calc(var(--ck-node) + 14px); min-height: var(--ck-node); }
+.ck-vertical .ck-step::before { top: calc(var(--ck-node) + 4px); bottom: -14px; left: calc(var(--ck-node) / 2 - 1px); right: auto; width: 2px; height: auto; transform-origin: center top; }
+.ck-vertical .ck-gap { top: auto; bottom: -17px; left: calc(var(--ck-node) / 2 + 9px); transform: none; padding: 0; border: 0; background: none; }
+.ck-vertical .ck-step[data-state="missing"]::before, .ck-vertical .ck-step[data-next="missing"]::before,
+.ck-vertical .ck-step[data-state="missing"][data-next="conflict"]::before { background: repeating-linear-gradient(180deg, var(--ck-grey) 0 6px, transparent 6px 11px); }
+.ck-vertical .ck-step[data-next="unscanned"]::before, .ck-vertical .ck-step[data-next="conflict"]::before { background: linear-gradient(180deg, color-mix(in srgb, var(--ck-green) 55%, transparent), var(--ck-red)); }
+.ck-vertical .ck-step[data-state="unscanned"]::before { background: color-mix(in srgb, var(--ck-red) 70%, transparent); }
+
+/* "Where is this?": the step's scanner on the hub map (owner 1 Nov) */
+.ck-where { justify-self: start; font-size: 12px; color: var(--ink-muted); text-decoration: underline; text-decoration-color: var(--hairline-strong);
+  text-underline-offset: 3px; transition: color 150ms var(--ease), text-decoration-color 150ms var(--ease); }
+.ck-where:hover { color: var(--ink-strong); text-decoration-color: currentColor; }
+.ck-where:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+@media (prefers-reduced-motion: reduce) { .ck-where { transition: none; } }
+
+/* the checkpoint's number, the same 1-6 the hub map's markers carry (owner 1 Nov: one numbering everywhere) */
+.ck-n { display: inline-block; min-width: 1.4em; margin-right: 4px; font: 600 0.85em var(--mono, ui-monospace, Consolas, monospace);
+  color: var(--ink-muted); font-variant-numeric: tabular-nums; }

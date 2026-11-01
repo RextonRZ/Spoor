@@ -1,0 +1,85 @@
+/* The Spoor loader: the owner's mark read like a fingerprint on a scanner (2.4 s loop).
+   --sl-y is where the scan line is (0% top, 100% bottom); registered, so the masks that follow it animate smoothly.
+   Layers: the ghost (always, faint) · the ink (revealed above the line, soft to sharp) · the glow (only a narrow band
+   at the line, on the ridges themselves) · the line (a thin light across the box). */
+@property --sl-y { syntax: "<percentage>"; inherits: true; initial-value: -10%; }
+
+.sl { --sl-loop: 2400ms; display: grid; justify-items: center; gap: 18px; padding: 24px; color: #868b96; }
+.sl-fill { min-height: min(60vh, 520px); place-content: center; }
+.sl-stage { position: relative; display: block; width: var(--sl-size, 64px); aspect-ratio: 288 / 306; }
+.sl-mark {
+  position: absolute; inset: 0; z-index: 1; transform-origin: 50% 85%;
+  animation: sl-press var(--sl-loop) cubic-bezier(0.77, 0, 0.175, 1) infinite, sl-scan var(--sl-loop) linear infinite,
+    sl-match var(--sl-loop) ease-out infinite;
+}
+.sl-mark img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; user-select: none; -webkit-user-drag: none; }
+.sl-ghost { opacity: 0.13; }
+/* the ink: everything the line has passed, settling from soft to sharp */
+.sl-ink {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(var(--sl-y) - 10%), transparent var(--sl-y));
+  mask-image: linear-gradient(to bottom, #000 calc(var(--sl-y) - 10%), transparent var(--sl-y));
+  animation: sl-ink var(--sl-loop) cubic-bezier(0.23, 1, 0.32, 1) infinite;
+}
+/* the glow: the ridges under the line, lit (a narrow band of the same picture, brightened) */
+.sl-glow {
+  filter: brightness(2.1) saturate(0.55) drop-shadow(0 0 3px rgba(165, 180, 252, 0.9));
+  -webkit-mask-image: linear-gradient(to bottom, transparent calc(var(--sl-y) - 9%), #000 calc(var(--sl-y) - 1%), transparent calc(var(--sl-y) + 2%));
+  mask-image: linear-gradient(to bottom, transparent calc(var(--sl-y) - 9%), #000 calc(var(--sl-y) - 1%), transparent calc(var(--sl-y) + 2%));
+  animation: sl-glow var(--sl-loop) linear infinite;
+}
+/* the scan line itself: a thin light across the box, just past the mark's edges */
+.sl-line {
+  position: absolute; left: -10%; right: -10%; top: var(--sl-y); height: 2px; margin-top: -1px; border-radius: 2px;
+  background: linear-gradient(90deg, transparent, rgba(199, 210, 254, 0.95) 20%, rgba(199, 210, 254, 0.95) 80%, transparent);
+  box-shadow: 0 0 10px 1px rgba(129, 140, 248, 0.75);
+  animation: sl-line var(--sl-loop) linear infinite;
+}
+/* the pressure under the box */
+.sl-shadow {
+  position: absolute; left: 14%; right: 14%; bottom: -7%; height: 12%; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(99, 102, 241, 0.35), transparent);
+  transform: scaleX(0.6); opacity: 0; animation: sl-shadow var(--sl-loop) cubic-bezier(0.77, 0, 0.175, 1) infinite;
+}
+.sl-label { font-size: 13px; letter-spacing: 0.01em; }
+
+/* the scan starts on the first frame (short loads still show it): 0-42 press + scan · 42-58 match · 58-82 hold, lift,
+   fade · 82-100 rest (2.4 s) */
+@keyframes sl-press {
+  0% { transform: scale(0.97); }
+  8%, 50% { transform: scale(0.94); }
+  62%, 100% { transform: scale(1); }
+}
+@keyframes sl-scan {
+  0% { --sl-y: -4%; }
+  42%, 100% { --sl-y: 112%; }
+}
+@keyframes sl-ink {
+  0% { opacity: 1; filter: blur(1.2px); }
+  42%, 62% { opacity: 1; filter: blur(0); }
+  80%, 100% { opacity: 0; filter: blur(0); }
+}
+/* the match: one soft glow round the whole print, on the unmasked wrapper so it follows the mark's own shape */
+@keyframes sl-match {
+  0%, 44% { filter: drop-shadow(0 0 0 rgba(129, 140, 248, 0)); }
+  52% { filter: drop-shadow(0 0 9px rgba(129, 140, 248, 0.75)); }
+  64%, 100% { filter: drop-shadow(0 0 0 rgba(129, 140, 248, 0)); }
+}
+@keyframes sl-glow {
+  0%, 40% { opacity: 1; }
+  44%, 100% { opacity: 0; }
+}
+@keyframes sl-line {
+  0%, 39% { opacity: 1; }
+  43%, 100% { opacity: 0; }
+}
+@keyframes sl-shadow {
+  0% { transform: scaleX(0.8); opacity: 0.6; }
+  8%, 50% { transform: scaleX(1); opacity: 1; }
+  66%, 100% { transform: scaleX(0.7); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sl-mark, .sl-shadow, .sl-glow, .sl-line { animation: none; }
+  .sl-glow, .sl-line { display: none; }
+  .sl-ink { -webkit-mask-image: none; mask-image: none; filter: none; animation: sl-breathe 2.4s ease-in-out infinite alternate; }
+  @keyframes sl-breathe { from { opacity: 0.45; } to { opacity: 1; } }
+}

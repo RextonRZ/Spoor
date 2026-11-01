@@ -1,11 +1,47 @@
-/* Shared flow pieces (review/refs/flow). Prefix fl-. */
-.fl-casebar { max-width: 1376px; margin: 0 auto; padding: 20px 32px 0; box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center;
-  justify-content: space-between; gap: 16px; }
-.fl-crumb { margin: 0; font-size: 14px; color: #8B909B; }
-.tb-app .fl-crumb a { color: #8B909B; }
-.fl-crumb-wb { color: #C9CCD3; }
-.fl-steps { display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: #14151B; border: 1px solid rgba(255,255,255,0.07); }
-.tb-app .fl-steps a { padding: 8px 14px; border-radius: 9px; color: #8B909B; font-size: 14px; font-weight: 500; }
-.tb-app .fl-steps a:hover { color: #F4F5F7; }
-.tb-app .fl-steps a[aria-current="page"] { background: #23252D; color: #F4F5F7; font-weight: 600; }
-@media (max-width: 760px) { .fl-casebar { padding: 16px 16px 0; } .fl-steps { width: 100%; justify-content: space-between; } .tb-app .fl-steps a { padding: 8px 8px; font-size: 13px; } }
+/* The case header: back link, parcel, and the four-step stepper (tokens from the shell, tb-app). Prefix fl-. */
+.fl-casebar { display: grid; gap: 16px; padding: 18px 28px 16px; border-bottom: 1px solid var(--tb-line); background: var(--tb-bg); }
+.fl-top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-width: 0; font-size: 13.5px; color: var(--tb-mute); }
+.tb-app .fl-back { display: inline-flex; align-items: center; gap: 2px; height: 28px; padding: 0 8px 0 2px; border-radius: var(--tb-r-sm); color: var(--tb-mute); font-weight: 560; transition: color 140ms ease, background-color 140ms ease; }
+.fl-back svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.tb-app .fl-back:focus-visible, .tb-app .fl-wb:focus-visible { outline: 2px solid #818cf8; outline-offset: 1px; }
+@media (hover: hover) and (pointer: fine) { .tb-app .fl-back:hover { color: var(--tb-ink); background: rgba(255, 255, 255, 0.05); } }
+.fl-sep { color: #4a4f5a; }
+.tb-app .fl-wb { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; color: var(--tb-ink-2); }
+.fl-wb-now { color: var(--tb-ink); font-weight: 600; }
+.fl-said { padding: 2px 8px; border-radius: 5px; font-size: 12px; color: var(--tb-mute); background: var(--tb-surface); border: 1px solid var(--tb-line); }
+
+/* the stepper: circles joined by a line that is green once the step before it is done */
+.fl-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; }
+.fl-step { position: relative; min-width: 0; }
+.fl-step:not(:last-child)::after { /* the line to the next step */
+  content: ""; position: absolute; top: 15px; left: calc(34px + 1px); right: 8px; height: 2px; border-radius: 2px; background: var(--tb-line-2);
+}
+.fl-step[data-state="done"]:not(:last-child)::after { background: color-mix(in srgb, #4ade80 60%, transparent); }
+.tb-app .fl-step a { display: flex; align-items: flex-start; gap: 0; padding: 0 12px 0 0; border-radius: var(--tb-r-sm); color: var(--tb-mute); position: relative; z-index: 1; }
+.tb-app .fl-step a:focus-visible { outline: 2px solid #818cf8; outline-offset: 3px; }
+.fl-step-n {
+  display: grid; place-items: center; flex: none; width: 32px; height: 32px; box-sizing: border-box; border-radius: 50%; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--tb-mute); background: var(--tb-bg); border: 1.5px solid var(--tb-line-2); transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease, transform 140ms var(--tb-ease-out);
+}
+.fl-step-n svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.fl-step[data-state="done"] .fl-step-n { color: #052e12; background: #4ade80; border-color: #4ade80; }
+.fl-step[data-state="now"] .fl-step-n { color: #fff; background: var(--tb-accent); border-color: var(--tb-accent); box-shadow: 0 0 0 4px rgba(85, 88, 238, 0.2); }
+.tb-app .fl-step a:active .fl-step-n { transform: scale(0.94); }
+.fl-step-t { display: grid; gap: 1px; padding: 1px 8px 1px 10px; min-width: 0; background: var(--tb-bg); }
+.fl-step-t b { font-size: 14px; font-weight: 600; color: var(--tb-ink-2); }
+.fl-step-t small { font-size: 12px; color: var(--tb-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fl-step[data-state="now"] .fl-step-t b { color: var(--tb-ink); font-weight: 700; }
+@media (hover: hover) and (pointer: fine) {
+  .tb-app .fl-step a:hover .fl-step-t b { color: var(--tb-ink); }
+  .tb-app .fl-step[data-state="next"] a:hover .fl-step-n { border-color: rgba(255, 255, 255, 0.3); color: var(--tb-ink); }
+}
+
+@media (max-width: 760px) {
+  .fl-casebar { padding: 14px 16px 12px; gap: 12px; }
+  .fl-step-t small { display: none; }
+  .fl-step:not([data-state="now"]) .fl-step-t { display: none; }  /* phones: circles for the others, the name of the current step */
+  .fl-steps { grid-template-columns: auto auto auto 1fr; }
+  .fl-steps .fl-step:not([data-state="now"]) { min-width: 32px; }
+  .fl-step:not(:last-child)::after { left: 34px; right: 2px; }
+}
+@media (prefers-reduced-motion: reduce) { .fl-step-n { transition: none; } }

@@ -17,6 +17,7 @@ needs one to place a clip on the timeline; the UI shows it as a clock warning.
 import argparse
 import json
 import math
+import os
 import subprocess
 import sys
 import tempfile
@@ -37,6 +38,7 @@ SITE_ID = "site_contoh_hub"
 FLOOR_ID = "floor_ground"
 # Default recording start for the QA clips: the OSD start time the renders were made with. Declared, not verified.
 DEFAULT_CLIP_START = "2026-10-28T14:32:07+08:00"
+HOSTED = False  # --hosted: synthetic clips may go to the hosted models (set in main)
 
 
 def guard(path: Path) -> Path:
@@ -172,7 +174,8 @@ def convert_scans(lines: list[str], domain_ids: dict[str, str], spec: dict) -> t
                    "identifiers": ids if ev == "tunnel_read" else [], "device_id": sp["id"], "device_kind": "tunnel",
                    "station_id": sp["id"], "read_point_zone_id": f"zone_{sp['zone']}",
                    "dims_mm": r.get("dims_mm"), "weight_g": r.get("weight_g"),
-                   "raw_description": f"tunnel photo {r['photo']}" if r.get("photo") else None}  # fmt: skip
+                   "sort_destination_assigned": r.get("destination_chute"),
+                   "raw_description": f"tunnel photo {r.get('scanner_photo') or r.get('photo')}" if (r.get("scanner_photo") or r.get("photo")) else None}  # fmt: skip
         elif ev == "induct_to_carrier":  # SP-INDUCT (line A) or SP-INDUCT-B (line B)
             sp = own_point(points, r, "sorter_plc", "SP-INDUCT")
             row = {**base, "event_kind": "inducted", "identifiers": ids, "read_outcome": "read" if pid else "no_read", "device_id": sp["id"],
@@ -205,6 +208,32 @@ def convert_scans(lines: list[str], domain_ids: dict[str, str], spec: dict) -> t
                    "device_id": sp["id"] if sp else r.get("device_id", "handheld"), "device_kind": "handheld",
                    "station_id": sp["id"] if sp else None, "read_point_zone_id": f"zone_{sp['zone']}" if sp else None,
                    "raw_description": f"bag {r['item_id']} into {r['container_id']}"}  # fmt: skip
+        elif ev == "unload_scan":  # a handheld at an unloading door: the parcel arrived at the hub (scanner user is masked)
+            sp = points[r["scan_point"]]
+            row = {**base, "event_kind": "arrived_facility", "identifiers": ids, "read_outcome": "read" if pid else "no_read",
+                   "device_id": sp["id"], "device_kind": "handheld", "station_id": sp["id"],
+                   "read_point_zone_id": f"zone_{sp['zone']}", "raw_description": "unloaded, handheld scan"}  # fmt: skip
+        elif ev == "store_scan_in":  # a handheld at the exception store door: the parcel went into the store
+            sp = points[r["scan_point"]]
+            row = {**base, "event_kind": "container_add", "identifiers": ids,
+                   "container": {"scheme": "container", "value": r.get("container_id") or "LOC-Z11-EXCEPTION"},
+                   "device_id": sp["id"], "device_kind": "handheld", "station_id": sp["id"],
+                   "read_point_zone_id": f"zone_{sp['zone']}", "raw_description": "scanned into the exception store"}  # fmt: skip
+        elif ev == "container_add" and r.get("item_kind") == "parcel":  # a parcel put straight into a cage
+            sp = handheld_point(points, r, "SP-CAGE-")
+            row = {**base, "event_kind": "container_add", "identifiers": ids, "container": {"scheme": "container", "value": r["container_id"]},
+                   "container_type": "cage", "device_id": sp["id"] if sp else r.get("device_id", "handheld"), "device_kind": "handheld",
+                   "station_id": sp["id"] if sp else None, "read_point_zone_id": f"zone_{sp['zone']}" if sp else None,
+                   "raw_description": f"parcel into {r['container_id']}"}  # fmt: skip
+        elif ev == "rfid_read" and r.get("container_id") and r.get("scan_point", "").startswith("SP-RFID-"):
+            # the cage's RFID tag read at a dock gate: the cage (and what is recorded in it) is loaded on that door's truck
+            sp = points[r["scan_point"]]
+            door = r["scan_point"].removeprefix("SP-RFID-")
+            row = {**base, "event_kind": "container_loaded", "identifiers": [],
+                   "container": {"scheme": "container", "value": r["container_id"]}, "container_type": "cage",
+                   "parent_container": {"scheme": "container", "value": f"TRUCK-{door}"},
+                   "device_id": sp["id"], "device_kind": "rfid_portal", "station_id": sp["id"],
+                   "read_point_zone_id": f"zone_{sp['zone']}", "raw_description": f"cage {r['container_id']} loaded on truck at door {door}"}  # fmt: skip
         elif ev == "reject_bin" and not pid:
             sp = points["SP-DIV-REJECT"]
             row = {**base, "event_kind": "exception_diverted", "read_outcome": "no_read", "identifiers": [],
@@ -282,7 +311,7 @@ def load_inputs(admin, *, clips_dir: Path, clip_start: str, scans_path: Path, sp
             meta = {"site_id": SITE_ID, "camera_id": cam_id,
                     "rights_statement": "Synthetic footage rendered from a fictional hub model; no real people",
                     "purpose": "Spoor no-key demonstration", "consent_confirmed": True,
-                    "hosted_processing_allowed": False, "retention_days": 30,
+                    "hosted_processing_allowed": HOSTED, "retention_days": 30,
                     "recording_start_camera_time": clip_start, "recording_kind": "synthetic_test"}  # fmt: skip
             with marked.open("rb") as fh:
                 r = admin.post("/v1/media/uploads", data={"meta": json.dumps(meta)},
@@ -447,11 +476,15 @@ def main() -> None:
     ap.add_argument("--scenarios", default=None, help="scenario manifest JSON (QUEUE F1); one input case per scenario")
     ap.add_argument("--sync-geometry", action="store_true", help="only update cameras + site plan from the hub spec")
     ap.add_argument("--case-input", default=None, help="scenario case_input.json: the question + complaint as the card states")
+    ap.add_argument("--hosted", action="store_true", help="synthetic renders only: allow hosted model processing (Meta Model "
+                    "API: SAM 3.1 / Muse Spark) of the clips; off by default, as real CCTV needs the site's say-so")
     ap.add_argument("--window-s", type=float, default=40.0, help="case window length from --clip-start (no clips: the log span)")
     args = ap.parse_args()
+    global HOSTED
+    HOSTED = bool(args.hosted)
 
     env = load_env()
-    api = env.get("SPOOR_API_URL", "http://127.0.0.1:8000")
+    api = os.environ.get("SPOOR_API_URL") or env.get("SPOOR_API_URL", "http://127.0.0.1:8000")  # env wins: seed a second store
     admin = httpx.Client(base_url=api, headers={"Authorization": f"Bearer {env['SPOOR_TOKEN_SITE_ADMIN']}"},
                          timeout=300)  # fmt: skip
     inv = httpx.Client(base_url=api, headers={"Authorization": f"Bearer {env['SPOOR_TOKEN_INVESTIGATOR']}"},

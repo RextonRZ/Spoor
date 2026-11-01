@@ -20,8 +20,7 @@ async function axe(page: Page) {
 
 const SCREENS: [string, string, RegExp][] = [
   ["Hub", "/hub", /need(s)? attention|Every parcel is on track/],
-  ["Cases", "/", /Cases/],
-  ["Cameras", "/wall", /The whole hub at/],
+  ["Cameras", "/wall", /19 cameras/],
   ["Answer", "", /How sure|No scans of this parcel/],
   ["Investigating", "/investigate", /See the answer/], // audited once the run (or its replay) has finished
   ["Proof", "/proof", /Every camera on its route, in order/],
@@ -34,7 +33,7 @@ for (const [name, path, content] of SCREENS) {
   test(`${name}: loads, says what it should, no em dash, accessible, one user`, async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message.slice(0, 200)));
-    const url = ["Hub", "Cases", "Cameras", "Settings"].includes(name) ? path : `/cases/${await caseId(page)}${path}`;
+    const url = ["Hub", "Cameras", "Settings"].includes(name) ? path : `/cases/${await caseId(page)}${path}`;
     await page.goto(url);
     await expect(page.locator("main")).toContainText(content, { timeout: 30_000 });
     await page.waitForLoadState("networkidle");

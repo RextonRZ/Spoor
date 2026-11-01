@@ -51,11 +51,8 @@ const C = {
   inkM: "#8b909b", inkF: "#5a5f69", surf: "#121318", surf2: "#1b1d24", obs: "#4ade80", hyp: "#fbbf24", unk: "#8b909b",
   con: "#f87171", scan: "#60a5fa", acc: "#818cf8",
 };
-export const ZONE_NAMES: Record<string, string> = {
-  Z01: "Inbound dock", Z02: "Bag opening", Z03: "Induction", Z04: "Scan tunnel", Z05: "Cross-belt sorter",
-  Z06: "Chutes + bagging", Z07: "Reject", Z08: "Exception bench", Z09: "Oversize", Z10: "Cage staging",
-  Z11: "Exception store", Z12: "Outbound dock", Z13: "Office", Z14: "Truck yard",
-};
+import { ZONE_NAMES } from "@/lib/zones"; // (the short zone names: one list for the app and the landing page)
+export { ZONE_NAMES };
 // small zones lose their label on small plans (unless they carry a count), so names never collide
 const SMALL_ZONES = new Set(["Z02", "Z04", "Z08", "Z09", "Z13", "Z11"]);
 export const LABEL_AT: Record<string, XY> = {

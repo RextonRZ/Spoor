@@ -1,61 +1,68 @@
-/* Proof, values lifted from review/refs/flow/Proof.dc.html (owner 09:22). Prefix pf-. */
-.pf { color: #F4F5F7; }
-.pf-main { max-width: 1376px; margin: 0 auto; padding: 20px 32px 40px; box-sizing: border-box; display: flex; flex-wrap: wrap; gap: 24px; }
-.pf-left { flex: 999 1 680px; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
-.pf-right { flex: 1 1 340px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
-.pf-seg { align-self: flex-start; display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: #14151B; border: 1px solid rgba(255,255,255,0.07); }
-.pf-seg button { height: 34px; padding: 0 14px; border-radius: 9px; border: 0; font: inherit; font-size: 13px; font-weight: 600; background: transparent; color: #8B909B; cursor: pointer; }
-.pf-seg button[aria-pressed="true"] { background: #23252D; color: #F4F5F7; }
-.pf-player, .pf-3d { position: relative; border-radius: 18px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08); background: #000000; aspect-ratio: 16 / 9; }
+/* Proof (step 2): the viewer, the route's cameras, the docked card. Prefix pf-. Tokens from the shell; the viewer and the
+   segmented switch come from the Cameras stylesheet (cv-, cm-); buttons from the Hub's (hb-). */
+.pf { color: var(--tb-ink); }
+.pf-main { display: grid; grid-template-columns: minmax(0, 1fr) clamp(340px, 30vw, 420px); gap: 20px; align-items: start; max-width: 1440px; padding: 24px 28px 48px; box-sizing: border-box; }
+.pf-left { display: grid; gap: 14px; min-width: 0; }
+.pf-right { position: sticky; top: 76px; display: grid; gap: 14px; min-width: 0; }
+.pf-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.pf-now { margin: 0; font-size: 13px; color: var(--tb-mute); font-variant-numeric: tabular-nums; }
+.pf .cv-hint { display: none; }
+.pf-3d { position: relative; border-radius: var(--tb-r); overflow: hidden; border: 1px solid var(--tb-line); background: #000; aspect-ratio: 16 / 9; }
 .pf-3d .sp-scene { position: absolute; inset: 0; }
-.pf-3d-wait { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #8B909B; font-size: 14px; }
-.pf-player img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.pf-player-none { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #111217; color: #8B909B; font-size: 15px; padding: 24px; text-align: center; }
-.pf-player-bad { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: #111217;
-  border: 2px dashed rgba(248,113,113,0.5); border-radius: 18px; text-align: center; padding: 24px; }
-.pf-player-bad-h { font-size: 22px; font-weight: 700; color: #FCA5A5; }
-.pf-player-bad-b { font-size: 15px; color: #C9CCD3; max-width: 52ch; line-height: 1.5; }
-.pf-player-pill { position: absolute; left: 16px; top: 48px; font-size: 13px; font-weight: 600; padding: 5px 10px; border-radius: 8px; background: rgba(11,12,16,0.8); color: #C9CCD3; }
-.pf-player-pill[data-tone="seen"] { background: #4ADE80; color: #0B0C10; }
-.pf-player-pill[data-tone="notseen"] { background: rgba(248,113,113,0.9); color: #0B0C10; }
-.pf-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; background: #14151B; border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 10px 14px; }
-.pf-play { width: 40px; height: 40px; border-radius: 10px; border: 0; background: #5558EE; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
-.pf-step { width: 40px; height: 40px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); background: transparent; color: #C9CCD3; font: inherit; font-size: 13px; cursor: pointer; }
-.pf-controls button:disabled, .pf-controls input:disabled { opacity: 0.45; cursor: default; }
-.pf-controls input[type="range"] { flex: 1 1 200px; accent-color: #6366F1; }
-.pf-time { font-size: 15px; font-weight: 600; min-width: 92px; }
-.pf-speed { display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: #0E0F14; }
-.pf-speed button { height: 32px; padding: 0 10px; border-radius: 8px; border: 0; background: transparent; color: #8B909B; font: inherit; font-size: 13px; cursor: pointer; }
-.pf-speed button[aria-pressed="true"] { background: #23252D; color: #F4F5F7; }
-.pf-strip-head { display: flex; justify-content: space-between; align-items: baseline; }
-.pf-strip-head h2 { margin: 0; font-size: 16px; font-weight: 600; }
-.pf-strip-head span { font-size: 13px; color: #8B909B; }
-.pf-strip { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
-.pf-tile { text-align: left; padding: 0; border-radius: 12px; overflow: hidden; background: #14151B; color: #F4F5F7; font: inherit; cursor: pointer;
-  border: 1px solid rgba(255,255,255,0.07); }
-.pf-tile[aria-pressed="true"] { border: 2px solid #818CF8; }
+.pf-player { position: relative; border-radius: var(--tb-r); overflow: hidden; border: 1px solid var(--tb-line); background: #000; aspect-ratio: 16 / 9; }
+.pf-player-none, .pf-player-bad { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px; text-align: center; background: var(--tb-surface); color: var(--tb-mute); font-size: 15px; }
+.pf-player-bad { border: 1px dashed rgba(248, 113, 113, 0.5); }
+.pf-player-bad-h { font-size: 20px; font-weight: 700; color: #fca5a5; }
+.pf-player-bad-b { font-size: 14px; color: var(--tb-ink-2); max-width: 52ch; line-height: 1.5; }
+
+/* one transport, only when there is a recording */
+.pf-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid var(--tb-line); border-radius: var(--tb-r); background: var(--tb-surface); }
+.pf-play, .pf-step { display: grid; place-items: center; width: 34px; height: 34px; border-radius: var(--tb-r-sm); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: transform 140ms var(--tb-ease-out), background-color 140ms ease; }
+.pf-play { border: 0; background: var(--tb-accent); color: #fff; }
+.pf-step { border: 1px solid var(--tb-line-2); background: transparent; color: var(--tb-ink-2); }
+.pf-play:active, .pf-step:active { transform: scale(0.95); }
+.pf-controls input[type="range"] { flex: 1 1 200px; accent-color: #6366f1; }
+.pf-time { min-width: 76px; font-size: 13.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pf-speed { display: flex; gap: 2px; padding: 2px; border-radius: var(--tb-r-sm); background: var(--tb-bg); }
+.pf-speed button { height: 28px; padding: 0 10px; border: 0; border-radius: 5px; background: none; color: var(--tb-mute); font: inherit; font-size: 12.5px; cursor: pointer; }
+.pf-speed button[aria-pressed="true"] { background: #262833; color: var(--tb-ink); }
+
+/* every camera on the route */
+.pf-strip-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-top: 6px; }
+.pf-strip-head h2 { margin: 0; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #6c717d; }
+.pf-strip-head span { font-size: 12.5px; color: var(--tb-mute); }
+.pf-strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.pf-tile { text-align: left; padding: 0; border-radius: var(--tb-r); overflow: hidden; background: var(--tb-surface); color: var(--tb-ink); font: inherit; cursor: pointer; border: 1px solid var(--tb-line);
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 140ms var(--tb-ease-out); }
+.pf-tile:active { transform: scale(0.985); }
+.pf-tile:focus-visible { outline: 2px solid #818cf8; outline-offset: 2px; }
+.pf-tile[aria-pressed="true"] { border-color: rgba(129, 140, 248, 0.8); box-shadow: 0 0 0 3px rgba(85, 88, 238, 0.22); }
+@media (hover: hover) and (pointer: fine) { .pf-tile:hover { border-color: var(--tb-line-2); } .pf-tile[aria-pressed="true"]:hover { border-color: rgba(129, 140, 248, 0.9); } }
 .pf-tile-img, .pf-tile-none { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: block; }
-.pf-tile-none { display: flex; align-items: center; justify-content: center; background: #111217; color: #8B909B; font-size: 12px; font-weight: 600; }
-.pf-tile-bad { color: #FCA5A5; }
-.pf-tile-text { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px 10px; }
+.pf-tile-still { filter: saturate(0.85) brightness(0.9); }
+.pf-tile-none { display: flex; align-items: center; justify-content: center; background: #111217; color: var(--tb-mute); font-size: 12px; font-weight: 600; }
+.pf-tile-bad { color: #fca5a5; }
+.pf-tile-text { display: flex; flex-direction: column; gap: 1px; padding: 8px 10px 10px; }
 .pf-tile-cam { font-size: 13px; font-weight: 600; }
-.pf-tile-place { font-size: 12px; color: #8B909B; }
-.pf-tile-status { font-size: 12px; font-weight: 600; color: #8B909B; }
-.pf-tile[data-tone="seen"] .pf-tile-status { color: #86EFAC; }
-.pf-tile[data-tone="notseen"] .pf-tile-status, .pf-tile[data-tone="bad"] .pf-tile-status { color: #FCA5A5; }
-.pf-card { background: #14151B; border: 1px solid rgba(255,255,255,0.07); border-radius: 18px; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
-.pf-card-meta { margin: 0; font-size: 13px; color: #8B909B; }
-.pf-card-h { margin: 0; font-size: 24px; line-height: 1.25; font-weight: 700; letter-spacing: -0.02em; }
-.pf-card-body { margin: 0; font-size: 15px; line-height: 1.55; color: #C9CCD3; }
-.pf-plan { border-radius: 16px; border: 1px solid rgba(255,255,255,0.07); overflow: hidden; background: #14151B; padding: 6px; }
+.pf-tile-place { font-size: 12px; color: var(--tb-mute); }
+.pf-tile-status { font-size: 12px; font-weight: 600; color: var(--tb-mute); }
+.pf-tile[data-tone="seen"] .pf-tile-status { color: #86efac; }
+.pf-tile[data-tone="notseen"] .pf-tile-status, .pf-tile[data-tone="bad"] .pf-tile-status { color: #fca5a5; }
+
+/* the docked card */
+.pf-card { display: grid; gap: 10px; justify-items: start; padding: 18px 20px; border: 1px solid var(--tb-line); border-radius: var(--tb-r); background: var(--tb-surface); }
+.pf-chip { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 5px; font-size: 12px; font-weight: 600; color: var(--tb-mute); background: rgba(255, 255, 255, 0.06); }
+.pf-chip[data-tone="seen"] { color: #86efac; background: rgba(74, 222, 128, 0.12); }
+.pf-chip[data-tone="notseen"], .pf-chip[data-tone="bad"] { color: #fca5a5; background: rgba(248, 113, 113, 0.13); }
+.pf-card-h { margin: 0; font-size: 20px; line-height: 1.25; font-weight: 650; letter-spacing: -0.015em; text-wrap: balance; }
+.pf-card-body { margin: 0; font-size: 14px; line-height: 1.55; color: var(--tb-ink-2); }
+.pf-plan { border-radius: var(--tb-r); border: 1px solid var(--tb-line); overflow: hidden; background: var(--tb-surface); padding: 6px; }
 .pf-plan .hp-box { min-height: 0 !important; }
-.pf .pf-go { height: 48px; display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; background: #5558EE; color: #FFFFFF; font-size: 15px; font-weight: 600; }
-.pf .pf-go:hover { background: #6366F1; color: #FFFFFF; }
-.pf-details { background: #14151B; border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 14px 16px; color: #C9CCD3; font-size: 13px; }
-.pf-details summary { font-size: 14px; font-weight: 600; color: #F4F5F7; cursor: pointer; }
+.pf .pf-go { height: 44px; width: 100%; font-size: 14px; }
+.pf-details { border: 1px solid var(--tb-line); border-radius: var(--tb-r); background: var(--tb-surface); padding: 12px 16px; color: var(--tb-ink-2); font-size: 13px; }
+.pf-details summary { font-size: 13.5px; font-weight: 600; color: var(--tb-ink); cursor: pointer; }
+.pf-details summary:focus-visible { outline: 2px solid #818cf8; outline-offset: 2px; border-radius: 4px; }
 .pf-details p { margin: 10px 0 0; line-height: 1.6; }
-@media (max-width: 760px) {
-  .pf-main { padding: 16px 16px 32px; }
-  .pf-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .pf-time { min-width: 0; }
-}
+
+@media (max-width: 1100px) { .pf-main { grid-template-columns: 1fr; } .pf-right { position: static; } }
+@media (max-width: 700px) { .pf-main { padding: 16px 16px 40px; } .pf-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pf-time { min-width: 0; } }

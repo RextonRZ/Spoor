@@ -20,6 +20,11 @@ export interface JourneyScan extends ScanLike {
   clock_domain: string | null;
   weight_g: number | null;
   dims_mm: [number, number, number] | null;
+  /** the chute the sorter assigned at the scan tunnel (DWS), and the container a container scan put it in */
+  sort_destination_assigned?: string | null;
+  sort_destination_actual?: string | null;
+  container?: string | null;
+  raw_description?: string | null;
   read_outcome?: string;
   source_type?: string;
 }
@@ -30,7 +35,7 @@ export interface ObservedSegment {
   end: string;
   camera_id: string;
   track_id: string;
-  points: { t: string; observation_id: string; xy: XY | null }[];
+  points: { t: string; observation_id: string; xy: XY | null; zone_id?: string | null }[];
   evidence_ids: string[];
 }
 

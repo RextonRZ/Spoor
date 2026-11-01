@@ -56,6 +56,7 @@ export function momentLabel(kind: string, point: string | null | undefined): str
     case "bagged": case "bag_scan": return "Bagged";
     case "container_add": return "Into a cage";
     case "container_loaded": case "departed_facility": return "Onto a truck";
+    case "arrived_facility": return "Unloaded";
     default: return "Scanned";
   }
 }
@@ -70,6 +71,7 @@ export function placeOf(kind: string, point: string | null | undefined): string 
     case "exception_diverted": return "the reject chute";
     case "container_add": return "a cage";
     case "container_loaded": case "departed_facility": return "the dock";
+    case "arrived_facility": return "the unloading door";
     default: return point ?? "the last scanner";
   }
 }

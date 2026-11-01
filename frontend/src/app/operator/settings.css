@@ -22,3 +22,18 @@
 .st-models ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 18px; }
 .st-muted { margin: 0; font-size: 13px; color: #8B909B; }
 @media (max-width: 760px) { .st-main { padding: 20px 16px 32px; } }
+
+/* lean Settings: stats strip, the model list, details (Advanced), in the Hub's tokens */
+.st .st-body { display: grid; gap: 20px; padding: 20px; }
+.st .st-stats { margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--tb-line); border-radius: var(--tb-r); overflow: hidden; }
+.st .st-stats > div { display: grid; gap: 4px; padding: 14px 16px; }
+.st .st-stats > div + div { border-left: 1px solid var(--tb-line); }
+.st .st-stats dt { font-size: 12.5px; color: var(--tb-mute); }
+.st .st-stats dd { margin: 0; font-size: 24px; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.st .st-stats small { font-size: 12px; color: var(--tb-mute); }
+.st .st-caps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.st .st-adv summary { cursor: pointer; width: fit-content; padding: 6px 10px; margin-left: -10px; border-radius: var(--tb-r-sm); font-size: 13.5px; font-weight: 600; color: var(--tb-ink-2); transition: background-color 140ms ease, color 140ms ease; }
+.st .st-adv summary:focus-visible { outline: 2px solid #818cf8; outline-offset: 1px; }
+@media (hover: hover) and (pointer: fine) { .st .st-adv summary:hover { background: rgba(255, 255, 255, 0.04); color: var(--tb-ink); } }
+.st .st-adv[open] summary { margin-bottom: 14px; }
+@media (max-width: 700px) { .st .st-stats { grid-template-columns: 1fr; } .st .st-stats > div + div { border-left: 0; border-top: 1px solid var(--tb-line); } .st .st-body { padding: 14px; } }

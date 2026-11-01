@@ -17,6 +17,9 @@ import { routeLink, surfaceHeight } from "@/lib/topology";
 import type { ReplayPoint } from "@/lib/types";
 import { fmtTime } from "@/lib/time";
 import { useWorkspace } from "./context";
+import { SpoorLoader } from "@/components/brand/SpoorLoader";
+import { useResource } from "@/lib/api";
+import { buildCheckpoints, type CaseRecord, type Checkpoint } from "@/lib/checkpoints";
 import "./workspace.css"; // the scene, labels, compass and tools (was loaded by the old workspace page)
 
 const HIDE = /^(roof|roof_lights|roof_services|highbay|mounted_fluorescent|wall_S|wall_E|structure)/;
@@ -122,6 +125,61 @@ function ScanMarkers() {
           </group>
         );
       })}
+    </group>
+  );
+}
+
+/** The six scan checkpoints (lib/checkpoints, the same as the Answer's strip), placed on their scanners from the hub
+ *  plan: one pin each, green for a scan, grey dashed for no scan, red where the records and the cameras disagree,
+ *  joined in order by one line. */
+const CK_COLOUR: Record<Checkpoint["state"], string> = { scanned: "#4ade80", missing: "#8a939c", unscanned: "#f87171", conflict: "#f87171" };
+
+function useCheckpoints(): (Checkpoint & { at: Vec3 })[] {
+  const { caseId, journey } = useWorkspace();
+  const cf = useResource<{ objects: { records?: CaseRecord[] }[] }>(`/v1/cases/${caseId}/conflicts`);
+  return useMemo(() => {
+    const j = journey.data?.objects[0];
+    if (!j) return [];
+    const dockSeen = j.observed_segments > 0
+      ? j.segments.some((sg) => sg.kind === "observed" && "points" in sg && sg.points.some((q) => q.zone_id === "zone_Z12"))
+      : undefined;
+    const waybill = j.identity_keys.find((k) => k.startsWith("carrier_waybill:"))?.split(":")[1] ?? null;
+    return buildCheckpoints({ scans: j.scans, records: cf.data?.objects[0]?.records ?? [], barcode: waybill, truckSeen: dockSeen })
+      .flatMap((c) => {
+        const sp = c.point ? scanPoint(c.point) : undefined;
+        return sp ? [{ ...c, at: [sp.position_m[0], sp.position_m[1], sp.position_m[2]] as Vec3 }] : [];
+      });
+  }, [journey.data, cf.data]);
+}
+
+function CheckpointPins() {
+  const { mode } = useWorkspace();
+  const cps = useCheckpoints();
+  if (mode === "people" || !cps.length) return null;
+  const head = (c: { at: Vec3 }) => r3([c.at[0], c.at[1], c.at[2] + 2.4]);
+  return (
+    <group>
+      {cps.slice(1).map((c, i) => {
+        const a = cps[i];
+        const gapState = (x: Checkpoint) => x.state === "missing" || x.state === "unscanned";
+        const dashed = gapState(a) || gapState(c);
+        return (
+          <Line key={`ck-l-${c.id}`} points={[head(a), head(c)]} color={c.state === "conflict" ? CK_COLOUR.conflict : dashed ? CK_COLOUR.missing : CK_COLOUR.scanned}
+            lineWidth={2.5} dashed={dashed} dashSize={0.6} gapSize={0.45} onUpdate={onTop} />
+        );
+      })}
+      {cps.map((c) => (
+        <group key={`ck-${c.id}`}>
+          <mesh position={r3([c.at[0], c.at[1], c.at[2] + 1.2])} onUpdate={onTop}>
+            <cylinderGeometry args={[0.05, 0.05, 2.4, 8]} />
+            <meshBasicMaterial color={CK_COLOUR[c.state]} transparent opacity={c.state === "missing" || c.state === "unscanned" ? 0.45 : 0.9} />
+          </mesh>
+          <mesh position={head(c)} onUpdate={onTop}>
+            <sphereGeometry args={[c.state === "missing" || c.state === "unscanned" ? 0.42 : 0.5, 20, 14]} />
+            <meshBasicMaterial color={CK_COLOUR[c.state]} wireframe={c.state === "missing" || c.state === "unscanned"} />
+          </mesh>
+        </group>
+      ))}
     </group>
   );
 }
@@ -355,10 +413,10 @@ function KeyboardNav({ el }: { el: HTMLElement | null }) {
   return null;
 }
 
-interface Label { key: string; site: Vec3; text: string; tone: "scan" | "cam" | "last" | "sel" | "land" }
+interface Label { key: string; site: Vec3; text: string; tone: "scan" | "cam" | "last" | "sel" | "land" | "ck-scanned" | "ck-missing" | "ck-unscanned" | "ck-conflict" }
 interface Placed { key: string; x: number; y: number; ay: number; text: string; tone: Label["tone"] }
 
-const PRIORITY: Record<Label["tone"], number> = { sel: 0, last: 1, cam: 2, scan: 3, land: 4 };
+const PRIORITY: Record<Label["tone"], number> = { sel: 0, last: 1, "ck-conflict": 1, "ck-scanned": 2, "ck-missing": 2, "ck-unscanned": 1, cam: 3, scan: 4, land: 5 };
 
 /** Landmarks that keep the user oriented (design_sprint §H), placed at their zone's centre, above the racks. */
 const LANDMARKS: [string, string][] = [["Z01", "Inbound docks 01–06"], ["Z12", "Outbound docks 07–12"], ["Z05", "Sorter"],
@@ -439,8 +497,16 @@ function Projector({ labels, onPlace }: { labels: Label[]; onPlace: (p: Placed[]
 
 function useLabels(): Label[] {
   const { parcel, litCameras, selection, lastSeen, mode } = useWorkspace();
+  const cps = useCheckpoints();
   return useMemo(() => {
     const out: Label[] = [];
+    if (mode !== "people") {
+      cps.forEach((c, i) => out.push({
+        key: `ck-${c.id}`, site: [c.at[0], c.at[1], c.at[2] + 3.4],
+        text: c.state === "missing" || c.state === "unscanned" ? `${i + 1} ${c.label} · ${c.none.charAt(0).toLowerCase()}${c.none.slice(1)}` : c.state === "conflict" ? `${c.label} · ${c.records?.replace(/^Records: /, "")} · never seen there` : `${i + 1} ${c.label}${c.t ? ` · ${fmtTime(c.t, false)}` : ""}`,
+        tone: `ck-${c.state}` as Label["tone"],
+      }));
+    }
     if (mode !== "people") {
       // the trail's two ends say where it starts and stops; a middle scan gets a chip only when it is picked
       const lc = lastSeen.data?.[0]?.last_confident?.evidence_id;
@@ -451,7 +517,7 @@ function useLabels(): Label[] {
         const sel = selection?.kind === "scan" && selection.scanId === s.scan_event_id;
         if (s.scan_event_id === lc) {
           out.push({ key: "last", site: [sp.position_m[0], sp.position_m[1], 0.1], text: `Last seen ${fmtTime(s.time, false)}`, tone: "last" });
-        } else if (i === 0 || sel) {
+        } else if ((i === 0 && !cps.length) || sel) { // the checkpoint pins already name the first scan
           out.push({ key: s.scan_event_id, site: [sp.position_m[0], sp.position_m[1], sp.position_m[2] + 1.4],
             text: i === 0 && !sel ? `Scanned ${fmtTime(s.time, false)}` : `${describeScan(s).title} · ${fmtTime(s.time, false)}`, tone: sel ? "sel" : "scan" });
         }
@@ -462,7 +528,7 @@ function useLabels(): Label[] {
       if (c) out.push({ key: `cam-${id}`, site: [c.position_m[0], c.position_m[1], c.height_m + 0.6], text: id.replace("_", " "), tone: "cam" });
     }
     return [...out, ...LANDMARK_LABELS];
-  }, [parcel.data, litCameras, selection, lastSeen.data, mode]);
+  }, [parcel.data, litCameras, selection, lastSeen.data, mode, cps]);
 }
 
 export default function Scene3D() {
@@ -489,6 +555,7 @@ export default function Scene3D() {
         <ZoneOverlay />
         {HUB.cameras.map((c) => <CameraCone key={c.id} cam={c} lit={litCameras.includes(c.id)} covered={covered.has(c.id)} />)}
         <ScanMarkers />
+        <CheckpointPins />
         <TraceLines />
         <LastConfirmed />
         <CameraRig reduced={reduced} />
@@ -506,7 +573,7 @@ export default function Scene3D() {
           </span>
         ))}
       </div>
-      {!ready && <div className="sp-scene-note" role="status">Loading hub model</div>}
+      {!ready && <div className="sp-scene-loading"><SpoorLoader label="Loading the 3D hub" size={56} /></div>}
       <div className="sp-scene-tools">
         <button className="sp-btn sp-btn-sm" onClick={() => focusOn(null)}>Reset view</button>
       </div>

@@ -75,3 +75,6 @@ assets/brand/logo_concept_chatgpt.png
 .modal.toml
 *.pem
 *.key
+
+# Places turntable frames (~190 MB): rebuilt by assets/hub/place_turn.py (or modal_turn.py) + place_export.py
+frontend/public/places/turn/

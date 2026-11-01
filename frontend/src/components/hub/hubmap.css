@@ -1,0 +1,269 @@
+/* Hub map + "Where is this?" (components/hub/HubMap.tsx). The hub page's tokens (--tb-*); prefix hm-.
+   z-index scale inside the map: content 1 < chrome 2 < markers 3 < tooltip (fixed) 70. */
+.hm { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 0; height: clamp(440px, calc(100vh - 330px), 720px); }
+.hm-loading { height: clamp(440px, calc(100vh - 330px), 720px); display: grid; place-items: center; color: var(--tb-mute); font-size: 13px; }
+
+.hm-bar { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--tb-line); min-width: 0; }
+.hm-search { position: relative; flex: 0 0 248px; }
+.hm-search svg { position: absolute; left: 10px; top: 10px; width: 13px; height: 13px; fill: none; stroke: var(--tb-mute); stroke-width: 1.6; }
+.hm-search input {
+  width: 100%; height: 33px; box-sizing: border-box; padding: 0 10px 0 30px; border: 1px solid var(--tb-line-2); border-radius: var(--tb-r-sm);
+  background: var(--tb-bg); color: var(--tb-ink); font: inherit; font-size: 12.5px; transition: border-color 150ms var(--tb-ease-out);
+}
+.hm-search input::placeholder { color: var(--tb-mute); }
+.hm-search input:focus { outline: none; border-color: var(--tb-accent); }
+.hm-steps {
+  display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; min-width: 0;
+  mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
+}
+.hm-steps::-webkit-scrollbar { display: none; }
+.hm-step {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px 0 4px; border: 1px solid transparent;
+  border-radius: 999px; background: none; color: var(--tb-ink-2); font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap;
+  transition: background-color 150ms var(--tb-ease-out), color 150ms var(--tb-ease-out), border-color 150ms var(--tb-ease-out);
+}
+.hm-step i {
+  font-style: normal; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--tb-line-2);
+  font: 600 10.5px var(--sp-mono, ui-monospace, Consolas, monospace); color: var(--tb-ink);
+}
+.hm-step[aria-pressed="true"] { background: rgba(85, 88, 238, 0.14); border-color: rgba(85, 88, 238, 0.45); color: var(--tb-ink); }
+.hm-step[aria-pressed="true"] i { background: var(--tb-accent); border-color: var(--tb-accent); color: #fff; }
+.hm-step:active { scale: 0.97; }
+.hm-step:focus-visible, .hm-mk:focus-visible, .hm-zoom button:focus-visible, .hm-seg button:focus-visible, .hm-mate:focus-visible {
+  outline: 2px solid #818cf8; outline-offset: 2px;
+}
+@media (hover: hover) and (pointer: fine) { .hm-step:hover { color: var(--tb-ink); background: rgba(255, 255, 255, 0.04); } }
+
+.hm-frame { position: relative; overflow: hidden; background: #0b0c0f; touch-action: none; cursor: grab; isolation: isolate; min-height: 0; }
+.hm-frame[data-dragging] { cursor: grabbing; }
+/* the ground beyond the picture: the picture's own edge colour and filter, so there are no letterbox bands */
+.hm-frame::before { content: ""; position: absolute; inset: 0; background: #bcb8af; filter: brightness(0.8) contrast(1.06) saturate(0.85); }
+.hm-content { position: absolute; left: 0; top: 0; width: 1600px; height: 900px; transform-origin: 0 0; z-index: 1; will-change: transform; }
+.hm-content img {
+  width: 1600px; height: 900px; display: block; user-select: none; -webkit-user-drag: none; pointer-events: none;
+  filter: brightness(0.8) contrast(1.06) saturate(0.85);
+}
+.hm-content svg { position: absolute; inset: 0; width: 1600px; height: 900px; overflow: visible; }
+.hm-zone {
+  fill: rgba(0, 0, 0, 0); stroke: rgba(255, 255, 255, 0.12); stroke-width: 1; vector-effect: non-scaling-stroke; pointer-events: all;
+  transition: fill 150ms var(--tb-ease-out), stroke 150ms var(--tb-ease-out);
+}
+.hm-zone[data-hover] { fill: rgba(85, 88, 238, 0.08); stroke: rgba(165, 180, 252, 0.5); }
+.hm-zone[data-sel] { fill: rgba(85, 88, 238, 0.12); stroke: rgba(165, 180, 252, 0.8); stroke-width: 1.5; }
+
+.hm-layer { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.hm-mk {
+  position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); pointer-events: auto;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.22); background: rgba(14, 16, 20, 0.92); color: var(--tb-ink); cursor: pointer; padding: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  transition: background-color 150ms var(--tb-ease-out), border-color 150ms var(--tb-ease-out), opacity 150ms var(--tb-ease-out), box-shadow 150ms var(--tb-ease-out);
+}
+.hm-mk:active { scale: 0.96; }
+.hm-dot { width: 22px; height: 22px; border-radius: 50%; font: 600 11px var(--sp-mono, ui-monospace, Consolas, monospace); }
+.hm-grp { height: 24px; padding: 0 9px 0 2px; border-radius: 999px; font: inherit; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.hm-grp i {
+  font-style: normal; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; background: var(--tb-raise);
+  font: 600 10.5px var(--sp-mono, ui-monospace, Consolas, monospace);
+}
+.hm-grp span { color: var(--tb-mute); font-weight: 500; font-variant-numeric: tabular-nums; }
+.hm-mk b {  /* stalled count */
+  position: absolute; top: -7px; right: -7px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 999px;
+  background: #fbbf24; color: #1a1305; font: 700 10px/16px var(--sp-mono, ui-monospace, Consolas, monospace); text-align: center;
+}
+.hm-mk[data-tone="warn"] { border-color: rgba(251, 191, 36, 0.75); }
+@media (hover: hover) and (pointer: fine) { .hm-mk:hover { border-color: rgba(255, 255, 255, 0.5); background: rgba(24, 27, 33, 0.98); } }
+.hm-mk[data-sel] { background: var(--tb-accent); border-color: var(--tb-accent); color: #fff; box-shadow: 0 0 0 4px rgba(85, 88, 238, 0.3), 0 1px 2px rgba(0, 0, 0, 0.45); }
+.hm-mk[data-sel] i { background: rgba(255, 255, 255, 0.18); }
+.hm-mk[data-sel] span { color: rgba(255, 255, 255, 0.75); }
+.hm-mk[data-dim] { opacity: 0.25; }
+.hm-mk[hidden] { display: none; }
+/* the zone under the pointer (else the chosen place's zone), named in a fixed corner chip: never on the markers */
+.hm-zname { left: 12px; top: 12px; display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; font-size: 12px; font-weight: 600; color: var(--tb-ink); white-space: nowrap; pointer-events: none; }
+.hm-zname span { font: 600 11px var(--sp-mono, ui-monospace, Consolas, monospace); color: var(--tb-mute); }
+
+.hm-chrome { position: absolute; z-index: 2; background: rgba(14, 16, 20, 0.86); backdrop-filter: blur(8px); border: 1px solid var(--tb-line-2); border-radius: var(--tb-r-sm); }
+.hm-zoom { right: 12px; bottom: 12px; display: grid; }
+.hm-zoom button { width: 32px; height: 32px; border: 0; background: none; display: grid; place-items: center; color: var(--tb-ink-2); cursor: pointer; }
+.hm-zoom button + button { border-top: 1px solid var(--tb-line-2); }
+.hm-zoom svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; }
+.hm-zoom button:active svg { scale: 0.9; }
+@media (hover: hover) and (pointer: fine) { .hm-zoom button:hover { color: var(--tb-ink); background: rgba(255, 255, 255, 0.05); } }
+.hm-scale { left: 12px; bottom: 12px; padding: 5px 10px 7px; font-size: 11px; color: var(--tb-ink-2); font-variant-numeric: tabular-nums; }
+.hm-scale div { height: 5px; margin-top: 3px; border: 1.5px solid var(--tb-ink-2); border-top: 0; }
+.hm-north { right: 12px; top: 12px; width: 32px; height: 32px; display: grid; place-items: center; align-content: center; font: 600 10px var(--sp-mono, ui-monospace, monospace); color: var(--tb-ink-2); }
+.hm-north svg { width: 11px; height: 11px; fill: currentColor; margin-bottom: -1px; }
+
+.hm-tip {
+  position: fixed; left: 0; top: 0; z-index: 70; pointer-events: none; padding: 6px 10px; border-radius: var(--tb-r-sm); background: var(--tb-raise);
+  border: 1px solid var(--tb-line-2); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 10px 30px rgba(0, 0, 0, 0.35); font-size: 12px; color: var(--tb-ink);
+  white-space: nowrap; opacity: 0; transform: translateY(2px) scale(0.98); transform-origin: 50% 100%;
+  transition: opacity 125ms var(--tb-ease-out), transform 125ms var(--tb-ease-out);
+}
+.hm-tip[data-on] { opacity: 1; transform: none; }
+.hm-tip[data-instant] { transition: none; }
+.hm-tip span { margin-left: 8px; color: var(--tb-mute); font: 11px var(--sp-mono, ui-monospace, Consolas, monospace); }
+
+/* Where is this? */
+.hm-where { margin: 0; display: grid; gap: 8px; }
+.hm-seg { position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); padding: 3px; border: 1px solid var(--tb-line); border-radius: var(--tb-r-sm); background: var(--tb-bg); }
+.hm-thumb {
+  position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc((100% - 6px) / 4); border-radius: 4px; background: var(--tb-raise);
+  border: 1px solid var(--tb-line-2); transition: transform 200ms var(--tb-ease-out);
+}
+.hm-seg[data-instant] .hm-thumb { transition: none; }
+.hm-seg button {
+  position: relative; height: 28px; border: 0; background: none; border-radius: 4px; color: var(--tb-mute); font: inherit; font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: color 150ms var(--tb-ease-out);
+}
+.hm-seg button[aria-selected="true"] { color: var(--tb-ink); }
+.hm-seg button:disabled { opacity: 0.4; cursor: default; }
+.hm-shot { position: relative; aspect-ratio: 16 / 9; border-radius: var(--tb-r); overflow: hidden; background: #08090c; border: 1px solid var(--tb-line); }
+.hm-shot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; opacity: 0; transition: opacity 180ms var(--tb-ease-out); }
+.hm-shot img[data-front] { opacity: 1; }
+.hm-shot[data-instant] img { transition: none; }
+.hm-pin {
+  position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--tb-accent);
+  box-shadow: 0 0 0 3px #0a0b0e, 0 0 0 5px rgba(165, 180, 252, 0.45);
+}
+.hm-pinlabel {
+  position: absolute; transform: translate(12px, -50%); padding: 2px 7px; border-radius: var(--tb-r-sm); background: rgba(14, 16, 20, 0.88);
+  backdrop-filter: blur(8px); border: 1px solid var(--tb-line-2); font-size: 11px; font-weight: 600; color: var(--tb-ink); white-space: nowrap; pointer-events: none;
+}
+.hm-pinlabel[data-left] { transform: translate(calc(-100% - 12px), -50%); }
+.hm-mate {
+  position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; padding: 0; border: 0; background: none; border-radius: 50%;
+  display: grid; place-items: center; cursor: pointer;
+}
+.hm-mate::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--tb-ink); box-shadow: 0 0 0 2px rgba(10, 11, 14, 0.85); transition: scale 150ms var(--tb-ease-out); }
+@media (hover: hover) and (pointer: fine) { .hm-mate:hover::after { scale: 1.3; } }
+.hm-where figcaption { font-size: 12px; color: var(--tb-mute); }
+
+@media (max-width: 760px) {
+  .hm { height: 70vh; }
+  .hm-bar { flex-wrap: wrap; }
+  .hm-search { flex: 1 1 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hm-zone, .hm-mk, .hm-step, .hm-tip, .hm-thumb, .hm-seg button, .hm-mate::after { transition: none; }
+  .hm-shot img { transition: opacity 120ms linear; }
+}
+/* in a group pill the stalled count sits inline (a corner badge overlapped the pill above it) */
+.hm-grp b { position: static; margin: 0 -5px 0 2px; }
+
+/* Where this is: zoomable pictures, loading, live 3D (Place3D.tsx), full screen */
+.hm-shot { touch-action: none; }
+.hm-shot[data-zoomed] { cursor: grab; }
+.hm-shot[data-dragging] { cursor: grabbing; }
+.hm-zoomable { position: absolute; inset: 0; transform-origin: 0 0; --k: 1; }
+.hm-zoomable[data-animate] { transition: transform 240ms var(--tb-ease-io); }
+.hm-pin, .hm-mate { scale: var(--k); }
+.hm-pinlabel { scale: var(--k); transform-origin: 0 50%; }
+.hm-pinlabel[data-left] { transform-origin: 100% 50%; }
+/* a picture still loading: the old one blurred and dimmed under a thin progress line (no frozen frame) */
+.hm-shot img[data-front] { transition: opacity 180ms var(--tb-ease-out), filter 180ms var(--tb-ease-out); }
+.hm-shot[data-loading] img[data-front] { filter: blur(3px) saturate(0.8); opacity: 0.55; }
+.hm-shot::after {
+  content: ""; position: absolute; left: 0; top: 0; height: 2px; width: 35%; background: var(--tb-accent-2); opacity: 0; z-index: 25;
+  pointer-events: none; transition: opacity 120ms var(--tb-ease-out);
+}
+.hm-shot[data-loading]::after, .hm-shot[aria-busy="true"]::after { opacity: 1; animation: hm-progress 900ms var(--tb-ease-io) infinite; }
+@keyframes hm-progress { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
+.hm-shot-wait {
+  position: absolute; inset: 0; display: grid; place-items: center; color: var(--tb-mute); font-size: 12px;
+  background: linear-gradient(110deg, #0c0d11 30%, #14161c 50%, #0c0d11 70%) 0 0 / 300% 100%; animation: hm-skel 1.4s linear infinite;
+}
+@keyframes hm-skel { to { background-position: -150% 0; } }
+.hm-pz { right: 8px; bottom: 8px; display: grid; z-index: 26; }
+.hm-pz button { width: 28px; height: 28px; border: 0; background: none; display: grid; place-items: center; color: var(--tb-ink-2); cursor: pointer; }
+.hm-pz button + button { border-top: 1px solid var(--tb-line-2); }
+.hm-pz button:disabled { opacity: 0.5; cursor: default; }
+.hm-pz button:focus-visible { outline: 2px solid #818cf8; outline-offset: 1px; }
+.hm-pz svg { position: static; flex: none; width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.6; }
+@media (hover: hover) and (pointer: fine) { .hm-pz button:not(:disabled):hover { color: var(--tb-ink); background: rgba(255, 255, 255, 0.05); } }
+.hm-shot canvas { position: absolute; inset: 0; touch-action: none; }
+.hm-3dwait { position: absolute; inset: 0; display: grid; place-items: center; color: var(--tb-mute); font-size: 12px; }
+.hm-3dbar { position: absolute; left: 8px; bottom: 8px; display: flex; gap: 6px; z-index: 30; }
+.hm-3dbar button {
+  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: var(--tb-r-sm); border: 1px solid var(--tb-line-2);
+  background: rgba(14, 16, 20, 0.86); backdrop-filter: blur(8px); color: var(--tb-ink); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: background-color 150ms var(--tb-ease-out);
+}
+.hm-3dbar button:active { scale: 0.97; }
+.hm-3dbar button:focus-visible { outline: 2px solid #818cf8; outline-offset: 2px; }
+.hm-3dbar svg { position: static; flex: none; width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.6; }
+@media (hover: hover) and (pointer: fine) { .hm-3dbar button:hover { background: rgba(24, 27, 33, 0.95); } }
+.hm-3d { position: absolute; inset: 0; }
+.hm-3dlayer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 20; }
+.hm-3dlabel {
+  position: absolute; left: 0; top: 0; visibility: hidden; transform: translate(-50%, calc(-100% - 12px)); padding: 2px 8px; border-radius: var(--tb-r-sm); background: rgba(14, 16, 20, 0.9);
+  border: 1px solid rgba(165, 180, 252, 0.5); color: var(--tb-ink); font-size: 12px; font-weight: 600; white-space: nowrap; pointer-events: none;
+}
+.hm-mate3 { left: 0; top: 0; visibility: hidden; pointer-events: auto; scale: 1; }
+.hm-dlg {
+  width: min(1400px, calc(100vw - 48px)); height: min(860px, calc(100vh - 48px)); max-width: none; max-height: none; padding: 0;
+  border: 1px solid var(--tb-line-2); border-radius: var(--tb-r); background: var(--tb-side); color: var(--tb-ink);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 24px 60px rgba(0, 0, 0, 0.5); overflow: hidden;
+}
+.hm-dlg[open] { display: grid; grid-template-rows: auto minmax(0, 1fr); animation: hm-dlg-in 220ms var(--tb-ease-out); }
+.hm-dlg::backdrop { background: rgba(5, 6, 8, 0.6); backdrop-filter: blur(2px); }
+@keyframes hm-dlg-in { from { opacity: 0; transform: scale(0.97); } }
+.hm-dlg-head { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 18px; border-bottom: 1px solid var(--tb-line); font-size: 14px; }
+.hm-dlg-zone { font: 600 11px var(--sp-mono, ui-monospace, Consolas, monospace); color: var(--tb-mute); }
+.hm-dlg-hint { margin-left: auto; font-size: 12px; color: var(--tb-mute); }
+.hm-dlg-head .hb-x { margin-left: 4px; }
+.hm-dlg-body { position: relative; min-height: 0; }
+.hm-dlg-body canvas { position: absolute; inset: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .hm-zoomable[data-animate], .hm-shot img[data-front], .hm-3dbar button { transition: none; }
+  .hm-shot[data-loading]::after, .hm-shot[aria-busy="true"]::after { animation: none; width: 100%; opacity: 0.5; }
+  .hm-shot-wait { animation: none; }
+  .hm-dlg[open] { animation: none; }
+}
+
+/* live view kept under the eye photo (instant switch back); the zone's other scanners small and quiet in 3D */
+.hm-live { position: absolute; inset: 0; }
+.hm-live[data-hidden] { visibility: hidden; }
+.hm-shot img { opacity: 0; }
+.hm-shot img[data-front] { opacity: 1; }
+.hm-mate3 { width: 18px; height: 18px; margin: -9px 0 0 -9px; }
+.hm-mate3::after { width: 6px; height: 6px; background: rgba(236, 238, 242, 0.7); box-shadow: 0 0 0 1.5px rgba(10, 11, 14, 0.8); }
+.hm-3dwait { background: #0e1012; z-index: 22; }
+.hm-3d[data-ready] .hm-3dwait { display: none; }
+.hm-dlg-views { display: inline-flex; padding: 2px; border: 1px solid var(--tb-line-2); border-radius: var(--tb-r-sm); background: var(--tb-bg); margin-left: 8px; }
+.hm-dlg-views button { height: 26px; padding: 0 12px; border: 0; border-radius: 4px; background: none; color: var(--tb-mute); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.hm-dlg-views button[aria-pressed="true"] { background: var(--tb-raise); color: var(--tb-ink); box-shadow: inset 0 0 0 1px var(--tb-line-2); }
+.hm-dlg-views button:active { scale: 0.97; }
+.hm-dlg-views button:focus-visible { outline: 2px solid #818cf8; outline-offset: 1px; }
+/* the live view under the eye photo: its labels set their own visibility each frame, so the layer goes, not just the
+   parent's visibility (two "Cage staging, east" labels showed) */
+.hm-live[data-hidden] .hm-3dlayer, .hm-live[data-hidden] .hm-3dbar { display: none; }
+
+/* Turntable (Turntable.tsx): drag to turn, Side / High, full screen */
+.hm-turn { display: grid; }
+.hm-turnshot { cursor: ew-resize; outline: none; }
+.hm-turnshot:focus-visible { box-shadow: 0 0 0 2px #818cf8; }
+.hm-turnshot[data-zoomed] { cursor: grab; }
+.hm-turn[data-big] { height: 100%; }
+.hm-turn[data-big] .hm-turnshot { aspect-ratio: auto; height: 100%; border: 0; border-radius: 0; }
+.hm-turn[data-big] .hm-turnshot img { object-fit: contain; }
+.hm-turnhint {
+  position: absolute; left: 50%; top: 12px; transform: translateX(-50%); padding: 4px 10px; border-radius: 999px; z-index: 24;
+  background: rgba(14, 16, 20, 0.86); backdrop-filter: blur(8px); border: 1px solid var(--tb-line-2); color: var(--tb-ink); font-size: 12px;
+  pointer-events: none;
+}
+.hm-ringtog {
+  position: absolute; right: 44px; bottom: 8px; z-index: 26; display: inline-flex; padding: 2px; border-radius: var(--tb-r-sm);
+  background: rgba(14, 16, 20, 0.86); backdrop-filter: blur(8px); border: 1px solid var(--tb-line-2);
+}
+.hm-ringtog button { height: 24px; padding: 0 10px; border: 0; border-radius: 4px; background: none; color: var(--tb-mute); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.hm-ringtog button[aria-pressed="true"] { background: var(--tb-raise); color: var(--tb-ink); }
+.hm-ringtog button:active { scale: 0.97; }
+.hm-ringtog button:focus-visible { outline: 2px solid #818cf8; outline-offset: 1px; }
+.hm-dlg-body > .hm-turn { position: absolute; inset: 0; }
+/* full screen: the turntable fills the dialog body exactly (the card's 16:9 box made it taller and cut the zoom buttons) */
+.hm-turn[data-big] { position: absolute; inset: 0; display: block; }
+.hm-turn[data-big] .hm-turnshot { position: absolute; inset: 0; height: auto; }
+/* turntable frames swap instantly: the pictures' 180 ms fade showed the black frame behind two half-faded frames while
+   dragging (owner 1 Nov: "fades black when I drag") */
+.hm-turnshot img, .hm-turnshot img[data-front] { transition: none; }

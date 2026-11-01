@@ -1,9 +1,11 @@
 "use client";
 /**
- * Go look, ported from review/refs/flow/Search.dc.html (owner 09:22): a phone screen for floor staff. One place at a
- * time from the search task, how to get in, a picture, what to look for (from the parcel's own scan facts), a voice
- * note, and two big answers. "Not here" moves to the next place; "Found it" closes the case's search and opens the
- * report. Each answer is recorded on the case as a statement by floor staff.
+ * Go look (step 3), ops-console style: "Send staff to check". Two halves. Left, the supervisor's task: the places it
+ * could be in the order they will be checked, each one waiting, being checked now, ruled out or found, and "Send to the
+ * floor". Right, what floor staff see on their phone (the same screen, shown in a phone frame so the supervisor sees
+ * exactly what was sent): one place at a time, how to get in, a picture, what to look for (from the parcel's own scan
+ * facts), a voice note, and two big answers. "Not here" moves to the next place; "Found it" closes the case's search and
+ * opens the report. Each answer is recorded on the case as a statement by floor staff.
  */
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -11,6 +13,8 @@ import { use, useRef, useState } from "react";
 import { api, invalidate, signedUrl, useResource } from "@/lib/api";
 import type { Journey, MissingMoment, XY } from "@/lib/journey";
 import { hhmm } from "@/lib/words";
+import { CaseSteps } from "@/components/flow/CaseSteps";
+import "@/app/hub/hub.css";
 import { toWav16k } from "@/lib/wav";
 import HubPlan, { ZONE_NAMES } from "@/components/plan/HubPlan";
 import "./golook.css";
@@ -21,7 +25,8 @@ interface SearchView {
   tasks: { search_task_id: string; created_by: string; created_at: string; places: Place[];
     outcomes: { area_id: string; outcome: "found" | "not_found" }[] }[];
 }
-interface CaseState { case: { target_description: string } }
+interface CaseState { case: { target_description: string; complaint?: string | null } }
+interface PossibleView { objects: { places: { area_id: string; name: string; zone_id: string | null; possible_share: number }[] }[] }
 
 /** "the blind corner by the exception store" / "the cage staging". */
 function where(p: Place): string {
@@ -43,6 +48,7 @@ export default function GoLookPage({ params }: { params: Promise<{ caseId: strin
   const st = useResource<CaseState>(`/v1/cases/${caseId}/state`);
   const jr = useResource<Journey>(`/v1/cases/${caseId}/journey`);
   const mr = useResource<MissingMoment>(`/v1/cases/${caseId}/missing-moment`);
+  const pr = useResource<PossibleView>(`/v1/cases/${caseId}/possible-locations`);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const task = view.data?.tasks.at(-1);
@@ -70,65 +76,104 @@ export default function GoLookPage({ params }: { params: Promise<{ caseId: strin
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setBusy(null); }
   }
 
-  return (
-    <div className="gl">
-      <header className="gl-head">
-        <Link href={`/cases/${caseId}/proof`} aria-label="Back to the case" className="gl-back">
-          <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M11 3.5L5.5 9l5.5 5.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-        </Link>
-        <div className="gl-head-text">
-          <span>{task ? `Search task · from the hub supervisor · ${hhmm(task.created_at)}` : "Search task"}</span>
-          <span className="gl-wb">{waybill}</span>
-        </div>
-      </header>
+  // the queue: the sent task's places in order, else the places Spoor would send staff to (most likely first)
+  const queue = task
+    ? task.places.map((pl) => ({ key: pl.area_id, name: where(pl as Place), state: view.data?.found?.area_id === pl.area_id ? "found" : done.has(pl.area_id) ? "ruled" : pl.area_id === place?.area_id ? "now" : "next" }))
+    : (pr.data?.objects[0]?.places ?? []).filter((x) => x.possible_share > 0).slice(0, 6).map((x) => ({ key: x.area_id, name: where(x as unknown as Place), state: "next" }));
+  const left = queue.filter((q) => q.state === "next" || q.state === "now").length;
+  const status = view.data?.found ? ["Found", "ok"] : !task ? ["Not sent yet", "idle"] : !place ? ["All checked", "warn"] : ["With floor staff", "now"];
+  const sub = view.data?.found ? `Recorded by ${view.data.found.by} at ${hhmm(view.data.found.at)}`
+    : !task ? "Spoor lists the places it could be, most likely first. Floor staff answer each one on their phone."
+    : !place ? `Not found in any of the ${task.places.length} places. The case stays open with these ruled out.`
+    : `Sent ${hhmm(task.created_at)} by the hub supervisor · ${left} place${left === 1 ? "" : "s"} left`;
 
-      <div className="gl-main">
-        {view.data?.found ? (
-          <div className="gl-done">
-            <h1 className="gl-h1">Found. Thank you.</h1>
-            <p className="gl-p">Recorded by {view.data.found.by} at {hhmm(view.data.found.at)}. The case now shows Found.</p>
-            <Link className="gl-btn gl-btn-found" href={`/cases/${caseId}/report`}>Open the report</Link>
+  return (
+    <div className="gs">
+      <CaseSteps caseId={caseId} waybill={waybill} said={st.data?.case.complaint ? "customer says it never arrived" : null} page="Go look" here={2} />
+      <div className="gs-body">
+        <section className="gs-task" aria-labelledby="gs-h">
+          <span className="gs-chip" data-tone={status[1]}>{status[0]}</span>
+          <h1 id="gs-h" className="gs-h1">{view.data?.found ? "Found. Thank you." : !task ? "Send someone to look" : !place ? "Every place checked" : `Checking ${queue.find((q) => q.state === "now")?.name ?? "the next place"}`}</h1>
+          <p className="gs-sub">{sub}</p>
+          {queue.length > 0 && (
+            <ol className="gs-queue" aria-label="Places to check, in order">
+              {queue.map((q, i) => (
+                <li key={q.key} data-state={q.state}>
+                  <span className="gs-qn" aria-hidden="true">{q.state === "ruled" ? <svg viewBox="0 0 16 16"><path d="M4 8h8" /></svg> : q.state === "found" ? <svg viewBox="0 0 16 16"><path d="m3.5 8.5 3 3 6-6.5" /></svg> : i + 1}</span>
+                  <span className="gs-qt">{q.name.replace(/^the /, "").replace(/^\w/, (c) => c.toUpperCase())}</span>
+                  <span className="gs-qs">{q.state === "now" ? "Being checked" : q.state === "ruled" ? "Not here" : q.state === "found" ? "Found" : task ? "Waiting" : ""}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+          <div className="gs-acts">
+            {view.data?.found ? <Link className="hb-btn hb-btn-primary" href={`/cases/${caseId}/report`}>Open the report</Link>
+              : !task ? <button type="button" className="hb-btn hb-btn-primary" onClick={startTask} disabled={busy === "start"}>{busy === "start" ? "Sending" : "Send to the floor"}</button>
+              : !place ? <Link className="hb-btn" href={`/cases/${caseId}`}>Back to the case</Link>
+              : <span className="gs-wait"><i aria-hidden="true" />Waiting for the floor staff to answer</span>}
           </div>
-        ) : !task ? (
-          <div className="gl-done">
-            <h1 className="gl-h1">Send someone to look</h1>
-            <p className="gl-p">Spoor lists the places it could be, most likely first. Floor staff answer each one on their phone.</p>
-            <button type="button" className="gl-btn gl-btn-primary" onClick={startTask} disabled={busy === "start"}>{busy === "start" ? "Sending" : "Send to the floor"}</button>
+          {err && !task && <p className="gl-err" role="alert">{err}</p>}
+        </section>
+
+        <aside className="gs-phonewrap" aria-label="What floor staff see">
+          <p className="gs-phone-h">What the floor staff see</p>
+          <div className="gs-phone">
+            <div className="gs-notch" aria-hidden="true" />
+            <div className="gl gs-screen">
+              <header className="gl-head">
+                <div className="gl-head-text">
+                  <span>{task ? `Search task · from the hub supervisor · ${hhmm(task.created_at)}` : "Search task"}</span>
+                  <span className="gl-wb">{waybill}</span>
+                </div>
+              </header>
+              <div className="gl-main">
+                {view.data?.found ? (
+                  <div className="gl-done">
+                    <h2 className="gl-h1">Found. Thank you.</h2>
+                    <p className="gl-p">Recorded by {view.data.found.by} at {hhmm(view.data.found.at)}. The case now shows Found.</p>
+                  </div>
+                ) : !task ? (
+                  <div className="gl-done">
+                    <h2 className="gl-h1">Waiting for a task</h2>
+                    <p className="gl-p">The first place to check appears here once the hub supervisor sends the search.</p>
+                  </div>
+                ) : !place ? (
+                  <div className="gl-done">
+                    <h2 className="gl-h1">Every place checked</h2>
+                    <p className="gl-p">Not found in any of the {task.places.length} places.</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="gl-title">
+                      <h2 className="gl-h1">Check {where(place)}</h2>
+                      {howIn(place) && <p className="gl-p">{howIn(place)}</p>}
+                    </div>
+                    <div className="gl-pic">
+                      {frame ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={signedUrl(frame.frame_url)} alt="The last camera frame of the parcel" />
+                      ) : (
+                        <HubPlan label={`Where to look: ${where(place)}`} focus={{ xy: place.centroid_xy, radius_m: 9, tone: "warn" }} legend={false} fit="width" minHeight={0} />
+                      )}
+                    </div>
+                    <div className="gl-look">
+                      <span className="gl-look-l">Look for</span>
+                      <span className="gl-look-h">{dims ? `Parcel, ${dims.map((d) => Math.round(d / 10)).join(" × ")} cm` : "This parcel"}</span>
+                      <span className="gl-look-s">{grams ? `${(grams / 1000).toFixed(1)} kg · ` : ""}label ends in …{waybill.slice(-4)}</span>
+                    </div>
+                    <HoldToRecord caseId={caseId} taskId={task.search_task_id} areaId={place.area_id} />
+                    <span className="gl-spacer" />
+                    {err && <p className="gl-err" role="alert">{err}</p>}
+                    <div className="gl-answers">
+                      <button type="button" className="gl-btn" onClick={() => answer("not_found")} disabled={!!busy}>{busy === "not_found" ? "Saving" : "Not here"}</button>
+                      <button type="button" className="gl-btn gl-btn-found" onClick={() => answer("found")} disabled={!!busy}>{busy === "found" ? "Saving" : "Found it"}</button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
-        ) : !place ? (
-          <div className="gl-done">
-            <h1 className="gl-h1">Every place checked</h1>
-            <p className="gl-p">Not found in any of the {task.places.length} places. The case stays open with these places ruled out.</p>
-            <Link className="gl-btn" href={`/cases/${caseId}`}>Back to the case</Link>
-          </div>
-        ) : (
-          <>
-            <div className="gl-title">
-              <h1 className="gl-h1">Check {where(place)}</h1>
-              {howIn(place) && <p className="gl-p">{howIn(place)}</p>}
-            </div>
-            <div className="gl-pic">
-              {frame ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={signedUrl(frame.frame_url)} alt="The last camera frame of the parcel" />
-              ) : (
-                <HubPlan label={`Where to look: ${where(place)}`} focus={{ xy: place.centroid_xy, radius_m: 9, tone: "warn" }} legend={false} fit="width" minHeight={0} />
-              )}
-            </div>
-            <div className="gl-look">
-              <span className="gl-look-l">Look for</span>
-              <span className="gl-look-h">{dims ? `Parcel, ${dims.map((d) => Math.round(d / 10)).join(" × ")} cm` : "This parcel"}</span>
-              <span className="gl-look-s">{grams ? `${(grams / 1000).toFixed(1)} kg · ` : ""}label ends in …{waybill.slice(-4)}</span>
-            </div>
-            <HoldToRecord caseId={caseId} taskId={task.search_task_id} areaId={place.area_id} />
-            <span className="gl-spacer" />
-            {err && <p className="gl-err" role="alert">{err}</p>}
-            <div className="gl-answers">
-              <button type="button" className="gl-btn" onClick={() => answer("not_found")} disabled={!!busy}>{busy === "not_found" ? "Saving" : "Not here"}</button>
-              <button type="button" className="gl-btn gl-btn-found" onClick={() => answer("found")} disabled={!!busy}>{busy === "found" ? "Saving" : "Found it"}</button>
-            </div>
-          </>
-        )}
+        </aside>
       </div>
     </div>
   );

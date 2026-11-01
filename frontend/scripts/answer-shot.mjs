@@ -1,0 +1,18 @@
+import { chromium } from "playwright";
+const out = process.argv[2]; const suffix = process.argv[3] ? "/" + process.argv[3] : ""; const name = process.argv[4] ?? "answer";
+const b = await chromium.launch();
+const errors = [];
+const p = await b.newPage({ viewport: { width: 1440, height: 900 } });
+p.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+p.on("pageerror", (e) => errors.push(String(e)));
+const id = await (async () => { await p.goto("http://localhost:3000/hub"); return p.evaluate(async () => (await (await fetch("/api/spoor/v1/cases")).json())[0]?.case?.case_id); })();
+await p.goto(`http://localhost:3000/cases/${id}${suffix}`, { waitUntil: "networkidle" });
+await p.waitForTimeout(2200);
+await p.screenshot({ path: `${out}/${name}_new.png`, fullPage: true });
+const ph = await b.newPage({ viewport: { width: 390, height: 844 } });
+await ph.goto(`http://localhost:3000/cases/${id}${suffix}`, { waitUntil: "networkidle" });
+await ph.waitForTimeout(1500);
+await ph.screenshot({ path: `${out}/${name}_phone.png`, fullPage: true });
+console.log("phone overflow px:", await ph.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth));
+await b.close();
+console.log("console errors:", errors.length ? errors.slice(0, 3) : "none");
