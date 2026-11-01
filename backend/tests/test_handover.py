@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from spoor.forensics.handover import FloorPath, carrier_fit, heading
+from spoor.forensics.handover import FloorPath, area_crossings, carrier_fit, heading
 
 T = np.arange(0, 4000, 100.0)  # 4 s at 10 fps
 
@@ -37,3 +37,14 @@ def test_brief_contact_is_not_enough():
 def test_heading_words():
     assert heading(path("e", [(0, 0), (0, 5)], t=[0, 1])) == "north"
     assert heading(path("f", [(0, 0), (0.2, 0.1)], t=[0, 1])) == "standing still"
+
+
+STORE = [(0.2, 33.6), (15.2, 33.6), (15.2, 39.8), (0.2, 39.8)]
+
+
+def test_in_and_out_of_a_store_at_its_doorway():
+    went = path("in", [(21.6 - 0.18 * i, 30.6 + 0.055 * i) for i in range(40)])  # ends at (14.6, 32.7), 0.9 m out
+    came = path("out", [(14.0 + 0.18 * i, 34.3 - 0.09 * i) for i in range(40)], t=T + 15000)
+    past = path("past", [(27.0, 32.0 + 0.1 * i) for i in range(40)], t=T + 30000)
+    ev = area_crossings([came, past, went], STORE)
+    assert [(e.track_id, e.kind) for e in ev] == [("in", "went in"), ("out", "came out")]

@@ -93,3 +93,48 @@ def carrier_fit(carton: FloorPath, person: FloorPath) -> Fit:
     where = f"{med:.0f} m from the carton" if med > REACH_M else f"with it for only {shared:.1f} s"
     move = heading(person)
     return Fit(person.track_id, shared, med, "not the carrier", f"{where}, {move if move == 'standing still' else 'heading ' + move}")
+
+
+DOOR_NEAR_M = 1.2  # a person lost from view this close to an area's edge went through its doorway
+
+
+def _dist_to_poly(poly: np.ndarray, p: np.ndarray) -> float:
+    """0 inside the polygon, else the distance to its nearest edge."""
+    n, ok = len(poly), False
+    for i in range(n):
+        (x0, y0), (x1, y1) = poly[i], poly[(i + 1) % n]
+        if (y0 > p[1]) != (y1 > p[1]) and p[0] < (x1 - x0) * (p[1] - y0) / (y1 - y0) + x0:
+            ok = not ok
+    if ok:
+        return 0.0
+    best = np.inf
+    for i in range(n):
+        a, b = poly[i], poly[(i + 1) % n]
+        t = np.clip(np.dot(p - a, b - a) / max(np.dot(b - a, b - a), 1e-9), 0, 1)
+        best = min(best, float(np.linalg.norm(p - (a + t * (b - a)))))
+    return best
+
+
+@dataclass
+class AreaCrossing:
+    track_id: str
+    kind: str  # "went in" | "came out"
+    t_ms: float
+
+
+def area_crossings(paths: list[FloorPath], polygon_m) -> list[AreaCrossing]:
+    """People who went into an area (last seen at its edge, walking towards it) or came out of it (first seen at its
+    edge, walking away). An area no camera sees inside (e.g. the exception store) is judged at its doorway only."""
+    poly = np.asarray(polygon_m, float)
+    out = []
+    for p in paths:
+        ok = np.flatnonzero(np.isfinite(p.xy).all(axis=1))
+        if len(ok) < 2:
+            continue
+        first, last = p.xy[ok[0]], p.xy[ok[-1]]
+        d_first, d_last = _dist_to_poly(poly, first), _dist_to_poly(poly, last)
+        if d_last <= DOOR_NEAR_M and d_last < d_first:
+            out.append(AreaCrossing(p.track_id, "went in", float(p.t_ms[ok[-1]])))
+        if d_first <= DOOR_NEAR_M and d_first < d_last:
+            out.append(AreaCrossing(p.track_id, "came out", float(p.t_ms[ok[0]])))
+    return sorted(out, key=lambda c: c.t_ms)
