@@ -2,6 +2,52 @@
 
 Newest first. Each entry: what is done, where to look, what is still open.
 
+## 2026-11-02 03:55 · Six checkpoints steps 2-3: cameras, W1/W2 sims, gates, local previews (render NOT started)
+
+### Look at (low-res local previews, CCTV look + OSD on each camera's own clock; 5 fps)
+`qa/review/chk_preview/`:
+- `S2_CHK_TUNNEL.mp4` (14:32:04-18): the look-alike comes out of the tunnel exit first at 14:32:08, the next carton
+  after it; belts keep order, so the first-out rule has what it needs.
+- `S2_CHK_CAGE_W.mp4` (14:32:05-25, re-mounted): the carton on S11's mid shelf, the reach at 14:32:10-11, the shelf
+  empty at 14:32:12, walked off at 14:32:14 (the live alert's moment, close up).
+- `S2_CHK_STORE.mp4` (14:32:19-54): walks up with the carton label-up 14:32:29-30, under the camera into the store
+  14:32:31, back out empty-handed 14:32:48-49.
+- `S2_CHK_DOCK.mp4` (14:33:15-37): the cage pushed into D07 at 14:33:25 past the RFID gate.
+- `W1_CHK_UNLOAD.mp4`, `W1_CAM_02.mp4` (14:09:58-10:06): the story carton off the trailer onto the boom (release =
+  the unload scan 14:10:01.26 on the handheld clock).
+- `W1_CHK_TUNNEL.mp4`, `W1_CAM_05.mp4`, `W1_CAM_01.mp4` (14:10:38-10:52): out of the tunnel at its logged second,
+  onto carrier at the merge.
+- Still rendering: W1 chute divert (CHK_CHUTE, CAM_11), W2 (CHK_CHUTE pick, CHK_CAGE_W set-down) from the fixed blend.
+
+### What was built
+- Six checkpoint cameras from the plan (commits db0f66a, 66875d1): CHK_UNLOAD, CHK_TUNNEL, CHK_CHUTE (bank C10-C12),
+  CHK_CAGE_W (5 m over the aisle, all of S11-S13), CHK_STORE (rack frame above the gap), CHK_DOCK (side of D07).
+  Install survey + the backend's own fit: held-out 0.7-2 cm median; reprojection 0.6-1.2 px median over 274-1,022
+  marks never used in the fit. Two were re-mounted after test stills (tunnel exit not in view; store blocked by a
+  rack end), CHK_CAGE_W once (S11 at the frame edge): mount position only, never aimed at the story.
+- W1 14:09:39.66-14:11:24.66 (5aa941f): an unloader's wall carton becomes the story carton (its record's size, label
+  tile 677), waits ~2 s at the belt end before the DWS and ~5 s at the merge like any parcel, goes down C12. Physical
+  vs logged (true) seconds: unload 0.00, tunnel -0.03, carrier +0.07, divert +0.08. The log is unchanged.
+- W2 14:21:06.70-14:21:46.70 (69ade1c): a bagger (Female_Adult_17, no clone on screen) takes it out of C12's bag,
+  carries it round the column, sets it on S11's mid shelf; the set-down (the cage scan) at 14:21:35.60 true =
+  logged 14:21:33.60; rest pose = S2 frame 1 exactly (26.13, 30.30, 0.90); same object name flow_parcel_5013.
+
+### Gates (honest)
+- W2: 0 hard, 0 parcel overlaps, 0 strict on the story carton. Found and fixed: flow's snap_rests dropped the carton
+  1.65 cm into S11's shelf (now exempt, W2 re-baking). Other stations' rows sit in the wide cameras' frames (C07
+  bagger 1-5.7 cm, a cage pusher's vest 5.6-5.9 cm on CAM_13), so W2 is planned on CHK_CHUTE + CHK_CAGE_W only;
+  left there: her hands brush C12's bag rim for 2 frames (1.5-1.8 cm) at the reach.
+- W1: gates still running (1,050 frames).
+- Per reviewer_tick_0147: wide-camera W1/W2 clips come before close-ups, the cage close-up last and droppable. If the
+  W2 wide shots can't be cleaned (CAM_13 rows above), CHK_CAGE_W carries W2 or W2 is dropped (fallback: the S2
+  window alone shows the cage pick).
+
+### Render plan for the APPROVED tick (estimate unchanged, ceiling US$6 of the US$12 cap)
+W1: CHK_UNLOAD + CAM_02 (unload), CHK_TUNNEL + CAM_05 + CAM_01 (tunnel, carrier), CHK_CHUTE + CAM_11 (divert C12).
+W2: CHK_CHUTE (pick), CHK_CAGE_W (set-down) [+ CAM_13 only if its rows clear]. S2 window: CHK_TUNNEL, CHK_CAGE_W,
+CHK_STORE, CHK_DOCK (CHK_CHUTE dropped: the look-alike goes down C08, outside its bank). Full resolution 2688 x 1520,
+same CCTV look, MP4s only come down.
+
 ## 2026-11-02 02:00 · Six checkpoints on camera: step 1 (feasibility, same-parcel checks, estimate)
 
 Read: six_checkpoints_on_camera_0915.md with addenda 1-6, reviewer_tick_0147.md. Nothing rendered, S2 window and
