@@ -145,3 +145,43 @@ def main(clip: str, fps: float = 1.0, seconds: float = 40.0):
     out.write_text(json.dumps(proof, indent=2))
     print(f"actual: wall {wall:.0f} s (load {res['load_s']} s, inference {res['inference_s']} s) ≤ ${wall * GPU_USD_PER_S:.2f}; "
           f"{len(flagged)}/{len(frames)} frames flagged; proof {out}")  # fmt: skip
+
+
+@app.local_entrypoint()
+def hub(clips: str, every_s: float = 2.0, seconds: float = 90.0, out: str = ""):
+    """Every camera of a scenario (CAM_XX.mp4 in `clips`): one frame every `every_s` over `seconds`, split over two GPU
+    calls that run in parallel (each well inside the 25 min timeout). Writes the proof record and triage_flags
+    {camera_id: [{t_s, what}]} for the investigation run. Flags are triage only, never evidence."""
+    paths = sorted(Path(clips).glob("CAM_*.mp4"))
+    frames = [(p.stem, t, url) for p in paths for t, url in sample(str(p), 1.0 / every_s, seconds)]
+    worst = 2 * GPU_TIMEOUT_S * GPU_USD_PER_S
+    print(f"estimate: {len(frames)} frames from {len(paths)} cameras, 2 parallel calls on {GPU}; "
+          f"worst case (both hit the timeout) ${worst:.2f}; cap ${CAP_USD:.2f}")  # fmt: skip
+    if worst > CAP_USD:
+        raise SystemExit("refusing: over the Glimmer cap")
+    half = sorted({c for c, _, _ in frames})
+    groups = [[f for f in frames if f[0] in half[: len(half) // 2 + 1]], [f for f in frames if f[0] in half[len(half) // 2 + 1:]]]
+    t = time.time()
+    results = list(triage.map([[(f"{c}@{s}", u) for c, s, u in g] for g in groups]))
+    wall = time.time() - t
+    rows = [dict(r, camera=r["t_s"].split("@")[0], t_s=float(r["t_s"].split("@")[1])) for res in results for r in res["rows"]]
+    gpu_s = sum(r["load_s"] + r["inference_s"] for r in results)
+    flags: dict[str, list] = {}
+    for r in rows:
+        if r["handling"]:
+            flags.setdefault(f"cam_{r['camera']}", []).append({"t_s": r["t_s"], "what": r["what"]})
+    proof = {"test": "glimmer_triage_hub", "run_at_utc": datetime.now(UTC).isoformat(), "model": MODEL,
+             "weights": "BF16 from Hugging Face (Apache 2.0)", "provider": "modal", "gpu": GPU,
+             "vllm": results[0]["vllm"], "input": {"clips": [p.name for p in paths], "label": "SYNTHETIC footage",
+                                                  "every_s": every_s, "seconds": seconds, "frames": len(frames)},
+             "calls": [{"load_s": r["load_s"], "inference_s": r["inference_s"]} for r in results],
+             "wall_s": round(wall, 1), "usd_upper_bound": round(wall * 2 * GPU_USD_PER_S, 3),
+             "usd_gpu_seconds": round(gpu_s * GPU_USD_PER_S, 3), "triage_flags": flags,
+             "unparsed": sum(1 for r in rows if r["handling"] is None), "rows": rows,
+             "label": "triage flags, not evidence: only flagged moments would go to the Model API"}  # fmt: skip
+    dest = Path(out) if out else Path(__file__).resolve().parents[3] / "docs" / "open_weights_proof" / \
+        f"{datetime.now(UTC):%Y-%m-%d}_glimmer_triage_hub.json"  # fmt: skip
+    dest.write_text(json.dumps(proof, indent=2))
+    print(f"actual: wall {wall:.0f} s, GPU {gpu_s:.0f} s ≈ ${gpu_s * GPU_USD_PER_S:.2f} (upper bound ${wall * 2 * GPU_USD_PER_S:.2f}); "
+          f"flagged {sum(len(v) for v in flags.values())} frames on {len(flags)}/{len(paths)} cameras; "
+          f"{proof['unparsed']} unparsed; proof {dest}")  # fmt: skip
