@@ -57,7 +57,7 @@ class ToolContext:
     scope: EvidenceScope
     # Paid model calls are injected by the service layer (they need media storage and provider clients).
     run_sam: Callable[..., dict] | None = None
-    ask_spark: Callable[[str, float, float, str], dict] | None = None
+    ask_spark: Callable[..., dict] | None = None
     now: Callable[[], datetime] = field(default=lambda: datetime.now(UTC))
     agent_actor: Actor | None = None
     # J2b: evidence pictures for models that take images: (label, data URL, source sha256). Set by the service layer.
@@ -146,7 +146,9 @@ class SparkArgs(_Args):
     media_id: str
     start_s: float = Field(ge=0)
     end_s: float = Field(gt=0)
-    template: str = Field(description="presence_v1 | interaction_v1 | contradiction_v1 | next_evidence_v1")
+    template: str = Field(description="presence_v1 | interaction_v1 | carrying_v1 | contradiction_v1 | next_evidence_v1")
+    track_id: str | None = Field(default=None, description="Crop the clip around this track (e.g. a person far from "
+                                 "the camera) so the model sees it larger; use with carrying_v1")
 
 
 class EvidenceRequestArgs(_Args):
@@ -250,7 +252,7 @@ def t_ask_spark(ctx: ToolContext, a: SparkArgs) -> dict:
         raise ScopeError("clip windows are limited to 120 s; ask about a narrower interval")
     if ctx.ask_spark is None:
         return {"status": "analysis_unavailable", "reason": "video reasoning service not configured"}
-    return ctx.ask_spark(a.media_id, a.start_s, a.end_s, a.template)
+    return ctx.ask_spark(a.media_id, a.start_s, a.end_s, a.template, track_id=a.track_id)
 
 
 def t_request_evidence(ctx: ToolContext, a: EvidenceRequestArgs) -> dict:

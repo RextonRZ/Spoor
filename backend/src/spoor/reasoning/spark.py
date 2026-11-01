@@ -48,6 +48,9 @@ TEMPLATES = {
                    "with the time it is first and last clearly visible. Note if it becomes hidden or leaves the view.",
     "interaction_v1": "Describe visible changes to the target object in this clip: picked up, carried, set down, "
                       "covered, or leaving the view, each with a time. Do not describe who the person is.",
+    "carrying_v1": "This clip is cropped around one person. Is that person carrying something in their hands or arms? "
+                   "For each period give a fact: carrying something, hands empty, or cannot see the hands, with the "
+                   "times. Describe only the object, never the person.",
     "contradiction_v1": "Consider the hypothesis given as data. Which visible facts in this clip support it, which "
                         "contradict it, and what is not visible? Put supporting/contradicting facts in "
                         "observed_facts and anything unresolved in unknowns.",

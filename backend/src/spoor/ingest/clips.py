@@ -80,3 +80,24 @@ def cut_clip(source: Path, table: FrameTable, *, source_media_id: str, start_ms:
 def frame_chunks(n_frames: int, max_frames: int) -> list[tuple[int, int]]:
     """Contiguous inclusive ranges of at most `max_frames` (no overlap, so no frame is observed twice)."""
     return [(s, min(s + max_frames, n_frames) - 1) for s in range(0, n_frames, max_frames)]
+
+
+def crop_window(window: ClipWindow, box_ltrb_px: tuple[int, int, int, int], *, out_width_px: int = 960) -> ClipWindow:
+    """The same frames, cropped to one region and enlarged (a person far from a high camera is a few dozen pixels:
+    a model sees the hands better this way). Timing is untouched, so answers still map to exact frames."""
+    left, top, right, bottom = (int(v) for v in box_ltrb_px)
+    w, h = (right - left) // 2 * 2, (bottom - top) // 2 * 2
+    if w < 8 or h < 8:
+        raise ValueError(f"crop {box_ltrb_px} is too small")
+    out = window.path.with_name(f"{window.path.stem}_crop{left}-{top}-{w}x{h}.mp4")
+    if not out.exists():
+        tmp = out.with_suffix(".part.mp4")
+        run_ffmpeg("-y", "-i", str(window.path), "-vf", f"crop={w}:{h}:{left}:{top},scale={out_width_px}:-2:flags=lanczos",
+                   "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "16", "-pix_fmt", "yuv420p",
+                   "-fps_mode", "passthrough", "-movflags", "+faststart", str(tmp))  # fmt: skip
+        if (got := len(probe(tmp)[1].pts_ms)) != window.n_frames:
+            tmp.unlink(missing_ok=True)
+            raise ClipCutError(f"crop produced {got} frames, expected {window.n_frames}")
+        tmp.replace(out)
+    return ClipWindow(out, sha256_file(out), window.start_frame, window.end_frame, window.start_pts_ms,
+                      window.end_pts_ms, window.source_media_id, window.pts_ms)

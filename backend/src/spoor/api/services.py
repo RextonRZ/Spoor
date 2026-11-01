@@ -19,12 +19,14 @@ from spoor.contracts import (
     MediaAsset,
     MediaAuthorization,
     ObjectInstance,
+    RawObservation,
     RigState,
     Site,
     TimeWindow,
 )
 from spoor.forensics.journey import latest_plan
 from spoor.ingest import MediaStore, asset_path, load_result
+from spoor.ingest.clips import crop_window
 from spoor.perception import MetaSamBackend, PerceptionRequest, SamBackend, track_target
 from spoor.perception.anchor import AnchorError, anchor_for, leaves
 from spoor.perception.prompts import InstancePrompt
@@ -240,7 +242,7 @@ class Services:
             except (ServiceError, AnchorError) as e:
                 return {"status": "analysis_unavailable", "reason": str(e)}
 
-        def ask_spark(media_id: str, start_s: float, end_s: float, template: str) -> dict:
+        def ask_spark(media_id: str, start_s: float, end_s: float, template: str, track_id: str | None = None) -> dict:
             if self.spark is None or self.spark_client is None:
                 return {"status": "analysis_unavailable", "reason": "Muse Spark not configured"}
             original = self.store.get(MediaAsset, media_id)
@@ -249,6 +251,19 @@ class Services:
             window = cut_clip(asset_path(self.media, ing.proxy), ing.proxy_frames, source_media_id=media_id,
                               start_ms=t0 + start_s * 1000, end_ms=t0 + end_s * 1000,
                               out_dir=self.settings.data_dir / "clips")  # fmt: skip
+            crop = None
+            if track_id:  # look closer: the region that track covers in this window, with room for hands and loads
+                boxes = [o.bbox_xyxy_px for o in self.store.find(RawObservation, track_id=track_id)
+                         if o.source_frame.media_id == media_id and o.bbox_xyxy_px
+                         and window.start_frame <= o.source_frame.frame_index <= window.end_frame]
+                if not boxes:
+                    return {"status": "analysis_unavailable", "reason": f"{track_id} is not seen in this window"}
+                w, h = ing.proxy.probe.width_px, ing.proxy.probe.height_px
+                x0, y0 = min(b[0] for b in boxes), min(b[1] for b in boxes)
+                x1, y1 = max(b[2] for b in boxes), max(b[3] for b in boxes)
+                mx, my = max(40, 0.3 * (x1 - x0)), max(40, 0.3 * (y1 - y0))
+                crop = (max(0, int(x0 - mx)), max(0, int(y0 - my)), min(w, int(x1 + mx)), min(h, int(y1 + my)))
+                window = crop_window(window, crop)
             auth = self.store.get(MediaAuthorization, original.authorization_id)
             with uploaded(self.spark_client, window.path) as file_id:
                 res = ask_clip(backend=self.spark, upload_file_id=file_id, window=window, table=ing.original_frames,
@@ -261,7 +276,7 @@ class Services:
                     "facts": [{"statement": g.fact.statement, "grounding": g.status, "observation_ids":
                                g.observation_ids} for g in grounded],
                     "candidate_hypotheses": res.hypotheses, "rejected_statements": len(res.rejected_statements),
-                    "uninspected_ms": res.uninspected,
+                    "uninspected_ms": res.uninspected, "crop_px": crop,
                     "note": "facts are proposals; only 'grounded' ones match SAM observations"}  # fmt: skip
 
         ctx.run_sam, ctx.ask_spark = run_sam, ask_spark
