@@ -83,7 +83,7 @@ ZONES = [
      {"wear": "faded yellow bay lines, bay numbers half rubbed off",
       "clutter": "roll cages in numbered bays, some half full; one cage parked crooked",
       "signs": "bay numbers S01..S20 painted on the floor", "lighting": "high-bays, slightly uneven"}),
-    ("Z11", "Empty cage / bag store (inside corner of the L)", "store", rect(0.2, 30.0, 24.0, 39.8),
+    ("Z11", "Exception store and empty cage / bag store (inside corner of the L)", "store", rect(0.2, 30.0, 24.0, 39.8),
      {"wear": "dust in corners, faded lines", "clutter": "empty cages nested tightly, folded sacks on steel shelves",
       "signs": "'SANGKAR KOSONG' (empty cages)", "lighting": "one high-bay off — darkest corner of the hall"}),
     ("Z12", "Outbound dock", "dock", rect(24.0, 32.4, 54.0, 39.8),

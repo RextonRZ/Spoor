@@ -9,6 +9,7 @@ Writes, per scenario, ml/evaluation/scenarios/<S>/:
                       unknown / no coverage). EVALUATOR-ONLY: the Spoor runtime never reads it.
 """
 import json
+from datetime import datetime, timedelta
 import sys
 from pathlib import Path
 
@@ -83,6 +84,14 @@ def main(scens):
                "accepted; the earlier 30-35 % target was not sourced)."]
         (d / "scenario_card.md").write_text("\n".join(md) + "\n", encoding="utf-8")
         print(f"{S}: card + case_input ({len(lines)} scan lines about {sid})")
+        # what each recorder's own export says its clip starts at (its on-screen clock at frame 0): every recorder
+        # runs on its own clock, so the app must fit them to the sorter's clock, never trust these (fit_camera_clocks)
+        if tr.get("t0"):
+            rt = json.loads((HUB / "render_truth.json").read_text(encoding="utf-8"))["cameras"]
+            t0 = datetime.fromisoformat(tr["t0"])
+            starts = {cam: (t0 + timedelta(seconds=c.get("clock_offset_s", 0.0))).isoformat(timespec="milliseconds")
+                      for cam, c in sorted(rt.items())}
+            (d / "clip_starts.json").write_text(json.dumps(starts, indent=1) + chr(10), encoding="utf-8")
         rel = lambda q: Path(*([".."] * len(OUT.relative_to(ROOT).parts)), q.relative_to(ROOT)).as_posix()
         manifest.append({"scenario": S, "title": TITLES.get(S, S), "parcel": sid,
                          "subject_kind": ask["subject_kind"],

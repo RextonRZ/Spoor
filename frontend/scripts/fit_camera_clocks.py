@@ -25,6 +25,7 @@ import numpy as np
 from spoor.api.services import Services
 from spoor.config import Settings
 from spoor.contracts import (
+    Camera,
     CameraCoverage,
     ClockDomain,
     ClockSync,
@@ -47,6 +48,7 @@ MIN_MOVE_M = 2.0  # a person must cover this much floor to carry timing informat
 MEET_MPS = 0.3  # two cameras' velocity profiles of one person agree within this at the right shift (m/s)
 CONTRAST_MPS = 0.05  # ... and the right shift beats shifts 1 s off by at least this
 MIN_SHARED = 50  # at least 5 s of shared movement (short, far figures agree by chance)
+FALLBACK_NEAR_M = 12.0  # positions only when both cameras are this close to the walk (far, high views hide legs)
 SAME_PLACE_M = 2.5  # at the chosen shift the two cameras must place them this close (allows the hidden-legs bias)
 DEBUG = bool(__import__("os").environ.get("SPOOR_DEBUG"))
 REFIT = set(filter(None, __import__("os").environ.get("SPOOR_REFIT", "").split(",")))  # cameras to fit again
@@ -218,13 +220,16 @@ def by_overlap(cam: str, ref_cam: str, ref_sync: dict) -> dict | None:
                 continue  # standing still: no timing information
             paths[c].append((t.track_id, np.array([cam_time(o).timestamp() for o in obs]), xy))
     carriers = case_carriers(paths)
+    cam_xy = {c: np.asarray(svc.store.get(Camera, c).position_m[:2], float) for c in (cam, ref_cam)}
     shift_ref = ref_sync["offset_ms"] / 1000
     anchors, held_out = [], []
     for tid, dev, xy in paths[cam]:
         for rid, rdev, rxy in paths[ref_cam]:
             b = best_shift(dev, xy, rdev + shift_ref, rxy)
             how = "movements agree"
-            if not b or b[3] < CONTRAST_MPS:  # too steady for velocity: try positions, with their own guards
+            near = max(float(np.linalg.norm(np.nanmedian(xy, axis=0) - cam_xy[cam])),
+                       float(np.linalg.norm(np.nanmedian(rxy, axis=0) - cam_xy[ref_cam])))
+            if (not b or b[3] < CONTRAST_MPS) and near <= FALLBACK_NEAR_M:  # too steady for velocity: positions
                 p = position_shift(dev, xy, rdev + shift_ref, rxy)
                 if p and p[0] <= 0.8 and p[3] >= 0.5 and p[2] >= MIN_SHARED // 3:
                     b, how = (0.0, p[1], MIN_SHARED, CONTRAST_MPS), f"paths meet ({p[0]:.2f} m apart, {p[3]:.1f} m better than 2 s off)"

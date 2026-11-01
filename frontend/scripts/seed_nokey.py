@@ -250,6 +250,7 @@ def convert_scans(lines: list[str], domain_ids: dict[str, str], spec: dict) -> t
 
 
 def load_inputs(admin, *, clips_dir: Path, clip_start: str, scans_path: Path, spec_path: Path,
+                clip_starts: dict | None = None,
                 work_dir: Path, log=print, batch: str = "hub_sim_2026-10-28_1432", skip_covered: bool = True,
                 burn_mark: bool = True) -> dict:
     """Register site, cameras, clock domains, clips and the scan log through the API. `admin` is any httpx-style
@@ -312,7 +313,10 @@ def load_inputs(admin, *, clips_dir: Path, clip_start: str, scans_path: Path, sp
                     "rights_statement": "Synthetic footage rendered from a fictional hub model; no real people",
                     "purpose": "Spoor no-key demonstration", "consent_confirmed": True,
                     "hosted_processing_allowed": HOSTED, "retention_days": 30,
-                    "recording_start_camera_time": clip_start, "recording_kind": "synthetic_test"}  # fmt: skip
+                    # each recorder's own start (its export / on-screen clock) when known; the app fits it to the
+                    # sorter's clock later (scripts/fit_camera_clocks.py) instead of trusting it
+                    "recording_start_camera_time": (clip_starts or {}).get(clip.stem, clip_start),
+                    "recording_kind": "synthetic_test"}  # fmt: skip
             with marked.open("rb") as fh:
                 r = admin.post("/v1/media/uploads", data={"meta": json.dumps(meta)},
                                files={"file": (clip.name, fh, "video/mp4")})  # fmt: skip
@@ -470,6 +474,10 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--clips", default=str(FRONT / ".local/clips"), help="dir of CAM_XX.mp4 (synthetic renders)")
     ap.add_argument("--clip-start", default=DEFAULT_CLIP_START)
+    ap.add_argument("--marked", action="store_true", help="the clips already carry the burned-in SYNTHETIC mark (final "
+                    "CCTV renders): upload them untouched")
+    ap.add_argument("--clip-starts", default=None, help="JSON {CAM_XX: start}: each recorder's own clip start (its export's "
+                    "clock), e.g. ml/evaluation/scenarios/S2/clip_starts.json; --clip-start stays the case window")
     ap.add_argument("--scans", default=str(REPO / "assets/hub/build/sim/events_scan_simulated.jsonl"))
     ap.add_argument("--spec", default=str(REPO / "assets/hub/hub_spec.json"))
     ap.add_argument("--case-parcel", default="auto", help="parcel ID, or auto = the parcel with the most reads")
@@ -496,8 +504,10 @@ def main() -> None:
     if args.scenarios:
         seed_scenarios(admin, inv, Path(args.scenarios), Path(args.spec), local / "scenarios")
         return
+    starts = json.loads(guard(Path(args.clip_starts)).read_text(encoding="utf-8")) if args.clip_starts else None
     got = load_inputs(admin, clips_dir=Path(args.clips), clip_start=args.clip_start, scans_path=Path(args.scans),
-                      spec_path=Path(args.spec), work_dir=local)  # fmt: skip
+                      spec_path=Path(args.spec), work_dir=local, clip_starts=starts,
+                      burn_mark=not args.marked)  # fmt: skip
     rows, skipped, clips = got["rows"], got["skipped"], got["clips"]
 
     auto = args.case_parcel == "auto"
