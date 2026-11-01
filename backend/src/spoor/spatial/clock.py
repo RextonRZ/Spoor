@@ -116,8 +116,10 @@ def fit_clock(anchors: list[AnchorPair], *, fit_drift: bool | None = None, min_a
     if fit_drift is None:
         fit_drift = xs[-1] - xs[0] > 10 * 60 * 1000
     keep = list(range(len(anchors)))
-    for _ in range(3):
-        a, b = _linear_fit([xs[i] for i in keep], [ys[i] for i in keep], fit_drift)
+    for it in range(4):
+        # start from the median: a mean is dragged by the very mismatches this test must find
+        a, b = (statistics.median(ys), 0.0) if it == 0 else _linear_fit([xs[i] for i in keep], [ys[i] for i in keep],
+                                                                        fit_drift)  # fmt: skip
         residuals = {i: ys[i] - (a + b * xs[i]) for i in range(len(anchors))}
         mad = statistics.median(abs(residuals[i]) for i in keep) or 0.0
         limit = max(outlier_floor_ms, 3 * 1.4826 * mad)

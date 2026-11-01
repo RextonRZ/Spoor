@@ -433,3 +433,29 @@ def test_single_demo_supervisor_holds_every_role():
     with pytest.raises(HTTPException):
         plain.require_role(Role.REVIEWER)
 
+
+
+def test_reference_clock_and_camera_clock_fit(ready):
+    """The sorter's clock is the reference; a camera recorder running 2.5 s slow is fitted from shared events and its
+    clip moves onto the corrected timeline (start recovered from the old record, then corrected)."""
+    c, svc, up, _case = ready
+    dom = c.post("/v1/sites/site_demo/clock-domains", json={"kind": "wcs_plc", "name": "sorter WCS"},
+                 headers=h("t-admin")).json()  # fmt: skip
+    ref = c.post(f"/v1/clock-domains/{dom['clock_domain_id']}/reference",
+                 json={"uncertainty_ms": 20, "description": "WCS is the hub's time master"}, headers=h("t-admin"))
+    assert ref.status_code == 201 and ref.json()["offset_ms"] == 0
+    # the camera's clock reads 2.5 s behind: an event at reference T shows at camera time T - 2.5 s
+    anchors = [{"device_time": (T0 + timedelta(seconds=s - 2.5)).isoformat(),
+                "reference_time": (T0 + timedelta(seconds=s)).isoformat(), "anchor_id": f"pass_{s}"}
+               for s in (0.4, 1.1, 1.9, 2.6)]  # fmt: skip
+    anchors.append({"device_time": T0.isoformat(), "reference_time": (T0 + timedelta(seconds=9)).isoformat(),
+                    "anchor_id": "wrong_parcel"})  # a mismatched pair is rejected by the robust fit
+    r = c.post("/v1/cameras/cam_a/clock-fit", json={"anchors": anchors, "base_uncertainty_ms": 100}, headers=h("t-admin"))
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert abs(body["sync"]["offset_ms"] - 2500) < 1 and body["rejected_anchor_ids"] == ["wrong_parcel"]
+    assert len(body["coverage"]) == 1 and abs(body["coverage"][0]["shift_ms"] - 2500) < 1
+    fa = c.get(f"/v1/media/{up['media_id']}/frame-at", params={"time": (T0 + timedelta(seconds=2.5)).isoformat()},
+               headers=h("t-inv")).json()  # fmt: skip
+    assert fa["frame_index"] == 0  # the clip now starts 2.5 s later on the reference timeline
+    assert c.post("/v1/cameras/cam_a/clock-fit", json={"anchors": anchors[:3]}, headers=h("t-inv")).status_code == 403

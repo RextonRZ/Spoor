@@ -1255,6 +1255,55 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         return {"sync": sync.model_dump(mode="json"), "n_used": fit.n_used, "n_rejected": fit.n_rejected,
                 "rejected_anchor_ids": list(fit.rejected_anchor_ids)}
 
+    class ReferenceRequest(BaseModel):
+        uncertainty_ms: float = Field(default=0.0, ge=0)
+        description: str = Field(min_length=3)
+
+    @app.post("/v1/clock-domains/{clock_domain_id}/reference", status_code=201)
+    def reference_clock(clock_domain_id: str, body: ReferenceRequest, p: User) -> ClockSync:
+        """Declare a domain the site's reference clock (e.g. the sorter's WCS, the hub's time master): the normalized
+        timeline IS this clock, so its offset is 0 by definition. Every other clock is fitted to it from events."""
+        p.require_role(Role.SITE_ADMIN)
+        p.require_site(get_or_404(ClockDomain, clock_domain_id).site_id)
+        sync = svc.store.put(ClockSync(sync_id=new_id("sync"), clock_domain_id=clock_domain_id, offset_ms=0.0,
+                                       uncertainty_ms=body.uncertainty_ms, method="reference clock of the timeline",
+                                       anchor_description=body.description, created_at=now()))  # fmt: skip
+        audit(p, "reference_clock", clock_domain_id, sync_id=sync.sync_id)
+        return sync
+
+    @app.post("/v1/cameras/{camera_id}/clock-fit", status_code=201)
+    def fit_camera_clock(camera_id: str, body: ClockFitRequest, p: User) -> dict:
+        """Fit a camera's recorder clock to the reference from matched events (anchors: the camera-clock time of the
+        event in its footage, and the reference time of the same event), then re-register its clips on the new sync:
+        each clip's start on its own recorder clock is recovered from the old record and corrected with the fit."""
+        p.require_role(Role.SITE_ADMIN)
+        cam = get_or_404(Camera, camera_id)
+        p.require_site(cam.site_id)
+        try:
+            fit = fit_clock([AnchorPair(a.device_time, a.reference_time, a.anchor_id) for a in body.anchors],
+                            fit_drift=body.fit_drift)  # fmt: skip
+        except ClockFitError as e:
+            raise HTTPException(422, str(e)) from e
+        sync = svc.store.put(sync_from_fit(fit, camera_id=camera_id, base_uncertainty_ms=body.base_uncertainty_ms,
+                                           now=now(), anchor_description=body.description))  # fmt: skip
+        moved = []
+        for media in svc.store.find(MediaAsset, camera_id=camera_id):
+            covs = svc.store.find(CameraCoverage, media_id=media.media_id)
+            if not covs:
+                continue
+            old = svc.store.get(ClockSync, covs[-1].sync_id)
+            device_start = covs[-1].start_utc - timedelta(milliseconds=old.correction_ms(covs[-1].start_utc))
+            length = covs[-1].end_utc - covs[-1].start_utc
+            start = device_start + timedelta(milliseconds=sync.correction_ms(device_start))
+            cov = svc.store.put(CameraCoverage(coverage_id=new_id("coverage"), camera_id=camera_id,
+                                               media_id=media.media_id, start_utc=start, end_utc=start + length,
+                                               sync_id=sync.sync_id, time_uncertainty_ms=sync.uncertainty_ms))  # fmt: skip
+            moved.append({"media_id": media.media_id, "start_utc": cov.start_utc.isoformat(),
+                          "shift_ms": (cov.start_utc - covs[-1].start_utc) / timedelta(milliseconds=1)})
+        audit(p, "fit_camera_clock", camera_id, sync_id=sync.sync_id, rejected=list(fit.rejected_anchor_ids))
+        return {"sync": sync.model_dump(mode="json"), "n_used": fit.n_used, "n_rejected": fit.n_rejected,
+                "rejected_anchor_ids": list(fit.rejected_anchor_ids), "coverage": moved}
+
     @app.post("/v1/sites/{site_id}/scans/import", status_code=201)
     def import_scans(site_id: str, p: User, file: Annotated[UploadFile, File()], batch: Annotated[str, Form()],
                      source: Annotated[Literal["real", "simulated"], Form()]) -> dict:  # fmt: skip
