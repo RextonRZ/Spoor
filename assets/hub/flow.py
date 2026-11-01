@@ -48,6 +48,15 @@ ap.add_argument("--scan-extend", type=float, default=0.0)
 ap.add_argument("--unstaff", default="")  # "opener", "lineB"  # with --sim-only: run on this long past the window and
 # write its scan log (parcel numbers, not ids: splice_scan_log.py takes the window from the full run, builder note 0445)
 ap.add_argument("--dump-belts", default="")  # zone audit: every belt's path + the points with no belt under them, then stop
+ap.add_argument("--t-start", default="")  # the window's frame-1 clock (ISO), for windows before / after the scenario's
+# own (six checkpoints W1 / W2: the story parcel's earlier checkpoints filmed); default the scenario window's 14:32:07
+ap.add_argument("--tag", default="")  # output files' suffix instead of the scenario's (W1, W2: never the S0 defaults
+# the frontend's seed reads)
+ap.add_argument("--replay-log", default="")  # a scan log with a parcel's records (the story parcel's earlier shift)
+ap.add_argument("--replay-parcel", default="")  # that parcel: it rides the hub physically and reaches each scanner at its
+# logged second (true time from the device clocks): the record is the script, never changed
+ap.add_argument("--replay-slot", default="")  # the unloaders' wall carton that becomes it, "D05:front:7" (its size made
+# the record's; the unload scan is that carton's release on the boom)
 ap.add_argument("--sim-only", default="")  # write the simulation's QA trace (json) here and stop: no workers, no bake
 args = ap.parse_args(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else [])
 rnd = random.Random(args.seed)
@@ -63,8 +72,21 @@ FPS = 10
 F0, F1 = 1, int(round((args.seconds or SPEC["render_plan"]["seconds_per_scenario"]) * FPS))
 SCEN = args.scenario.upper()
 SUFFIX = "" if SCEN == "S0" else f"_{SCEN}"  # S0 keeps the default file names (the frontend's seed reads them)
+if args.tag:
+    SUFFIX = f"_{args.tag}"
 DT = 1.0 / FPS
 T_START = datetime(2026, 10, 28, 14, 32, 7, tzinfo=timezone(timedelta(hours=8)))  # frame 1 (matches the OSD)
+if args.t_start:
+    T_START = datetime.fromisoformat(args.t_start)
+REPLAY = None
+if args.replay_parcel:  # render side: the records are the script; render_truth gives each device clock's true offset
+    _rows = [json.loads(x) for x in open(args.replay_log, encoding="utf-8") if args.replay_parcel in x]
+    _rt_ = json.loads((HUB / "render_truth.json").read_text(encoding="utf-8"))
+    _off_ = {"clkd_handheld": _rt_["handheld_fleet"]["clock_offset_s"], "clkd_wcs": _rt_["wcs"]["clock_offset_s"]}
+    _by_ = {r["event"]: r for r in _rows}
+    REPLAY = dict(pid=args.replay_parcel, slot=args.replay_slot, rows=_by_, p=None,
+                  at={k: (datetime.fromisoformat(r["time"]) - T_START).total_seconds() - _off_.get(r.get("clock_domain"), 0.0)
+                      for k, r in _by_.items()})  # fmt: skip
 LOOP = SPEC["machines"]["loop"]
 V_LOOP = LOOP["speed_mps"]
 DECK = LOOP["deck_height"]
@@ -389,8 +411,11 @@ def make_parcel(k, tile, kind, dims, body):
 
 
 FREE_BY_CHUTE = {}
+_replay_tile = next((i for i, lab in enumerate(LABELS["labels"]) if lab.get("parcel_id") == args.replay_parcel), None) \
+    if args.replay_parcel else None  # a replayed parcel's own label: never printed on another carton
 for _t in free_tiles:
-    FREE_BY_CHUTE.setdefault(LABELS["labels"][_t].get("chute"), []).append(_t)
+    if _t != _replay_tile:
+        FREE_BY_CHUTE.setdefault(LABELS["labels"][_t].get("chute"), []).append(_t)
 DESTS = [c for c in FREE_BY_CHUTE if c in CHUTES and c != "REJECT"]
 
 
@@ -427,6 +452,10 @@ class Parcel:
 
 
 parcels, events = [], []
+if REPLAY:
+    REPLAY["tile"] = next(i for i, lab in enumerate(LABELS["labels"]) if lab.get("parcel_id") == REPLAY["pid"])
+    _tun_ = REPLAY["rows"]["tunnel_read"]
+    REPLAY["dims"] = tuple(sorted((x / 1000 for x in _tun_["dims_mm"]), reverse=True))  # (unused: the size the scanner saw)
 
 
 def ev(t, kind, parcel=None, history=False, **kw):
@@ -479,9 +508,9 @@ T_STOP = (F1 - F0) * DT + (args.scan_extend if args.sim_only else 0.0)  # the st
 UNSTAFF = {x.strip() for x in args.unstaff.split(",") if x.strip()}
 if "dock_D02" in UNSTAFF:  # D02's lorry is unloaded (empty, waiting to leave), its boom pulled back to the door:
     stations.DOCKS[:] = [d for d in stations.DOCKS if d["door"] != "D02"]  # no wall, no unloaders, nothing arriving
-ST = (stations.MocapDocks if args.mocap_docks else stations.Docks)(  # M5: the unloaders on mocap (in progress:
+ST = (stations.MocapDocks if args.mocap_docks else stations.Docks)(  # (replay: the wall carton that becomes the parcel)  # M5: the unloaders on mocap (in progress:
     # first hub runs had the hands 0.4-0.76 m off the wall cartons, being debugged - off by default)
-    dict(seed=args.seed, DT=DT, F0=F0, F1=F1, T_STOP=T_STOP, B=B, BOX_DIMS=BOX_DIMS, Parcel=Parcel, next_k=_next_k, parcels=parcels))
+    dict(replay=REPLAY, seed=args.seed, DT=DT, F0=F0, F1=F1, T_STOP=T_STOP, B=B, BOX_DIMS=BOX_DIMS, Parcel=Parcel, next_k=_next_k, parcels=parcels))
 IND = (stations.Inductors(dict(seed=args.seed, DT=DT, F0=F0, F1=F1, T_STOP=T_STOP, B=B)) if not LINE_A_B else
        stations.MocapInductors(dict(seed=args.seed, DT=DT, F0=F0, F1=F1, T_STOP=T_STOP, B=B, line_a=SPEC.get("line_a"))))
 BAG = stations.BagChange(dict(seed=args.seed, DT=DT, F0=F0, F1=F1, T_STOP=T_STOP))
@@ -717,8 +746,10 @@ for step in range(steps + 1):
                 margin = MERGES[bn][2]
                 edge = belt.length - margin
                 want = min(want, edge)
-                if p.s >= edge - 1e-6:
-                    n_ = math.ceil(margin / (belt.speed * DT) - 1e-9)
+                ra_ = getattr(p, "replay_at", None)
+                n_ = math.ceil(margin / (belt.speed * DT) - 1e-9)
+                if p.s >= edge - 1e-6 and not (ra_ and t + n_ * DT < ra_["induct"] - DT / 2):  # (replay: no carrier
+                    # booked before its logged one: it waits at the merge as a parcel waits for a free carrier)
                     for k in range(N_CAR):
                         s_k = (car_s0[k] + V_LOOP * (t + n_ * DT)) % L_LOOP
                         if (car_load[k] is None and k not in car_booked
@@ -746,6 +777,13 @@ for step in range(steps + 1):
                 if not crossing and ((s_in > 0.01 and not nb.free_at(s_in, p.half + nb.speed * cross_t))
                                      or rival_in):
                     want = min(want, belt.length - 0.35 - p.half)
+            ra_ = getattr(p, "replay_at", None)
+            if ra_ and bn == "induction" and not p.meta.get("scanned"):  # waits at the belt's end (accumulation
+                # before the DWS) so it reaches the tunnel's read point at its logged second
+                hold_s = belt.length - 1.2
+                rem_ = (belt.length - p.s) / belt.speed + READS["tunnel"][0] / B["tunnel"].speed
+                if t + rem_ < ra_["tunnel"] - DT / 2:
+                    want = min(want, max(p.s, hold_s))
             p.s = max(p.s, min(want, belt.length - (p.half + 0.02 if belt.nxt is None and bn not in MERGES else 0.0)))
         done = [p for p in belt.items if p.s >= belt.length - 1e-6]
         for p in done:
@@ -812,6 +850,18 @@ for step in range(steps + 1):
         p.lat = 0.0
     # 2b. unloaders (docks) and inductors (feed queue, stopped parcels only)
     ST.step(t)
+    if REPLAY and REPLAY["p"] is None:
+        for w_ in ST.workers:
+            q_ = getattr(w_.cur, "parcel", None) if w_.cur is not None else None
+            if q_ is not None and getattr(q_, "replay", False):
+                q_.forced_tile, q_.read = REPLAY["tile"], True
+                q_.dest = REPLAY["rows"]["tunnel_read"].get("destination_chute") or q_.dest  # the record's assignment
+                q_.target = REPLAY["rows"]["divert_confirm"]["chute"]  # where it really went down (a mis-sort if
+                # they differ: the record's own story)
+                q_.body = "box"
+                q_.meta.update(body="box", chute=q_.dest, story=True, replay=REPLAY["pid"], scenario=args.tag or SCEN)
+                q_.replay_at = {"tunnel": REPLAY["at"]["tunnel_read"], "induct": REPLAY["at"]["induct_to_carrier"]}
+                REPLAY["p"] = q_
     for pk_ in ST.picks[_n_picks[0]:]:  # each carton the unloaders set on the boom: its unload scan (ring scanner)
         sp_u = "SP-IN-N" if pk_.worker.dock["belt"] == "boom_D05" else "SP-IN-S"
         ev(pk_.t_rel, "unload_scan", parcel=pk_.parcel, scan_point=sp_u, device="handheld",
@@ -1037,7 +1087,20 @@ if args.sim_only:  # QA of the simulation alone (line A (b) wiring, M5 step 2): 
                               for e in events if getattr(e.get("_p"), "meta", {}).get("story")],
                 lookalike_events=[dict(event=e["event"], t_s=e["t_s"], scan_point=e.get("scan_point"), chute=e.get("chute"))
                                   for e in events if getattr(e.get("_p"), "meta", {}).get("lookalike")],
+                # each carton the unloaders set on a boom: its wall slot, release and the scans it got (choosing which
+                # one is a scenario parcel whose earlier checkpoints are filmed: six checkpoints W1)
+                dock_picks=[dict(belt=pk.worker.dock["belt"], worker=pk.worker.name, t_rel=round(pk.t_rel, 3),
+                                 slot=next((f"{d}:{side}:{lst.index(pk.box)}" for d, (fr, bk) in ST.walls.items()
+                                            for side, lst in (("front", fr), ("back", bk)) if pk.box in lst), None),
+                                 k=pk.parcel.k, dims=[round(x, 3) for x in pk.parcel.dims],
+                                 scans={e["event"]: e["t_s"] for e in events if e.get("_p") is pk.parcel})
+                            for pk in ST.picks if pk.parcel is not None and pk.t_rel is not None],
                 trace=SIM_TRACE[-int(T_W / (5 * DT)) - 1:])
+    if REPLAY:
+        _ph = {e["event"]: e["t_s"] for e in events if e.get("_p") is REPLAY["p"]} if REPLAY["p"] else {}
+        out_["replay"] = dict(parcel=REPLAY["pid"], slot=REPLAY["slot"], t_start=T_START.isoformat(),
+                              at={k: round(v, 2) for k, v in REPLAY["at"].items()}, physical=_ph,
+                              t_rel=next((pk.t_rel for pk in ST.picks if pk.parcel is REPLAY["p"]), None))
     Path(args.sim_only).write_text(json.dumps(out_, indent=1), encoding="utf-8")
     print("SIM_ONLY written", args.sim_only, flush=True)
     if args.scan_extend:  # every event of the run (window + extension), parcel numbers for the splice
@@ -1485,6 +1548,15 @@ def _domain(e):
                                              "SP-STORE")) else "clkd_wcs"
 
 
+if REPLAY and REPLAY["p"] is not None:  # its own records stay the log's: report how close the ride came to them
+    _phys = {e["event"]: e["t_s"] for e in events if e.get("_p") is REPLAY["p"]}
+    _cmp = {k: dict(logged_true_s=round(REPLAY["at"][k], 2), physical_s=_phys.get(k),
+                    diff_s=None if _phys.get(k) is None else round(_phys[k] - REPLAY["at"][k], 2))
+            for k in REPLAY["at"] if k in ("unload_scan", "tunnel_read", "induct_to_carrier", "divert_confirm")}
+    print("REPLAY", REPLAY["pid"], json.dumps(_cmp), flush=True)
+    (BUILD / "truth" / f"replay{SUFFIX}.json").write_text(json.dumps(dict(parcel=REPLAY["pid"], slot=REPLAY["slot"],
+        object=REPLAY["p"].ob.name if REPLAY["p"].ob else None, t_start=T_START.isoformat(), events=_cmp), indent=1))
+    events[:] = [e for e in events if e.get("_p") is not REPLAY["p"]]
 with open(BUILD / "sim" / f"events_scan_simulated{SUFFIX}.jsonl", "w", encoding="utf-8") as fh, \
         open(BUILD / "truth" / f"events_truth{SUFFIX}.jsonl", "w", encoding="utf-8") as ft:
     for e in sorted(events, key=lambda e: e["t_s"]):

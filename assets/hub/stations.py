@@ -235,6 +235,21 @@ class Docks:
             for j, side in enumerate((+1, -1)):
                 w = DockWorker(dock, side, AVATARS[i * 2 + j], i * 2 + j)
                 self.workers.append(w)
+        self.replay_box = None
+        rp = ctx.get("replay")
+        if rp and rp.get("slot"):  # the wall carton that becomes a replayed parcel: the record's size, the column above
+            door, side, idx = rp["slot"].split(":")  # it settled onto it (same width and depth, its own height)
+            lst = self.walls[door][0 if side == "front" else 1]
+            box = lst[int(idx)]
+            tun = rp["rows"]["tunnel_read"]
+            L_, W_, H_ = sorted((x / 1000 for x in tun["dims_mm"]), reverse=True)
+            new = (box.dims[0], box.dims[1], round(H_, 3))  # width / depth of its slot (they fit the column), height
+            dz = new[2] - box.dims[2]
+            for b in lst:
+                if b is not box and abs(b.pos.y - box.pos.y) < 0.05 and b.pos.z > box.pos.z:
+                    b.pos.z += dz
+            box.dims = new
+            self.replay_box = box
         for w in self.workers:
             w.slots = self._slots(w)
             w.state, w.cur, w.start = "idle", None, -self.rnd.uniform(0.4, 2.3)  # mid-cycle at frame 1
@@ -368,6 +383,7 @@ class Docks:
                 prc = Parcel(self.ctx["next_k"]())
                 prc.kind, prc.dims, prc.body = "box", tuple(box.dims), ("box_white" if rnd.random() < 0.12 else "box")
                 prc.meta.update(kind="box", dims_m=list(prc.dims), body=prc.body)
+                prc.replay = box is self.replay_box
                 prc.half = pk.half
                 prc.yaw_off = yaw_end
                 prc.station = pk
