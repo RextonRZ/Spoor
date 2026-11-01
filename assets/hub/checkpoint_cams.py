@@ -6,7 +6,8 @@ bay row), the way a hub would mount it, never from the truth or to dodge occlusi
   CHK_UNLOAD  truss drop-pole above door D05's telescopic conveyor, looking out at the door mouth (unload scan SP-IN-N)
   CHK_TUNNEL  on a gantry over the belt just past the tunnel, looking back up the belt at its exit (SP-TUNNEL)
   CHK_CHUTE   ceiling over the chute row, one camera for the bank C10-C12 + reject (vendors: ~1 camera per 3 chutes)
-  CHK_CAGE_W  ceiling above the aisle in front of the west cage bays S11-S13, looking down at the bay fronts (SP-CAGE-W)
+  CHK_CAGE_W  ceiling above the aisle in front of the west cage bays, all three (S11-S13, x 25-32.6) in view with
+              margin (4.2 m over the aisle cut S11 at the frame edge), looking down at the bay fronts (SP-CAGE-W)
   CHK_STORE   on the rack frame above the exception store's gap, looking out at who comes in (SP-STORE-IN)
   CHK_DOCK    side-mounted on dock door D07's frame (the usual dock-door camera mount), across the door and its RFID gate
 Lens: 4 mm on a 1/2.8" sensor (~84 deg horizontal; the wide cameras are 2.8 mm, 103 deg), 2688 x 1520, 10 fps, same
@@ -31,7 +32,7 @@ CAMS = [
      "TUNNEL EXIT", "SP-TUNNEL", "every carton as it comes out of the scan tunnel, in order"),
     ("CHK_CHUTE", "Z06", "truss drop-pole over the chute row", (35.2, 17.6, 4.5), (31.0, 19.9, 1.2),
      "CHUTES C10-C12", "SP-DIV-C12", "diverts off the loop into chutes C10, C11, C12 and the reject chute"),
-    ("CHK_CAGE_W", "Z10", "ceiling truss drop-pole over the cage aisle", (28.6, 28.6, 4.2), (28.6, 30.4, 0.9),
+    ("CHK_CAGE_W", "Z10", "ceiling truss drop-pole over the cage aisle", (28.8, 27.6, 5.0), (28.8, 30.2, 0.9),
      "CAGE BAYS S11-S13", "SP-CAGE-W", "cartons on the west cage shelves, hands taking them, the cage scans"),
     ("CHK_STORE", "Z11", "bracket on the rack frame above the store's gap", (14.3, 33.8, 3.1), (14.6, 31.9, 1.0),
      "EXCEPTION STORE DOOR", "SP-STORE-IN", "who goes into or out of the exception store, and its SCAN IN"),

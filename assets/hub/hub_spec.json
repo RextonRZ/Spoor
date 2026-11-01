@@ -5258,12 +5258,12 @@
    "detail_target": "identify",
    "target_ppm": 250,
    "position_m": [
-    28.6,
-    28.6
+    28.8,
+    27.6
    ],
-   "height_m": 4.2,
+   "height_m": 5.0,
    "heading_deg": 90.0,
-   "tilt_down_deg": 61.4,
+   "tilt_down_deg": 57.6,
    "hfov_deg": 84.0,
    "vfov_deg": 54.0,
    "resolution": [
@@ -5273,12 +5273,12 @@
    "fps": 10,
    "mount": "ceiling truss drop-pole over the cage aisle",
    "aim_m": [
-    28.6,
-    30.4,
+    28.8,
+    30.2,
     0.9
    ],
    "scan_point": "SP-CAGE-W",
-   "aim_ppm": 397,
+   "aim_ppm": 307,
    "clock_domain": "clkd_chk_cage_w",
    "osd_label": "CAGE BAYS S11-S13",
    "realism": {

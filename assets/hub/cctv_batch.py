@@ -69,7 +69,7 @@ def main():
     if not files:
         raise SystemExit(f"no frames in {a.frames}")
     k1, hfov = truth.get("lens_k1", -0.06), cam.get("hfov_deg", 103.0)
-    jobs = [(str(fp), a.first + i, a.t0_offset + (a.first + i - 1) / a.fps, a.seed + int(a.cam[-2:]), k1, hfov,
+    jobs = [(str(fp), a.first + i, a.t0_offset + (a.first + i - 1) / a.fps, a.seed + (int(a.cam[-2:]) if a.cam[-2:].isdigit() else sum(map(ord, a.cam)) % 97), k1, hfov,
              a.cam, label, osd_time(truth, a.t0_offset + (a.first + i - 1) / a.fps), a.width) for i, fp in enumerate(files)]
     probe = _frame(jobs[0])
     h, w = probe.shape[:2]
