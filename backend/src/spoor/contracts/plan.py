@@ -52,6 +52,11 @@ class PlanReadPoint(Record):
     device_parts_m: list[MetresXYZ] = Field(
         default=[], description="Where the scan hardware physically stands (e.g. an RFID portal's two antennas). Empty: "
                                 "no fixed device; a handheld scan in a work area, or a sorter event at a chute mouth")
+    work_area_m: list[list[MetresXY]] = Field(
+        default=[], description="Handheld scans: the floor area(s) where the scan is made, measured from what stands "
+                                "there (a chute's bag frame, a bench, the bay rows, the dock door mouths)")
+    work_height_m: float | None = Field(default=None, ge=0, le=3, description="Height the handheld scan is made at "
+                                        "(the bag rim, the bench top, measured scanner height)")
 
     def position_for(self, event_kind: str) -> MetresXY:
         return self.event_positions.get(event_kind, (self.position_m[0], self.position_m[1]))

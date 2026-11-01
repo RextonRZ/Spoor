@@ -1841,65 +1841,196 @@
    "device_kind": "handheld",
    "zone": "Z01",
    "position_m": [
-    3.5,
+    -0.4,
     11.0,
-    1.1
+    1.15
    ],
    "clock_domain": "clkd_handheld",
    "events": "arrived_facility (bag/parcel unload scan)",
    "visible_by": [
     {
      "camera": "CAM_01",
-     "ppm": 109
-    },
-    {
-     "camera": "CAM_02",
-     "ppm": 83
-    },
-    {
-     "camera": "CAM_04",
-     "ppm": 72
+     "ppm": 75
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [
+    [
+     [
+      -1.8,
+      5.5
+     ],
+     [
+      1.0,
+      5.5
+     ],
+     [
+      1.0,
+      8.5
+     ],
+     [
+      -1.8,
+      8.5
+     ]
+    ],
+    [
+     [
+      -1.8,
+      9.5
+     ],
+     [
+      1.0,
+      9.5
+     ],
+     [
+      1.0,
+      12.5
+     ],
+     [
+      -1.8,
+      12.5
+     ]
+    ],
+    [
+     [
+      -1.8,
+      13.5
+     ],
+     [
+      1.0,
+      13.5
+     ],
+     [
+      1.0,
+      16.5
+     ],
+     [
+      -1.8,
+      16.5
+     ]
+    ]
+   ],
+   "work_height_m": 1.15
   },
   {
    "id": "SP-IN-N",
    "device_kind": "handheld",
    "zone": "Z01",
    "position_m": [
-    3.5,
+    -0.4,
     23.0,
-    1.1
+    1.15
    ],
    "clock_domain": "clkd_handheld",
    "events": "arrived_facility",
    "visible_by": [
     {
      "camera": "CAM_02",
-     "ppm": 135
+     "ppm": 92
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [
+    [
+     [
+      -1.8,
+      17.5
+     ],
+     [
+      1.0,
+      17.5
+     ],
+     [
+      1.0,
+      20.5
+     ],
+     [
+      -1.8,
+      20.5
+     ]
+    ],
+    [
+     [
+      -1.8,
+      21.5
+     ],
+     [
+      1.0,
+      21.5
+     ],
+     [
+      1.0,
+      24.5
+     ],
+     [
+      -1.8,
+      24.5
+     ]
+    ],
+    [
+     [
+      -1.8,
+      25.5
+     ],
+     [
+      1.0,
+      25.5
+     ],
+     [
+      1.0,
+      28.5
+     ],
+     [
+      -1.8,
+      28.5
+     ]
+    ]
+   ],
+   "work_height_m": 1.15
   },
   {
    "id": "SP-BAGOPEN",
    "device_kind": "handheld",
    "zone": "Z02",
    "position_m": [
-    7.5,
-    23.0,
-    1.1
+    6.444,
+    20.59,
+    0.9
    ],
    "clock_domain": "clkd_handheld",
    "events": "container_remove (bag opened)",
    "visible_by": [
     {
+     "camera": "CAM_01",
+     "ppm": 64
+    },
+    {
      "camera": "CAM_03",
-     "ppm": 199
+     "ppm": 165
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [
+    [
+     [
+      5.508,
+      19.348
+     ],
+     [
+      7.381,
+      19.348
+     ],
+     [
+      7.381,
+      21.832
+     ],
+     [
+      5.508,
+      21.832
+     ]
+    ]
+   ],
+   "work_height_m": 0.9
   },
   {
    "id": "SP-INDUCT",
@@ -1922,7 +2053,9 @@
      "ppm": 101
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [],
+   "work_height_m": null
   },
   {
    "id": "SP-INDUCT-B",
@@ -1945,7 +2078,9 @@
      "ppm": 137
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [],
+   "work_height_m": null
   },
   {
    "id": "SP-TUNNEL-B",
@@ -1970,7 +2105,9 @@
      9.2,
      1.7
     ]
-   ]
+   ],
+   "work_area_m": [],
+   "work_height_m": null
   },
   {
    "id": "SP-TUNNEL",
@@ -1999,26 +2136,53 @@
      9.5,
      1.7
     ]
-   ]
+   ],
+   "work_area_m": [],
+   "work_height_m": null
   },
   {
    "id": "SP-OVERSIZE",
    "device_kind": "handheld",
    "zone": "Z09",
    "position_m": [
-    11.0,
-    3.5,
-    1.1
+    10.498,
+    5.896,
+    1.08
    ],
    "clock_domain": "clkd_handheld",
    "events": "inducted (manual, non-conveyable)",
    "visible_by": [
     {
+     "camera": "CAM_01",
+     "ppm": 179
+    },
+    {
      "camera": "CAM_04",
-     "ppm": 142
+     "ppm": 105
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [
+    [
+     [
+      9.345,
+      4.886
+     ],
+     [
+      11.65,
+      4.886
+     ],
+     [
+      11.65,
+      6.905
+     ],
+     [
+      9.345,
+      6.905
+     ]
+    ]
+   ],
+   "work_height_m": 1.08
   },
   {
    "id": "SP-DIV-C01",
@@ -2049,7 +2213,9 @@
      "ppm": 93
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [],
+   "work_height_m": null
   },
   {
    "id": "SP-DIV-C02",
@@ -2080,7 +2246,9 @@
      "ppm": 97
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [],
+   "work_height_m": null
   },
   {
    "id": "SP-DIV-C03",
@@ -2111,7 +2279,9 @@
      "ppm": 101
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [],
+   "work_height_m": null
   },
   {
    "id": "SP-DIV-C04",
@@ -2142,7 +2312,9 @@
      "ppm": 105
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [],
+   "work_height_m": null
   },
   {
    "id": "SP-DIV-C05",
@@ -2181,7 +2353,9 @@
      "ppm": 134
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [],
+   "work_height_m": null
   },
   {
    "id": "SP-DIV-C06",
@@ -2220,7 +2394,9 @@
      "ppm": 124
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [],
+   "work_height_m": null
   },
   {
    "id": "SP-DIV-C07",
@@ -2251,7 +2427,9 @@
      "ppm": 108
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [],
+   "work_height_m": null
   },
   {
    "id": "SP-DIV-C08",
@@ -2286,7 +2464,9 @@
      "ppm": 101
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [],
+   "work_height_m": null
   },
   {
    "id": "SP-DIV-C09",
@@ -2321,7 +2501,9 @@
      "ppm": 95
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [],
+   "work_height_m": null
   },
   {
    "id": "SP-DIV-C10",
@@ -2356,7 +2538,9 @@
      "ppm": 89
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [],
+   "work_height_m": null
   },
   {
    "id": "SP-DIV-C11",
@@ -2383,7 +2567,9 @@
      "ppm": 152
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [],
+   "work_height_m": null
   },
   {
    "id": "SP-DIV-C12",
@@ -2418,7 +2604,9 @@
      "ppm": 80
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [],
+   "work_height_m": null
   },
   {
    "id": "SP-DIV-REJECT",
@@ -2453,7 +2641,9 @@
      "ppm": 76
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [],
+   "work_height_m": null
   },
   {
    "id": "SP-BAG-C01",
@@ -2461,26 +2651,39 @@
    "zone": "Z06",
    "position_m": [
     48.6,
-    21.9,
-    1.1
+    21.25,
+    0.92
    ],
    "clock_domain": "clkd_handheld",
    "events": "container_add (parcel into bag)",
    "visible_by": [
     {
-     "camera": "CAM_07",
-     "ppm": 64
-    },
-    {
-     "camera": "CAM_08",
-     "ppm": 68
-    },
-    {
      "camera": "CAM_10",
-     "ppm": 183
+     "ppm": 157
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [
+    [
+     [
+      48.078,
+      20.578
+     ],
+     [
+      49.122,
+      20.578
+     ],
+     [
+      49.122,
+      21.922
+     ],
+     [
+      48.078,
+      21.922
+     ]
+    ]
+   ],
+   "work_height_m": 0.92
   },
   {
    "id": "SP-BAG-C02",
@@ -2488,26 +2691,39 @@
    "zone": "Z06",
    "position_m": [
     47.1,
-    21.9,
-    1.1
+    21.25,
+    0.92
    ],
    "clock_domain": "clkd_handheld",
    "events": "container_add (parcel into bag)",
    "visible_by": [
     {
-     "camera": "CAM_07",
-     "ppm": 63
-    },
-    {
-     "camera": "CAM_08",
-     "ppm": 69
-    },
-    {
      "camera": "CAM_10",
-     "ppm": 178
+     "ppm": 154
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [
+    [
+     [
+      46.578,
+      20.578
+     ],
+     [
+      47.622,
+      20.578
+     ],
+     [
+      47.622,
+      21.922
+     ],
+     [
+      46.578,
+      21.922
+     ]
+    ]
+   ],
+   "work_height_m": 0.92
   },
   {
    "id": "SP-BAG-C03",
@@ -2515,26 +2731,47 @@
    "zone": "Z06",
    "position_m": [
     45.6,
-    21.9,
-    1.1
+    21.25,
+    0.92
    ],
    "clock_domain": "clkd_handheld",
    "events": "container_add (parcel into bag)",
    "visible_by": [
     {
-     "camera": "CAM_07",
-     "ppm": 63
+     "camera": "CAM_08",
+     "ppm": 68
     },
     {
      "camera": "CAM_10",
-     "ppm": 174
+     "ppm": 151
     },
     {
      "camera": "CAM_11",
-     "ppm": 108
+     "ppm": 103
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [
+    [
+     [
+      45.078,
+      20.578
+     ],
+     [
+      46.122,
+      20.578
+     ],
+     [
+      46.122,
+      21.922
+     ],
+     [
+      45.078,
+      21.922
+     ]
+    ]
+   ],
+   "work_height_m": 0.92
   },
   {
    "id": "SP-BAG-C04",
@@ -2542,30 +2779,43 @@
    "zone": "Z06",
    "position_m": [
     44.1,
-    21.9,
-    1.1
+    21.25,
+    0.92
    ],
    "clock_domain": "clkd_handheld",
    "events": "container_add (parcel into bag)",
    "visible_by": [
     {
-     "camera": "CAM_06",
-     "ppm": 72
-    },
-    {
-     "camera": "CAM_07",
-     "ppm": 63
-    },
-    {
      "camera": "CAM_10",
-     "ppm": 170
+     "ppm": 148
     },
     {
      "camera": "CAM_11",
-     "ppm": 113
+     "ppm": 107
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [
+    [
+     [
+      43.578,
+      20.578
+     ],
+     [
+      44.622,
+      20.578
+     ],
+     [
+      44.622,
+      21.922
+     ],
+     [
+      43.578,
+      21.922
+     ]
+    ]
+   ],
+   "work_height_m": 0.92
   },
   {
    "id": "SP-BAG-C05",
@@ -2573,34 +2823,43 @@
    "zone": "Z06",
    "position_m": [
     42.6,
-    21.9,
-    1.1
+    21.25,
+    0.92
    ],
    "clock_domain": "clkd_handheld",
    "events": "container_add (parcel into bag)",
    "visible_by": [
     {
-     "camera": "CAM_06",
-     "ppm": 72
-    },
-    {
-     "camera": "CAM_07",
-     "ppm": 62
-    },
-    {
      "camera": "CAM_10",
-     "ppm": 166
-    },
-    {
-     "camera": "CAM_11",
-     "ppm": 118
+     "ppm": 145
     },
     {
      "camera": "CAM_13",
-     "ppm": 143
+     "ppm": 127
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [
+    [
+     [
+      42.078,
+      20.578
+     ],
+     [
+      43.122,
+      20.578
+     ],
+     [
+      43.122,
+      21.922
+     ],
+     [
+      42.078,
+      21.922
+     ]
+    ]
+   ],
+   "work_height_m": 0.92
   },
   {
    "id": "SP-BAG-C06",
@@ -2608,34 +2867,43 @@
    "zone": "Z06",
    "position_m": [
     41.1,
-    21.9,
-    1.1
+    21.25,
+    0.92
    ],
    "clock_domain": "clkd_handheld",
    "events": "container_add (parcel into bag)",
    "visible_by": [
     {
-     "camera": "CAM_07",
-     "ppm": 62
-    },
-    {
-     "camera": "CAM_08",
-     "ppm": 70
-    },
-    {
      "camera": "CAM_10",
-     "ppm": 162
-    },
-    {
-     "camera": "CAM_11",
-     "ppm": 124
+     "ppm": 142
     },
     {
      "camera": "CAM_13",
-     "ppm": 131
+     "ppm": 117
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [
+    [
+     [
+      40.578,
+      20.578
+     ],
+     [
+      41.622,
+      20.578
+     ],
+     [
+      41.622,
+      21.922
+     ],
+     [
+      40.578,
+      21.922
+     ]
+    ]
+   ],
+   "work_height_m": 0.92
   },
   {
    "id": "SP-BAG-C07",
@@ -2643,30 +2911,47 @@
    "zone": "Z06",
    "position_m": [
     38.3,
-    21.9,
-    1.1
+    21.25,
+    0.92
    ],
    "clock_domain": "clkd_handheld",
    "events": "container_add (parcel into bag)",
    "visible_by": [
     {
-     "camera": "CAM_06",
-     "ppm": 71
-    },
-    {
      "camera": "CAM_10",
-     "ppm": 155
+     "ppm": 137
     },
     {
      "camera": "CAM_11",
-     "ppm": 136
+     "ppm": 124
     },
     {
      "camera": "CAM_13",
-     "ppm": 113
+     "ppm": 103
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [
+    [
+     [
+      37.778,
+      20.578
+     ],
+     [
+      38.822,
+      20.578
+     ],
+     [
+      38.822,
+      21.922
+     ],
+     [
+      37.778,
+      21.922
+     ]
+    ]
+   ],
+   "work_height_m": 0.92
   },
   {
    "id": "SP-BAG-C08",
@@ -2674,30 +2959,47 @@
    "zone": "Z06",
    "position_m": [
     36.8,
-    21.9,
-    1.1
+    21.25,
+    0.92
    ],
    "clock_domain": "clkd_handheld",
    "events": "container_add (parcel into bag)",
    "visible_by": [
     {
-     "camera": "CAM_08",
-     "ppm": 71
-    },
-    {
      "camera": "CAM_10",
-     "ppm": 152
+     "ppm": 134
     },
     {
      "camera": "CAM_11",
-     "ppm": 143
+     "ppm": 125
     },
     {
      "camera": "CAM_13",
-     "ppm": 106
+     "ppm": 96
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [
+    [
+     [
+      36.278,
+      20.578
+     ],
+     [
+      37.322,
+      20.578
+     ],
+     [
+      37.322,
+      21.922
+     ],
+     [
+      36.278,
+      21.922
+     ]
+    ]
+   ],
+   "work_height_m": 0.92
   },
   {
    "id": "SP-BAG-C09",
@@ -2705,30 +3007,51 @@
    "zone": "Z06",
    "position_m": [
     35.3,
-    21.9,
-    1.1
+    21.25,
+    0.92
    ],
    "clock_domain": "clkd_handheld",
    "events": "container_add (parcel into bag)",
    "visible_by": [
     {
-     "camera": "CAM_08",
-     "ppm": 72
+     "camera": "CAM_09",
+     "ppm": 185
     },
     {
-     "camera": "CAM_09",
-     "ppm": 199
+     "camera": "CAM_10",
+     "ppm": 139
     },
     {
      "camera": "CAM_11",
-     "ppm": 151
+     "ppm": 132
     },
     {
      "camera": "CAM_13",
-     "ppm": 99
+     "ppm": 91
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [
+    [
+     [
+      34.778,
+      20.578
+     ],
+     [
+      35.822,
+      20.578
+     ],
+     [
+      35.822,
+      21.922
+     ],
+     [
+      34.778,
+      21.922
+     ]
+    ]
+   ],
+   "work_height_m": 0.92
   },
   {
    "id": "SP-BAG-C10",
@@ -2736,26 +3059,43 @@
    "zone": "Z06",
    "position_m": [
     33.8,
-    21.9,
-    1.1
+    21.25,
+    0.92
    ],
    "clock_domain": "clkd_handheld",
    "events": "container_add (parcel into bag)",
    "visible_by": [
     {
-     "camera": "CAM_06",
-     "ppm": 69
-    },
-    {
      "camera": "CAM_09",
-     "ppm": 224
+     "ppm": 204
     },
     {
      "camera": "CAM_11",
-     "ppm": 161
+     "ppm": 139
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [
+    [
+     [
+      33.278,
+      20.578
+     ],
+     [
+      34.322,
+      20.578
+     ],
+     [
+      34.322,
+      21.922
+     ],
+     [
+      33.278,
+      21.922
+     ]
+    ]
+   ],
+   "work_height_m": 0.92
   },
   {
    "id": "SP-BAG-C11",
@@ -2763,34 +3103,51 @@
    "zone": "Z06",
    "position_m": [
     32.3,
-    21.9,
-    1.1
+    21.25,
+    0.92
    ],
    "clock_domain": "clkd_handheld",
    "events": "container_add (parcel into bag)",
    "visible_by": [
     {
-     "camera": "CAM_06",
-     "ppm": 69
-    },
-    {
      "camera": "CAM_09",
-     "ppm": 257
+     "ppm": 212
     },
     {
      "camera": "CAM_11",
-     "ppm": 171
+     "ppm": 146
     },
     {
      "camera": "CAM_12",
-     "ppm": 219
+     "ppm": 184
     },
     {
      "camera": "CAM_13",
-     "ppm": 88
+     "ppm": 81
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [
+    [
+     [
+      31.778,
+      20.578
+     ],
+     [
+      32.822,
+      20.578
+     ],
+     [
+      32.822,
+      21.922
+     ],
+     [
+      31.778,
+      21.922
+     ]
+    ]
+   ],
+   "work_height_m": 0.92
   },
   {
    "id": "SP-BAG-C12",
@@ -2798,61 +3155,95 @@
    "zone": "Z06",
    "position_m": [
     30.8,
-    21.9,
-    1.1
+    21.25,
+    0.92
    ],
    "clock_domain": "clkd_handheld",
    "events": "container_add (parcel into bag)",
    "visible_by": [
     {
-     "camera": "CAM_06",
-     "ppm": 68
-    },
-    {
      "camera": "CAM_09",
-     "ppm": 301
+     "ppm": 241
     },
     {
      "camera": "CAM_11",
-     "ppm": 183
+     "ppm": 155
     },
     {
      "camera": "CAM_12",
-     "ppm": 227
+     "ppm": 190
     },
     {
      "camera": "CAM_13",
-     "ppm": 83
+     "ppm": 77
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [
+    [
+     [
+      30.278,
+      20.578
+     ],
+     [
+      31.322,
+      20.578
+     ],
+     [
+      31.322,
+      21.922
+     ],
+     [
+      30.278,
+      21.922
+     ]
+    ]
+   ],
+   "work_height_m": 0.92
   },
   {
    "id": "SP-REWORK",
    "device_kind": "handheld",
    "zone": "Z08",
    "position_m": [
-    25.5,
-    22.5,
-    1.1
+    25.8,
+    21.6,
+    0.9
    ],
    "clock_domain": "clkd_handheld",
    "events": "manual_encoded / relabeled / damage_hold",
    "visible_by": [
     {
-     "camera": "CAM_06",
-     "ppm": 65
-    },
-    {
      "camera": "CAM_12",
-     "ppm": 285
+     "ppm": 199
     },
     {
      "camera": "CAM_13",
-     "ppm": 71
+     "ppm": 63
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [
+    [
+     [
+      23.6,
+      20.6
+     ],
+     [
+      28.0,
+      20.6
+     ],
+     [
+      28.0,
+      22.6
+     ],
+     [
+      23.6,
+      22.6
+     ]
+    ]
+   ],
+   "work_height_m": 0.9
   },
   {
    "id": "SP-STORE-IN",
@@ -2877,45 +3268,125 @@
      32.92,
      1.183
     ]
-   ]
+   ],
+   "work_area_m": [],
+   "work_height_m": null
   },
   {
    "id": "SP-CAGE-W",
    "device_kind": "handheld",
    "zone": "Z10",
    "position_m": [
-    31.0,
-    28.0,
-    1.1
+    31.5,
+    28.85,
+    0.66
    ],
    "clock_domain": "clkd_handheld",
    "events": "container_add (bag into cage)",
    "visible_by": [
     {
      "camera": "CAM_13",
-     "ppm": 107
+     "ppm": 77
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [
+    [
+     [
+      25.0,
+      26.0
+     ],
+     [
+      38.0,
+      26.0
+     ],
+     [
+      38.0,
+      28.2
+     ],
+     [
+      25.0,
+      28.2
+     ]
+    ],
+    [
+     [
+      25.0,
+      29.5
+     ],
+     [
+      38.0,
+      29.5
+     ],
+     [
+      38.0,
+      31.7
+     ],
+     [
+      25.0,
+      31.7
+     ]
+    ]
+   ],
+   "work_height_m": 0.66
   },
   {
    "id": "SP-CAGE-E",
    "device_kind": "handheld",
    "zone": "Z10",
    "position_m": [
-    46.0,
-    28.0,
-    1.1
+    45.0,
+    28.85,
+    0.66
    ],
    "clock_domain": "clkd_handheld",
    "events": "container_add (bag into cage)",
    "visible_by": [
     {
      "camera": "CAM_14",
-     "ppm": 95
+     "ppm": 63
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [
+    [
+     [
+      38.5,
+      26.0
+     ],
+     [
+      51.5,
+      26.0
+     ],
+     [
+      51.5,
+      28.2
+     ],
+     [
+      38.5,
+      28.2
+     ]
+    ],
+    [
+     [
+      38.5,
+      29.5
+     ],
+     [
+      51.5,
+      29.5
+     ],
+     [
+      51.5,
+      31.7
+     ],
+     [
+      38.5,
+      31.7
+     ]
+    ]
+   ],
+   "work_height_m": 0.66
   },
   {
    "id": "SP-LOAD-D07",
@@ -2923,22 +3394,43 @@
    "zone": "Z12",
    "position_m": [
     29.0,
-    37.5,
-    1.1
+    37.7,
+    1.0
    ],
    "clock_domain": "clkd_handheld",
    "events": "container_loaded (cage onto truck)",
    "visible_by": [
     {
      "camera": "CAM_15",
-     "ppm": 122
+     "ppm": 101
     },
     {
      "camera": "CAM_19",
-     "ppm": 76
+     "ppm": 67
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [
+    [
+     [
+      27.5,
+      36.4
+     ],
+     [
+      30.5,
+      36.4
+     ],
+     [
+      30.5,
+      39.0
+     ],
+     [
+      27.5,
+      39.0
+     ]
+    ]
+   ],
+   "work_height_m": 1.0
   },
   {
    "id": "SP-LOAD-D08",
@@ -2946,26 +3438,47 @@
    "zone": "Z12",
    "position_m": [
     33.0,
-    37.5,
-    1.1
+    37.7,
+    1.0
    ],
    "clock_domain": "clkd_handheld",
    "events": "container_loaded (cage onto truck)",
    "visible_by": [
     {
      "camera": "CAM_15",
-     "ppm": 95
+     "ppm": 82
     },
     {
      "camera": "CAM_16",
-     "ppm": 67
+     "ppm": 65
     },
     {
      "camera": "CAM_19",
-     "ppm": 69
+     "ppm": 66
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [
+    [
+     [
+      31.5,
+      36.4
+     ],
+     [
+      34.5,
+      36.4
+     ],
+     [
+      34.5,
+      39.0
+     ],
+     [
+      31.5,
+      39.0
+     ]
+    ]
+   ],
+   "work_height_m": 1.0
   },
   {
    "id": "SP-LOAD-D09",
@@ -2973,26 +3486,47 @@
    "zone": "Z12",
    "position_m": [
     37.0,
-    37.5,
-    1.1
+    37.7,
+    1.0
    ],
    "clock_domain": "clkd_handheld",
    "events": "container_loaded (cage onto truck)",
    "visible_by": [
     {
      "camera": "CAM_15",
-     "ppm": 78
+     "ppm": 69
     },
     {
      "camera": "CAM_16",
-     "ppm": 75
+     "ppm": 74
     },
     {
      "camera": "CAM_19",
-     "ppm": 63
+     "ppm": 62
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [
+    [
+     [
+      35.5,
+      36.4
+     ],
+     [
+      38.5,
+      36.4
+     ],
+     [
+      38.5,
+      39.0
+     ],
+     [
+      35.5,
+      39.0
+     ]
+    ]
+   ],
+   "work_height_m": 1.0
   },
   {
    "id": "SP-LOAD-D10",
@@ -3000,22 +3534,43 @@
    "zone": "Z12",
    "position_m": [
     41.0,
-    37.5,
-    1.1
+    37.7,
+    1.0
    ],
    "clock_domain": "clkd_handheld",
    "events": "container_loaded (cage onto truck)",
    "visible_by": [
     {
      "camera": "CAM_15",
-     "ppm": 66
+     "ppm": 65
     },
     {
      "camera": "CAM_16",
-     "ppm": 85
+     "ppm": 83
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [
+    [
+     [
+      39.5,
+      36.4
+     ],
+     [
+      42.5,
+      36.4
+     ],
+     [
+      42.5,
+      39.0
+     ],
+     [
+      39.5,
+      39.0
+     ]
+    ]
+   ],
+   "work_height_m": 1.0
   },
   {
    "id": "SP-LOAD-D11",
@@ -3023,8 +3578,8 @@
    "zone": "Z12",
    "position_m": [
     45.0,
-    37.5,
-    1.1
+    37.7,
+    1.0
    ],
    "clock_domain": "clkd_handheld",
    "events": "container_loaded (cage onto truck)",
@@ -3035,10 +3590,31 @@
     },
     {
      "camera": "CAM_16",
-     "ppm": 99
+     "ppm": 86
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [
+    [
+     [
+      43.5,
+      36.4
+     ],
+     [
+      46.5,
+      36.4
+     ],
+     [
+      46.5,
+      39.0
+     ],
+     [
+      43.5,
+      39.0
+     ]
+    ]
+   ],
+   "work_height_m": 1.0
   },
   {
    "id": "SP-LOAD-D12",
@@ -3046,22 +3622,43 @@
    "zone": "Z12",
    "position_m": [
     49.0,
-    37.5,
-    1.1
+    37.7,
+    1.0
    ],
    "clock_domain": "clkd_handheld",
    "events": "container_loaded (cage onto truck)",
    "visible_by": [
     {
      "camera": "CAM_14",
-     "ppm": 71
+     "ppm": 64
     },
     {
      "camera": "CAM_16",
-     "ppm": 119
+     "ppm": 100
     }
    ],
-   "device_parts_m": []
+   "device_parts_m": [],
+   "work_area_m": [
+    [
+     [
+      47.5,
+      36.4
+     ],
+     [
+      50.5,
+      36.4
+     ],
+     [
+      50.5,
+      39.0
+     ],
+     [
+      47.5,
+      39.0
+     ]
+    ]
+   ],
+   "work_height_m": 1.0
   },
   {
    "id": "SP-RFID-D07",
@@ -3077,11 +3674,11 @@
    "visible_by": [
     {
      "camera": "CAM_15",
-     "ppm": 126
+     "ppm": 101
     },
     {
      "camera": "CAM_19",
-     "ppm": 74
+     "ppm": 68
     }
    ],
    "device_parts_m": [
@@ -3095,7 +3692,9 @@
      39.085,
      1.5
     ]
-   ]
+   ],
+   "work_area_m": [],
+   "work_height_m": null
   },
   {
    "id": "SP-RFID-D08",
@@ -3111,7 +3710,7 @@
    "visible_by": [
     {
      "camera": "CAM_15",
-     "ppm": 98
+     "ppm": 82
     },
     {
      "camera": "CAM_16",
@@ -3133,7 +3732,9 @@
      39.085,
      1.5
     ]
-   ]
+   ],
+   "work_area_m": [],
+   "work_height_m": null
   },
   {
    "id": "SP-RFID-D09",
@@ -3149,11 +3750,11 @@
    "visible_by": [
     {
      "camera": "CAM_15",
-     "ppm": 80
+     "ppm": 69
     },
     {
      "camera": "CAM_16",
-     "ppm": 75
+     "ppm": 68
     }
    ],
    "device_parts_m": [
@@ -3167,7 +3768,9 @@
      39.085,
      1.5
     ]
-   ]
+   ],
+   "work_area_m": [],
+   "work_height_m": null
   },
   {
    "id": "SP-RFID-D10",
@@ -3187,7 +3790,7 @@
     },
     {
      "camera": "CAM_16",
-     "ppm": 85
+     "ppm": 76
     }
    ],
    "device_parts_m": [
@@ -3201,7 +3804,9 @@
      39.085,
      1.5
     ]
-   ]
+   ],
+   "work_area_m": [],
+   "work_height_m": null
   },
   {
    "id": "SP-RFID-D11",
@@ -3221,7 +3826,7 @@
     },
     {
      "camera": "CAM_16",
-     "ppm": 99
+     "ppm": 87
     }
    ],
    "device_parts_m": [
@@ -3235,7 +3840,9 @@
      39.085,
      1.5
     ]
-   ]
+   ],
+   "work_area_m": [],
+   "work_height_m": null
   },
   {
    "id": "SP-RFID-D12",
@@ -3251,11 +3858,11 @@
    "visible_by": [
     {
      "camera": "CAM_14",
-     "ppm": 72
+     "ppm": 65
     },
     {
      "camera": "CAM_16",
-     "ppm": 119
+     "ppm": 102
     }
    ],
    "device_parts_m": [
@@ -3269,7 +3876,9 @@
      39.085,
      1.5
     ]
-   ]
+   ],
+   "work_area_m": [],
+   "work_height_m": null
   }
  ],
  "cameras": [

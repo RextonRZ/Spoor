@@ -98,7 +98,8 @@ def site_plan(spec: dict, zone_polys) -> dict:
         read_points.append({"scan_point_id": sid, "device_kind": sp["device_kind"], "position_m": sp["position_m"],
                             "zone_id": f"zone_{sp['zone']}", "event_positions": ev,
                             "visible_by": [f"cam_{v['camera']}" for v in sp.get("visible_by", [])],
-                            "device_parts_m": sp.get("device_parts_m", [])})  # fmt: skip
+                            "device_parts_m": sp.get("device_parts_m", []),
+                            "work_area_m": sp.get("work_area_m", []), "work_height_m": sp.get("work_height_m")})  # fmt: skip
 
     doors = [{"door_id": d["id"], "kind": d["kind"], "centre_m": d["centre"], "width_m": d["width"],
               "wall": d["wall"], "exit": True} for d in b["doors"]]  # fmt: skip
