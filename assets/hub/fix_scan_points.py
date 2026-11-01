@@ -181,7 +181,7 @@ def check_work_areas(points):
     sc.frame_set(1)
 
 
-cams = sorted((o for o in bpy.data.objects if o.type == "CAMERA" and o.name.startswith("CAM_")), key=lambda o: o.name)
+cams = sorted((o for o in bpy.data.objects if o.type == "CAMERA" and o.name.startswith(("CAM_", "CHK_"))), key=lambda o: o.name)
 for spec_name in ("hub_spec_lineAb.json", "hub_spec.json"):
     path = HUB / spec_name
     spec = json.loads(path.read_text(encoding="utf-8"))

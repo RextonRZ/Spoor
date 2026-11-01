@@ -53,8 +53,10 @@ SAME_PLACE_M = 2.5  # at the chosen shift the two cameras must place them this c
 DEBUG = bool(__import__("os").environ.get("SPOOR_DEBUG"))
 REFIT = set(filter(None, __import__("os").environ.get("SPOOR_REFIT", "").split(",")))  # cameras to fit again
 # camera -> fitted camera whose view overlaps it, in order (a chain: CAM_13 from CAM_11's bagging area, then CAM_19)
-OVERLAP = [("cam_CAM_13", "cam_CAM_11"), ("cam_CAM_19", "cam_CAM_13")]
-CAMERAS = ("cam_CAM_04", "cam_CAM_05", "cam_CAM_09", "cam_CAM_10", "cam_CAM_11", "cam_CAM_13")  # S2's trail + sorter
+OVERLAP = [("cam_CAM_13", "cam_CAM_11"), ("cam_CAM_19", "cam_CAM_13"),
+           ("cam_CHK_CAGE_W", "cam_CAM_13"), ("cam_CHK_DOCK", "cam_CAM_19")]  # checkpoint cameras (six checkpoints)
+CAMERAS = ("cam_CAM_04", "cam_CAM_05", "cam_CAM_09", "cam_CAM_10", "cam_CAM_11", "cam_CAM_13",  # S2's trail + sorter
+           "cam_CAM_01", "cam_CHK_TUNNEL")  # + the W1 tunnel / carrier cameras (six checkpoints)
 
 env = {k.strip(): v.strip() for k, v in (line.split("=", 1) for line in (FRONT / ".env.local").read_text(encoding="utf-8")
                                          .splitlines() if "=" in line and not line.startswith("#"))}
@@ -70,7 +72,10 @@ if not any(s.method == "reference clock of the timeline" for s in svc.store.find
 
 
 def original(cam: str) -> MediaAsset:
-    return next(m for m in svc.store.find(MediaAsset, camera_id=cam) if m.kind.value == "original")
+    """The camera's longest valid clip (a camera may hold several windows; purged uploads never count)."""
+    ms = [m for m in svc.store.find(MediaAsset, camera_id=cam) if m.kind.value == "original" and not svc.store.is_invalid(m.media_id)]
+    return max(ms, key=lambda m: len(svc.store.find(CameraCoverage, media_id=m.media_id)) and
+               (lambda c: (c.end_utc - c.start_utc).total_seconds())(svc.store.find(CameraCoverage, media_id=m.media_id)[-1]))
 
 
 def cam_time(o: RawObservation) -> datetime:

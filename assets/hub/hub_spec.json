@@ -1958,6 +1958,10 @@
     {
      "camera": "CAM_02",
      "ppm": 92
+    },
+    {
+     "camera": "CHK_UNLOAD",
+     "ppm": 223
     }
    ],
    "device_parts_m": [],
@@ -2038,6 +2042,10 @@
     {
      "camera": "CAM_03",
      "ppm": 165
+    },
+    {
+     "camera": "CHK_TUNNEL",
+     "ppm": 86
     }
    ],
    "device_parts_m": [],
@@ -2082,6 +2090,10 @@
     {
      "camera": "CAM_04",
      "ppm": 101
+    },
+    {
+     "camera": "CHK_TUNNEL",
+     "ppm": 113
     }
    ],
    "device_parts_m": [],
@@ -2159,6 +2171,10 @@
     {
      "camera": "CAM_06",
      "ppm": 153
+    },
+    {
+     "camera": "CHK_TUNNEL",
+     "ppm": 407
     }
    ],
    "device_parts_m": [
@@ -2567,6 +2583,10 @@
     {
      "camera": "CAM_13",
      "ppm": 89
+    },
+    {
+     "camera": "CHK_CHUTE",
+     "ppm": 430
     }
    ],
    "device_parts_m": [],
@@ -2596,6 +2616,10 @@
     {
      "camera": "CAM_11",
      "ppm": 152
+    },
+    {
+     "camera": "CHK_CHUTE",
+     "ppm": 328
     }
    ],
    "device_parts_m": [],
@@ -2633,6 +2657,10 @@
     {
      "camera": "CAM_13",
      "ppm": 80
+    },
+    {
+     "camera": "CHK_CHUTE",
+     "ppm": 265
     }
    ],
    "device_parts_m": [],
@@ -2670,6 +2698,10 @@
     {
      "camera": "CAM_13",
      "ppm": 76
+    },
+    {
+     "camera": "CHK_CHUTE",
+     "ppm": 222
     }
    ],
    "device_parts_m": [],
@@ -3103,6 +3135,10 @@
     {
      "camera": "CAM_11",
      "ppm": 139
+    },
+    {
+     "camera": "CHK_CHUTE",
+     "ppm": 291
     }
    ],
    "device_parts_m": [],
@@ -3155,6 +3191,10 @@
     {
      "camera": "CAM_13",
      "ppm": 81
+    },
+    {
+     "camera": "CHK_CHUTE",
+     "ppm": 240
     }
    ],
    "device_parts_m": [],
@@ -3251,6 +3291,10 @@
     {
      "camera": "CAM_13",
      "ppm": 63
+    },
+    {
+     "camera": "CHK_CHUTE",
+     "ppm": 120
     }
    ],
    "device_parts_m": [],
@@ -3291,6 +3335,10 @@
     {
      "camera": "CAM_19",
      "ppm": 192
+    },
+    {
+     "camera": "CHK_STORE",
+     "ppm": 444
     }
    ],
    "device_parts_m": [
@@ -3438,6 +3486,10 @@
     {
      "camera": "CAM_19",
      "ppm": 67
+    },
+    {
+     "camera": "CHK_DOCK",
+     "ppm": 297
     }
    ],
    "device_parts_m": [],
@@ -3482,10 +3534,6 @@
     {
      "camera": "CAM_16",
      "ppm": 65
-    },
-    {
-     "camera": "CAM_19",
-     "ppm": 66
     }
    ],
    "device_parts_m": [],
@@ -3530,10 +3578,6 @@
     {
      "camera": "CAM_16",
      "ppm": 74
-    },
-    {
-     "camera": "CAM_19",
-     "ppm": 62
     }
    ],
    "device_parts_m": [],
@@ -3710,6 +3754,10 @@
     {
      "camera": "CAM_19",
      "ppm": 68
+    },
+    {
+     "camera": "CHK_DOCK",
+     "ppm": 402
     }
    ],
    "device_parts_m": [
