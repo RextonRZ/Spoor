@@ -5,6 +5,7 @@
  * document, printable), Evidence video (the reel) and Share report. One demo user, so there is no approval step in the
  * UI; a shared report stays marked "not reviewer-approved" in the document, because the backend's four-eyes rule is kept.
  */
+import { conflictWords, type Conflict } from "@/lib/conflict";
 import Link from "next/link";
 import { use, useState } from "react";
 import { API_BASE, api, signedUrl, useResource } from "@/lib/api";
@@ -18,7 +19,7 @@ import "./report.css";
 
 interface CaseState { case: { target_description: string; complaint?: string | null; created_at: string } }
 interface Possible { objects: { places: { area_id: string; name: string; zone_id: string | null; possible_share: number; centroid_xy: XY }[] }[] }
-interface Conflicts { objects: { conflicts: { divergence_t: string; statement: string }[] }[] }
+interface Conflicts { objects: { conflicts: Conflict[] }[] }
 interface SearchView { found: { area_id: string; name: string; by: string; at: string } | null }
 const low = (t: string) => t.charAt(0).toLowerCase() + t.slice(1); // keeps "C12"
 interface Moment { key: string; t: string | null; text: string; who: string; xy: XY | null; frame?: string; cam?: string | null; tone?: "bad" | "ok" }
@@ -49,7 +50,7 @@ export default function ReportPage({ params }: { params: Promise<{ caseId: strin
   const head = found ? `Found in the ${foundPlace}.` : last ? `Lost track after ${placeOf(last.event_kind, last.station_id)} at ${hms(last.t)}.` : "No scans of this parcel at this hub.";
   const story = last ? [
     `The last scan was ${low(momentLabel(last.event_kind, last.station_id))} at ${hms(last.t)}.`,
-    conflict ? "The sorter's own times for this parcel don't fit the belt, so one of its records is wrong." : "",
+    conflict ? conflictWords(conflict).headline : "",
     found ? `Floor staff found it at ${hhmm(found.at)}.` : places.length ? `It could be in ${places.length} places; the most likely is the ${shortPlace(places[0], ZONE_NAMES)}.` : "",
   ].filter(Boolean).join(" ") : "";
 
@@ -58,7 +59,7 @@ export default function ReportPage({ params }: { params: Promise<{ caseId: strin
     ...scans.slice(-2).map((s) => ({ key: s.scan_event_id, t: s.t, text: low(momentLabel(s.event_kind, s.station_id)),
       who: "scan record", xy: s.xy, cam: scanPoint(s.station_id ?? s.device_id)?.visible_by[0] ?? null,
       frame: s.scan_event_id === lc?.evidence_id ? lc?.frames?.[0]?.frame_url : undefined })),
-    ...(conflict ? [{ key: "conflict", t: conflict.divergence_t, text: "the sorter's times don't fit the belt", who: "records check", xy: null, tone: "bad" as const }] : []),
+    ...(conflict ? [{ key: "conflict", t: conflict.divergence_t, text: conflictWords(conflict).short, who: "records check", xy: null, tone: "bad" as const }] : []),
     found ? { key: "found", t: found.at, text: `found in the ${foundPlace}`, who: found.by, xy: null, tone: "ok" as const }
       : { key: "search", t: null, text: places.length ? `go look: ${shortPlace(places[0], ZONE_NAMES)}` : "no place left to search", who: "floor search", xy: places[0]?.centroid_xy ?? null },
   ].slice(0, 4).sort((x, y) => (x.t ?? "9").localeCompare(y.t ?? "9")); // in time order; "next" last
@@ -131,7 +132,7 @@ export default function ReportPage({ params }: { params: Promise<{ caseId: strin
           {conflict && (
             <>
               <h2 className="rp-h2">What to fix</h2>
-              <p className="rp-p">The sorter&apos;s records for this parcel don&apos;t add up: {conflict.statement.replace(/: the records conflict$/, "")}. Ask the sorter team to check this parcel&apos;s tracking between induction and the chute.</p>
+              <p className="rp-p">{conflictWords(conflict).body}{conflict.kind === "custody" ? " The scan records and the cameras disagree about where it was." : " Ask the sorter team to check this parcel\u2019s tracking between induction and the chute."}</p>
             </>
           )}
           <h2 className="rp-h2">For the customer</h2>

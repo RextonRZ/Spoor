@@ -12,6 +12,7 @@ import { hms, lastScanSentence } from "@/lib/words";
 import hub from "@/data/hub.generated.json";
 import { ZONE_NAMES } from "@/lib/zones";
 import { caseAnswer, type Answer } from "@/lib/answer";
+import type { Conflict } from "@/lib/conflict";
 import { buildCheckpoints, type CaseRecord, type Checkpoint } from "@/lib/checkpoints";
 import type { JourneyScan } from "@/lib/journey";
 
@@ -170,7 +171,7 @@ export async function loadStory(): Promise<Story> {
       const [m, pl, cf, sr] = await Promise.all([
         read<Missing>("missing-moment"),
         read<Possible>("possible-locations"),
-        read<{ objects: { conflicts: { statement: string }[] }[] }>("conflicts"),
+        read<{ objects: { conflicts: Conflict[] }[] }>("conflicts"),
         read<SearchView>("search-tasks").catch(() => ({ found: null })),
       ]);
       const next = m.objects[0]?.expected_next ?? [];

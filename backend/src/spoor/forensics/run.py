@@ -234,6 +234,8 @@ def _keyed(r: _Run, store: EvidenceStore, case_id: str, models: dict[str, Any], 
     """The real run: Muse Wonder's checked plan, the agents' tool calls as they finish, the verifier's verdicts, the
     answer. Every sentence here is Spoor's own, built from tool results; agents' words appear only quoted as ideas."""
     plain = models.get("plain") or (lambda x: x)
+    tri = models.get("triage_flags") or {}
+    swept = len(tri.get("cameras") or [])  # Glimmer looked at every one of these on site
     col = {c["camera_id"]: c["role"] if c["role"] in COLUMNS else "on_foot_next" for c in cands}
     place = {c["camera_id"]: _cam_place(c.get("camera_name", "")) for c in cands}
     tokens = [0, 0]
@@ -279,6 +281,9 @@ def _keyed(r: _Run, store: EvidenceStore, case_id: str, models: dict[str, Any], 
         if ev["role"] == "hypothesis" and tool != "verify_claim" and tool not in ("door_crossings", "carrier_check"):
             return  # the hypothesis agent reading timelines: its ideas are reported below, with their verdicts
         cid = a.get("camera_id") or media_cam(a.get("media_id"))
+        for c in [cid, *(x.get("camera_id") for x in res.get("clips") or [] if isinstance(x, dict))]:
+            if c and ok:
+                r.checked.add(c)  # examined closely: any camera an agent's tool used, fresh or from earlier SAM results
         err = res.get("error") or (res.get("reason") if res.get("status") in ("analysis_unavailable", "unavailable") else None)
         if tool == "run_sam":
             who = "people" if (a.get("concept") or "").lower() in ("person", "people") else "the parcel"
@@ -309,7 +314,8 @@ def _keyed(r: _Run, store: EvidenceStore, case_id: str, models: dict[str, Any], 
         elif tool == "footage_for":
             clips = res.get("clips") or []
             said = f"Found {len(clips)} recording{'s' if len(clips) != 1 else ''} for the window." if clips                 else "No recording covers that window."  # fmt: skip
-            r.step("evidence", "footage_for", "done", f"{_cam(cid)}: {said[0].lower()}{said[1:]}" if cid else said)
+            r.step("evidence", "footage_for", "done", f"{_cam(cid)}: {said[0].lower()}{said[1:]}" if cid else said,
+                   camera_id=cid if clips else None)
         elif tool == "verify_claim":
             v = (res.get("verdict") or "").lower()
             r.step("hypothesis", "verify_claim", "done", f"Tested an idea with the verifier: {VERDICT.get(v, v or 'no verdict')}.")
@@ -346,9 +352,10 @@ def _keyed(r: _Run, store: EvidenceStore, case_id: str, models: dict[str, Any], 
         r.step("reporter", "create_search_task", "done", f"{len(places)} place{'s' if len(places) != 1 else ''} it could be; a person is asked to look.")
     took = round(time.perf_counter() - r.t0, 1)
     ev = {"type": "run_end", "seq": r.seq + 1, "t_s": took, "cost_usd": round(r.cost, 4), "cameras_checked": len(r.checked),
-          "places": len(places), "request_id": r.request_id, "headline": head, "tokens": tokens,
+          "places": len(places), "request_id": r.request_id, "headline": head, "tokens": tokens, "swept": swept,
           "text": f"Took {took:.0f} s. Muse Wonder US${r.cost:.2f}; Spark Open {round(sum(tokens) / 1000)}k tokens on Baseten. "
-                  f"{len(r.checked)} camera{'s' if len(r.checked) != 1 else ''} checked of 19."}  # fmt: skip
+                  + (f"{swept} wide cameras swept on site, " if swept else "")
+                  + f"{len(r.checked)} examined closely."}  # fmt: skip
     return r.end(ev)
 
 

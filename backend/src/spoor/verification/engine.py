@@ -515,6 +515,11 @@ class Verifier:
                                               key=lambda o: o.source_frame.pts_ms)
                               if o.bbox_xyxy_px and o.source_frame.pts_ms <= obs.source_frame.pts_ms] if obs.track_id else [],
                  "box_px": obs.bbox_xyxy_px, "frame_wh_px": obs.frame_wh_px,
+                 # every box SAM drew on that track, with its video time, so a player can follow the carton
+                 "track_px": [[o.source_frame.pts_ms, *o.bbox_xyxy_px] for o in sorted(
+                     self.store.find(RawObservation, track_id=obs.track_id), key=lambda o: o.source_frame.pts_ms)
+                     if o.bbox_xyxy_px and o.source_frame.pts_ms <= obs.source_frame.pts_ms] if obs.track_id else [],
+                 "door_pts_ms": obs.source_frame.pts_ms,
                  "area_polygon": [[round(x, 2), round(y, 2)] for x, y in poly],
                  # the frame to show for each moment: a crossing is the instant the person is already past the edge, so
                  # show them just before going in and just after coming out (the times above stay as measured)

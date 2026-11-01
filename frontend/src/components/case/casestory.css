@@ -1,0 +1,40 @@
+/* The case story (CaseStory.tsx): the landing page's look on the case's live evidence. The moments rail reuses the
+   landing's lp-mo classes; here only the stage (clip + plan) and the selected state. */
+.cs {
+  --lp-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --lp-green: #4ade80;
+  width: 100%;
+  display: grid;
+  gap: 22px;
+}
+.cs-stage { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 10px; }
+.cs-stage figure { position: relative; margin: 0; overflow: hidden; border: 1px solid var(--tb-line); border-radius: 10px; background: #0b0d12; }
+.cs-video video, .cs-video img, .cs-video svg, .cs-skel { position: absolute; inset: 0; width: 100%; height: 100%; }
+.cs-skel { border-radius: 0; }
+.cs-video rect { transition: opacity 120ms ease; }
+.cs-stage figcaption {
+  position: absolute; left: 8px; bottom: 8px; display: inline-flex; align-items: center; gap: 8px; max-width: calc(100% - 16px);
+  padding: 4px 9px; border-radius: 6px; font-size: 12.5px; font-variant-numeric: tabular-nums; color: #e5e7eb;
+  background: rgba(9, 11, 16, 0.78); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+.cs-video figcaption { left: auto; right: 8px; }
+.cs-stage figcaption b { font-weight: 650; }
+.cs-stage figcaption[data-tone="bad"] span { color: #fca5a5; }
+.cs-sam { position: absolute; left: 8px; top: 28px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.02em; color: #86efac;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85); }
+.cs-plan { display: grid; align-content: center; }
+
+/* the rail: the landing's, on this page's surface; the chosen moment is ringed green, a records-vs-cameras one red */
+.cs-mo { margin: 0; }
+.cs-mo .lp-mo-gap { background: var(--tb-surface); }
+.cs-mo .lp-mo-frame.is-on { border-color: rgba(74, 222, 128, 0.75); box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.35); }
+.cs-mo .lp-mo-item[data-tone="bad"] .lp-mo-dot { background: #f87171; box-shadow: 0 0 0 4px rgba(248, 113, 113, 0.16); }
+.cs-mo .lp-mo-item[data-tone="bad"] .lp-mo-cap { color: #fca5a5; }
+.cs-mo .lp-mo-cap { font-size: 13.5px; }
+.cs-mo .lp-mo-btn:focus-visible { outline: 2px solid #818cf8; outline-offset: 3px; }
+
+@media (max-width: 900px) {
+  .cs-stage { grid-template-columns: 1fr; }
+  .cs-plan { height: 200px; }
+}
+@media (prefers-reduced-motion: reduce) { .cs-video rect { transition: none; } }

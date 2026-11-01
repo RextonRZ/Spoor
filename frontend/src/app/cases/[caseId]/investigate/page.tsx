@@ -14,8 +14,9 @@ import "./investigate.css";
 
 interface Node { key: string; column: string; name: string; place: string; state: string; label: string }
 interface Step { type: "run_step"; seq: number; t_s: number; clock?: string; role: string; who: string; model: string; tool: string; status: string;
-  text: string; node: Node | null; camera_id: string | null; cost_usd: number; cameras_checked: number }
-interface End { type: "run_end"; t_s: number; cost_usd: number; cameras_checked: number; text: string; headline?: string | null }
+  text: string; node: Node | null; camera_id: string | null; cost_usd: number; cameras_checked: number;
+  receipt?: { output?: { cameras?: number } } | null }
+interface End { type: "run_end"; t_s: number; cost_usd: number; cameras_checked: number; text: string; headline?: string | null; swept?: number }
 type Ev = Step | End | { type: "node"; node: Node };
 interface RunView { steps: (Step | Ev)[]; crew: { role: string; who: string; model: string; tools: string[] }[]; optional_tools: string[];
   columns: Record<string, string> }
@@ -112,6 +113,8 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
   const steps = vis.filter((e): e is Step => e.type === "run_step");
   const end = vis.find((e): e is End => e.type === "run_end");
   const cur = steps.at(-1);
+  // Glimmer's on-site sweep looks at every camera; the agents then examine a few closely
+  const swept = end?.swept ?? steps.find((s) => s.tool === "triage_clips" && s.status === "done")?.receipt?.output?.cameras ?? 0;
   const done = !!end;
 
   // node states: the latest word on each node wins; the node being checked right now is "checking"
@@ -137,7 +140,8 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
         </div>
         <div aria-label="Live meter" className="iv-meter">
           <span><strong>US${(end?.cost_usd ?? cur?.cost_usd ?? 0).toFixed(2)}</strong> <span>spent</span></span>
-          <span><strong>{end?.cameras_checked ?? cur?.cameras_checked ?? 0}</strong> <span>of 19 cameras checked</span></span>
+          {swept > 0 && <span><strong>{swept}</strong> <span>wide cameras swept</span></span>}
+          <span><strong>{end?.cameras_checked ?? cur?.cameras_checked ?? 0}</strong> <span>{swept > 0 ? "examined closely" : "of 19 cameras checked"}</span></span>
           <span><strong>{secs(end?.t_s ?? cur?.t_s ?? 0)} s</strong></span>
           <button type="button" onClick={() => (events.length && !live ? replay(events) : undefined)} disabled={live || !events.length}>Replay</button>
         </div>

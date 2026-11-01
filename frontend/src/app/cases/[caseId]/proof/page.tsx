@@ -6,6 +6,8 @@
  * recordings; where there is no footage of that exact moment the viewer shows the camera's own view of the place and says
  * so, and the player controls appear only when there is a recording to play.
  */
+import type { InvestigationView } from "@/lib/answer";
+import { conflictWords, type Conflict } from "@/lib/conflict";
 import dynamic from "next/dynamic";
 import { SpoorLoader } from "@/components/brand/SpoorLoader";
 import Link from "next/link";
@@ -26,9 +28,11 @@ import "./proof.css";
 const Scene3D = dynamic(() => import("@/components/workspace/Scene3D"), { ssr: false,
   loading: () => <SpoorLoader label="Loading the 3D hub" size={56} fill /> });
 
-interface CaseState { case: { case_id: string; site_id: string; target_description: string; complaint?: string | null } }
+interface CaseState { case: { case_id: string; site_id: string; target_description: string; complaint?: string | null };
+  answer?: InvestigationView | null }
+interface RunView { steps: { type: string; camera_id?: string | null; status?: string }[] }
 interface Possible { objects: { places: { area_id: string; name: string; zone_id: string | null; possible_share: number }[] }[] }
-interface Conflicts { objects: { conflicts: { kind: string; divergence_t: string; statement: string; claim: { evidence_ids: string[] } }[] }[] }
+interface Conflicts { objects: { conflicts: Conflict[]; records?: { t: string; event_kind?: string | null; station_id?: string | null }[] }[] }
 interface Tile { key: string; cam: string | null; place: string; t: string; status: string; tone: "seen" | "notseen" | "none" | "wait" | "bad";
   headline: string; body: string; conflict?: string;
   /** a camera sighting: SAM's outlined frames along the track (the player shows the one nearest its time) */
@@ -43,6 +47,7 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
   const mr = useResource<MissingMoment>(`/v1/cases/${caseId}/missing-moment`);
   const pr = useResource<Possible>(`/v1/cases/${caseId}/possible-locations`);
   const cr = useResource<Conflicts>(`/v1/cases/${caseId}/conflicts`);
+  const run = useResource<RunView>(`/v1/cases/${caseId}/run`);
   const sites = useResource<Site[]>("/v1/sites");
   const siteId = st.data?.case.site_id ?? sites.data?.[0]?.site_id;
   const media = useResource<MediaRow[]>(siteId ? `/v1/sites/${siteId}/media` : null);
@@ -54,6 +59,11 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
   const scans = useMemo(() => j?.scans ?? [], [j]);
   const top = (pr.data?.objects[0]?.places ?? []).find((p) => p.possible_share > 0);
   const conflict = cr.data?.objects[0]?.conflicts[0];
+  // one source of truth: the latest verified run (its moments at the store door, the cameras it examined)
+  const inside = st.data?.answer?.objects.find((o) => o.inside)?.inside ?? null;
+  const examined = useMemo(() => new Set((run.data?.steps ?? []).filter((x) => x.type === "run_step" && x.status === "done" && x.camera_id)
+    .map((x) => camId.toHub(x.camera_id!))), [run.data]);
+  const records = cr.data?.objects[0]?.records ?? [];
   const coverage = (hub: string, t: string) => (media.data ?? []).find((m) => m.media.camera_id && camId.toHub(m.media.camera_id) === hub
     && m.coverage.some((c) => c.start_utc <= t && t <= c.end_utc));
 
@@ -71,8 +81,11 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
     for (const r of mm?.expected_next ?? []) {
       const cam = camId.toHub(r.camera_id);
       if (out.some((x) => x.cam === cam)) continue;
-      const tone = r.result === "seen" ? "seen" : r.result === "not_seen" ? "notseen" : r.result === "no_footage" ? "none" : "wait";
-      const status = r.result === "seen" ? `Seen ${hms(r.predicted_t)}` : r.result === "not_seen" ? "Expected, not seen" : r.result === "no_footage" ? "No footage" : "Not checked yet";
+      if (inside && cam === inside.camera.replace(" ", "_")) continue; // its sighting and door moments are below
+      const checked = examined.has(cam) && r.result !== "seen" && r.result !== "not_seen";
+      const tone = r.result === "seen" ? "seen" : r.result === "not_seen" ? "notseen" : r.result === "no_footage" ? "none" : checked ? "notseen" : "wait";
+      const status = r.result === "seen" ? `Seen ${hms(r.predicted_t)}` : r.result === "not_seen" ? "Expected, not seen" : r.result === "no_footage" ? "No footage"
+        : checked ? "Checked by the agents" : "Not checked yet";
       out.push({ key: r.camera_id, cam, place: r.camera_name.replace(/^CAM_\d+\s*/, "").toLowerCase(), t: r.window.start, tone, status,
         headline: r.result === "not_seen" ? `Should have appeared on ${camName(cam)} by ${hms(r.window.end)}. It didn't.` : `Should appear on ${camName(cam)} at about ${hms(r.predicted_t)}.`,
         body: r.result === "no_footage" ? `${camName(cam)} would show where it went next, but its footage for this moment isn't in yet.` : `${r.how.charAt(0).toUpperCase()}${r.how.slice(1)}.` });
@@ -87,12 +100,32 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
         headline: `On ${camName(cam)} from ${hms(g.start)} to ${hms(g.end)}.`,
         body: `SAM 3.1 followed this parcel frame by frame for ${secs} s, from the box drawn on it, until it left the camera's view.` });
     }
-    out.sort((a, b) => a.t.localeCompare(b.t));
-    if (conflict) out.push({ key: "conflict", cam: null, place: "sorter records", t: conflict.divergence_t, tone: "bad", status: "Records disagree",
-      headline: "The sorter's times don't fit the belt.", body: `${conflict.statement.replace(/: the records conflict$/, "")}. One of these records is wrong, or the parcel didn't travel on the belt.`, conflict: conflict.statement });
+    // the verified run's moments at the store door (the verifier's facts), and the truck record it contradicts
+    if (inside) {
+      const cam = inside.camera.replace(" ", "_");
+      out.push({ key: "in", cam, place: `into the ${inside.place.replace(/ \(Z\d+\)$/, "").toLowerCase()}`, t: inside.iso.carried_in_at, tone: "seen",
+        status: `Carried in ${inside.carried_in_at}`, headline: `Carried into the ${inside.place} at ${inside.carried_in_at}.`,
+        body: `${inside.camera} shows it carried in through the door. No scan-in was recorded, and no camera sees inside.` });
+      inside.came_out_empty.forEach((t, i) => out.push({ key: `out${i}`, cam, place: "out of the store", t: inside.iso[`came_out_${i}`], tone: "notseen",
+        status: `Came out ${t}, without it`, headline: `Someone came out at ${t} without it.`,
+        body: `${inside.camera} shows the person who went in come out empty-handed. Nobody is seen carrying it out until the recording ends at ${inside.until}.` }));
+      const truck = records.find((r) => r.event_kind === "container_loaded" || r.event_kind === "departed_facility");
+      if (truck && Date.parse(truck.t) > Date.parse(inside.iso.carried_in_at) && Date.parse(truck.t) < Date.parse(inside.iso.until)) {
+        const d = truck.station_id?.match(/D\d{2}/)?.[0] ?? "";
+        out.push({ key: "truck", cam, place: "truck record", t: truck.t, tone: "bad", status: "Records vs cameras",
+          headline: `Record says loaded on truck ${d}. Cameras show it never left.`.replace("  ", " "),
+          body: `Its cage's tag was read at the dock gate at ${hms(truck.t)}, but at that moment it was inside the ${inside.place}: carried in at ${inside.carried_in_at}, not seen coming out until ${inside.until}.` });
+      }
+    }
+    if (conflict) {
+      const w = conflictWords(conflict);
+      out.push({ key: "conflict", cam: null, place: conflict.kind === "custody" ? "records vs cameras" : "sorter records", t: conflict.divergence_t,
+        tone: "bad", status: "Records disagree", headline: w.headline, body: w.body, conflict: w.short });
+    }
+    out.sort((a, b) => Date.parse(a.t) - Date.parse(b.t)); // scans are UTC, the run's moments local: compare instants
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- recomputed when the evidence or the footage list changes
-  }, [scans, mm, conflict, media.data, j]);
+  }, [scans, mm, conflict, media.data, j, inside, examined, records]);
 
   const lastKey = tiles.findLast((t) => t.seen)?.key ?? scans.at(-1)?.scan_event_id;
   const sel = tiles.find((t) => t.key === (pick ?? lastKey)) ?? tiles[0];
@@ -147,7 +180,7 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
             <HubPlan label="Floor plan with the parcel's route" journey={j} missing={mm} fit="width" legend={false} quiet
               litCameras={sel?.cam ? [sel.cam] : []} />
           </div>
-          <Link className="hb-btn hb-btn-primary pf-go" href={`/cases/${caseId}/search`}>{top ? `Go look: ${shortPlace(top, ZONE_NAMES)}` : "Start a floor search"}</Link>
+          <Link className="hb-btn hb-btn-primary pf-go" href={`/cases/${caseId}/search`}>{inside ? `Go look: ${inside.place}` : top ? `Go look: ${shortPlace(top, ZONE_NAMES)}` : "Start a floor search"}</Link>
           <details className="pf-details">
             <summary>Evidence details</summary>
             <p>{selMedia ? `Original recording ${selMedia.media.media_id}, kept unchanged with its fingerprint (SHA-256 ${selMedia.media.sha256.slice(0, 16)}…).`

@@ -126,3 +126,14 @@
   .ia-ideas li { grid-template-columns: 1fr; }
   .ia-ideas small { grid-column: 1; }
 }
+
+/* answered: one column; the actions sit with the verdict; identity folds away */
+.an-body[data-answered] { grid-template-columns: minmax(0, 1fr); max-width: 1180px; }
+.an-verdict-top { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.an-fold > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; }
+.an-fold > summary::-webkit-details-marker { display: none; }
+.an-fold > summary::before { content: ""; width: 7px; height: 7px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg); transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1); opacity: 0.7; }
+.an-fold[open] > summary::before { transform: rotate(45deg); }
+.an-fold[open] > summary { margin-bottom: 14px; }
+@media (prefers-reduced-motion: reduce) { .an-fold > summary::before { transition: none; } }

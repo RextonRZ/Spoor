@@ -12,6 +12,7 @@ import { use } from "react";
 import { useResource } from "@/lib/api";
 import type { Journey, MissingMoment, Possible } from "@/lib/journey";
 import { caseAnswer, type InvestigationView } from "@/lib/answer";
+import { conflictWords, type Conflict } from "@/lib/conflict";
 import { buildCheckpoints, CHECKPOINT_LINE, type CaseRecord } from "@/lib/checkpoints";
 import { hms, momentLabel, placeOf, shortPlace } from "@/lib/words";
 import type { Site } from "@/lib/types";
@@ -19,12 +20,12 @@ import { CaseSteps } from "@/components/flow/CaseSteps";
 import { CheckpointStrip, ScannerScreen } from "@/components/checkpoints/Checkpoints";
 import { NextCams, View } from "@/components/hub/parts";
 import { Identity } from "@/components/case/Identity";
-import { InsideAnswer } from "@/components/case/InsideAnswer";
+import { CaseStory } from "@/components/case/CaseStory";
 import { ZONE_NAMES } from "@/components/plan/HubPlan";
 import "./answer.css";
 
 interface CaseState { case: { case_id: string; target_description: string; complaint?: string | null }; answer?: InvestigationView | null }
-interface Conflicts { objects: { conflicts: { kind: string; divergence_t: string; statement: string }[]; records?: CaseRecord[] }[] }
+interface Conflicts { objects: { conflicts: Conflict[]; records?: CaseRecord[] }[] }
 interface SearchView { found: { name: string; by: string; at: string } | null }
 
 export default function AnswerPage({ params }: { params: Promise<{ caseId: string }> }) {
@@ -52,28 +53,69 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
   // the investigation's verified answer leads when there is one (a floor find still wins); otherwise the read models
   const inside = !found ? view?.objects.find((o) => o.inside)?.inside : null;
   const { pill, head, why, level, reasons } = caseAnswer({ ready, last, next, places, conflicts, found, zoneNames: ZONE_NAMES });
-  const cps = j ? buildCheckpoints({ scans, records: cr.data?.objects[0]?.records ?? [], barcode: waybill || null }) : null;
+  // one source of truth: once the run verified where it went, the checkpoints read from it too (the store's missing
+  // scan-in, and a truck record made while the cameras show it still inside)
+  const records = cr.data?.objects[0]?.records ?? [];
+  const truckRec = records.find((r) => r.event_kind === "container_loaded" || r.event_kind === "departed_facility");
+  const truck = truckRec ? { t: truckRec.t, door: truckRec.station_id?.match(/D\d{2}/)?.[0] ?? null } : null;
+  const insideAtTruck = !!(inside && truck && Date.parse(truck.t) > Date.parse(inside.iso.carried_in_at) && Date.parse(truck.t) < Date.parse(inside.iso.until));
+  const cps = j ? buildCheckpoints({ scans, records, barcode: waybill || null, truckSeen: inside ? !insideAtTruck : undefined,
+    storeSeenAt: inside ? inside.iso.carried_in_at : undefined }) : null;
   const tunnel = cps?.find((c) => c.id === "tunnel");
   const conflictAt = conflicts[0]?.divergence_t;
   const meter = level === "high" ? 3 : level === "medium" ? 2 : 1;
   const events = [
     ...scans.map((s) => ({ key: s.scan_event_id, t: s.t, label: momentLabel(s.event_kind, s.station_id), tone: "" })),
-    ...(conflictAt ? [{ key: "conflict", t: conflictAt, label: "Records disagree: the sorter's times don't fit the belt", tone: "bad" }] : []),
+    ...(conflictAt ? [{ key: "conflict", t: conflictAt, label: `Records disagree: ${conflictWords(conflicts[0]).short}`, tone: "bad" }] : []),
   ].sort((a, b) => a.t.localeCompare(b.t));
+
+  if (inside && view) {
+    return (
+      <div className="an">
+        <CaseSteps caseId={caseId} waybill={waybill} said={st.data?.case.complaint ? "customer says it never arrived" : null} here={0} />
+        <div className="an-body" data-answered="">
+          <div className="an-main">
+            <section className="an-verdict" aria-labelledby="an-h" data-level="medium">
+              <div className="an-verdict-top">
+                <span className="an-chip" data-tone="ok">Likely location found</span>
+                <div className="an-acts">
+                  <Link className="hb-btn" href={`/cases/${caseId}/proof`}>Watch the proof</Link>
+                  <Link className="hb-btn hb-btn-primary" href={`/cases/${caseId}/search`}>Send someone to look</Link>
+                </div>
+              </div>
+              <h1 id="an-h" className="an-h1">Most likely in the {inside.place}.</h1>
+              <p className="an-why">No camera sees inside. This assumes the door is the only way in.</p>
+              <CaseStory caseId={caseId} inside={inside} view={view} journey={j} truck={truck} />
+            </section>
+
+            <section className="an-card" aria-labelledby="an-scans">
+              <h2 id="an-scans" className="an-h2">How the hub tracked it</h2>
+              {cps ? <CheckpointStrip cps={cps} compact gaps where /> : <div className="an-skel an-skel-row" aria-busy="true" />}
+              <p className="an-line">{CHECKPOINT_LINE}</p>
+              {tunnel?.screen && (
+                <details className="an-more">
+                  <summary>Scan tunnel screen for this parcel</summary>
+                  <div className="an-dws"><ScannerScreen s={tunnel.screen} at={tunnel.t} /></div>
+                </details>
+              )}
+            </section>
+
+            <details className="an-card an-fold">
+              <summary className="an-h2">How we know it&apos;s this parcel</summary>
+              <Identity siteId={siteId} waybill={waybill} />
+            </details>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="an">
       <CaseSteps caseId={caseId} waybill={waybill} said={st.data?.case.complaint ? "customer says it never arrived" : null} here={0} />
       <div className="an-body">
         <div className="an-main">
-          {inside && view ? (
-            <section className="an-verdict" aria-labelledby="an-h" data-level="medium">
-              <span className="an-chip" data-tone="ok">Likely location found</span>
-              <h1 id="an-h" className="an-h1">Most likely in the {inside.place}.</h1>
-              <p className="an-why">No camera sees inside. This assumes the door is the only way in.</p>
-              <InsideAnswer caseId={caseId} inside={inside} view={view} />
-            </section>
-          ) : (
+          {(
             <section className="an-verdict" aria-labelledby="an-h" data-level={level}>
               <span className="an-chip" data-tone={pill[1]}>{pill[0]}</span>
               {ready ? <h1 id="an-h" className="an-h1">{head}</h1> : <div className="an-skel an-skel-h" aria-busy="true" />}

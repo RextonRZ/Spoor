@@ -96,7 +96,7 @@ export function Identity({ siteId, waybill }: { siteId: string | undefined; wayb
         <li data-tone={vision ? "ok" : "wait"}>
           <b>On camera</b>
           <span>{vision
-            ? "The vision model (Meta SAM 3.1) finds and follows this carton in the footage, by its size and look."
+            ? "Meta SAM 3.1 picks up this carton where its last scan left it and follows it on camera; each camera is matched by place and time."
             : "Matching this carton in the footage uses the vision model (Meta SAM 3.1). Models are off, so the cameras are checked by place and time only."}</span>
         </li>
       </ol>

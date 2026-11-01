@@ -5,6 +5,7 @@
  * search); in no-key mode it says what is really known.
  */
 import { hms, momentLabel, placeOf, shortPlace } from "@/lib/words";
+import { conflictWords, type Conflict } from "@/lib/conflict";
 
 export const low = (t: string) => t.charAt(0).toLowerCase() + t.slice(1); // "Into chute C12" -> "into chute C12"
 export const clean = (name: string) => name.replace(/^Z\d+ /, "").replace(/\s*\(.*$/, "");
@@ -14,7 +15,7 @@ export interface AnswerInputs {
   last?: { event_kind: string; station_id?: string | null; t: string };
   next: { camera_id: string; predicted_t: string; result?: string | null }[];
   places: { area_id: string; name: string; zone_id?: string | null; possible_share: number }[];
-  conflicts: { statement: string }[];
+  conflicts: Conflict[];
   found: { name: string; by: string; at: string } | null;
   zoneNames: Record<string, string>;
 }
@@ -55,7 +56,7 @@ export function caseAnswer({ ready, last, next, places, conflicts, found, zoneNa
   if (next.length) reasons.push({ text: withFootage.length
     ? `${withFootage.length} of ${next.length} cameras that would show it next have footage, not checked yet.`
     : `None of the ${next.length} cameras that would show it next has footage yet.`, tone: "plain" });
-  if (conflicts.length) reasons.push({ text: `The sorter's own times don't fit the belt: ${conflicts[0].statement.replace(/: the records conflict$/, "")}.`, tone: "bad" });
+  if (conflicts.length) reasons.push({ text: conflictWords(conflicts[0]).body, tone: "bad" });
   else if (places.length) reasons.push({ text: `It could be in ${places.length} place${places.length === 1 ? "" : "s"}. Most likely: ${shortPlace(places[0], zoneNames)}.`, tone: "plain" });
   return { pill, head, why, level, reasons };
 }
@@ -65,6 +66,8 @@ export interface InsideFacts {
   place: string; door_at: string; camera: string; carried_in_at: string; came_out_empty: string[]; until: string;
   observation_id: string; area_xy: [number, number]; media_id: string; door_xy: [number, number];
   area_polygon: [number, number][]; iso: Record<string, string>; trail_px: number[][]; box_px: number[]; frame_wh_px: number[];
+  /** every box SAM drew on that track: [video ms, x1, y1, x2, y2] */
+  track_px: number[][]; door_pts_ms: number;
 }
 export interface InvestigationView {
   status: string;

@@ -100,7 +100,7 @@ export function ScannerScreen({ s, at, line = "Line A", photo: given }: { s: Scr
           {rows.map(([k, v]) => (
             <div key={k}><dt>{k}</dt><dd>{v}</dd></div>
           ))}
-          <div className="dws-chute"><dt>Sent to</dt><dd>→ Chute {s.chute ?? "n/a"}</dd></div>
+          <div className="dws-chute"><dt>Assigned</dt><dd>→ Chute {s.chute ?? "n/a"}</dd></div>
         </dl>
       </div>
       <figcaption className={`dws-status${s.read_ok ? "" : " is-bad"}`}>

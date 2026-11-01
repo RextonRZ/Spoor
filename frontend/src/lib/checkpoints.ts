@@ -119,7 +119,10 @@ export function buildCheckpoints({
     },
     {
       id: "chute", label: "Into chute", none: "No chute scan", how: "Sorter confirms the drop", point: chute?.station_id ?? null,
-      state: chute ? "scanned" : "missing", t: chute?.t ?? null, detail: chute ? `Chute ${chuteId ?? ""}`.trim() : null,
+      state: chute ? "scanned" : "missing", t: chute?.t ?? null,
+      // the tunnel assigns a chute; the sorter reports where it went down: say both when they differ
+      detail: chute ? (tunnel?.sort_destination_assigned && chuteId && tunnel.sort_destination_assigned !== chuteId
+        ? `Down ${chuteId} (assigned ${tunnel.sort_destination_assigned})` : `Chute ${chuteId ?? ""}`.trim()) : null,
     },
     {
       id: "container", label: "Into bag or cage", none: "Not scanned into a bag or cage", how: "Handheld scan", point: box?.station_id ?? null,
@@ -142,8 +145,8 @@ export function buildCheckpoints({
     detail: truckAt ? `Truck ${truckDoor ?? ""}`.trim() : null,
   };
   if (truck.state === "conflict") {
-    truck.records = `Records: loaded on truck ${truckDoor ?? ""}`.trim();
-    truck.cameras = "Cameras: never seen there";
+    truck.records = `Record says loaded on truck ${truckDoor ?? ""}`.trim();
+    truck.cameras = "Cameras show it never left";
   } else if (truckAt && truckSeen === undefined) {
     truck.cameras = "Cameras: not checked yet"; // no footage tracked yet: say so, never guess
   }
