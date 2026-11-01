@@ -11,7 +11,7 @@ import Link from "next/link";
 import { use } from "react";
 import { useResource } from "@/lib/api";
 import type { Journey, MissingMoment, Possible } from "@/lib/journey";
-import { caseAnswer, HYPOTHESIS_WORDS, VERDICT_WORDS, verifiedAnswer, type InvestigationView } from "@/lib/answer";
+import { caseAnswer, type InvestigationView } from "@/lib/answer";
 import { buildCheckpoints, CHECKPOINT_LINE, type CaseRecord } from "@/lib/checkpoints";
 import { hms, momentLabel, placeOf, shortPlace } from "@/lib/words";
 import type { Site } from "@/lib/types";
@@ -19,6 +19,7 @@ import { CaseSteps } from "@/components/flow/CaseSteps";
 import { CheckpointStrip, ScannerScreen } from "@/components/checkpoints/Checkpoints";
 import { NextCams, View } from "@/components/hub/parts";
 import { Identity } from "@/components/case/Identity";
+import { InsideAnswer } from "@/components/case/InsideAnswer";
 import { ZONE_NAMES } from "@/components/plan/HubPlan";
 import "./answer.css";
 
@@ -49,8 +50,8 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
 
   const view = st.data?.answer;
   // the investigation's verified answer leads when there is one (a floor find still wins); otherwise the read models
-  const { pill, head, why, level, reasons } = (!found && verifiedAnswer(view))
-    || caseAnswer({ ready, last, next, places, conflicts, found, zoneNames: ZONE_NAMES });
+  const inside = !found ? view?.objects.find((o) => o.inside)?.inside : null;
+  const { pill, head, why, level, reasons } = caseAnswer({ ready, last, next, places, conflicts, found, zoneNames: ZONE_NAMES });
   const cps = j ? buildCheckpoints({ scans, records: cr.data?.objects[0]?.records ?? [], barcode: waybill || null }) : null;
   const tunnel = cps?.find((c) => c.id === "tunnel");
   const conflictAt = conflicts[0]?.divergence_t;
@@ -65,40 +66,34 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
       <CaseSteps caseId={caseId} waybill={waybill} said={st.data?.case.complaint ? "customer says it never arrived" : null} here={0} />
       <div className="an-body">
         <div className="an-main">
-          <section className="an-verdict" aria-labelledby="an-h" data-level={level}>
-            <span className="an-chip" data-tone={pill[1]}>{pill[0]}</span>
-            {ready ? <h1 id="an-h" className="an-h1">{head}</h1> : <div className="an-skel an-skel-h" aria-busy="true" />}
-            {why && <p className="an-why">{why}</p>}
-            {ready && reasons.length > 0 && (
-              <div className="an-sure">
-                <p className="an-sure-h">
-                  How sure
-                  <span className="an-meter" role="img" aria-label={`${level} confidence`}>
-                    {[1, 2, 3].map((i) => <i key={i} data-on={i <= meter ? "" : undefined} data-level={level} />)}
-                  </span>
-                  <b data-level={level}>{level}</b>
-                </p>
-                <ul>
-                  {reasons.slice(0, 3).map((r) => <li key={r.text} data-tone={r.tone}>{r.text}</li>)}
-                </ul>
-              </div>
-            )}
-            {ready && view && view.hypotheses.length > 0 && (
-              <details className="an-more an-agents">
-                <summary>What the agents proposed, in their own words ({view.hypotheses.length})</summary>
-                <p className="an-line">Their wording is not evidence. The checks test each idea&apos;s claims, shown under it; only the sentences above passed.</p>
-                <ul>
-                  {view.hypotheses.map((h, i) => (
-                    <li key={i}><span className="an-chip" data-tone={h.status === "supported" ? "ok" : h.status === "contradicted" ? undefined : "plain"}>
-                      {HYPOTHESIS_WORDS[h.status] ?? h.status}</span> &ldquo;{h.agent_wording}&rdquo;
-                      <span className="an-tested">{h.tested?.length
-                        ? h.tested.map((t) => `Checked: ${t.check} (${VERDICT_WORDS[t.verdict] ?? t.verdict})`).join(" ")
-                        : "Checked: nothing beyond where it was last seen."}</span></li>
-                  ))}
-                </ul>
-              </details>
-            )}
-          </section>
+          {inside && view ? (
+            <section className="an-verdict" aria-labelledby="an-h" data-level="medium">
+              <span className="an-chip" data-tone="ok">Likely location found</span>
+              <h1 id="an-h" className="an-h1">Most likely in the {inside.place}.</h1>
+              <p className="an-why">No camera sees inside. This assumes the door is the only way in.</p>
+              <InsideAnswer caseId={caseId} inside={inside} view={view} />
+            </section>
+          ) : (
+            <section className="an-verdict" aria-labelledby="an-h" data-level={level}>
+              <span className="an-chip" data-tone={pill[1]}>{pill[0]}</span>
+              {ready ? <h1 id="an-h" className="an-h1">{head}</h1> : <div className="an-skel an-skel-h" aria-busy="true" />}
+              {why && <p className="an-why">{why}</p>}
+              {ready && reasons.length > 0 && (
+                <div className="an-sure">
+                  <p className="an-sure-h">
+                    How sure
+                    <span className="an-meter" role="img" aria-label={`${level} confidence`}>
+                      {[1, 2, 3].map((i) => <i key={i} data-on={i <= meter ? "" : undefined} data-level={level} />)}
+                    </span>
+                    <b data-level={level}>{level}</b>
+                  </p>
+                  <ul>
+                    {reasons.slice(0, 3).map((r) => <li key={r.text} data-tone={r.tone}>{r.text}</li>)}
+                  </ul>
+                </div>
+              )}
+            </section>
+          )}
 
           <section className="an-card" aria-labelledby="an-scans">
             <h2 id="an-scans" className="an-h2">Where it was scanned</h2>

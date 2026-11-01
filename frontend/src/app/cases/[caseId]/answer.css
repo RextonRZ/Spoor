@@ -76,7 +76,37 @@
 @media (max-width: 700px) { .an-body { padding: 16px 16px 40px; } .an-verdict { padding: 18px; } .an-card { padding: 16px; } .an-places li { grid-template-columns: 24px 1fr; } .an-place-c { grid-column: 2; text-align: left; } }
 @media (prefers-reduced-motion: reduce) { .an-skel { animation: none; } }
 .an-chip[data-tone="plain"] { color: var(--tb-ink-2); background: rgba(255, 255, 255, 0.06); }
-.an-agents ul { display: grid; gap: 10px; margin: 10px 0 0; padding: 0; list-style: none; }
-.an-agents li { font-size: 13px; line-height: 1.5; color: var(--tb-ink-2); }
-.an-agents li .an-chip { height: 20px; margin-right: 8px; font-size: 11px; vertical-align: 1px; }
-.an-tested { display: block; margin-top: 3px; font-size: 12px; color: var(--tb-mute); }
+
+/* verified "inside an unwatched area": evidence still beside the plan, then the facts (components/case/InsideAnswer) */
+.ia-fig { width: 100%; display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 10px; margin-top: 4px; }
+.ia-fig figure { position: relative; margin: 0; overflow: hidden; border: 1px solid var(--tb-line); border-radius: 10px; background: #0b0d12; }
+.ia-shot { aspect-ratio: 16 / 9; }
+.ia-shot img { display: block; width: 100%; height: 100%; object-fit: cover; transform: scale(2.4); } /* toward the parcel (origin set inline) */
+.ia-skel { width: 100%; height: 100%; border-radius: 0; }
+.ia-fig figcaption { position: absolute; right: 8px; bottom: 8px; display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px;
+  border-radius: 6px; font-size: 12px; font-variant-numeric: tabular-nums; color: #e5e7eb; background: rgba(9, 11, 16, 0.78); backdrop-filter: blur(6px); }
+.ia-fig figcaption b { font-weight: 600; }
+.ia-fig figcaption span { color: #86efac; }
+.ia-fig figcaption span::before { content: "·"; margin-right: 6px; color: #6b7280; }
+.ia-plan { display: grid; align-content: center; }
+.ia-plan > :first-child { min-height: 0; height: 100%; }
+.ia-facts { width: 100%; margin-top: 6px; padding-top: 14px; border-top: 1px solid var(--tb-line); }
+.ia-facts li { grid-template-columns: 74px minmax(0, 1fr); }
+.ia-facts time { font-variant-numeric: tabular-nums; color: var(--tb-ink-2); }
+.ia-facts em { margin-left: 8px; font-style: normal; font-size: 12px; color: var(--tb-mute); }
+.ia-ideas { width: 100%; }
+.ia-ideas summary span { margin-left: 8px; font-weight: 500; color: var(--tb-mute); }
+.ia-ideas ul { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.ia-ideas li { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; row-gap: 3px; align-items: start; font-size: 13px; line-height: 1.5; color: var(--tb-ink-2); }
+.ia-ideas li .an-chip { justify-self: start; height: 20px; font-size: 11px; justify-content: center; min-width: 76px; }
+.ia-ideas q { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ia-ideas small { grid-column: 2; font-size: 12px; color: var(--tb-mute); }
+.ia-ideas[open] ul { animation: ia-in 180ms cubic-bezier(0.23, 1, 0.32, 1); }
+@keyframes ia-in { from { opacity: 0; transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .ia-ideas[open] ul { animation: none; } }
+@media (max-width: 640px) {
+  .ia-fig { grid-template-columns: 1fr; }
+  .ia-plan { height: 150px; }
+  .ia-ideas li { grid-template-columns: 1fr; }
+  .ia-ideas small { grid-column: 1; }
+}

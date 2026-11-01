@@ -76,6 +76,7 @@ class ObjectAnswer:
     observed_moves: list[str]
     unobserved: list[dict]
     inside_area: str | None = None  # a supported stayed_in_area finding, worded by the verifier
+    inside_facts: dict | None = None  # the same finding as short values (place, times, camera) for screens
 
 
 @dataclass
@@ -251,7 +252,7 @@ def investigate(
                                                   unchecked_claims=len(p.claims) - len(claims))  # fmt: skip
             verified = [ctx.verifier.describe(c) for c, r in zip(claims, results, strict=True)
                         if r.verdict.value == "supported"]  # fmt: skip
-            tested = [{"check": ctx.verifier.describe(c), "verdict": r.verdict.value}
+            tested = [{"kind": c.kind, "check": ctx.verifier.describe(c), "verdict": r.verdict.value}
                       for c, r in zip(claims, results, strict=True) if not isinstance(c, BASELINE_CLAIMS)]  # fmt: skip
             outcomes.append(HypothesisOutcome(h.hypothesis_id, p.claim, status,
                                               [r for res in results for r in res.reasons] + bad,
@@ -264,6 +265,7 @@ def investigate(
                         changed.append(fnd.finding_id)
                     extra = [x for x in res.limitations[:2] if not x.startswith("until the recording ends")]
                     ans.inside_area = ctx.verifier.describe(c) + (f", {', '.join(extra)}" if extra else "")
+                    ans.inside_facts = res.facts or None
                     continue
                 if c.kind != "exit" or ans is None:
                     continue
@@ -305,8 +307,8 @@ def answer_view(res: InvestigationResult) -> dict:
     for o in res.hypotheses:
         verified += [c for c in o.verified_checks if c not in verified]
     return {"status": res.status, "revision_id": res.revision_id,
-            "objects": [{"label": a.label, "most_likely": a.inside_area, "last_seen": a.last_seen_text,
-                         "left_area": a.left_area} for a in res.objects],
+            "objects": [{"label": a.label, "most_likely": a.inside_area, "inside": a.inside_facts,
+                         "last_seen": a.last_seen_text, "left_area": a.left_area} for a in res.objects],
             "verified": verified,
             "hypotheses": [{"status": o.status.value, "agent_wording": o.claim, "verified": o.verified_checks,
                             "tested": o.tested}

@@ -21,15 +21,18 @@ type XY = [number, number];
 // metres: building + yards + a strip for the scale bar; narrow plans zoom to the journey instead (see `frame`)
 interface Ext { x0: number; x1: number; y0: number; y1: number }
 const FULL: Ext = { x0: -5.5, x1: 61.5, y0: -4.6, y1: 45.6 };
+const BUILDING: Ext = { x0: -1.5, x1: 61.5, y0: -1.5, y1: 41.5 };
 
 /** On a narrow plan (phone), frame the journey (scans, routes, last point, expected spots) + a margin, not the site. */
 function frame(props: PlanProps, w: number): Ext {
-  if (props.heat) return { x0: -1.5, x1: 61.5, y0: -1.5, y1: 41.5 }; // the trail-ends map: the building only, readable
+  if (props.heat) return BUILDING; // the trail-ends map: the building only, readable
   if (props.focus) {
     // a thumbnail around one point (Hub rows: where the parcel stopped)
     const [x, y] = props.focus.xy;
     const r = props.focus.radius_m ?? 9;
-    return { x0: x - r * 1.5, x1: x + r * 1.5, y0: y - r, y1: y + r };
+    // keep the window on the building (a point near a wall would otherwise frame mostly outside); the pin stays put
+    const cx = Math.min(Math.max(x, BUILDING.x0 + r * 1.5), BUILDING.x1 - r * 1.5), cy = Math.min(Math.max(y, BUILDING.y0 + r), BUILDING.y1 - r);
+    return { x0: cx - r * 1.5, x1: cx + r * 1.5, y0: cy - r, y1: cy + r };
   }
   if (w >= 640 || !props.journey) return FULL;
   const pts: XY[] = [];

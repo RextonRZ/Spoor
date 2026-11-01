@@ -102,6 +102,7 @@ class VerificationResult:
     limitations: list[str] = field(default_factory=list)
     checked_ids: list[str] = field(default_factory=list)
     estimate_ids: list[str] = field(default_factory=list)
+    facts: dict = field(default_factory=dict)  # the reasons as short values, for screens (times local, plain names)
 
 
 def _edge_distance(p: tuple[float, float], polygon: list[tuple[float, float]]) -> float:
@@ -504,8 +505,12 @@ class Verifier:
         lim += [f"until the recording ends at {end.astimezone(tz).strftime('%H:%M:%S')}",
                 "assuming the door is the only way in (site plan)",
                 "no camera sees inside", "says where the parcel went, never who moved it or why"]
+        facts = {"place": name, "door_at": at(t_last), "camera": camera_name(obs.camera_id),
+                 "carried_in_at": at(went_in.t_ms), "came_out_empty": [at(x.t_ms) for x in out],
+                 "until": end.astimezone(tz).strftime("%H:%M:%S"), "observation_id": c.observation_id,
+                 "area_xy": [round(sum(x for x, _ in poly) / len(poly), 2), round(sum(y for _, y in poly) / len(poly), 2)]}  # fmt: skip
         return VerificationResult(V.SUPPORTED, EvidenceLabel.ESTIMATED, reasons, lim, [c.observation_id],
-                                  [est.estimate_id])  # fmt: skip
+                                  [est.estimate_id], facts)  # fmt: skip
 
     # --- consistency scan ---------------------------------------------------------------------------
 
