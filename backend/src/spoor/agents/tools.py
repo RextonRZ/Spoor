@@ -331,7 +331,9 @@ def t_request_evidence(ctx: ToolContext, a: EvidenceRequestArgs) -> dict:
 
 
 def t_verify(ctx: ToolContext, a: VerifyArgs) -> dict:
-    claim = CLAIM_ADAPTER.validate_python(a.claim)
+    # models filling a strict schema send every field of every claim kind, unused ones as null: drop the nulls, keep
+    # everything else strict (an unknown field with a value is still refused)
+    claim = CLAIM_ADAPTER.validate_python({k: v for k, v in a.claim.items() if v is not None})
     r = ctx.verifier.verify(claim)
     return {"verdict": r.verdict.value, "label": r.label.value, "reasons": r.reasons, "limitations": r.limitations}
 

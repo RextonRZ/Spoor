@@ -267,3 +267,22 @@ def test_low_camera_whose_top_corner_sees_wall_still_validates(now):
                                 holdout_image_points_px=shift(to_image(HOLDOUT_FLOOR)),
                                 holdout_floor_points_m=HOLDOUT_FLOOR, thresholds=THRESH, now=now)  # fmt: skip
     assert cal.rig_state == RigState.VALIDATED_FLOOR_ONLY
+
+
+def test_off_floor_object_is_placed_between_heights_with_that_uncertainty(now, camera, room):
+    # a parcel carried at 1.0 m: with the camera's pose it lands on the floor within the radius the height range gives
+    lens = fit_floor_calibration(calibration_id="calib_a_v1", camera_id="cam_a", floor_id="floor_g", version=1,
+                                 image_points_px=to_image(FIT_FLOOR), floor_points_m=FIT_FLOOR,
+                                 holdout_image_points_px=to_image(HOLDOUT_FLOOR), holdout_floor_points_m=HOLDOUT_FLOOR,
+                                 thresholds=THRESH, image_wh_px=(IMG_W, IMG_H), radial_k1=0.0,
+                                 lens_hfov_deg=float(np.degrees(2 * np.arctan(IMG_W / 2 / K[0, 0]))), now=now)  # fmt: skip
+    truth = np.array([[2.6, 2.4, 1.0]])
+    uv = cv2.projectPoints(truth, RVEC, TVEC, K, None)[0].reshape(2)
+    obs = ProjectionInput(observation_ids=["obs_1"], uv_px=tuple(uv), on_floor_plane=False, frame_wh_px=(IMG_W, IMG_H),
+                          centre_uv_px=tuple(uv), off_floor_heights_m=(0.3, 1.5))
+    est = project_observation(obs, camera=camera, site=room, calibration=lens, now=now)
+    assert est.spatial_mode == SpatialMode.FLOOR_XY and est.method == "pose_ray_between_heights"
+    assert np.hypot(est.floor_xy_m[0] - 2.6, est.floor_xy_m[1] - 2.4) <= est.uncertainty_radius_m
+    plain = project_observation(ProjectionInput(observation_ids=["obs_1"], uv_px=tuple(uv), on_floor_plane=False),
+                                camera=camera, site=room, calibration=lens, now=now)
+    assert plain.method != "pose_ray_between_heights"  # no height range given: no plan position

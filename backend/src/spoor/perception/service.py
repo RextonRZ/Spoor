@@ -46,6 +46,9 @@ LOW_MASK_FILL = 0.3
 # SAM docs: object ids are not reliable once the object leaves view or is occluded. A run of missing frames longer than
 # this ends the track; detections after it under the same id become their own track (never assumed the same object).
 MAX_GAP_FRAMES = 5
+# A parcel not on the floor is somewhere between a low shelf and chest height (carried): its floor position comes with
+# the spread of that range as uncertainty (spatial/projection.py)
+OFF_FLOOR_HEIGHTS_M = (0.3, 1.5)
 
 Status = Literal["ok", "no_detections", "not_authorized_for_hosted_processing", "unknown_completion",
                  "analysis_unavailable", "incomplete"]  # fmt: skip
@@ -297,8 +300,10 @@ def _normalize(req, run, start, end, prompt, key, label, display_wh, now, result
             )  # fmt: skip
             result.observations.append(obs)
             if req.site is not None:
+                centre = ((box[0] + box[2]) / 2, (box[1] + box[3]) / 2)
                 result.estimates.append(project_observation(
                     ProjectionInput([obs.observation_id], contact, on_floor_plane=req.on_floor_plane,
-                                    frame_wh_px=display_wh),
+                                    frame_wh_px=display_wh, centre_uv_px=centre,
+                                    off_floor_heights_m=None if req.on_floor_plane else OFF_FLOOR_HEIGHTS_M),
                     camera=req.camera, site=req.site, calibration=req.calibration, now=now,
                 ))  # fmt: skip

@@ -25,7 +25,7 @@ from spoor.contracts import (
     point_in_polygon,
 )
 
-from .homography import apply_homography, undistort_px
+from .homography import apply_homography, image_to_site, undistort_px
 
 
 @dataclass(frozen=True)
@@ -39,6 +39,10 @@ class ProjectionInput:
     sigma_px: float = 3.0
     # Size of the frame uv refers to. If it differs from the calibration's, uv is rescaled (same aspect) or refused.
     frame_wh_px: tuple[int, int] | None = None
+    # Off the floor at an unknown height within this range (a parcel on a shelf or carried): with a camera pose, the
+    # object's centre (centre_uv_px) is placed on both planes and the spread becomes the uncertainty.
+    off_floor_heights_m: tuple[float, float] | None = None
+    centre_uv_px: tuple[float, float] | None = None
 
 
 def _jacobian_px_to_m(h: np.ndarray, uv: np.ndarray, eps: float = 0.5) -> np.ndarray:
@@ -108,6 +112,25 @@ def project_observation(
                 zone_id=zones[0].zone_id if len(zones) == 1 else None, uncertainty_radius_m=max(radius, 1e-3),
                 method="homography_floor_contact", calibration_id=calibration.calibration_id,
             )  # fmt: skip
+
+    if (not obs.on_floor_plane and obs.off_floor_heights_m and obs.centre_uv_px and usable_calibration
+            and calibration.pose_rvec is not None and calibration.radial_k1 is not None):  # fmt: skip
+        cu, cv = obs.centre_uv_px
+        if calibration.image_wh_px and obs.frame_wh_px:
+            cu, cv = cu * calibration.image_wh_px[0] / obs.frame_wh_px[0], cv * calibration.image_wh_px[1] / obs.frame_wh_px[1]
+        lo, hi = (image_to_site(calibration, [[cu, cv]], h)[0] for h in obs.off_floor_heights_m)
+        if np.isfinite(lo).all() and np.isfinite(hi).all():
+            x, y = float((lo[0] + hi[0]) / 2), float((lo[1] + hi[1]) / 2)
+            if site.contains(calibration.floor_id, (x, y)):
+                radius = float(np.hypot(lo[0] - hi[0], lo[1] - hi[1])) / 2 + calibration.holdout_error_p95_m
+                zones = site.zones_at(calibration.floor_id, (x, y))
+                return SpatialEstimate(
+                    # a plan position, height unknown within the range (folded into the radius): not a measured surface
+                    **base, spatial_mode=SpatialMode.FLOOR_XY, floor_id=calibration.floor_id, floor_xy_m=(x, y),
+                    zone_id=zones[0].zone_id if len(zones) == 1 else None, uncertainty_radius_m=radius,
+                    method="pose_ray_between_heights",
+                    calibration_id=calibration.calibration_id,
+                )  # fmt: skip
 
     zone = _zone_by_image_region(camera, site, obs.uv_px) if in_frame else None
     if zone is not None:

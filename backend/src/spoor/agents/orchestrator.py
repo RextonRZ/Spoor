@@ -45,10 +45,11 @@ ORCHESTRATOR = Actor(kind=ActorKind.SYSTEM, id="spoor.agents.orchestrator/v1")
 
 @dataclass
 class InvestigationConfig:
-    evidence_max_steps: int = 8
-    hypothesis_max_steps: int = 6
-    token_budget: int = 80_000
-    deadline_s: float = 300.0
+    # keyed S2 (1 Nov): reading the scans, finding footage and aiming SAM/Spark takes ~10 turns; 8 ran out before SAM
+    evidence_max_steps: int = 14
+    hypothesis_max_steps: int = 10
+    token_budget: int = 300_000  # a runaway guard, not a squeeze (owner 1 Nov: plenty of tokens, just not excessive)
+    deadline_s: float = 900.0  # one SAM pass over a window takes about 2 min
     max_hypotheses: int = 4
 
 
