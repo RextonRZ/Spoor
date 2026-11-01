@@ -66,16 +66,36 @@ def heading(p: FloorPath) -> str:
     return ["east", "north-east", "north", "north-west", "west", "south-west", "south", "south-east"][int((ang + 22.5) // 45) % 8]
 
 
-def carrier_fit(carton: FloorPath, person: FloorPath) -> Fit:
-    gaps, times = [], []
+def _gaps(carton: FloorPath, person: FloorPath, shift_ms: float) -> tuple[list[float], list[float], list[float]]:
+    """Carton-to-person distances at the same moments, with the person's clock moved by shift_ms: (net of the carton's
+    height uncertainty, raw, times)."""
+    gaps, raw, times = [], [], []
+    pt = person.t_ms + shift_ms
     for i, t in enumerate(carton.t_ms):
-        j = int(np.argmin(np.abs(person.t_ms - t))) if len(person.t_ms) else -1
-        if j < 0 or abs(person.t_ms[j] - t) > PAIR_MS or not np.isfinite(carton.xy[i]).all() \
-                or not np.isfinite(person.xy[j]).all():  # fmt: skip
+        j = int(np.argmin(np.abs(pt - t))) if len(pt) else -1
+        if j < 0 or abs(pt[j] - t) > PAIR_MS or not np.isfinite(carton.xy[i]).all()                 or not np.isfinite(person.xy[j]).all():  # fmt: skip
             continue
-        gaps.append(max(0.0, float(np.linalg.norm(carton.xy[i] - person.xy[j])) - carton.spread_m[i]))
+        d = float(np.linalg.norm(carton.xy[i] - person.xy[j]))
+        gaps.append(max(0.0, d - carton.spread_m[i]))
+        raw.append(d)
         times.append(t)
-    if not gaps:
+    return gaps, raw, times
+
+
+def carrier_fit(carton: FloorPath, person: FloorPath, clock_tolerance_ms: float = 0.0) -> Fit:
+    """The person is the likely carrier if, at SOME alignment of the two cameras' clocks within their combined
+    uncertainty, they stay within reach of the carton long enough; ruled out only if no such alignment exists."""
+    best = None  # (median gap, shared s, shift ms, median raw distance)
+    for shift in np.arange(-clock_tolerance_ms, clock_tolerance_ms + 1, 100.0) if clock_tolerance_ms else [0.0]:
+        gaps, raw, times = _gaps(carton, person, float(shift))
+        if gaps:
+            cand = (float(np.median(gaps)), (max(times) - min(times)) / 1000, float(shift), float(np.median(raw)))
+            ok_c = cand[0] <= REACH_M and cand[1] >= MIN_SHARED_S
+            ok_b = best is not None and best[0] <= REACH_M and best[1] >= MIN_SHARED_S
+            if best is None or (ok_c and not ok_b) or (ok_c == ok_b and cand[3] < best[3]):
+                best = cand
+    within = f" at any clock alignment within ±{clock_tolerance_ms / 1000:.1f} s" if clock_tolerance_ms else ""
+    if best is None:
         ok = np.isfinite(person.xy).all(axis=1)
         if not ok.any():
             return Fit(person.track_id, 0.0, None, "not the carrier", "no floor position")
@@ -83,16 +103,16 @@ def carrier_fit(carton: FloorPath, person: FloorPath) -> Fit:
         x, y = person.xy[last]
         when = "before" if person.t_ms[last] < carton.t_ms.min() else "after"
         move = heading(person)
-        return Fit(person.track_id, 0.0, None, "not the carrier", f"out of view {when} the carton appeared; last seen at "
-                   f"({x:.1f}, {y:.1f}) m, {move if move == 'standing still' else 'heading ' + move}")
-    shared = (max(times) - min(times)) / 1000
-    med = float(np.median(gaps))
+        return Fit(person.track_id, 0.0, None, "not the carrier", f"out of view {when} the carton appeared{within}; last "
+                   f"seen at ({x:.1f}, {y:.1f}) m, {move if move == 'standing still' else 'heading ' + move}")
+    med, shared, shift, _raw = best
     if med <= REACH_M and shared >= MIN_SHARED_S:
-        return Fit(person.track_id, shared, med, "likely carrier",
-                   f"within {med:.1f} m of the carton for {shared:.1f} s, at the same moments")
+        at = f" (best clock alignment {shift / 1000:+.1f} s, within ±{clock_tolerance_ms / 1000:.1f} s)" if clock_tolerance_ms             else ", at the same moments"  # fmt: skip
+        return Fit(person.track_id, shared, med, "likely carrier", f"within {med:.1f} m of the carton for {shared:.1f} s{at}")
     where = f"{med:.0f} m from the carton" if med > REACH_M else f"with it for only {shared:.1f} s"
     move = heading(person)
-    return Fit(person.track_id, shared, med, "not the carrier", f"{where}, {move if move == 'standing still' else 'heading ' + move}")
+    return Fit(person.track_id, shared, med, "not the carrier",
+               f"{where}{within}, {move if move == 'standing still' else 'heading ' + move}")
 
 
 DOOR_NEAR_M = 1.2  # a person lost from view this close to an area's edge went through its doorway

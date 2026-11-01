@@ -384,8 +384,9 @@ class Verifier:
             where = self._sighting_xy(o)
             if not where:
                 continue
-            before = [ts for ts in scans if ts.t_ms <= t_ms]
-            after = [ts for ts in scans if ts.t_ms >= t_ms]
+            unc = o.source_frame.time_uncertainty_ms or 0.0  # the sighting's whole time window must be inside
+            before = [ts for ts in scans if ts.t_ms + (ts.unc_ms or 0) <= t_ms - unc]
+            after = [ts for ts in scans if ts.t_ms - (ts.unc_ms or 0) >= t_ms + unc]
             prev, nxt = (before[-1] if before else None), (after[0] if after else None)
             if prev and nxt and net and prev.synced and nxt.synced and                     {prev.scan.device_kind, nxt.scan.device_kind} <= ON_CONVEYANCE_DEVICES:  # fmt: skip
                 gap = min(min((net.snap(p, max_dist=1e6) or (None, 0, math.inf))[2] for p in where), math.inf)
@@ -398,7 +399,7 @@ class Verifier:
                         ["rules out this parcel only; says nothing about which parcel it is"], c.observation_ids)  # fmt: skip
             for ts in scans:
                 xy = scan_xy(plan, ts)
-                if xy and ts.synced and abs(ts.t_ms - t_ms) <= STATION_WINDOW_S * 1000:
+                if xy and ts.synced and abs(ts.t_ms - t_ms) + unc + (ts.unc_ms or 0) <= STATION_WINDOW_S * 1000:
                     d = min(math.dist(xy, p) for p in where)
                     if d > STATION_MARGIN_M:
                         return VerificationResult(

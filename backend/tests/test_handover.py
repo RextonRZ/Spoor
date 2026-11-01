@@ -48,3 +48,14 @@ def test_in_and_out_of_a_store_at_its_doorway():
     past = path("past", [(27.0, 32.0 + 0.1 * i) for i in range(40)], t=T + 30000)
     ev = area_crossings([came, past, went], STORE)
     assert [(e.track_id, e.kind) for e in ev] == [("in", "went in"), ("out", "came out")]
+
+
+def test_clock_uncertainty_is_searched_not_assumed():
+    # the person's camera clock runs 1.2 s behind: at "the same moments" they are 1.6 m apart, but within the
+    # cameras' clock uncertainty (±1.5 s) there is an alignment where they walk together
+    late = path("late", [(20 - 0.0013 * t, 31.0) for t in T], t=T - 1200)  # recorded 1.2 s early
+    assert carrier_fit(CARTON, late).verdict == "not the carrier"
+    f = carrier_fit(CARTON, late, clock_tolerance_ms=1500)
+    assert f.verdict == "likely carrier" and "+1.2 s" in f.reason
+    far = carrier_fit(CARTON, path("far", [(34.0, 30.0 + 0.001 * t) for t in T]), clock_tolerance_ms=1500)
+    assert far.verdict == "not the carrier" and "any clock alignment within ±1.5 s" in far.reason

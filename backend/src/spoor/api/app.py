@@ -226,12 +226,32 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         method: str
         anchor_description: str = ""
 
+    def reregister_clips(camera_id: str, sync: ClockSync) -> list[dict]:
+        """Move a camera's registered clips onto a new sync: each clip's start on its own recorder clock is recovered
+        from its current record, then corrected with the new sync (observations made before keep their old times)."""
+        moved = []
+        for media in svc.store.find(MediaAsset, camera_id=camera_id):
+            covs = svc.store.find(CameraCoverage, media_id=media.media_id)
+            if not covs:
+                continue
+            old = svc.store.get(ClockSync, covs[-1].sync_id)
+            device_start = covs[-1].start_utc - timedelta(milliseconds=old.correction_ms(covs[-1].start_utc))
+            length = covs[-1].end_utc - covs[-1].start_utc
+            start = device_start + timedelta(milliseconds=sync.correction_ms(device_start))
+            cov = svc.store.put(CameraCoverage(coverage_id=new_id("coverage"), camera_id=camera_id,
+                                               media_id=media.media_id, start_utc=start, end_utc=start + length,
+                                               sync_id=sync.sync_id, time_uncertainty_ms=sync.uncertainty_ms))  # fmt: skip
+            moved.append({"media_id": media.media_id, "start_utc": cov.start_utc.isoformat(),
+                          "shift_ms": (cov.start_utc - covs[-1].start_utc) / timedelta(milliseconds=1)})
+        return moved
+
     @app.post("/v1/cameras/{camera_id}/clock-syncs", status_code=201)
     def clock_sync(camera_id: str, body: SyncRequest, p: User) -> ClockSync:
         p.require_role(Role.SITE_ADMIN)
         p.require_site(get_or_404(Camera, camera_id).site_id)
         sync = svc.store.put(ClockSync(sync_id=new_id("sync"), camera_id=camera_id, created_at=now(),
                                        **body.model_dump()))  # fmt: skip
+        reregister_clips(camera_id, sync)
         audit(p, "clock_sync", sync.sync_id)
         return sync
 
@@ -1286,20 +1306,7 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
             raise HTTPException(422, str(e)) from e
         sync = svc.store.put(sync_from_fit(fit, camera_id=camera_id, base_uncertainty_ms=body.base_uncertainty_ms,
                                            now=now(), anchor_description=body.description))  # fmt: skip
-        moved = []
-        for media in svc.store.find(MediaAsset, camera_id=camera_id):
-            covs = svc.store.find(CameraCoverage, media_id=media.media_id)
-            if not covs:
-                continue
-            old = svc.store.get(ClockSync, covs[-1].sync_id)
-            device_start = covs[-1].start_utc - timedelta(milliseconds=old.correction_ms(covs[-1].start_utc))
-            length = covs[-1].end_utc - covs[-1].start_utc
-            start = device_start + timedelta(milliseconds=sync.correction_ms(device_start))
-            cov = svc.store.put(CameraCoverage(coverage_id=new_id("coverage"), camera_id=camera_id,
-                                               media_id=media.media_id, start_utc=start, end_utc=start + length,
-                                               sync_id=sync.sync_id, time_uncertainty_ms=sync.uncertainty_ms))  # fmt: skip
-            moved.append({"media_id": media.media_id, "start_utc": cov.start_utc.isoformat(),
-                          "shift_ms": (cov.start_utc - covs[-1].start_utc) / timedelta(milliseconds=1)})
+        moved = reregister_clips(camera_id, sync)
         audit(p, "fit_camera_clock", camera_id, sync_id=sync.sync_id, rejected=list(fit.rejected_anchor_ids))
         return {"sync": sync.model_dump(mode="json"), "n_used": fit.n_used, "n_rejected": fit.n_rejected,
                 "rejected_anchor_ids": list(fit.rejected_anchor_ids), "coverage": moved}
