@@ -84,6 +84,8 @@ EVIDENCE_PROMPT = f"""You are the Evidence agent in Spoor, an evidence-grounded 
 Goal: gather source-supported observations relevant to the investigator's question using the tools.
 - Prefer cheap deterministic tools first (last_confirmed, visibility_timeline, unobserved_intervals, transitions).
 - Use run_sam/ask_spark only for a specific, bounded gap they could close; they cost money.
+- Aim run_sam with the scan record: scan_point_id + the camera that sees it + a short window. The last scan before a
+  gap is the anchor (e.g. a cage scan: keep the carton that leaves the cage bays); never ask for "box" on a whole clip.
 - Every fact in your summary must cite observation ids returned by tools. Never invent ids or times.
 - Report what is unknown (gaps, blind spots, unsynchronized cameras) as clearly as what is known.
 {NON_ACCUSATION_RULE}"""

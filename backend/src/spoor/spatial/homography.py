@@ -104,6 +104,23 @@ def site_to_image(cal: FloorCalibration, xyz) -> tuple[np.ndarray, np.ndarray]:
     return distort_px(uv, cal.radial_k1, cal.lens_hfov_deg, cal.image_wh_px), cam[:, 2] > 0.05
 
 
+def image_to_site(cal: FloorCalibration, uv, height_m: float = 0.0) -> np.ndarray:
+    """Pixels in the delivered frame -> site points on the horizontal plane at height_m (0 = the floor: a person's
+    feet; ~1 m: a carton carried in the hands). Needs the solved pose; NaN where the ray never meets that plane."""
+    if cal.pose_rvec is None or cal.radial_k1 is None:
+        raise CalibrationError("this calibration has no camera pose")
+    uv = undistort_px(uv, cal.radial_k1, cal.lens_hfov_deg, cal.image_wh_px)
+    k = lens_matrix(cal.lens_hfov_deg, cal.image_wh_px)
+    rot = cv2.Rodrigues(np.asarray(cal.pose_rvec))[0]
+    centre = -rot.T @ np.asarray(cal.pose_tvec)
+    rays = (rot.T @ np.linalg.inv(k) @ np.c_[uv, np.ones(len(uv))].T).T
+    with np.errstate(divide="ignore", invalid="ignore"):
+        t = (height_m - centre[2]) / rays[:, 2]
+    pts = centre + rays * t[:, None]
+    pts[~(t > 0)] = np.nan
+    return pts
+
+
 def floor_to_image(cal: FloorCalibration, floor_xy) -> tuple[np.ndarray, np.ndarray]:
     """Floor points (m) -> pixels in the calibration's frame, lens included. Returns (uv, on_floor_side): a point
     behind the camera or beyond its horizon has on_floor_side False (it is not in this camera's picture)."""

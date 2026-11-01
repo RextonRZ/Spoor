@@ -56,7 +56,7 @@ class ToolContext:
     verifier: Verifier
     scope: EvidenceScope
     # Paid model calls are injected by the service layer (they need media storage and provider clients).
-    run_sam: Callable[[str, str], dict] | None = None
+    run_sam: Callable[..., dict] | None = None
     ask_spark: Callable[[str, float, float, str], dict] | None = None
     now: Callable[[], datetime] = field(default=lambda: datetime.now(UTC))
     agent_actor: Actor | None = None
@@ -132,7 +132,14 @@ class ObservationArgs(_Args):
 
 class SamArgs(_Args):
     media_id: str
-    concept: str = Field(description="One short visual noun phrase, e.g. 'blue equipment case'")
+    concept: str | None = Field(default=None, description="One short noun SAM looks for, e.g. 'box' (SAM finds "
+                                "nothing for long phrases). Not needed with a device/sorter scan point")
+    scan_point_id: str | None = Field(default=None, description="Aim SAM with a scan point from the plan (e.g. "
+                                      "SP-TUNNEL, SP-CAGE-W): a device point prompts the object there at at_iso; a "
+                                      "handheld point keeps only tracks that start in its work area and leave it")
+    at_iso: str | None = Field(default=None, description="The scan's time (the parcel was at the point then)")
+    start_iso: str | None = Field(default=None, description="Window start: only these seconds are sent to SAM")
+    end_iso: str | None = Field(default=None, description="Window end")
 
 
 class SparkArgs(_Args):
@@ -233,7 +240,8 @@ def t_run_sam(ctx: ToolContext, a: SamArgs) -> dict:
     ctx.media(a.media_id)
     if ctx.run_sam is None:
         return {"status": "analysis_unavailable", "reason": "perception service not configured"}
-    return ctx.run_sam(a.media_id, a.concept)
+    return ctx.run_sam(a.media_id, concept=a.concept, start_iso=a.start_iso, end_iso=a.end_iso,
+                       scan_point_id=a.scan_point_id, at_iso=a.at_iso)
 
 
 def t_ask_spark(ctx: ToolContext, a: SparkArgs) -> dict:
@@ -274,7 +282,8 @@ TOOLS: dict[str, Tool] = {t.name: t for t in [
     Tool("transitions", "Zone changes; 'observed' only within continuous tracking.", ObjectArgs, t_transitions),
     Tool("explain_spatial_basis", "How an observation's position was estimated.", ObservationArgs,
          t_explain_spatial),
-    Tool("run_sam", "Segment/track a visual concept in one media clip (paid).", SamArgs, t_run_sam, paid=True),
+    Tool("run_sam", "Follow a parcel with SAM in one clip (paid, per frame): aim it with a scan point and a time "
+                    "window, not the whole clip.", SamArgs, t_run_sam, paid=True),
     Tool("ask_spark", "Ask Muse Spark a bounded question about a clip window (paid).", SparkArgs, t_ask_spark,
          paid=True),
     Tool("request_evidence", "Ask a human to import a camera interval or sensor log.", EvidenceRequestArgs,

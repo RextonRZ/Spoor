@@ -71,6 +71,8 @@ class PerceptionRequest:
     calibration: FloorCalibration | None = None
     # The proxy's own frame table (same frame count; its timestamps may start at 0 when the original's do not).
     proxy_frames: FrameTable | None = None
+    # Only these frames (inclusive) are sent: the window a scan or a gap points to, not the whole clip.
+    frame_range: tuple[int, int] | None = None
 
 
 @dataclass
@@ -182,7 +184,17 @@ async def track_target(
         raise ValueError("give exactly one of concept or instance prompt")
     display_wh = req.proxy.probe.display_wh_px
     n_frames = len(req.original_frames.pts_ms)
-    chunks = frame_chunks(n_frames, max_frames_per_request)
+    if req.frame_range is not None:
+        lo, hi = max(0, req.frame_range[0]), min(n_frames - 1, req.frame_range[1])
+        if lo > hi:
+            raise ValueError(f"frame range {req.frame_range} is outside the clip")
+        if hi - lo + 1 < SAM_MIN_BILLED_FRAMES:  # billed as 50 frames anyway: use them (still inside the clip)
+            grow = SAM_MIN_BILLED_FRAMES - (hi - lo + 1)
+            lo = max(0, lo - grow // 2)
+            hi = min(n_frames - 1, lo + SAM_MIN_BILLED_FRAMES - 1)
+        chunks = [(a + lo, b + lo) for a, b in frame_chunks(hi - lo + 1, max_frames_per_request)]
+    else:
+        chunks = frame_chunks(n_frames, max_frames_per_request)
     notes: list[str] = []
     if req.instance is not None:
         chunks = [c for c in chunks if c[0] <= req.instance.frame_index <= c[1]]

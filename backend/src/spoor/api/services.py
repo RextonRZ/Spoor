@@ -23,8 +23,11 @@ from spoor.contracts import (
     Site,
     TimeWindow,
 )
+from spoor.forensics.journey import latest_plan
 from spoor.ingest import MediaStore, asset_path, load_result
 from spoor.perception import MetaSamBackend, PerceptionRequest, SamBackend, track_target
+from spoor.perception.anchor import AnchorError, anchor_for, leaves
+from spoor.perception.prompts import InstancePrompt
 from spoor.reasoning import (
     BasetenChatBackend,
     JsonBackend,
@@ -137,7 +140,7 @@ class Services:
     # --- paid operations ----------------------------------------------------------------------------
 
     def run_perception(self, media_id: str, *, concept: str | None = None, instance=None, case_id: str | None = None,
-                       on_floor_plane: bool = False):  # fmt: skip
+                       on_floor_plane: bool = False, frame_range: tuple[int, int] | None = None):  # fmt: skip
         if self.sam is None:
             raise ServiceError("SAM backend not configured (no MODEL_API_KEY)")
         original = self.store.get(MediaAsset, media_id)
@@ -151,10 +154,75 @@ class Services:
             clip_start_camera_time=clip_start, sync=clip_sync,
             concept=concept, instance=instance, case_id=case_id, on_floor_plane=on_floor_plane,
             site=self.site(original.site_id), calibration=self.valid_calibration(camera.camera_id),
+            frame_range=frame_range,
         )  # fmt: skip
         result = asyncio.run(track_target(req, backend=self.sam, store=self.store,
                                           cache_dir=self.settings.data_dir / "inference_cache"))  # fmt: skip
         return result
+
+    def frame_at(self, media_id: str, iso: str) -> int:
+        """Nearest original frame to a time on the shared clock (as /media/{id}/frame-at)."""
+        cov = self.store.find(CameraCoverage, media_id=media_id)
+        if not cov:
+            raise ServiceError(f"{media_id} has no recorded start time")
+        t = datetime.fromisoformat(iso)
+        if t.tzinfo is None:
+            raise ServiceError("times must include a timezone")
+        if not cov[-1].start_utc <= t <= cov[-1].end_utc:
+            raise ServiceError(f"{iso} is outside this clip ({cov[-1].start_utc.isoformat()} - {cov[-1].end_utc.isoformat()})")
+        table = load_result(self.media, media_id).original_frames
+        rel_ms = (t - cov[-1].start_utc).total_seconds() * 1000
+        return min(range(len(table.pts_ms)), key=lambda i: abs(table.pts_ms[i] - rel_ms))
+
+    def anchored_sam(self, case: Case, media_id: str, *, concept: str | None, start_iso: str | None,
+                     end_iso: str | None, scan_point_id: str | None, at_iso: str | None) -> dict:
+        """SAM on a window of one clip, aimed by a scan point (anchor.py): a device/sorter point is a point prompt on
+        the scan's frame; a handheld point's work area keeps only tracks that start inside it and leave it."""
+        original = self.store.get(MediaAsset, media_id)
+        lo = self.frame_at(media_id, start_iso) if start_iso else None
+        hi = self.frame_at(media_id, end_iso) if end_iso else None
+        n = len(load_result(self.media, media_id).original_frames.pts_ms)
+        window = (lo or 0, n - 1 if hi is None else hi) if (lo is not None or hi is not None) else None
+        if window is None and at_iso:  # a scan's second: 5 s either side, not the whole clip
+            f = self.frame_at(media_id, at_iso)
+            window = (max(0, f - 50), min(n - 1, f + 50))
+        anchor = None
+        if scan_point_id:
+            plan = latest_plan(self.store, original.site_id)
+            rp = plan.read_point(scan_point_id) if plan else None
+            if rp is None:
+                raise ServiceError(f"unknown scan point {scan_point_id}")
+            if original.camera_id not in rp.visible_by:
+                raise ServiceError(f"{original.camera_id} does not see {scan_point_id} (plan check); try "
+                                   f"{', '.join(rp.visible_by) or 'no camera'}")
+            cal = self.valid_calibration(original.camera_id)
+            if cal is None:
+                raise ServiceError(f"{original.camera_id} has no valid calibration")
+            anchor = anchor_for(rp, cal)
+        instance = None
+        if anchor is not None and anchor.kind == "point":
+            if not at_iso:
+                raise ServiceError("a point anchor needs at_iso: the scan's time, when the parcel was at the point")
+            instance = InstancePrompt(frame_index=self.frame_at(media_id, at_iso), positive_points_px=[anchor.point_px])
+            concept = None
+        elif not concept:
+            concept = "box"
+        r = self.run_perception(media_id, concept=concept, instance=instance, case_id=case.case_id, frame_range=window)
+        tracks = r.tracks
+        if anchor is not None and anchor.kind == "area":
+            boxes = {t.track_id: [o.bbox_xyxy_px for o in sorted(
+                (o for o in r.observations if o.track_id == t.track_id), key=lambda o: o.source_frame.frame_index)]
+                for t in r.tracks}  # fmt: skip
+            tracks = [t for t in r.tracks if leaves(anchor.polygon_px, boxes[t.track_id])]
+        return {"status": r.status, "message": r.message, "cache_hit": r.cache_hit,
+                "frames_sent": [window[0], window[1]] if window else "whole clip",
+                "anchor": None if anchor is None else {"scan_point": anchor.scan_point_id, "kind": anchor.kind},
+                "tracks": [{"track_id": t.track_id, "frames": [t.first_frame_index, t.last_frame_index]}
+                           for t in tracks],
+                "dropped": len(r.tracks) - len(tracks),
+                "note": ("kept only tracks that start inside the work area and leave it; " if anchor and anchor.kind
+                         == "area" else "") + "new tracks are NOT linked to the case object until an investigator "
+                                              "confirms them"}  # fmt: skip
 
     def tool_context(self, case: Case) -> ToolContext:
         site = self.site(case.site_id)
@@ -164,15 +232,13 @@ class Services:
         ctx = ToolContext(store=self.store, site=site, case=case, verifier=Verifier(self.store, site),
                           scope=EvidenceScope(camera_ids=case.camera_ids, window=window))  # fmt: skip
 
-        def run_sam(media_id: str, concept: str) -> dict:
+        def run_sam(media_id: str, concept: str | None = None, start_iso: str | None = None,
+                    end_iso: str | None = None, scan_point_id: str | None = None, at_iso: str | None = None) -> dict:
             try:
-                r = self.run_perception(media_id, concept=concept, case_id=case.case_id)
-            except ServiceError as e:
+                return self.anchored_sam(case, media_id, concept=concept, start_iso=start_iso, end_iso=end_iso,
+                                         scan_point_id=scan_point_id, at_iso=at_iso)  # fmt: skip
+            except (ServiceError, AnchorError) as e:
                 return {"status": "analysis_unavailable", "reason": str(e)}
-            return {"status": r.status, "message": r.message, "cache_hit": r.cache_hit,
-                    "tracks": [{"track_id": t.track_id, "frames": [t.first_frame_index, t.last_frame_index]}
-                               for t in r.tracks],
-                    "note": "new tracks are NOT linked to the case object until an investigator confirms them"}
 
         def ask_spark(media_id: str, start_s: float, end_s: float, template: str) -> dict:
             if self.spark is None or self.spark_client is None:
