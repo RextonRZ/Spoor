@@ -162,6 +162,50 @@ class Services:
                                           cache_dir=self.settings.data_dir / "inference_cache"))  # fmt: skip
         return result
 
+    def handshake(self, row, *, now):
+        """One planned handshake (forensics/handshake.py): SAM aimed at the scan point at the scan's moment on that
+        camera; the carton it finds there is the scanned parcel. Stored as a ScanHandshake whatever the outcome."""
+        from datetime import timedelta
+
+        from spoor.forensics.handshake import BEFORE_S, FOLLOW_S
+        from spoor.store import ScanHandshake
+
+        hid = f"hs_{row.scan.scan_event_id}_{row.camera_id or 'none'}".replace("-", "_")
+        if self.store.exists(hid):
+            return self.store.get(ScanHandshake, hid)
+        base = {"handshake_id": hid, "site_id": row.scan.site_id, "scan_event_id": row.scan.scan_event_id,
+                "waybill": row.waybill, "event_kind": row.scan.event_kind.value, "scan_point_id": row.scan_point_id,
+                "camera_id": row.camera_id, "media_id": row.media_id, "at_utc": row.at, "rule": row.rule, "at": now}
+        if row.reason:
+            return self.store.put(ScanHandshake(**base, outcome=row.reason))
+        at_iso = row.at.isoformat()
+        start = (row.at - timedelta(seconds=BEFORE_S)).isoformat()
+        end = (row.at + timedelta(seconds=FOLLOW_S)).isoformat()
+        try:
+            res = self.anchored_sam(None, row.media_id, concept=None, start_iso=start, end_iso=end,
+                                    scan_point_id=row.scan_point_id, at_iso=None if row.rule == "work_area" else at_iso)
+            f_at = self.frame_at(row.media_id, at_iso)
+        except (ServiceError, AnchorError) as e:
+            return self.store.put(ScanHandshake(**base, outcome="failed", note=str(e)[:300]))
+        if res.get("status") not in (None, "ok", "completed", "succeeded"):
+            return self.store.put(ScanHandshake(**base, outcome="failed", note=f"{res.get('status')}: {res.get('message')}"[:300]))
+        tracks = [t for t in res.get("tracks", []) if t["frames"][0] <= f_at + 10 and t["frames"][1] >= f_at - 2]
+        if not tracks:
+            return self.store.put(ScanHandshake(**base, outcome="not_found", frame_index=f_at,
+                                                note="nothing at the scan point at the scan's moment"))
+        if len(tracks) > 1:  # two cartons fit: mark neither (never guess)
+            return self.store.put(ScanHandshake(**base, outcome="cant_tell", frame_index=f_at,
+                                                note=f"{len(tracks)} cartons at the point: can't tell which"))
+        tid = tracks[0]["track_id"]
+        obs = sorted((o for o in self.store.find(RawObservation, track_id=tid) if o.bbox_xyxy_px),
+                     key=lambda o: o.source_frame.frame_index)  # fmt: skip
+        near = min(obs, key=lambda o: abs(o.source_frame.frame_index - f_at)) if obs else None
+        after = [o for o in obs if o.source_frame.frame_index >= f_at]
+        span = (after[-1].source_frame.pts_ms - after[0].source_frame.pts_ms) / 1000 if len(after) > 1 else 0.0
+        return self.store.put(ScanHandshake(**base, outcome="outlined", track_id=tid, frame_index=f_at,
+                                            box_px=list(near.bbox_xyxy_px) if near else None,
+                                            frames_followed=len(after), followed_s=round(span, 2)))
+
     def frame_at(self, media_id: str, iso: str) -> int:
         """Nearest original frame to a time on the shared clock (as /media/{id}/frame-at)."""
         cov = self.store.find(CameraCoverage, media_id=media_id)
@@ -176,7 +220,7 @@ class Services:
         rel_ms = (t - cov[-1].start_utc).total_seconds() * 1000
         return min(range(len(table.pts_ms)), key=lambda i: abs(table.pts_ms[i] - rel_ms))
 
-    def anchored_sam(self, case: Case, media_id: str, *, concept: str | None, start_iso: str | None,
+    def anchored_sam(self, case: Case | None, media_id: str, *, concept: str | None, start_iso: str | None,
                      end_iso: str | None, scan_point_id: str | None, at_iso: str | None) -> dict:
         """SAM on a window of one clip, aimed by a scan point (anchor.py): a device/sorter point is a point prompt on
         the scan's frame; a handheld point's work area keeps only tracks that start inside it and leave it."""
@@ -209,7 +253,8 @@ class Services:
             concept = None
         elif not concept:
             concept = "box"
-        r = self.run_perception(media_id, concept=concept, instance=instance, case_id=case.case_id, frame_range=window)
+        r = self.run_perception(media_id, concept=concept, instance=instance, case_id=case.case_id if case else None,
+                                frame_range=window)  # fmt: skip
         tracks = r.tracks
         if anchor is not None and anchor.kind == "area":
             boxes = {t.track_id: [o.bbox_xyxy_px for o in sorted(

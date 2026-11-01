@@ -1,0 +1,75 @@
+"""The scan-to-camera handshake (six checkpoints, Rexton 2 Nov): at a scan the scanner gives IDENTITY (the barcode),
+PLACE (its scan point) and TIME. The site plan says which cameras see that point (visible_by, ray-checked), the
+calibration puts the point in each camera's picture, and the camera's clock fit gives the frame. A SAM prompt there
+outlines THAT carton; SAM then follows it for a few seconds. The scan says which parcel; the camera shows what happened.
+
+Rules by where the carton is at the scan instant (general, from the record and the plan, never a scenario):
+- a sorter / divert point: the carton is at the point at the confirm instant (point prompt then);
+- a scan tunnel: the reader sits under an arch where the carton is hidden, so it is the first carton out of the exit
+  just after the read (belts keep order): the prompt is at the exit a moment later;
+- a handheld scan: the carton is in the worker's hands in the work area at the scan instant (area prompt, keep the
+  carton that leaves the area after it);
+- RFID (a cage's tag) and scan points no camera sees get a record saying so ("not on camera"), never a fake clip.
+Nothing here reads the scenario truth."""
+
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+
+from spoor.contracts import CameraCoverage, MediaAsset, ScanEvent, SitePlan
+from spoor.contracts.parcels import DeviceKind, ReadOutcome
+from spoor.store import EvidenceStore
+from spoor.store.parcels import timed
+
+TUNNEL_EXIT_S = 0.3  # the first carton out of the exit: this long after the read (the reader sits at the exit)
+FOLLOW_S = 5.0  # how long SAM follows it after the scan
+BEFORE_S = 0.5
+
+
+@dataclass
+class Planned:
+    scan: ScanEvent
+    waybill: str | None
+    scan_point_id: str
+    camera_id: str
+    media_id: str | None
+    at: datetime
+    rule: str  # point | tunnel_exit | work_area
+    reason: str  # "" when it can run; else why not (no_footage / not_on_camera)
+
+
+def waybill_of(scan: ScanEvent) -> str | None:
+    return next((i.value for i in scan.identifiers if i.scheme == "carrier_waybill"), None) or \
+        next((i.value for i in scan.identifiers), None)  # fmt: skip
+
+
+def plan_handshakes(store: EvidenceStore, plan: SitePlan, scans: list[ScanEvent], start: datetime | None = None,
+                    end: datetime | None = None) -> list[Planned]:  # fmt: skip
+    """Every parcel scan in [start, end] (shared clock): one row per camera that sees its scan point."""
+    out: list[Planned] = []
+    media = [m for m in store.find(MediaAsset) if m.kind.value == "original"]
+    covs = {m.media_id: store.find(CameraCoverage, media_id=m.media_id) for m in media}
+    for s in scans:
+        if s.read_outcome != ReadOutcome.READ or not s.identifiers or s.device_kind == DeviceKind.RFID_PORTAL:
+            continue
+        ts = timed(store, s)
+        if (start and ts.t < start) or (end and ts.t > end):
+            continue
+        sp = s.station_id or s.device_id
+        rp = plan.read_point(sp)
+        rule = ("tunnel_exit" if s.device_kind == DeviceKind.TUNNEL else
+                "work_area" if s.device_kind == DeviceKind.HANDHELD else "point")
+        at = ts.t + timedelta(seconds=TUNNEL_EXIT_S if rule == "tunnel_exit" else 0.0)
+        if rp is None or not rp.visible_by:
+            out.append(Planned(s, waybill_of(s), sp, "", None, at, rule, "not_on_camera"))
+            continue
+        for cam in rp.visible_by:
+            m = next((m for m in media if m.camera_id == cam and covs[m.media_id]
+                      and covs[m.media_id][-1].start_utc <= at - timedelta(seconds=BEFORE_S)
+                      and at + timedelta(seconds=1.0) <= covs[m.media_id][-1].end_utc), None)  # fmt: skip
+            out.append(Planned(s, waybill_of(s), sp, cam, m.media_id if m else None, at, rule, "" if m else "no_footage"))
+    return out
+
+
+def sam_frames(rows: list[Planned], fps: float = 10.0) -> int:
+    """SAM frames these handshakes would send (for the estimate before a paid run)."""
+    return int(sum((BEFORE_S + FOLLOW_S) * fps + 1 for r in rows if not r.reason))

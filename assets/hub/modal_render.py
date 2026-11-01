@@ -37,7 +37,9 @@ CORES, MEM_GIB = 4, 16
 def pack():
     """Inside Blender: pack every image into the .blend and save a copy for the container."""
     import bpy
-    out = HUB / "build" / "modal" / "hub_S2_packed.blend"
+    argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
+    name = argv[argv.index("--name") + 1] if "--name" in argv else "hub_S2_packed.blend"  # (W1 / W2 windows)
+    out = HUB / "build" / "modal" / name
     out.parent.mkdir(parents=True, exist_ok=True)
     missing = [im.name for im in bpy.data.images if im.source == "FILE" and not im.packed_file
                and not Path(bpy.path.abspath(im.filepath)).exists()]
@@ -82,7 +84,7 @@ def compare(a_dir, b_dir):
 
 
 if "bpy" in sys.modules:  # run by Blender (-P ... -- pack)
-    if "--" in sys.argv and sys.argv[sys.argv.index("--") + 1:] == ["pack"]:
+    if "--" in sys.argv and sys.argv[sys.argv.index("--") + 1:][:1] == ["pack"]:
         pack()
 elif len(sys.argv) > 1 and sys.argv[1] == "compare":
     compare(sys.argv[2], sys.argv[3])
@@ -172,7 +174,7 @@ else:
                     log_tail=(p.stdout + p.stderr)[-1500:])
 
     @app.function(image=enc_image, cpu=ENC_CORES, memory=16 * 1024, volumes={"/vol": vol}, timeout=3600)
-    def encode(cam: str, tag: str, first: int) -> dict:
+    def encode(cam: str, tag: str, first: int, t0_offset: float = 0.0) -> dict:
         import shutil
         import subprocess
         vol.reload()
@@ -180,7 +182,8 @@ else:
         dst = Path(f"/tmp/{cam}.mp4")
         t0 = time.time()
         p = subprocess.run(["python", "/root/hub/cctv_batch.py", str(src), str(dst), "--cam", cam, "--codec", "h265",
-                            "--width", "0", "--first", str(first), "--workers", str(ENC_CORES)],
+                            "--width", "0", "--first", str(first), "--workers", str(ENC_CORES),
+                            "--t0-offset", str(t0_offset)],
                            capture_output=True, text=True, cwd="/root/hub")
         ok = p.returncode == 0 and dst.exists()
         data = dst.read_bytes() if ok else b""
@@ -193,15 +196,23 @@ else:
     @app.local_entrypoint()
     def batch(blend: str = "hub_S2_packed.blend", cams: str = "CAM_01,CAM_06,CAM_09,CAM_11,CAM_13,CAM_15,CAM_19",
               frames: str = "1-900", chunk: int = 450, res: str = "2688x1520", tag: str = "S2",
-              out: str = "assets/hub/build/renders/S2", s_per_frame: float = 3.5, go: bool = False):
-        f0, f1 = (int(x) for x in frames.split("-"))
-        cl = [c for c in cams.split(",") if c]
-        jobs = [(c, f"{a}-{min(f1, a + chunk - 1)}") for c in cl for a in range(f0, f1 + 1, chunk)]
-        n_fr = (f1 - f0 + 1) * len(cl)
+              out: str = "assets/hub/build/renders/S2", s_per_frame: float = 3.5, go: bool = False,
+              ranges: str = "", t0_offset: float = 0.0):
+        # ranges: per-camera frame ranges "CAM_02:170-242,CHK_TUNNEL:585-725" (each checkpoint's moment only; six
+        # checkpoints W1 / W2); t0_offset: the window's frame 1 relative to the S2 window's (the OSD clock)
+        if ranges:
+            spans = [(r.split(":")[0], *(int(x) for x in r.split(":")[1].split("-"))) for r in ranges.split(",") if r]
+        else:
+            f0_, f1_ = (int(x) for x in frames.split("-"))
+            spans = [(c, f0_, f1_) for c in cams.split(",") if c]
+        cl = [c for c, _, _ in spans]
+        first = {c: a for c, a, _ in spans}
+        jobs = [(c, f"{a}-{min(b, a + chunk - 1)}") for c, a0, b in spans for a in range(a0, b + 1, chunk)]
+        n_fr = sum(b - a + 1 for _, a, b in spans)
         gpu_s = n_fr * s_per_frame + len(jobs) * 150.0
         usd = gpu_s * (GPU_USD_S + CORES * CPU_USD_S + MEM_GIB * MEM_USD_S) \
             + len(cl) * 420.0 * (ENC_CORES * CPU_USD_S + 16 * MEM_USD_S)
-        print(f"ESTIMATE {GPU}: {n_fr} frames ({len(cl)} cameras x {f1 - f0 + 1}) at ~{s_per_frame} s/frame, "
+        print(f"ESTIMATE {GPU}: {n_fr} frames ({len(cl)} cameras) at ~{s_per_frame} s/frame, "
               f"{len(jobs)} containers of <= {chunk} frames in parallel (+150 s start-up each), "
               f"+ {len(cl)} CPU encodes: ~{gpu_s / 3600:.1f} GPU-h, ~US${usd:.2f}")
         if not go:
@@ -213,7 +224,7 @@ else:
         if bad:
             raise SystemExit(f"{len(bad)} chunk(s) failed, not encoding: {bad[0]['log_tail']}")
         Path(out).mkdir(parents=True, exist_ok=True)
-        for e in encode.starmap([(c, tag, f0) for c in cl]):
+        for e in encode.starmap([(c, tag, first[c], t0_offset) for c in cl]):
             if e["rc"] == 0 and e["mp4"]:
                 (Path(out) / f"{e['cam']}.mp4").write_bytes(e["mp4"])
             print(json.dumps({k: v for k, v in e.items() if k not in ("mp4", "log_tail")}),

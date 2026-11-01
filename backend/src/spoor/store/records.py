@@ -85,3 +85,28 @@ class ReportRecord(ImmutableRecord):
     status: Literal["draft", "approved"]
     content: dict[str, Any]
     at: AwareDatetime
+
+
+class ScanHandshake(ImmutableRecord):
+    """A scan met on camera (six checkpoints): at the scan instant, on a camera that sees the scan point, SAM was aimed
+    at the point (or the handheld work area) and the carton it found there is THE scanned parcel (identity from the
+    barcode, place + time from the record, the frame from the clock fit). One per scan and camera."""
+
+    handshake_id: str
+    site_id: str
+    scan_event_id: str
+    waybill: str | None
+    event_kind: str
+    scan_point_id: str
+    camera_id: str
+    media_id: str | None
+    at_utc: AwareDatetime  # the moment on the shared clock where the carton is looked for
+    rule: Literal["point", "tunnel_exit", "work_area"]
+    outcome: Literal["outlined", "not_found", "cant_tell", "no_footage", "not_on_camera", "failed"]
+    track_id: str | None = None
+    frame_index: int | None = None
+    box_px: list[float] | None = None
+    frames_followed: int = 0
+    followed_s: float = 0.0
+    note: str = ""
+    at: AwareDatetime

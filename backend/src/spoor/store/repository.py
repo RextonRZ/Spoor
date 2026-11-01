@@ -59,7 +59,15 @@ from spoor.contracts import (
 )
 
 from . import db
-from .records import AgentStep, AuditEntry, CostEntry, EvidenceRequest, Invalidation, ReportRecord
+from .records import (
+    AgentStep,
+    AuditEntry,
+    CostEntry,
+    EvidenceRequest,
+    Invalidation,
+    ReportRecord,
+    ScanHandshake,
+)
 
 M = TypeVar("M", bound=BaseModel)
 SYSTEM = Actor(kind=ActorKind.SYSTEM, id="store")
@@ -225,6 +233,8 @@ SPECS: dict[type, Spec] = {
     Invalidation: Spec(db.invalidations, lambda r: r.invalidation_id, lambda r: {"target_id": r.target_id}),
     AuditEntry: Spec(db.audit, lambda r: r.audit_id, lambda r: {"target_id": r.target_id, "action": r.action}),
     CostEntry: Spec(db.cost_ledger, lambda r: r.cost_id, lambda r: {"case_id": r.case_id, "provider": r.provider}),
+    ScanHandshake: Spec(db.handshakes, lambda r: r.handshake_id,
+                        lambda r: {"site_id": r.site_id, "waybill": r.waybill, "scan_event_id": r.scan_event_id}),
     AgentStep: Spec(db.agent_steps, lambda r: r.step_id,
                     lambda r: {"case_id": r.case_id, "request_id": r.request_id,
                                "idempotency_key": r.idempotency_key}),

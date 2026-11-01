@@ -1206,6 +1206,58 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
                 "observed_frames": [x.source_frame.frame_index for x in obs],
                 "identity": identity_chain(svc.store, case_id, track_id)}  # fmt: skip
 
+    class HandshakeRequest(BaseModel):
+        start: AwareDatetime | None = None
+        end: AwareDatetime | None = None
+        waybills: list[str] = []
+        dry_run: bool = True
+
+    @app.post("/v1/sites/{site_id}/handshakes", status_code=202)
+    def run_handshakes(site_id: str, body: HandshakeRequest, p: User) -> dict:
+        """Scan-to-camera handshakes for the scans in a window (forensics/handshake.py). dry_run (default): what would
+        run and its SAM cost, nothing sent. Otherwise a job; each scan x camera becomes a ScanHandshake."""
+        from spoor.forensics.handshake import plan_handshakes, sam_frames
+        from spoor.forensics.journey import latest_plan
+
+        p.require_role(Role.SITE_ADMIN, Role.INVESTIGATOR)
+        p.require_site(site_id)
+        plan = latest_plan(svc.store, site_id)
+        if plan is None:
+            raise HTTPException(409, "no site plan")
+        rows = plan_handshakes(svc.store, plan, svc.store.find(ScanEvent, site_id=site_id), body.start, body.end)
+        if body.waybills:
+            rows = [r for r in rows if r.waybill in set(body.waybills)]
+        frames = sam_frames(rows)
+        summary = {"rows": len(rows), "runnable": sum(1 for r in rows if not r.reason), "sam_frames": frames,
+                   "usd_estimate": round(frames * 0.20 / 1000, 3),
+                   "not_on_camera": sum(1 for r in rows if r.reason == "not_on_camera"),
+                   "no_footage": sum(1 for r in rows if r.reason == "no_footage")}  # fmt: skip
+        if body.dry_run:
+            return summary
+
+        def work(job):
+            done = []
+            for r in rows:
+                h = svc.handshake(r, now=now())
+                done.append(h.outcome)
+                job.emit("handshake", scan=r.scan.scan_event_id, camera=r.camera_id, outcome=h.outcome)
+            return summary | {"outcomes": {k: done.count(k) for k in set(done)}}
+
+        job = svc.jobs.submit("handshakes", p.user_id, work)
+        audit(p, "handshakes", site_id, job_id=job.job_id, rows=len(rows))
+        return summary | {"job_id": job.job_id}
+
+    @app.get("/v1/parcels/{waybill}/passport")
+    def passport(waybill: str, p: User) -> dict:
+        """Every checkpoint where this parcel was met on camera (its scans' handshakes), in time order: "Scanned here"
+        (identity from the barcode at that moment) or why not (no camera sees the point, no footage, can't tell)."""
+        from spoor.store import ScanHandshake
+
+        rows = sorted(svc.store.find(ScanHandshake, waybill=waybill), key=lambda h: (h.at_utc, h.camera_id))
+        rows = [h for h in rows if p.can_see_site(h.site_id)] if hasattr(p, "can_see_site") else rows
+        return {"waybill": waybill, "stamps": [h.model_dump(mode="json") for h in rows],
+                "label": "Scanned here: the barcode says which parcel; SAM outlines the carton at the scan instant"}
+
     @app.get("/v1/media/{media_id}/frames/{frame_index}/crop")
     def region_crop(media_id: str, frame_index: int, box: str, p: User, basis: str | None = None) -> dict:
         """Crop of an original frame around a requested region (e.g. where the parcel was expected, I3/H10).

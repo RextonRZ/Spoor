@@ -493,3 +493,28 @@ def test_lead_replans_once_with_the_reasons_when_no_step_survives(world, now):
     out = plan_investigation(world.store, world.case.case_id, SimpleNamespace(complete=complete), now=now)
     assert out["replanned"] and [s["camera_id"] for s in out["steps"]] == ["cam_b"] and len(asked) == 2
     assert "CAM_001: camera has no footage on this site" in asked[1]
+
+
+def test_handshake_plan_rules_and_honest_gaps(world, now):
+    """Each scan becomes one row per camera that sees its scan point: tunnel = the first carton out just after the
+    read, sorter = the point at the confirm, handheld = the work area; no camera / no footage are said, never faked."""
+    from spoor.forensics.handshake import TUNNEL_EXIT_S, plan_handshakes, sam_frames
+
+    w = world
+    w.camera("cam_a")
+    w.clip("cam_a", 0, 20)
+    plan = SitePlan.model_validate(plan_for(w.site.site_id, now).model_dump() | {"read_points": [
+        {"scan_point_id": "SP-TUN", "device_kind": "tunnel", "position_m": (1, 1, 1.5), "visible_by": ["cam_a"]},
+        {"scan_point_id": "SP-PLC", "device_kind": "sorter_plc", "position_m": (5, 3, 1.5), "visible_by": ["cam_a"]},
+        {"scan_point_id": "SP-BENCH", "device_kind": "handheld", "position_m": (2, 3, 1.0)}]})
+    scan(w, "SP-TUN", "tunnel_read", 2.0, "tunnel")
+    scan(w, "SP-PLC", "divert_confirmed", 6.0, "sorter_plc")
+    scan(w, "SP-BENCH", "arrived_facility", 8.0, "handheld")
+    scan(w, "SP-PLC", "divert_confirmed", 40.0, "sorter_plc")  # after the clip ends
+    rows = {(r.scan_point_id, r.reason): r for r in plan_handshakes(w.store, plan, w.store.find(ScanEvent))}
+    tun = rows[("SP-TUN", "")]
+    assert tun.rule == "tunnel_exit" and tun.camera_id == "cam_a" and tun.waybill == WAYBILL.value
+    assert (tun.at - (w.t0 + timedelta(seconds=2.0))).total_seconds() == pytest.approx(TUNNEL_EXIT_S)
+    assert rows[("SP-PLC", "")].rule == "point"
+    assert ("SP-BENCH", "not_on_camera") in rows and ("SP-PLC", "no_footage") in rows
+    assert sam_frames(list(rows.values())) == 2 * 56  # the two runnable ones, 5.5 s at 10 fps each

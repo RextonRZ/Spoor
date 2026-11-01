@@ -102,6 +102,7 @@ voice_transcripts = _table("voice_transcripts", _idx("case_id"))
 invalidations = _table("invalidations", _idx("target_id"))
 audit = _table("audit", _idx("target_id"), _idx("action", String(64)))
 cost_ledger = _table("cost_ledger", _idx("case_id"), _idx("provider", String(32)))
+handshakes = _table("handshakes", _idx("site_id"), _idx("waybill", String(64)), _idx("scan_event_id"))
 agent_steps = _table("agent_steps", _idx("case_id"), _idx("request_id"), _idx("idempotency_key", String(128)))
 
 # --- parcels & scans (parcel-hub pivot) -------------------------------------------

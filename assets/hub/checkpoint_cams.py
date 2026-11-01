@@ -8,7 +8,8 @@ bay row), the way a hub would mount it, never from the truth or to dodge occlusi
   CHK_CHUTE   ceiling over the chute row, one camera for the bank C10-C12 + reject (vendors: ~1 camera per 3 chutes)
   CHK_CAGE_W  ceiling above the aisle in front of the west cage bays, all three (S11-S13, x 25-32.6) in view with
               margin (4.2 m over the aisle cut S11 at the frame edge), looking down at the bay fronts (SP-CAGE-W)
-  CHK_STORE   on the rack frame above the exception store's gap, looking out at who comes in (SP-STORE-IN)
+  CHK_STORE   outside the exception store, above, facing its opening with the SCAN IN post in frame, as a door
+              camera is mounted (from above the gap it saw mostly floor and the doorway was out of view: tick 0403)
   CHK_DOCK    side-mounted on dock door D07's frame (the usual dock-door camera mount), across the door and its RFID gate
 Lens: 4 mm on a 1/2.8" sensor (~84 deg horizontal; the wide cameras are 2.8 mm, 103 deg), 2688 x 1520, 10 fps, same
 CCTV look and OSD. Each gets its own clock domain with a planted offset in render_truth.json (evaluator-only) that
@@ -34,7 +35,7 @@ CAMS = [
      "CHUTES C10-C12", "SP-DIV-C12", "diverts off the loop into chutes C10, C11, C12 and the reject chute"),
     ("CHK_CAGE_W", "Z10", "ceiling truss drop-pole over the cage aisle", (28.8, 27.6, 5.0), (28.8, 30.2, 0.9),
      "CAGE BAYS S11-S13", "SP-CAGE-W", "cartons on the west cage shelves, hands taking them, the cage scans"),
-    ("CHK_STORE", "Z11", "bracket on the rack frame above the store's gap", (14.3, 33.8, 3.1), (14.6, 31.9, 1.0),
+    ("CHK_STORE", "Z11", "truss drop-pole outside the store, facing its opening", (14.7, 30.2, 3.2), (14.6, 33.3, 1.0),
      "EXCEPTION STORE DOOR", "SP-STORE-IN", "who goes into or out of the exception store, and its SCAN IN"),
     ("CHK_DOCK", "Z12", "side mount on the dock door frame", (31.1, 39.75, 3.0), (29.0, 38.4, 1.0),
      "DOCK D07", "SP-RFID-D07", "cages through door D07 and its RFID gate"),

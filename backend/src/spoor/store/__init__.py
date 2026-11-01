@@ -24,7 +24,15 @@ from .queries import (
     visibility_timeline,
     world_state_at,
 )
-from .records import AgentStep, AuditEntry, CostEntry, EvidenceRequest, Invalidation, ReportRecord
+from .records import (
+    AgentStep,
+    AuditEntry,
+    CostEntry,
+    EvidenceRequest,
+    Invalidation,
+    ReportRecord,
+    ScanHandshake,
+)
 from .repository import ConflictError, DanglingReference, EvidenceStore, StoreError, epoch_ms, utcnow
 
 __all__ = [
@@ -41,6 +49,7 @@ __all__ = [
     "ObjectState",
     "ObjectView",
     "ReportRecord",
+    "ScanHandshake",
     "Span",
     "StoreError",
     "TrackSegment",
