@@ -2,6 +2,25 @@
 
 Newest first. Each entry: what is done, where to look, what is still open.
 
+## 2026-11-02 04:30 · Render (approved part) done; three previews waiting for the next tick
+
+Rendered on Modal (tick 0403 APPROVED partial), full resolution, ~US$0.8 actual (estimate US$2.12):
+`assets/hub/build/renders/W1/` CHK_UNLOAD, CAM_02 (f170-242: reach + the story release, ends before the next
+carton's overlap at f244), CHK_TUNNEL (f585-725), CAM_05, CAM_01; `assets/hub/build/renders/S2chk/` CHK_TUNNEL,
+CHK_CAGE_W, CHK_DOCK. OSD clocks: W1 reads 14:09-14:11, S2 14:32-14:33, each camera on its own planted offset.
+
+RC-760 (tick 0403 check 2): its only container_add in the scan log is the story parcel (14:21:33), then the cage's
+RFID read at D07 (14:33:25). No other parcel was ever scanned into it, so the empty cage at D07 is the point.
+
+Waiting for review (previews, CCTV look, 5 fps, `qa/review/chk_preview/`):
+- `S2_CHK_STORE.mp4` (re-mounted as a door camera: outside, above, facing the opening with the SCAN IN post in
+  frame; held-out 1.0 cm, 0.37 px): carried past the unused handheld 14:32:29-31, in, back out empty ~14:32:48.
+- `W1_CHK_CHUTE.mp4`, `W1_CAM_11.mp4`: the divert into C12 at 14:11:16 (planned window f945-990: a different
+  carton passes 10 cm into a chute at f998-1000, so it stops before that).
+- `W2_CHK_CHUTE.mp4` (the pick out of C12's bag 14:21:11-18; her hands brush the bag rim 2 frames) and
+  `W2_CHK_CAGE_W.mp4` (set-down on S11's shelf at 14:21:35, from the fixed blend: the carton rests exactly at S2's
+  frame-1 pose, no overlap).
+
 ## 2026-11-02 03:55 · Six checkpoints steps 2-3: cameras, W1/W2 sims, gates, local previews (render NOT started)
 
 ### Look at (low-res local previews, CCTV look + OSD on each camera's own clock; 5 fps)
