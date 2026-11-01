@@ -13,14 +13,17 @@ from spoor.contracts import (
     Actor,
     ActorKind,
     Camera,
+    CameraCoverage,
     Case,
     EvidenceScope,
     MediaAsset,
     ObjectInstance,
     RawObservation,
+    ReadOutcome,
     Site,
     new_id,
 )
+from spoor.forensics.journey import latest_plan
 from spoor.store import (
     EvidenceRequest,
     EvidenceStore,
@@ -30,6 +33,7 @@ from spoor.store import (
     unobserved_intervals,
     visibility_timeline,
 )
+from spoor.store.parcels import object_keys, scans_for
 from spoor.verification import CLAIM_ADAPTER, Verifier
 
 
@@ -255,6 +259,63 @@ def t_ask_spark(ctx: ToolContext, a: SparkArgs) -> dict:
     return ctx.ask_spark(a.media_id, a.start_s, a.end_s, a.template, track_id=a.track_id)
 
 
+class FootageArgs(_Args):
+    camera_id: str | None = Field(default=None, description="A camera, e.g. cam_CAM_13")
+    scan_point_id: str | None = Field(default=None, description="Or a scan point: every camera that sees it")
+    start_iso: str
+    end_iso: str
+
+
+def t_scan_history(ctx: ToolContext, a: ObjectArgs) -> dict:
+    """The object's scans on the shared clock, and where the last one leaves it: its scan point, what is there (a
+    device, or a handheld work area) and which cameras see it."""
+    ctx.object(a.object_instance_id)
+    keys = object_keys(ctx.store, a.object_instance_id)
+    timeline = scans_for(ctx.store, keys, site_id=ctx.case.site_id) if keys else None
+    scans = [ts for ts in (timeline.scans if timeline else []) if ts.scan.read_outcome == ReadOutcome.READ]
+    if not scans:
+        return {"scans": [], "note": "no scans of this object at this site"}
+    plan = latest_plan(ctx.store, ctx.case.site_id)
+    rows = [{"t": ts.t.isoformat(), "event_kind": ts.scan.event_kind.value, "scan_point_id": ts.scan.station_id
+             or ts.scan.device_id, "zone_id": ts.scan.read_point_zone_id, "container": ts.scan.container.value
+             if ts.scan.container else None, "clock": "synchronized" if ts.synced else "not synchronized",
+             "scan_event_id": ts.scan.scan_event_id} for ts in scans]  # fmt: skip
+    last = rows[-1]
+    rp = plan.read_point(last["scan_point_id"]) if plan else None
+    where = None
+    if rp is not None:
+        where = {"scan_point_id": rp.scan_point_id, "device_kind": rp.device_kind, "zone_id": rp.zone_id,
+                 "kind": "device" if rp.device_parts_m else "handheld work area" if rp.work_area_m else "sorter event",
+                 "cameras_that_see_it": rp.visible_by}  # fmt: skip
+    return {"scans": rows, "last_scan": last, "last_scan_point": where,
+            "note": "after the last scan nothing records the object; cameras that see the last scan point are where "
+                    "to start looking, from the earliest footage after that time"}
+
+
+def t_footage_for(ctx: ToolContext, a: FootageArgs) -> dict:
+    """Recorded clips covering a window, for one camera or for every camera that sees a scan point."""
+    cams: list[str] = []
+    if a.camera_id:
+        cams = [a.camera_id]
+    elif a.scan_point_id:
+        plan = latest_plan(ctx.store, ctx.case.site_id)
+        rp = plan.read_point(a.scan_point_id) if plan else None
+        if rp is None:
+            raise ScopeError(f"unknown scan point {a.scan_point_id}")
+        cams = list(rp.visible_by)
+    start, end = (datetime.fromtimestamp(parse_iso(x) / 1000, UTC) for x in (a.start_iso, a.end_iso))
+    out = []
+    for cam in cams:
+        ctx.camera_on_site(cam)
+        for m in ctx.store.find(MediaAsset, camera_id=cam):
+            covs = ctx.store.find(CameraCoverage, media_id=m.media_id)
+            if m.kind.value != "original" or not covs or covs[-1].end_utc < start or covs[-1].start_utc > end:
+                continue
+            out.append({"camera_id": cam, "media_id": m.media_id, "start": covs[-1].start_utc.isoformat(),
+                        "end": covs[-1].end_utc.isoformat(), "clock_uncertainty_ms": covs[-1].time_uncertainty_ms})
+    return {"clips": out, "note": "" if out else "no recording covers this window; request_evidence to ask for it"}
+
+
 def t_request_evidence(ctx: ToolContext, a: EvidenceRequestArgs) -> dict:
     if a.camera_id is not None:
         ctx.camera_on_site(a.camera_id)
@@ -284,6 +345,10 @@ TOOLS: dict[str, Tool] = {t.name: t for t in [
     Tool("transitions", "Zone changes; 'observed' only within continuous tracking.", ObjectArgs, t_transitions),
     Tool("explain_spatial_basis", "How an observation's position was estimated.", ObservationArgs,
          t_explain_spatial),
+    Tool("scan_history", "The object's scans and where the last one leaves it (scan point, cameras that see it).",
+         ObjectArgs, t_scan_history),
+    Tool("footage_for", "Recorded clips (media_id, time span) for a camera or a scan point in a window.",
+         FootageArgs, t_footage_for),
     Tool("run_sam", "Follow a parcel with SAM in one clip (paid, per frame): aim it with a scan point and a time "
                     "window, not the whole clip.", SamArgs, t_run_sam, paid=True),
     Tool("ask_spark", "Ask Muse Spark a bounded question about a clip window (paid).", SparkArgs, t_ask_spark,

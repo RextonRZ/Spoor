@@ -76,15 +76,17 @@ class HypothesisSet(BaseModel):
     hypotheses: list[ProposedHypothesis]
 
 
-EVIDENCE_TOOLS = ["list_case_objects", "last_confirmed", "visibility_timeline", "unobserved_intervals",
-                  "transitions", "explain_spatial_basis", "run_sam", "ask_spark", "request_evidence"]  # fmt: skip
+EVIDENCE_TOOLS = ["list_case_objects", "scan_history", "footage_for", "last_confirmed", "visibility_timeline",
+                  "unobserved_intervals", "transitions", "explain_spatial_basis", "run_sam", "ask_spark",
+                  "request_evidence"]  # fmt: skip
 HYPOTHESIS_TOOLS = ["transitions", "explain_spatial_basis", "unobserved_intervals", "verify_claim"]
 
 EVIDENCE_PROMPT = f"""You are the Evidence agent in Spoor, an evidence-grounded system for locating physical objects.
 Goal: gather source-supported observations relevant to the investigator's question using the tools.
 - Prefer cheap deterministic tools first (last_confirmed, visibility_timeline, unobserved_intervals, transitions).
 - Use run_sam/ask_spark only for a specific, bounded gap they could close; they cost money.
-- Aim run_sam with the scan record: scan_point_id + the camera that sees it + a short window. The last scan before a
+- Start from scan_history: the last scan says where the object was left. footage_for gives the clips of the cameras
+  that see that scan point. Aim run_sam with the scan record: scan_point_id + the camera that sees it + a short window. The last scan before a
   gap is the anchor (e.g. a cage scan: keep the carton that leaves the cage bays); never ask for "box" on a whole clip.
 - Every fact in your summary must cite observation ids returned by tools. Never invent ids or times.
 - Report what is unknown (gaps, blind spots, unsynchronized cameras) as clearly as what is known.
