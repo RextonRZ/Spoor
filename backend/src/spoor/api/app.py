@@ -29,6 +29,7 @@ from spoor.contracts import (
     Hypothesis,
     HypothesisStatus,
     HypothesisStatusChange,
+    IdentifierScheme,
     MediaAsset,
     MediaAuthorization,
     ObjectInstance,
@@ -1551,6 +1552,57 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
                          "raw_code": s.raw_code, "raw_description": s.raw_description,
                          "source_type": s.source_type.value, "import_batch": s.import_batch})  # fmt: skip
         return {"total": len(rows), "scans": rows[: max(1, min(limit, 20000))]}
+
+    @app.get("/v1/sites/{site_id}/scan-points")
+    def scan_point_counts(site_id: str, p: User) -> dict:
+        """How busy each scanner is: per read point (station, else device), the scans and no-reads in the imported log
+        and the first / last device time. Counts only; the Hub's Places tab sets them beside its stalled parcels."""
+        p.require_site(site_id)
+        rows: dict[str, dict] = {}
+        for s in svc.store.find(ScanEvent, site_id=site_id):
+            key = s.station_id or s.device_id
+            r = rows.setdefault(key, {"point": key, "device_kind": s.device_kind.value, "zone_id": s.read_point_zone_id,
+                                      "scans": 0, "no_reads": 0, "first": None, "last": None})  # fmt: skip
+            r["scans"] += 1
+            r["no_reads"] += s.read_outcome.value != "read"
+            t = s.device_time_utc.isoformat()
+            r["first"] = t if r["first"] is None or t < r["first"] else r["first"]
+            r["last"] = t if r["last"] is None or t > r["last"] else r["last"]
+        return {"site_id": site_id, "points": sorted(rows.values(), key=lambda r: -r["scans"])}
+
+    @app.get("/v1/sites/{site_id}/parcels")
+    def site_parcels(site_id: str, p: User, q: str = "", limit: int = 500) -> dict:
+        """Every parcel in the imported scan log (owner 1 Nov: the Hub's Parcels tab, tracking-number search, look-alike
+        checks): per parcel its scan count, first and last scan (time, kind, read point, zone), the tunnel's size and
+        weight, its last container and its open case if any. `q`: case-insensitive part of the tracking number. Parcel
+        identifiers only (a cage or bag label is a container, not a parcel)."""
+        p.require_site(site_id)
+        get_or_404(Site, site_id)
+        ql = q.strip().upper()
+        case_of: dict[str, str] = {}
+        for c in svc.store.find(Case, site_id=site_id):
+            for tok in c.target_description.replace(",", " ").split():
+                case_of.setdefault(tok.upper(), c.case_id)
+        rows: dict[str, dict] = {}
+        for s in svc.store.find(ScanEvent, site_id=site_id):
+            pid = next((i.value for i in s.identifiers if i.scheme != IdentifierScheme.CONTAINER and i.value), None)
+            if not pid or (ql and ql not in pid.upper()):
+                continue
+            r = rows.setdefault(pid, {"id": pid, "scans": 0, "first": None, "last": None, "dims_mm": None, "weight_g": None,
+                                      "tunnel_t": None, "container": None, "case_id": case_of.get(pid.upper())})  # fmt: skip
+            r["scans"] += 1
+            t = s.device_time_utc.isoformat()
+            ev = {"t": t, "kind": s.event_kind.value, "point": s.station_id or s.device_id, "zone": s.read_point_zone_id}
+            if r["first"] is None or t < r["first"]["t"]:
+                r["first"] = ev
+            if r["last"] is None or t >= r["last"]["t"]:
+                r["last"] = ev
+                if s.container:
+                    r["container"] = s.container.value
+            if s.dims_mm and r["dims_mm"] is None:
+                r["dims_mm"], r["weight_g"], r["tunnel_t"] = list(s.dims_mm), s.weight_g, t
+        out = sorted(rows.values(), key=lambda r: r["last"]["t"], reverse=True)
+        return {"site_id": site_id, "total": len(out), "parcels": out[: max(1, min(limit, 2000))]}
 
     @app.get("/v1/cases")
     def list_cases(p: User, site_id: str | None = None) -> list[dict]:

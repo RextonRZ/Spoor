@@ -105,6 +105,8 @@ def _object_journey(store, case, obj, plan, net, domains) -> dict:
                       "xy": xy, "on_conveyor": belt[0] if belt else None, "clock": _clock_view(ts),
                       "clock_domain": domains[d].name if (d := ts.scan.clock_domain_id) in domains else None,
                       "sort_destination_actual": ts.scan.sort_destination_actual,
+                      "sort_destination_assigned": ts.scan.sort_destination_assigned,
+                      "container": ts.scan.container.value if ts.scan.container else None,
                       "weight_g": ts.scan.weight_g, "dims_mm": ts.scan.dims_mm})  # fmt: skip
         anchors.append(Anchor("scan", ts.scan.scan_event_id, ts.t_ms, xy, ts.unc_ms if ts.synced else None,
                               ts.scan.clock_domain_id, belt, station_id=ts.scan.station_id or ts.scan.device_id,

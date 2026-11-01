@@ -29,6 +29,10 @@ class Claim:
     zone_id: str | None
     words: str
     evidence_ids: list[str]
+    # structured twins of `words`, for screens that place a claim (the container and the scan that put it somewhere)
+    container: str | None = None
+    event_kind: str | None = None
+    station_id: str | None = None
 
 
 def _claims(store: EvidenceStore, keys: set[str], site_id: str) -> list[Claim]:
@@ -41,7 +45,8 @@ def _claims(store: EvidenceStore, keys: set[str], site_id: str) -> list[Claim]:
             parent = m.parent_key
             label = parent.split(":", 1)[-1]
             out.append(Claim(m.valid_from.timestamp() * 1000, "custody", None, f"inside {label} (from the scan log)",
-                             [m.membership_id] + ([m.opened_by_event_id] if m.opened_by_event_id else [])))
+                             [m.membership_id] + ([m.opened_by_event_id] if m.opened_by_event_id else []),
+                             container=label))  # fmt: skip
             for ts in container_scans(store, parent, site_id):  # indexed by the same "container:<id>" key
                 s: ScanEvent = ts.scan
                 if ts.t < m.valid_from or (m.valid_to and ts.t > m.valid_to and s.event_kind not in DEPARTS):
@@ -49,7 +54,8 @@ def _claims(store: EvidenceStore, keys: set[str], site_id: str) -> list[Claim]:
                 kind = "departure" if s.event_kind in DEPARTS else "custody"
                 where = s.station_id or s.device_id
                 out.append(Claim(ts.t_ms, kind, s.read_point_zone_id,
-                                 f"{label} {s.event_kind.value.replace('_', ' ')} at {where}", [s.scan_event_id]))
+                                 f"{label} {s.event_kind.value.replace('_', ' ')} at {where}", [s.scan_event_id],
+                                 container=label, event_kind=s.event_kind.value, station_id=where))  # fmt: skip
             if parent not in seen:
                 seen.add(parent)
                 frontier.append(parent)
@@ -98,7 +104,8 @@ def records_vs_video(store: EvidenceStore, case_id: str) -> dict:
             "records": [{"t": s["t"], "words": f"{s['raw_code'] or s['event_kind']} at {s['station_id'] or s['device_id']}",
                          "zone_id": s["zone_id"], "evidence_id": s["scan_event_id"]} for s in oj["scans"]]
                        + [{"t": iso(c.t_ms), "words": c.words, "zone_id": c.zone_id, "evidence_id": c.evidence_ids[0],
-                           "claim": c.kind} for c in claims],
+                           "claim": c.kind, "container": c.container, "event_kind": c.event_kind,
+                           "station_id": c.station_id} for c in claims],
             "video": [{"start": s["start"], "end": s["end"], "camera_id": s["camera_id"], "evidence_ids": s["evidence_ids"]}
                       for s in oj["segments"] if s["kind"] == "observed"],
             "conflicts": conflicts,
