@@ -50,6 +50,15 @@ class TransferClaim(_Claim):
     observation_ids: list[str] = Field(min_length=2)
 
 
+class ParcelMatchClaim(_Claim):
+    """'This sighting is parcel X' (a look-alike check). The parcel's own scans can rule a sighting out: if they place it
+    on the belt, or at a station, at that moment, and the sighting is elsewhere. They can never prove it."""
+
+    kind: Literal["parcel_match"] = "parcel_match"
+    observation_ids: list[str] = Field(min_length=1)
+    waybill: str = Field(min_length=3)
+
+
 class OrderClaim(_Claim):
     kind: Literal["order"] = "order"
     first_observation_id: str
@@ -57,6 +66,6 @@ class OrderClaim(_Claim):
 
 
 StructuredClaim = Annotated[
-    LastSeenClaim | PresenceClaim | TransitionClaim | ExitClaim | TransferClaim | OrderClaim,
+    LastSeenClaim | PresenceClaim | TransitionClaim | ExitClaim | TransferClaim | OrderClaim | ParcelMatchClaim,
     Field(discriminator="kind"),
 ]

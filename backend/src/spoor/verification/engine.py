@@ -15,10 +15,12 @@ from spoor.contracts import (
     ActorKind,
     EvidenceLabel,
     FindingStatus,
+    FloorCalibration,
     HypothesisStatus,
     HypothesisStatusChange,
     ObjectInstance,
     RawObservation,
+    ReadOutcome,
     SensorEvent,
     Site,
     SourceType,
@@ -28,8 +30,11 @@ from spoor.contracts import (
     new_id,
     point_in_polygon,
 )
+from spoor.forensics.conveyance import ConveyorNet
+from spoor.forensics.journey import ON_CONVEYANCE_DEVICES, latest_plan, scan_xy
 from spoor.safety import find_forbidden
 from spoor.spatial import ordering_is_determined
+from spoor.spatial.homography import image_to_site
 from spoor.store import (
     CONFIRMED_STATUSES,
     EvidenceStore,
@@ -39,11 +44,13 @@ from spoor.store import (
     object_evidence,
     track_segments,
 )
+from spoor.store.parcels import scans_for
 
 from .claims import (
     ExitClaim,
     LastSeenClaim,
     OrderClaim,
+    ParcelMatchClaim,
     PresenceClaim,
     StructuredClaim,
     TransferClaim,
@@ -53,6 +60,11 @@ from .claims import (
 VERIFIER = Actor(kind=ActorKind.VERIFIER_SERVICE, id="spoor.verification.engine/v1")
 CLAIM_ADAPTER = TypeAdapter(StructuredClaim)
 V = VerificationVerdict
+
+
+BELT_MARGIN_M = 2.5  # a parcel between two belt scans is on the belt: further than this from every belt rules it out
+STATION_WINDOW_S = 3.0  # a scan this close in time pins the parcel to the station
+STATION_MARGIN_M = 6.0
 
 
 @dataclass
@@ -156,7 +168,7 @@ class Verifier:
             self._overreach(claim.statement)
             handler = {LastSeenClaim: self._last_seen, PresenceClaim: self._presence,
                        TransitionClaim: self._transition, ExitClaim: self._exit, TransferClaim: self._transfer,
-                       OrderClaim: self._order_claim}[type(claim)]  # fmt: skip
+                       OrderClaim: self._order_claim, ParcelMatchClaim: self._parcel_match}[type(claim)]  # fmt: skip
             return handler(claim)
         except _Stop as stop:
             return stop.result
@@ -332,6 +344,72 @@ class Verifier:
         if order is False:
             return VerificationResult(V.CONTRADICTED, EvidenceLabel.CONTRADICTED, ["order is reversed"], [], ids)
         return VerificationResult(V.SUPPORTED, EvidenceLabel.OBSERVED, ["order established"], [], ids)
+
+    def _sighting_xy(self, obs: RawObservation) -> list[tuple[float, float]]:
+        """Where a sighting could be on the floor: its spatial estimate, else the camera's calibrated pose at every
+        plausible height (on the floor, or carried up to chest height); empty if neither is available."""
+        est = estimate_for(self.store, obs.observation_id)
+        if est is not None and est.floor_xy_m is not None:
+            return [tuple(est.floor_xy_m)]
+        cals = [c for c in self.store.find(FloorCalibration, camera_id=obs.camera_id)
+                if c.pose_rvec is not None and not self.store.is_invalid(c.calibration_id)]
+        if not cals or obs.bbox_xyxy_px is None:
+            return []
+        b = obs.bbox_xyxy_px
+        out = []
+        for h, (u, v) in ((0.0, ((b[0] + b[2]) / 2, b[3])), *((h, ((b[0] + b[2]) / 2, (b[1] + b[3]) / 2))
+                                                                for h in (0.8, 1.2))):  # fmt: skip
+            xyz = image_to_site(cals[-1], [[u, v]], h)[0]
+            if math.isfinite(xyz[0]):
+                out.append((float(xyz[0]), float(xyz[1])))
+        return out
+
+    def _parcel_match(self, c: ParcelMatchClaim) -> VerificationResult:
+        """Rule a sighting out as parcel X when X's own scans put it somewhere else at that moment."""
+        obs = [self._observation(o) for o in c.observation_ids]
+        plan = latest_plan(self.store, self.site.site_id)
+        net = ConveyorNet(plan) if plan else None
+        timeline = scans_for(self.store, {f"carrier_waybill:{c.waybill}"}, site_id=self.site.site_id)
+        scans = [ts for ts in (timeline.scans if timeline else []) if ts.scan.read_outcome == ReadOutcome.READ]
+        if not scans:
+            raise _fail(V.INSUFFICIENT_EVIDENCE, f"no scans of {c.waybill} at this site", checked_ids=c.observation_ids)
+        def hhmm(ts) -> str:
+            return ts.t.astimezone(obs[0].source_frame.normalized_utc.tzinfo).strftime("%H:%M:%S.%f")[:-5]
+
+        for o in obs:
+            t = o.source_frame.normalized_utc
+            if t is None:
+                continue
+            t_ms = t.timestamp() * 1000
+            where = self._sighting_xy(o)
+            if not where:
+                continue
+            before = [ts for ts in scans if ts.t_ms <= t_ms]
+            after = [ts for ts in scans if ts.t_ms >= t_ms]
+            prev, nxt = (before[-1] if before else None), (after[0] if after else None)
+            if prev and nxt and net and prev.synced and nxt.synced and                     {prev.scan.device_kind, nxt.scan.device_kind} <= ON_CONVEYANCE_DEVICES:  # fmt: skip
+                gap = min(min((net.snap(p, max_dist=1e6) or (None, 0, math.inf))[2] for p in where), math.inf)
+                if gap > BELT_MARGIN_M:
+                    return VerificationResult(
+                        V.CONTRADICTED, EvidenceLabel.CONTRADICTED,
+                        [(f"the scans place {c.waybill} on the belt between {prev.scan.station_id or prev.scan.device_id} "
+                          f"({hhmm(prev)}) and {nxt.scan.station_id or nxt.scan.device_id} ({hhmm(nxt)}); this sighting "
+                          f"is {gap:.0f} m from any belt at that moment")],
+                        ["rules out this parcel only; says nothing about which parcel it is"], c.observation_ids)  # fmt: skip
+            for ts in scans:
+                xy = scan_xy(plan, ts)
+                if xy and ts.synced and abs(ts.t_ms - t_ms) <= STATION_WINDOW_S * 1000:
+                    d = min(math.dist(xy, p) for p in where)
+                    if d > STATION_MARGIN_M:
+                        return VerificationResult(
+                            V.CONTRADICTED, EvidenceLabel.CONTRADICTED,
+                            [(f"{c.waybill} was scanned at {ts.scan.station_id or ts.scan.device_id} at {hhmm(ts)}, "
+                              f"{d:.0f} m from this sighting")],
+                            ["rules out this parcel only"], c.observation_ids)  # fmt: skip
+        return VerificationResult(V.INSUFFICIENT_EVIDENCE, EvidenceLabel.HYPOTHESIZED,
+                                  [f"the scans of {c.waybill} do not rule this sighting out"],
+                                  ["not ruling out is not identification: that needs a scan or an unbroken track"],
+                                  c.observation_ids)  # fmt: skip
 
     # --- consistency scan ---------------------------------------------------------------------------
 
