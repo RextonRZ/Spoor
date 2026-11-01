@@ -4,7 +4,7 @@
 
 **Length:** 90.0 s at 10 fps from 2026-10-28T14:32:07+08:00 (hub clock; each camera's OSD runs on its own drifting clock).
 
-**Subject:** `CTX468083768412`
+**Subject:** `CTX334048419302`
 
 **What happens:** taken off cage S11's shelf by a person, carried into the exception store (BLIND_NW) and left there: he came back out empty-handed
 
@@ -12,9 +12,10 @@
 
 **Scan lines about the subject** (scan_simulated, device clocks):
 
+- `2026-10-28T14:10:01.260+08:00` unload_scan @ SP-IN-N (clkd_handheld)
 - `2026-10-28T14:10:40.690+08:00` tunnel_read @ SP-TUNNEL (clkd_wcs)
 - `2026-10-28T14:10:50.490+08:00` induct_to_carrier @ SP-INDUCT (clkd_wcs)
-- `2026-10-28T14:11:12.190+08:00` divert_confirm @ SP-DIV-C12 (clkd_wcs)
+- `2026-10-28T14:11:16.380+08:00` divert_confirm @ SP-DIV-C12 (clkd_wcs)
 - `2026-10-28T14:21:33.600+08:00` container_add @ SP-CAGE-W (clkd_handheld)
 
 **Expected Spoor answer:** went into Z11 carrying it at ~14:32:30 (t=24 s) through its only entrance; came out empty-handed at ~14:32:48 (t=42 s); no camera sees inside Z11 but every way out is watched (CAM_19) and nothing came out with it before the window ended -> the parcel is in Z11. Neutral: moved by a person into the exception store; the cage scan (container_add) is out of date after t=6.0 s, so the cage's RFID read at D07 (t=79 s) does not mean the parcel left on that truck
@@ -32,6 +33,9 @@
 
 - unseen: a 0.25 m strip behind the south rack's end upright (x 13.45-13.55, z >= 0.7 m), reachable only through the gap's fully seen south face (review 019 #3)
 - a throw over the 3 m racks: 49 % of the air over them and 83 % of the floor band where it would land are seen (review 019 #4); not a way out for a person
+- rendered with dock D02 idle (its lorry unloaded, the boom pulled back to the door, nobody unloading): its old motion is not convincing yet; fixed before any scenario that films it (021d review)
+- rendered with line B unstaffed (gaylords waiting, no line B inductions)
+- rendered with the bag-opening bench unstaffed (two full bags waiting on it): its old motion is not convincing yet; fixed before any scenario that films it (021d review)
 
 **Key truth values:**
 
@@ -40,7 +44,7 @@
  "scenario": "S2",
  "seconds": 90.0,
  "t0": "2026-10-28T14:32:07+08:00",
- "story_parcel": "CTX468083768412",
+ "story_parcel": "CTX334048419302",
  "story_object": "flow_parcel_5013",
  "picked_t_s": 6.0,
  "enters_blind_t_s": 23.7,
@@ -75,23 +79,23 @@
  ],
  "lookalike": [
   {
-   "parcel_id": "CTX181432283202",
+   "parcel_id": "CTX976456695076",
    "object": "flow_parcel_5014",
    "what": "same size kraft carton with a white label, another customer's parcel",
    "scans": [
     {
      "event": "tunnel_read",
-     "t_s": 4.7,
+     "t_s": 1.0,
      "scan_point": "SP-TUNNEL"
     },
     {
      "event": "induct_to_carrier",
-     "t_s": 10.1,
+     "t_s": 5.9,
      "scan_point": "SP-INDUCT"
     },
     {
      "event": "divert_confirm",
-     "t_s": 33.0,
+     "t_s": 28.8,
      "scan_point": "SP-DIV-C08"
     }
    ],
@@ -124,6 +128,11 @@
    },
    "note": "CAM_19 (yaw 65, tilt 30) sees 49 % of the air 0.3 m over the racks; 83 % of the 1.5 m floor band where a thrown parcel would land outside the racks is seen"
   }
+ ],
+ "unstaffed_for_render": [
+  "dock_D02",
+  "lineB",
+  "opener"
  ]
 }
 ```

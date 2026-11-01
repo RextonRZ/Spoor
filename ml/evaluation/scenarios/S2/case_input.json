@@ -2,11 +2,11 @@
  "scenario": "S2",
  "title": "Removal into the blind spot",
  "synthetic": true,
- "subject_id": "CTX468083768412",
+ "subject_id": "CTX334048419302",
  "subject_kind": "parcel",
- "question": "Where is CTX468083768412 now, and when was it last seen?",
- "waybill": "CTX468083768412",
- "complaint": "Customer reports parcel CTX468083768412 never arrived.",
+ "question": "Where is CTX334048419302 now, and when was it last seen?",
+ "waybill": "CTX334048419302",
+ "complaint": "Customer reports parcel CTX334048419302 never arrived.",
  "window": {
   "start": "2026-10-28T14:32:07+08:00",
   "seconds": 90.0

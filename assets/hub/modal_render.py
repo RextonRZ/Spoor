@@ -15,6 +15,7 @@ runs plain `blender -b` (Blender's EGL path), mode "xvfb" runs it under a virtua
 reports what the log says about the GPU; it never switches the look to Cycles (owner rule: that needs a review).
 """
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -23,7 +24,12 @@ HUB = Path(__file__).resolve().parent
 BLENDER_URL = "https://download.blender.org/release/Blender5.2/blender-5.2.3-linux-x64.tar.xz"
 BLENDER_SHA256 = "78486c018b4443efe5e75ab54c290ed8c15abafd249b862c2c9ce2530a918eec"  # blender-5.2.3.sha256 (official)
 BATCH = ["--samples", "2", "--raytrace", "0", "--shadow-scale", "0.5", "--exposure", "0.2"]  # render_batch.sh
-GPU, GPU_USD_S = "L4", 0.000222  # modal.com/pricing (31 Oct 2026): L4 $0.000222/s
+GPU_PRICE = {"L4": 0.000222, "A10G": 0.000306, "T4": 0.000164}  # US$/s, modal.com/pricing (31 Oct 2026)
+# SPOOR_GPU=L4,A10G: Modal takes the first of these that is free (GPU fallbacks; 1 Nov: no L4 free for 40 min);
+# estimates use the dearest of them
+GPU_LIST = [g.strip() for g in os.environ.get("SPOOR_GPU", "L4").split(",") if g.strip()]
+GPU = GPU_LIST[0] if len(GPU_LIST) == 1 else GPU_LIST
+GPU_USD_S = max(GPU_PRICE[g] for g in GPU_LIST)
 CPU_USD_S, MEM_USD_S = 0.0000131, 0.00000222  # per core-second, per GiB-second
 CORES, MEM_GIB = 4, 16
 
