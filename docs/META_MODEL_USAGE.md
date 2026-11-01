@@ -87,3 +87,28 @@ Contributor mode (it trains Meta models) — Standard mode or on-site Glimmer on
   JSON validator only sees the answer.
 - Vision and audio input are supported on Baseten — BasetenChatBackend is text-only today; adding image input (key
   frames) makes the open-weights path load-bearing for the bonus (task for J2).
+
+## Best practices from the official docs (dev.meta.ai, read 1 Nov 2026) + what they mean for Spoor
+
+**SAM 3.1** (`/docs/sam/segmenting`, `/docs/sam/reading-segmentation`)
+- Concept prompt = one short noun phrase; one concept per request; no commands/questions/lists/negation/spatial words.
+  Docs suggest adding colour/type to narrow - BUT our own 31 Oct test: "cardboard box" -> 0 records, "box" -> 2 tracks.
+  Measure on our footage before narrowing.
+- A specific object: box/point prompt on any frame `<Nf>id<|box;x1;y1;x2;y2;w;h|>` (w/h = displayed size; wrong aspect
+  -> 400). Can't mix concept + box/point in one request. Up to 16 objects.
+- Re-prompt the SAME object id on a later frame to pick it up again (the only re-entry mechanism); ids are NOT reliable
+  across entry/exit/full occlusion or very long clips - relink in our own code (place + time), never by id.
+- `propagation_direction`: both (default) / forward / backward, measured from the earliest prompt frame; with `both`
+  frames arrive out of order -> key by `<Nf>`. Empty frames emit no line (a valid "not visible").
+- `include_confidence: "true"` (string) -> per-frame c; `mask_encoding: "one_bit"` for smaller payloads; MP4 faststart;
+  upload once (Files API user_data) and reuse file_id; results vary slightly run to run. Billed per frame, 50 minimum.
+**Muse Spark Open** (`/docs/muse-spark-open/prompting`, `/settings`)
+- Native OpenAI tools (append `tool` messages by tool_call_id, same order); reasoning always on, `reasoning_effort`
+  low 8 / medium 32 / high 256 / xhigh 512 (default!) - use medium for agent loops, low for extraction; stream long ones;
+  most important rules first in the system prompt; video input >= a few seconds and >= 448 px short side.
+- Baseten (tested 1 Nov, meta-models/muse-spark-open-1026): `response_format` json_schema strict WITH an `anyOf`
+  tagged union -> valid schema-shaped JSON; native `tools` -> correct tool_call. => our BasetenChatBackend (schema in
+  the prompt + local repair) is why every hypothesis was rejected as "malformed claim": switch it to native tools +
+  response_format, claims as anyOf of kind-tagged objects (no oneOf), reasoning_effort medium.
+**Structured output** (`/docs/structured-output`): constrained decoding; strict: root plain object, no allOf/oneOf
+anywhere, anyOf only below root, additionalProperties false + all required; no recursion; <= 10 nesting levels.

@@ -102,10 +102,26 @@ def test_baseten_backend_repairs_once_then_fails():
     reply = BasetenChatBackend(SimpleNamespace(chat=fake), model="meta-models/muse-spark-open").complete(
         system="s", content="q", output=ClipAnswer, name="a")
     assert reply.data.unknowns == ["door not visible"] and len(fake.requests) == 2
-    assert fake.requests[0]["response_format"] == {"type": "json_object"}
+    fmt = fake.requests[0]["response_format"]
+    assert fmt["type"] == "json_schema" and fmt["json_schema"]["strict"] is True  # constrained decoding
+    assert fake.requests[0]["reasoning_effort"] == "medium"  # not the model's xhigh default
     bad = BasetenChatBackend(SimpleNamespace(chat=FakeChat(["x", "y"])), model="m")
     with pytest.raises(BackendError):
         bad.complete(system="s", content="q", output=ClipAnswer, name="a")
+
+
+def test_baseten_backend_falls_back_to_plain_json_when_the_schema_is_rejected():
+    class Rejecting(FakeChat):
+        def create(self, **kw):
+            if kw["response_format"]["type"] == "json_schema":
+                self.requests.append(kw)
+                raise RuntimeError("Error code: 400 - schema not supported")
+            return super().create(**kw)
+    fake = Rejecting([answer(unknowns=["door not visible"])])
+    backend = BasetenChatBackend(SimpleNamespace(chat=fake), model="m")
+    reply = backend.complete(system="s", content="q", output=ClipAnswer, name="a")
+    assert reply.data.unknowns == ["door not visible"] and backend.constrained is False
+    assert fake.requests[-1]["response_format"] == {"type": "json_object"}
 
 
 def test_baseten_backend_refuses_video():

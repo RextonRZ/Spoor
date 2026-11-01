@@ -134,8 +134,11 @@ class BasetenChatBackend:
     supports_video = False
     supports_images = True
 
-    def __init__(self, client: Any, model: str, max_repairs: int = 1):
-        self.client, self.model, self.max_repairs = client, model, max_repairs
+    def __init__(self, client: Any, model: str, max_repairs: int = 1, reasoning_effort: str = "medium"):
+        # Muse Spark Open always reasons; its default effort is xhigh (512). Meta's settings page: medium for general
+        # agentic work, low for extraction (dev.meta.ai/docs/muse-spark-open/settings)
+        self.client, self.model, self.max_repairs, self.reasoning_effort = client, model, max_repairs, reasoning_effort
+        self.constrained = True  # json_schema decoding; off for this process if the provider rejects a schema
 
     def complete(self, *, system: str, content: list[dict] | str, output: type[T], name: str) -> BackendReply:
         if isinstance(content, list):
@@ -149,8 +152,20 @@ class BasetenChatBackend:
         ]  # fmt: skip
         start, tin, tout = time.perf_counter(), 0, 0
         for attempt in range(self.max_repairs + 1):
-            resp = self.client.chat.completions.create(model=self.model, messages=messages,
-                                                       response_format={"type": "json_object"})  # fmt: skip
+            # constrained decoding (tested on Baseten 1 Nov: a strict json_schema with an anyOf union comes back
+            # schema-shaped); a provider 400 on the schema falls back to plain JSON + the schema in the prompt
+            fmt = ({"type": "json_schema", "json_schema": {"name": name[:64], "schema": strict_schema(output), "strict": True}}
+                   if self.constrained else {"type": "json_object"})  # fmt: skip
+            try:
+                resp = self.client.chat.completions.create(model=self.model, messages=messages, response_format=fmt,
+                                                           reasoning_effort=self.reasoning_effort)  # fmt: skip
+            except Exception as e:  # provider SDK errors differ; only a schema rejection (400) is retried
+                if not self.constrained or "400" not in str(e):
+                    raise
+                self.constrained = False
+                resp = self.client.chat.completions.create(model=self.model, messages=messages,
+                                                           response_format={"type": "json_object"},
+                                                           reasoning_effort=self.reasoning_effort)  # fmt: skip
             a, b = _usage(resp, "prompt_tokens", "completion_tokens")
             tin, tout = tin + a, tout + b
             raw, reasoning = split_reasoning(resp.choices[0].message)
