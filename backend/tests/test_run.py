@@ -28,3 +28,19 @@ def test_keyed_but_unwired_steps_say_so(world):  # noqa: F811
     investigation_run(world.store, world.case.case_id, now=world.t0, emit=events.append, keyed=True)
     plan = next(e for e in events if e.get("tool") == "plan")
     assert "isn't part of this run yet" in plan["text"] and "demo mode" not in plan["text"]
+
+
+def test_triage_reports_seconds_sent_not_cameras(world):  # noqa: F811
+    from spoor.forensics.triage import summary, windows
+
+    # a flag sends from the sample before to the sample after; overlaps merge
+    assert windows([2.0, 6.0], 2.0, 90.0) == [(0.0, 8.0)] and windows([88.0], 2.0, 90.0) == [(86.0, 90.0)]
+    tri = {"every_s": 2.0, "seconds": 90.0, "frames": 90, "cameras": ["cam_A", "cam_B"], "flags": {"cam_A": [10.0], "cam_B": []},
+           "model": "glimmer", "usd": 0.5}
+    assert summary(tri)["sent_s"] == 4.0 and summary(tri)["total_s"] == 180.0 and summary(tri)["cameras_flagged"] == 1
+    scan(world, "SP-TUN", "tunnel_read", 0, "tunnel")
+    events = []
+    investigation_run(world.store, world.case.case_id, now=world.t0, emit=events.append, models={"triage_flags": tri})
+    step = next(e for e in events if e.get("tool") == "triage_clips")
+    assert step["status"] == "done" and "4 s of 180 s" in step["text"] and "98% less footage" in step["text"]
+    assert step["cost_usd"] == 0.5

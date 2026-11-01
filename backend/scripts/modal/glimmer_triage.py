@@ -181,7 +181,12 @@ def hub(clips: str, every_s: float = 2.0, seconds: float = 90.0, out: str = ""):
              "label": "triage flags, not evidence: only flagged moments would go to the Model API"}  # fmt: skip
     dest = Path(out) if out else Path(__file__).resolve().parents[3] / "docs" / "open_weights_proof" / \
         f"{datetime.now(UTC):%Y-%m-%d}_glimmer_triage_hub.json"  # fmt: skip
+    from spoor.forensics.triage import from_proof, summary  # local entrypoint only (the backend's package)
+
+    sent = summary(from_proof(proof))  # what leaves the hub: seconds, padded one sample each side, not cameras
+    proof["sent"] = {k: sent[k] for k in ("pad_s", "sent_s", "total_s", "sent_share", "cameras_flagged", "cameras", "windows")}
     dest.write_text(json.dumps(proof, indent=2))
+    print(f"sent to the cloud: {sent['sent_s']:.0f} s of {sent['total_s']:.0f} s ({100 * sent['sent_share']:.1f}%)")
     print(f"actual: wall {wall:.0f} s, GPU {gpu_s:.0f} s ≈ ${gpu_s * GPU_USD_PER_S:.2f} (upper bound ${wall * 2 * GPU_USD_PER_S:.2f}); "
           f"flagged {sum(len(v) for v in flags.values())} frames on {len(flags)}/{len(paths)} cameras; "
           f"{proof['unparsed']} unparsed; proof {dest}")  # fmt: skip

@@ -24,6 +24,7 @@ from spoor.store import AgentStep, EvidenceStore
 from .journey import build_journey, latest_plan
 from .missing import missing_moment
 from .possible import possible_locations
+from .triage import summary as triage_summary
 
 CREW = {
     "lead": ("Lead investigator", "Muse Wonder"),
@@ -134,11 +135,18 @@ def investigation_run(store: EvidenceStore, case_id: str, *, now: datetime, emit
         r.step("lead", "read_scans", "done", "No scans of this parcel at this hub, so there is no last point to start from.")
         return _end(r, places=0)
 
-    # 2. triage · triage_clips (Glimmer on site): only with its flags for this window
-    flags = models.get("triage_flags")
-    if flags:
-        r.step("triage", "triage_clips", "done", f"Glimmer flagged parcel handling on {len(flags)} of 19 cameras in the window. Only those clips leave the hub.",
-               receipt={"output": {"cameras": sorted(flags)}})  # fmt: skip
+    # 2. triage · triage_clips (Glimmer on site): seconds sent out of seconds recorded, not cameras flagged
+    tri = models.get("triage_flags")
+    if tri and tri.get("flags"):
+        t = triage_summary(tri)
+        pct = round(100 * t["sent_share"])
+        r.step("triage", "triage_clips", "done",
+               f"Glimmer, on the hub's own GPU, looked at {t['frames']} frames and flagged parcel handling in {t['sent_s']:.0f} s "
+               f"of {t['total_s']:.0f} s of footage ({pct}%). Only those moments go to the cloud models: {100 - pct}% less footage.",
+               cost=float(tri.get("usd") or 0.0),
+               receipt={"input": {"model": tri.get("model"), "frames": t["frames"], "every_s": tri["every_s"]},
+                        "output": {k: t[k] for k in ("sent_s", "total_s", "sent_share", "pad_s", "cameras_flagged", "cameras")},
+                        "cost_usd": tri.get("usd")})  # fmt: skip
     else:
         r.step("triage", "triage_clips", "unavailable", "On-site triage has nothing for this window yet.")
 
