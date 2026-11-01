@@ -1626,6 +1626,8 @@ def snap_rests():
     hands_ = [(w_, b_) for w_ in sc.objects if w_.type == "ARMATURE" and w_.name.startswith("worker_")
               for b_ in ("Bip01 L Hand", "Bip01 R Hand", "mixamorig:LeftHand", "mixamorig:RightHand") if b_ in w_.pose.bones]
     skip_ = {S2.parcel.ob.name} if S2 is not None and S2.parcel.ob is not None else set()
+    if W2A is not None and W2A.parcel.ob is not None:  # W2 sets its rest exactly on S11's shelf (S2's frame-1 pose):
+        skip_.add(W2A.parcel.ob.name)                     # the rays dropped it 1.65 cm into the wire shelf
     segs = []
     for p in parcels:
         if p.ob is None or p.ob.name in skip_ or not p.track or p.ob.name not in sc.objects:
