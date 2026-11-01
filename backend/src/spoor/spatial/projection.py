@@ -25,7 +25,7 @@ from spoor.contracts import (
     point_in_polygon,
 )
 
-from .homography import apply_homography
+from .homography import apply_homography, undistort_px
 
 
 @dataclass(frozen=True)
@@ -94,6 +94,8 @@ def project_observation(
     if obs.on_floor_plane and usable_calibration and in_frame:
         hm = np.asarray(calibration.homography_image_to_floor)
         uv = np.array([u, v], dtype=np.float64)
+        if calibration.radial_k1 is not None:  # the homography maps lens-corrected pixels
+            uv = undistort_px(uv, calibration.radial_k1, calibration.lens_hfov_deg, (w, h))[0]
         xy, wh = apply_homography(hm, uv[None, :])
         x, y = (float(c) for c in xy[0])
         if wh[0] > 0 and np.isfinite([x, y]).all() and site.contains(calibration.floor_id, (x, y)):

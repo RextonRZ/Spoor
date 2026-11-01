@@ -143,6 +143,15 @@ class FloorCalibration(ImmutableRecord):
     holdout_error_median_m: float | None = Field(default=None, ge=0)
     holdout_error_p95_m: float | None = Field(default=None, ge=0)
     undistorted: bool = False
+    # The delivered frame's lens (measured once at install with the camera's intrinsics): one radial term, normalised so
+    # the left/right edge midpoints stay put. Image points are corrected with it before the homography (stored raw).
+    radial_k1: float | None = Field(default=None, ge=-0.5, le=0.5)
+    lens_hfov_deg: float | None = Field(default=None, gt=0, lt=180)
+    # The camera's full pose recovered from the same floor marks (cv2.solvePnP with the lens's intrinsics), so points
+    # above the floor (a scanner on a chute, a shelf) project to the right pixel too. Site frame, metres, Z up.
+    pose_rvec: tuple[float, float, float] | None = None
+    pose_tvec: tuple[float, float, float] | None = None
+    pose_reprojection_px: float | None = Field(default=None, ge=0)
     method: str = "cv2.findHomography RANSAC"
     software_version: str
     created_at: AwareDatetime

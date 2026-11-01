@@ -24,6 +24,7 @@ from spoor.spatial import (
     sync_from_shared_event,
 )
 from spoor.spatial.frames import SITE_TO_RENDERER
+from spoor.spatial.homography import floor_to_image, site_to_image
 
 IMG_W, IMG_H = 1280, 720
 K = np.array([[900.0, 0, IMG_W / 2], [0, 900.0, IMG_H / 2], [0, 0, 1]])
@@ -216,3 +217,53 @@ def test_clock_sync_and_ordering(now):
     assert a.normalized_utc == now + timedelta(milliseconds=1500)
     assert ordering_is_determined(a, b_close) is None  # 300 ms apart < 400 ms combined uncertainty
     assert ordering_is_determined(a, b_far) is True
+
+
+def test_barrel_lens_is_corrected_before_the_homography(now):
+    # The delivered CCTV frame bends straight floor lines (one radial term); a plain homography cannot fit that.
+    k1, hfov = -0.15, float(np.degrees(2 * np.arctan(IMG_W / 2 / K[0, 0])))
+    edge = (IMG_W / 2 / K[0, 0]) ** 2
+
+    def barrel(uv):
+        xs, ys = (uv[:, 0] - IMG_W / 2) / K[0, 0], (uv[:, 1] - IMG_H / 2) / K[0, 0]
+        x, y = xs, ys
+        for _ in range(40):  # invert undistort_px: s(r_out) * out = undistorted
+            s = (1 - k1 * (x * x + y * y)) / (1 - k1 * edge)
+            x, y = xs / s, ys / s
+        return np.c_[x * K[0, 0] + IMG_W / 2, y * K[0, 0] + IMG_H / 2]
+
+    args = dict(calibration_id="calib_lens", camera_id="cam_a", floor_id="floor_g", version=1,
+                image_points_px=barrel(to_image(FIT_FLOOR)), floor_points_m=FIT_FLOOR,
+                holdout_image_points_px=barrel(to_image(HOLDOUT_FLOOR)), holdout_floor_points_m=HOLDOUT_FLOOR,
+                thresholds=THRESH, image_wh_px=(IMG_W, IMG_H), now=now)  # fmt: skip
+    plain = fit_floor_calibration(**args)
+    lens = fit_floor_calibration(**args, radial_k1=k1, lens_hfov_deg=hfov)
+    assert lens.rig_state == RigState.VALIDATED_FLOOR_ONLY and lens.holdout_error_p95_m < 1e-6
+    assert plain.holdout_error_p95_m > 100 * lens.holdout_error_p95_m
+    assert np.allclose(lens.fit_image_points_px, barrel(to_image(FIT_FLOOR)))  # stored as clicked
+    with pytest.raises(CalibrationError):
+        fit_floor_calibration(**args, radial_k1=k1)
+    # and back: a floor point lands on the delivered (bent) pixel it was clicked at
+    uv, ok = floor_to_image(lens, HOLDOUT_FLOOR)
+    assert ok.all() and np.allclose(uv, barrel(to_image(HOLDOUT_FLOOR)), atol=1e-3)
+    # a scanner 1.7 m up: the floor map cannot place it, the pose solved from the same marks can
+    raised = np.array([[2.5, 2.6, 1.7], [4.0, 3.1, 1.1]])
+    true = barrel(cv2.projectPoints(raised, RVEC, TVEC, K, None)[0].reshape(-1, 2))
+    uv, front = site_to_image(lens, raised)
+    assert front.all() and np.allclose(uv, true, atol=0.05) and lens.pose_reprojection_px < 1e-3
+    assert np.linalg.norm(floor_to_image(lens, raised[:, :2])[0] - true, axis=1).min() > 20
+
+
+def test_low_camera_whose_top_corner_sees_wall_still_validates(now):
+    # A homography is defined up to sign; the floor side of the horizon is where the floor marks are, not wherever
+    # pixel (0, 0) falls. Shift the picture so its top corner lies above the horizon (a low wall camera seeing wall).
+    hm, _ = cv2.findHomography(to_image(FIT_FLOOR), np.array(FIT_FLOOR))
+    hm = hm / hm[2, 2]
+    drop = 1.5 * hm[2, 2] / hm[2, 1]  # rows from the corner down to past the horizon line (w = 0 at u = 0)
+    shift = lambda uv: np.c_[uv[:, 0], uv[:, 1] + drop]
+    assert drop > 0 and (hm[2] @ [0, -drop, 1]) < 0  # the shifted corner is beyond the horizon
+    cal = fit_floor_calibration(calibration_id="calib_low", camera_id="cam_a", floor_id="floor_g", version=1,
+                                image_points_px=shift(to_image(FIT_FLOOR)), floor_points_m=FIT_FLOOR,
+                                holdout_image_points_px=shift(to_image(HOLDOUT_FLOOR)),
+                                holdout_floor_points_m=HOLDOUT_FLOOR, thresholds=THRESH, now=now)  # fmt: skip
+    assert cal.rig_state == RigState.VALIDATED_FLOOR_ONLY

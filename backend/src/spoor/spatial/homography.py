@@ -61,6 +61,62 @@ def holdout_errors_m(h: np.ndarray, image_pts: np.ndarray, floor_pts: np.ndarray
     return err
 
 
+def undistort_px(uv, k1: float, hfov_deg: float, wh_px: tuple[int, int]) -> np.ndarray:
+    """Delivered (barrel) pixel -> undistorted pixel for a one-term radial lens normalised at the edge midpoints."""
+    w, h = wh_px
+    f = w / (2 * np.tan(np.radians(hfov_deg / 2)))
+    uv = np.asarray(uv, np.float64).reshape(-1, 2)
+    x, y = (uv[:, 0] - w / 2) / f, (uv[:, 1] - h / 2) / f
+    s = (1 - k1 * (x * x + y * y)) / (1 - k1 * (w / 2 / f) ** 2)
+    return np.c_[x * s * f + w / 2, y * s * f + h / 2]
+
+
+def distort_px(uv, k1: float, hfov_deg: float, wh_px: tuple[int, int]) -> np.ndarray:
+    """Inverse of undistort_px: an undistorted pixel -> where the lens puts it in the delivered frame."""
+    w, h = wh_px
+    f = w / (2 * np.tan(np.radians(hfov_deg / 2)))
+    uv = np.asarray(uv, np.float64).reshape(-1, 2)
+    xs, ys = (uv[:, 0] - w / 2) / f, (uv[:, 1] - h / 2) / f
+    x, y = xs.copy(), ys.copy()
+    for _ in range(30):  # fixed point: s(r_out) * out = undistorted (converges fast for |k1| < 0.5)
+        s = (1 - k1 * (x * x + y * y)) / (1 - k1 * (w / 2 / f) ** 2)
+        x, y = xs / s, ys / s
+    return np.c_[x * f + w / 2, y * f + h / 2]
+
+
+def lens_matrix(hfov_deg: float, wh_px: tuple[int, int]) -> np.ndarray:
+    w, h = wh_px
+    f = w / (2 * np.tan(np.radians(hfov_deg / 2)))
+    return np.array([[f, 0, w / 2], [0, f, h / 2], [0, 0, 1.0]])
+
+
+def site_to_image(cal: FloorCalibration, xyz) -> tuple[np.ndarray, np.ndarray]:
+    """3D site points (m, Z up; a scanner at its height) -> pixels in the delivered frame, through the camera pose
+    solved at calibration. Returns (uv, in_front). Needs a calibration with a lens and a pose."""
+    if cal.pose_rvec is None or cal.radial_k1 is None:
+        raise CalibrationError("this calibration has no camera pose; only floor points can be placed")
+    xyz = np.asarray(xyz, np.float64).reshape(-1, 3)
+    rot = cv2.Rodrigues(np.asarray(cal.pose_rvec))[0]
+    cam = xyz @ rot.T + np.asarray(cal.pose_tvec)
+    k = lens_matrix(cal.lens_hfov_deg, cal.image_wh_px)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        uv = (cam @ k.T)[:, :2] / cam[:, 2:3]
+    return distort_px(uv, cal.radial_k1, cal.lens_hfov_deg, cal.image_wh_px), cam[:, 2] > 0.05
+
+
+def floor_to_image(cal: FloorCalibration, floor_xy) -> tuple[np.ndarray, np.ndarray]:
+    """Floor points (m) -> pixels in the calibration's frame, lens included. Returns (uv, on_floor_side): a point
+    behind the camera or beyond its horizon has on_floor_side False (it is not in this camera's picture)."""
+    hinv = np.linalg.inv(np.asarray(cal.homography_image_to_floor))
+    uv = apply_homography(hinv, np.asarray(floor_xy, np.float64).reshape(-1, 2))[0]
+    # the forward map sends picture points to w > 0 (fit orients it so); the inverse keeps that sign on the floor side
+    back_w = apply_homography(np.asarray(cal.homography_image_to_floor), uv)[1]
+    ok = np.isfinite(uv).all(axis=1) & (back_w > 0)
+    if cal.radial_k1 is not None:
+        uv = distort_px(uv, cal.radial_k1, cal.lens_hfov_deg, cal.image_wh_px)
+    return uv, ok
+
+
 def fit_floor_calibration(
     *,
     calibration_id: str,
@@ -75,10 +131,16 @@ def fit_floor_calibration(
     undistorted: bool = False,
     ransac_reproj_threshold_m: float = 0.05,
     image_wh_px: tuple[int, int] | None = None,
+    radial_k1: float | None = None,
+    lens_hfov_deg: float | None = None,
     now: datetime,
     notes: str = "",
 ) -> FloorCalibration:
-    img = _as_array(image_points_px, "image_points_px")
+    if (radial_k1 is None) != (lens_hfov_deg is None) or (radial_k1 is not None and image_wh_px is None):
+        raise CalibrationError("a lens needs radial_k1, lens_hfov_deg and image_wh_px together")
+    lens = (lambda p: undistort_px(p, radial_k1, lens_hfov_deg, image_wh_px)) if radial_k1 is not None else (lambda p: p)
+    raw_img = _as_array(image_points_px, "image_points_px")
+    img = lens(raw_img)
     flr = _as_array(floor_points_m, "floor_points_m")
     if len(img) != len(flr):
         raise CalibrationError("image and floor point counts differ")
@@ -89,11 +151,16 @@ def fit_floor_calibration(
     if h is None or not np.all(np.isfinite(h)) or abs(np.linalg.det(h)) < 1e-12:
         raise CalibrationError("homography estimation failed (degenerate configuration)")
     h = h / h[2, 2]
+    # w > 0 must mean "on the floor side of the horizon". Scaling by h[2, 2] puts the picture's corner (0, 0) on that
+    # side, which is wrong for a low camera whose top corner sees wall: orient by the floor points themselves.
+    if np.median(apply_homography(h, img)[1]) < 0:
+        h = -h
     n_inliers = int(inliers.sum()) if inliers is not None else len(img)
     if n_inliers < 4:
         raise CalibrationError("fewer than 4 RANSAC inliers; check the correspondences")
 
-    hold_img = _as_array(holdout_image_points_px, "holdout") if len(holdout_image_points_px) else np.empty((0, 2))
+    raw_hold = _as_array(holdout_image_points_px, "holdout") if len(holdout_image_points_px) else np.empty((0, 2))
+    hold_img = lens(raw_hold) if len(raw_hold) else raw_hold
     hold_flr = _as_array(holdout_floor_points_m, "holdout") if len(holdout_floor_points_m) else np.empty((0, 2))
     if len(hold_img) != len(hold_flr):
         raise CalibrationError("holdout image and floor point counts differ")
@@ -118,13 +185,23 @@ def fit_floor_calibration(
             verdict = (f"holdout median {median:.3f} m / p95 {p95:.3f} m exceeds thresholds "
                        f"{thresholds.max_median_m} / {thresholds.max_p95_m} m; not validated")  # fmt: skip
 
+    pose = {}
+    if radial_k1 is not None:  # the lens is known, so the marks also fix the camera's pose (for raised points)
+        k = lens_matrix(lens_hfov_deg, image_wh_px)
+        ok, rvec, tvec = cv2.solvePnP(np.c_[flr, np.zeros(len(flr))], img, k, None, flags=cv2.SOLVEPNP_ITERATIVE)
+        if ok:
+            back = cv2.projectPoints(np.c_[flr, np.zeros(len(flr))], rvec, tvec, k, None)[0].reshape(-1, 2)
+            pose = {"pose_rvec": tuple(float(v) for v in rvec.ravel()), "pose_tvec": tuple(float(v) for v in tvec.ravel()),
+                    "pose_reprojection_px": float(np.sqrt(np.mean(np.sum((back - img) ** 2, axis=1))))}
     return FloorCalibration(
+        **pose,
         calibration_id=calibration_id, camera_id=camera_id, floor_id=floor_id, version=version, rig_state=state,
         homography_image_to_floor=tuple(tuple(float(v) for v in row) for row in h), image_wh_px=image_wh_px,
-        fit_image_points_px=[tuple(p) for p in img.tolist()], fit_floor_points_m=[tuple(p) for p in flr.tolist()],
-        holdout_image_points_px=[tuple(p) for p in hold_img.tolist()],
+        fit_image_points_px=[tuple(p) for p in raw_img.tolist()], fit_floor_points_m=[tuple(p) for p in flr.tolist()],
+        holdout_image_points_px=[tuple(p) for p in raw_hold.tolist()],
         holdout_floor_points_m=[tuple(p) for p in hold_flr.tolist()],
-        holdout_error_median_m=median, holdout_error_p95_m=p95, undistorted=undistorted,
+        holdout_error_median_m=median, holdout_error_p95_m=p95, undistorted=undistorted, radial_k1=radial_k1,
+        lens_hfov_deg=lens_hfov_deg,
         method=f"cv2.findHomography RANSAC (thr {ransac_reproj_threshold_m} m, {n_inliers}/{len(img)} inliers)",
         software_version=SOFTWARE, created_at=now, notes="; ".join(filter(None, [verdict, notes])),
     )  # fmt: skip

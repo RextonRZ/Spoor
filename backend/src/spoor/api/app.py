@@ -183,6 +183,8 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         max_median_m: float = Field(gt=0, description="Chosen from investigation needs BEFORE seeing results")
         max_p95_m: float = Field(gt=0)
         undistorted: bool = False
+        radial_k1: float | None = Field(default=None, description="the delivered frame's one-term radial lens")
+        lens_hfov_deg: float | None = None
         notes: str = ""
 
     @app.post("/v1/cameras/{camera_id}/calibrations", status_code=201)
@@ -198,7 +200,7 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
                 holdout_image_points_px=body.holdout_image_points_px,
                 holdout_floor_points_m=body.holdout_floor_points_m,
                 thresholds=ValidationThresholds(body.max_median_m, body.max_p95_m), undistorted=body.undistorted,
-                image_wh_px=body.image_wh_px,
+                image_wh_px=body.image_wh_px, radial_k1=body.radial_k1, lens_hfov_deg=body.lens_hfov_deg,
                 now=now(), notes=body.notes,
             )  # fmt: skip
         except CalibrationError as e:
