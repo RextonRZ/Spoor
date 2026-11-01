@@ -15,6 +15,7 @@
  * Data: the case read models, the exceptions inbox (late next scan while the next scanner kept working) and the
  * per-scanner counts. Motion: state only (tab underline, panel in and out, 150-280 ms); reduced motion: none.
  */
+import { LiveAlerts } from "@/components/hub/LiveAlerts";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState, useSyncExternalStore } from "react";
@@ -191,6 +192,7 @@ export default function HubPage() {
         ))}
       </dl>
 
+      <LiveAlerts siteId={site?.site_id} />
       <section className="hb-panel" aria-label="Alerts">
         <div className="hb-tabbar">
           <Tabs tabs={tabs} tab={tab} onTab={setTab} />

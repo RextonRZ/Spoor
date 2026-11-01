@@ -21,6 +21,7 @@ import { CheckpointStrip, ScannerScreen } from "@/components/checkpoints/Checkpo
 import { NextCams, View } from "@/components/hub/parts";
 import { Identity } from "@/components/case/Identity";
 import { CaseStory } from "@/components/case/CaseStory";
+import { Passport } from "@/components/case/Passport";
 import { ZONE_NAMES } from "@/components/plan/HubPlan";
 import "./answer.css";
 
@@ -92,6 +93,7 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
               <h2 id="an-scans" className="an-h2">How the hub tracked it</h2>
               {cps ? <CheckpointStrip cps={cps} compact gaps where /> : <div className="an-skel an-skel-row" aria-busy="true" />}
               <p className="an-line">{CHECKPOINT_LINE}</p>
+              <Passport waybill={waybill} />
               {tunnel?.screen && (
                 <details className="an-more">
                   <summary>Scan tunnel screen for this parcel</summary>

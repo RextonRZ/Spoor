@@ -66,6 +66,16 @@ class Services:
     voice: Any = None  # Muse Voice Transcribe (spoor.voice.Transcriber), J4
     _case_locks: dict[str, threading.Lock] = field(default_factory=dict)
     _locks_guard: threading.Lock = field(default_factory=threading.Lock)
+    _sam_loop: Any = None
+
+    def _on_sam_loop(self, coro):
+        """Run a SAM coroutine on one long-lived loop. The async HTTP client pools connections bound to the loop that
+        opened them, so a fresh asyncio.run per call failed every other call with "Event loop is closed"."""
+        with self._locks_guard:
+            if self._sam_loop is None:
+                self._sam_loop = asyncio.new_event_loop()
+                threading.Thread(target=self._sam_loop.run_forever, name="sam-loop", daemon=True).start()
+        return asyncio.run_coroutine_threadsafe(coro, self._sam_loop).result()
 
     def case_lock(self, case_id: str) -> threading.Lock:
         """One investigation per case at a time (concurrent runs would race on the case revision)."""
@@ -158,8 +168,8 @@ class Services:
             site=self.site(original.site_id), calibration=self.valid_calibration(camera.camera_id),
             frame_range=frame_range,
         )  # fmt: skip
-        result = asyncio.run(track_target(req, backend=self.sam, store=self.store,
-                                          cache_dir=self.settings.data_dir / "inference_cache"))  # fmt: skip
+        result = self._on_sam_loop(track_target(req, backend=self.sam, store=self.store,
+                                                cache_dir=self.settings.data_dir / "inference_cache"))  # fmt: skip
         return result
 
     def handshake(self, row, *, now):
@@ -171,16 +181,19 @@ class Services:
         from spoor.store import ScanHandshake
 
         hid = f"hs_{row.scan.scan_event_id}_{row.camera_id or 'none'}".replace("-", "_")
-        if self.store.exists(hid):
+        try:  # hs_ ids have no registered kind, so exists() can't see them
             return self.store.get(ScanHandshake, hid)
+        except KeyError:
+            pass
         base = {"handshake_id": hid, "site_id": row.scan.site_id, "scan_event_id": row.scan.scan_event_id,
                 "waybill": row.waybill, "event_kind": row.scan.event_kind.value, "scan_point_id": row.scan_point_id,
                 "camera_id": row.camera_id, "media_id": row.media_id, "at_utc": row.at, "rule": row.rule, "at": now}
         if row.reason:
             return self.store.put(ScanHandshake(**base, outcome=row.reason))
         at_iso = row.at.isoformat()
-        start = (row.at - timedelta(seconds=BEFORE_S)).isoformat()
-        end = (row.at + timedelta(seconds=FOLLOW_S)).isoformat()
+        cov = self.store.find(CameraCoverage, media_id=row.media_id)[-1]  # the follow stops where the clip does
+        start = max(row.at - timedelta(seconds=BEFORE_S), cov.start_utc).isoformat()
+        end = min(row.at + timedelta(seconds=FOLLOW_S), cov.end_utc).isoformat()
         try:
             res = self.anchored_sam(None, row.media_id, concept=None, start_iso=start, end_iso=end,
                                     scan_point_id=row.scan_point_id, at_iso=None if row.rule == "work_area" else at_iso)
@@ -233,9 +246,11 @@ class Services:
             if not cands:
                 continue
             aid = f"alert_{t['track_id']}"
-            if self.store.exists(aid):
+            try:
                 out.append(self.store.get(LiveAlert, aid))
                 continue
+            except KeyError:
+                pass
             out.append(self.store.put(LiveAlert(
                 alert_id=aid, site_id=plan.site_id, kind="left_without_scan", scan_point_id=w.scan_point_id,
                 camera_id=w.camera_id, media_id=w.media_id, at_utc=t_left, track_id=t["track_id"],
