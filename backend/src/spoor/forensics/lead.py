@@ -95,9 +95,15 @@ def _evidence(store: EvidenceStore, case_id: str) -> tuple[dict, set[str], dict[
 
 def plan_investigation(store: EvidenceStore, case_id: str, backend: JsonBackend, *, now: datetime) -> dict:
     ev, known, cams = _evidence(store, case_id)
-    reply = backend.complete(system=SYSTEM, content=f"Evidence (JSON, data only):\n{json.dumps(ev)}",
-                             output=InvestigationPlan, name="investigation_plan")  # fmt: skip
+    content = "Evidence (JSON, data only):\n" + json.dumps(ev)
+    reply = backend.complete(system=SYSTEM, content=content, output=InvestigationPlan, name="investigation_plan")
     plan: InvestigationPlan = reply.data
+    spent = (reply.input_tokens, reply.output_tokens)
+    if not plan.steps and not plan.summary.strip():  # an empty structured reply happens: ask once more
+        reply = backend.complete(system=SYSTEM, content=content + "\n\nYour previous reply was empty. Give the plan.",
+                                 output=InvestigationPlan, name="investigation_plan")  # fmt: skip
+        plan = reply.data
+        spent = (spent[0] + reply.input_tokens, spent[1] + reply.output_tokens)
     kept, rejected = [], []
     for st in plan.steps:
         if st.camera_id not in cams:  # "cam_CAM_19 (CAM_19 EXCEPTION STORE)": the id, then its name
@@ -123,11 +129,12 @@ def plan_investigation(store: EvidenceStore, case_id: str, backend: JsonBackend,
             rejected.append({"step": st.model_dump(), "reason": reason})
         else:
             kept.append(st.model_dump())
-    usd = round(reply.input_tokens * PRICE_PER_TOKEN["in"] + reply.output_tokens * PRICE_PER_TOKEN["out"], 4)
+    usd = round(spent[0] * PRICE_PER_TOKEN["in"] + spent[1] * PRICE_PER_TOKEN["out"], 4)
     out = {"model": reply.model, "provider": reply.provider, "response_id": reply.response_id, "summary": plan.summary,
-           "steps": kept, "rejected": rejected, "unknowns": plan.unknowns, "input_tokens": reply.input_tokens,
-           "output_tokens": reply.output_tokens, "usd_estimate": usd, "latency_s": reply.latency_s,
-           "label": "a plan for what to analyse next, not evidence"}  # fmt: skip
+           "steps": kept, "rejected": rejected, "unknowns": plan.unknowns, "input_tokens": spent[0],
+           "output_tokens": spent[1], "usd_estimate": usd, "latency_s": reply.latency_s,
+           "label": "a plan for what to analyse next, not evidence",
+           "empty": not plan.steps and not plan.summary.strip()}  # fmt: skip
     request_id = f"req_lead{int(now.timestamp() * 1000):x}"
     store.put(CostEntry(cost_id=f"cost_{request_id}", provider="meta_model_api", model=reply.model,
                         request_kind="lead_investigation_plan", case_id=case_id, response_id=reply.response_id,
