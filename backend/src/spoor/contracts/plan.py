@@ -70,6 +70,7 @@ class PlanArea(Record):
     height_m: float | None = Field(default=None, ge=0)
     zone_id: ZoneId | None = None
     walkable: bool = Field(description="A person can walk here (walkways, open floor of zones); racks/benches: no")
+    note: str = Field(default="", description="Longer description for staff (why it is blind, where its door is)")
 
 
 class PlanDoor(Record):

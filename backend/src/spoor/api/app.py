@@ -561,8 +561,8 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
                                     "reasons": h.reasons} for h in res.hypotheses],
                     "evidence_requests": res.evidence_request_ids, "rejected": res.rejected,
                     "agent_runs": res.agent_runs,
-                    "lead_plan": None if plan is None else {k: plan[k] for k in ("model", "summary", "steps", "rejected",
-                                                                                  "unknowns", "usd_estimate")}}  # fmt: skip
+                    "lead_plan": None if plan is None else {k: plan.get(k) for k in (
+                        "model", "summary", "steps", "rejected", "unknowns", "usd_estimate", "replanned", "empty")}}  # fmt: skip
 
         job = svc.jobs.submit("investigate", p.user_id, work)
         audit(p, "investigate", case_id, job_id=job.job_id)

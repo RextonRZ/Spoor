@@ -83,7 +83,7 @@ ZONES = [
      {"wear": "faded yellow bay lines, bay numbers half rubbed off",
       "clutter": "roll cages in numbered bays, some half full; one cage parked crooked",
       "signs": "bay numbers S01..S20 painted on the floor", "lighting": "high-bays, slightly uneven"}),
-    ("Z11", "Exception store and empty cage / bag store (inside corner of the L)", "store", rect(0.2, 30.0, 24.0, 39.8),
+    ("Z11", "Exception store", "store", rect(0.2, 30.0, 24.0, 39.8),
      {"wear": "dust in corners, faded lines", "clutter": "empty cages nested tightly, folded sacks on steel shelves",
       "signs": "'SANGKAR KOSONG' (empty cages)", "lighting": "one high-bay off — darkest corner of the hall"}),
     ("Z12", "Outbound dock", "dock", rect(24.0, 32.4, 54.0, 39.8),
@@ -107,7 +107,7 @@ BENCHES = [("bag-opening bench 1", (6.2, 19.0, 8.0, 22.0)), ("bag-opening bench 
 CAGE_BAY = 2.2  # square floor bay, yellow corner marks
 STORE_SHELVES = [(16.9, 39.2), (18.9, 39.2)]  # CC0 steel shelving in the empty-cage store (Z11), against the wall
 CAGE_BAYS = [(25.0 + (i % 10) * 2.7, 26.0 if i < 10 else 29.5) for i in range(20)]  # SW corners, S01..S20
-BLIND = {"id": "BLIND_NW", "zone": "Z11", "polygon": rect(0.2, 33.6, 15.2, 39.8),
+BLIND = {"id": "BLIND_NW", "label": "Exception store (Z11)", "zone": "Z11", "polygon": rect(0.2, 33.6, 15.2, 39.8),
          "why": "inside corner of the L-flow, behind 3 m sack racks (entrance gap at x 13.4–15.2 facing south); "
                 "no camera is aimed here and the racks block oblique views",
          "used_by": "scenario 'removal into blind spot': last seen entering Z11 from Z10; Spoor must say 'no coverage'"}

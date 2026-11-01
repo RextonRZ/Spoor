@@ -63,7 +63,8 @@ def site_plan(spec: dict, zone_polys) -> dict:
                "polygon_m": rect([*c["sw_corner_m"], c["sw_corner_m"][0] + c["size_m"], c["sw_corner_m"][1] + c["size_m"]]),
                "walkable": True} for c in f["cage_bays"]]  # fmt: skip
     bc = spec["blind_corner"]
-    areas.append({"area_id": bc["id"], "kind": "blind_spot", "name": bc["why"][:120], "polygon_m": bc["polygon"],
+    areas.append({"area_id": bc["id"], "kind": "blind_spot", "name": bc.get("label") or bc["why"][:120],
+                  "note": bc["why"], "polygon_m": bc["polygon"],
                   "zone_id": f"zone_{bc['zone']}", "walkable": True})  # fmt: skip
 
     conveyors = []

@@ -258,7 +258,8 @@ def investigate(
                     if fnd := ctx.verifier.promote(c, res, case_id=ctx.case.case_id, now=ctx.now()):
                         findings.append(fnd)
                         changed.append(fnd.finding_id)
-                    ans.inside_area = "; ".join([ctx.verifier.describe(c), *res.limitations[:2]])
+                    extra = [x for x in res.limitations[:2] if not x.startswith("until the recording ends")]
+                    ans.inside_area = ctx.verifier.describe(c) + (f", {', '.join(extra)}" if extra else "")
                     continue
                 if c.kind != "exit" or ans is None:
                     continue

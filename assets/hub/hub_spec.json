@@ -638,7 +638,7 @@
   },
   {
    "id": "Z11",
-   "name": "Exception store and empty cage / bag store (inside corner of the L)",
+   "name": "Exception store",
    "kind": "store",
    "polygon_m": [
     [
@@ -808,7 +808,8 @@
    ]
   ],
   "why": "inside corner of the L-flow, behind 3 m sack racks (entrance gap at x 13.4–15.2 facing south); no camera is aimed here and the racks block oblique views",
-  "used_by": "scenario 'removal into blind spot': last seen entering Z11 from Z10; Spoor must say 'no coverage'"
+  "used_by": "scenario 'removal into blind spot': last seen entering Z11 from Z10; Spoor must say 'no coverage'",
+  "label": "Exception store (Z11)"
  },
  "line_a": {
   "layout": "b"

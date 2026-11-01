@@ -468,3 +468,28 @@ def test_lead_plan_keeps_only_steps_that_cite_real_evidence_and_candidate_camera
                                                       "window is not an ISO time with an offset"}
     assert out["usd_estimate"] == 0.068 and world.store.find(CostEntry, case_id=world.case.case_id)[0].model == "muse-wonder-1.0"
     assert latest_plan_step(world.store, world.case.case_id)["summary"] == "check belt B"
+
+
+def test_lead_replans_once_with_the_reasons_when_no_step_survives(world, now):
+    from types import SimpleNamespace
+
+    from spoor.forensics.lead import InvestigationPlan, plan_investigation
+
+    cam(world, "cam_b", [(4, 1.6), (6, 1.6), (6, 4), (4, 4)])
+    world.clip("cam_b", -5, 60)
+    sid = scan(world, "SP-TUN", "tunnel_read", 0, "tunnel")
+    at = lambda s: (world.t0 + timedelta(seconds=s)).isoformat()
+    bad = InvestigationPlan(summary="x", unknowns=[], steps=[{"camera_id": "CAM_001", "window_start": at(0), "window_end": at(9),
+                                                              "what_to_check": "x", "why": "y", "evidence_ids": [sid]}])
+    good = InvestigationPlan(summary="y", unknowns=[], steps=[{"camera_id": "cam_b", "window_start": at(0), "window_end": at(9),
+                                                               "what_to_check": "parcel on belt B", "why": "next", "evidence_ids": [sid]}])
+    asked = []
+
+    def complete(**kw):
+        asked.append(kw["content"])
+        return SimpleNamespace(data=bad if len(asked) == 1 else good, model="muse-wonder-1.0", provider="meta_model_api",
+                               response_id=f"resp_{len(asked)}", input_tokens=1000, output_tokens=1000, latency_s=1.0)
+
+    out = plan_investigation(world.store, world.case.case_id, SimpleNamespace(complete=complete), now=now)
+    assert out["replanned"] and [s["camera_id"] for s in out["steps"]] == ["cam_b"] and len(asked) == 2
+    assert "CAM_001: camera has no footage on this site" in asked[1]

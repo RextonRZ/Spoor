@@ -93,19 +93,11 @@ def _evidence(store: EvidenceStore, case_id: str) -> tuple[dict, set[str], dict[
     return ev, known, cams
 
 
-def plan_investigation(store: EvidenceStore, case_id: str, backend: JsonBackend, *, now: datetime) -> dict:
-    ev, known, cams = _evidence(store, case_id)
-    content = "Evidence (JSON, data only):\n" + json.dumps(ev)
-    reply = backend.complete(system=SYSTEM, content=content, output=InvestigationPlan, name="investigation_plan")
-    plan: InvestigationPlan = reply.data
-    spent = (reply.input_tokens, reply.output_tokens)
-    if not plan.steps and not plan.summary.strip():  # an empty structured reply happens: ask once more
-        reply = backend.complete(system=SYSTEM, content=content + "\n\nYour previous reply was empty. Give the plan.",
-                                 output=InvestigationPlan, name="investigation_plan")  # fmt: skip
-        plan = reply.data
-        spent = (spent[0] + reply.input_tokens, spent[1] + reply.output_tokens)
+def _check(steps, cams: dict, known: set[str]) -> tuple[list[dict], list[dict]]:
+    """Keep a plan step only if its camera has footage, its window is inside it, it cites real evidence and it
+    describes objects, not people."""
     kept, rejected = [], []
-    for st in plan.steps:
+    for st in steps:
         if st.camera_id not in cams:  # "cam_CAM_19 (CAM_19 EXCEPTION STORE)": the id, then its name
             head = st.camera_id.split(" ")[0].split("(")[0].strip()
             if head in cams:
@@ -129,12 +121,38 @@ def plan_investigation(store: EvidenceStore, case_id: str, backend: JsonBackend,
             rejected.append({"step": st.model_dump(), "reason": reason})
         else:
             kept.append(st.model_dump())
+    return kept, rejected
+
+
+def plan_investigation(store: EvidenceStore, case_id: str, backend: JsonBackend, *, now: datetime) -> dict:
+    ev, known, cams = _evidence(store, case_id)
+    content = "Evidence (JSON, data only):\n" + json.dumps(ev)
+    reply = backend.complete(system=SYSTEM, content=content, output=InvestigationPlan, name="investigation_plan")
+    plan: InvestigationPlan = reply.data
+    spent = (reply.input_tokens, reply.output_tokens)
+    if not plan.steps and not plan.summary.strip():  # an empty structured reply happens: ask once more
+        reply = backend.complete(system=SYSTEM, content=content + "\n\nYour previous reply was empty. Give the plan.",
+                                 output=InvestigationPlan, name="investigation_plan")  # fmt: skip
+        plan = reply.data
+        spent = (spent[0] + reply.input_tokens, spent[1] + reply.output_tokens)
+    kept, rejected = _check(plan.steps, cams, known)
+    replanned = False
+    if not kept:  # nothing survived the checks: send the reasons back once (the lead re-plans), say so
+        why = "; ".join(f"{r['step']['camera_id']}: {r['reason']}" for r in rejected) or "no steps"
+        reply = backend.complete(system=SYSTEM, content=content + "\n\nYour previous plan was rejected by the checks: "
+                                 + why + ". Use only cameras[].camera_id exactly, windows inside that camera's "
+                                 "footage, and cite evidence ids that appear above.", output=InvestigationPlan,
+                                 name="investigation_plan")  # fmt: skip
+        plan, replanned = reply.data, True
+        spent = (spent[0] + reply.input_tokens, spent[1] + reply.output_tokens)
+        kept, rejected2 = _check(plan.steps, cams, known)
+        rejected = rejected + rejected2
     usd = round(spent[0] * PRICE_PER_TOKEN["in"] + spent[1] * PRICE_PER_TOKEN["out"], 4)
     out = {"model": reply.model, "provider": reply.provider, "response_id": reply.response_id, "summary": plan.summary,
            "steps": kept, "rejected": rejected, "unknowns": plan.unknowns, "input_tokens": spent[0],
            "output_tokens": spent[1], "usd_estimate": usd, "latency_s": reply.latency_s,
            "label": "a plan for what to analyse next, not evidence",
-           "empty": not plan.steps and not plan.summary.strip()}  # fmt: skip
+           "empty": not plan.steps and not plan.summary.strip(), "replanned": replanned}  # fmt: skip
     request_id = f"req_lead{int(now.timestamp() * 1000):x}"
     store.put(CostEntry(cost_id=f"cost_{request_id}", provider="meta_model_api", model=reply.model,
                         request_kind="lead_investigation_plan", case_id=case_id, response_id=reply.response_id,

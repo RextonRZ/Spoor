@@ -5,6 +5,7 @@ timing from recorded observations.
 """
 
 import math
+import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
@@ -77,6 +78,17 @@ V = VerificationVerdict
 # claims that restate established facts (where and when it was seen); a hypothesis about what happened next needs at
 # least one claim that tests it (a transition, an exit, a transfer, staying in an unseen area)
 BASELINE_CLAIMS = (LastSeenClaim, PresenceClaim)
+
+
+def camera_name(camera_id: str) -> str:
+    """cam_CAM_19 -> CAM 19 (the name staff see on the wall)."""
+    return camera_id.removeprefix("cam_").replace("_", " ")
+
+
+def place_name(name: str) -> str:
+    """'Z11 Exception store' -> 'Exception store (Z11)'; a label that already reads well is kept."""
+    m = re.match(r"^(Z\d+)\s+(.+)$", name)
+    return f"{m.group(2)} ({m.group(1)})" if m else name
 BELT_MARGIN_M = 2.5  # a parcel between two belt scans is on the belt: further than this from every belt rules it out
 STATION_WINDOW_S = 3.0  # a scan this close in time pins the parcel to the station
 STATION_MARGIN_M = 6.0
@@ -441,7 +453,7 @@ class Verifier:
         if area is None:
             raise _fail(V.UNSUPPORTED, f"unknown area {c.area_id}")
         name, poly = area
-        name = f"{c.area_id} ({name.split('(')[0].split(';')[0].strip()[:50]})" if name != c.area_id else name
+        name = place_name(name)
         est = estimate_for(self.store, c.observation_id)
         if est is None or est.floor_xy_m is None:
             raise _fail(V.INSUFFICIENT_EVIDENCE, "the last observation has no position on the plan", checked_ids=[c.observation_id])
@@ -470,7 +482,7 @@ class Verifier:
                 if near:
                     hint = (f" ({name} contains the last position; the area no camera sees inside at that point is "
                             f"{near[0]['area_id']})")
-            raise _fail(V.INSUFFICIENT_EVIDENCE, f"nobody is seen carrying it into {name}{hint}",
+            raise _fail(V.INSUFFICIENT_EVIDENCE, f"nobody is seen carrying it into the {name}{hint}",
                         checked_ids=[c.observation_id])  # fmt: skip
         went_in, fit = carriers[0]
         covs = self.store.find(CameraCoverage, media_id=obs.source_frame.media_id)
@@ -484,14 +496,14 @@ class Verifier:
         for x in (x for x in crossings if x.kind == "came out" and x.t_ms > went_in.t_ms):
             if not out or x.t_ms - out[-1].t_ms > 1000:  # two tracks of one exit (overlapping SAM runs) count once
                 out.append(x)
-        reasons = [f"last confirmed at the edge of {name} ({d:.1f} m) at {at(t_last)}",
+        reasons = [f"last seen at the door of the {name} ({d:.1f} m away) at {at(t_last)}",
                    f"carried in at {at(went_in.t_ms)}: a likely carrier, {fit.reason}",
                    (f"came out after: {len(out)} person(s) at {', '.join(at(x.t_ms) for x in out)}, none seen with it"
                     if out else "nobody came out after"),
-                   f"not seen again on any camera until the recording ends at {end.astimezone(tz).strftime('%H:%M:%S')}"]
-        lim += [f"holds until the recording ends at {end.astimezone(tz).strftime('%H:%M:%S')}",
-                f"assumes the doorway {obs.camera_id} watches is the only way into {name} (site plan)",
-                "no camera sees inside the area", "says where the object went, never who moved it or why"]
+                   f"not seen on any camera after that, until the recording ends at {end.astimezone(tz).strftime('%H:%M:%S')}"]
+        lim += [f"until the recording ends at {end.astimezone(tz).strftime('%H:%M:%S')}",
+                "assuming the door is the only way in (site plan)",
+                "no camera sees inside", "says where the parcel went, never who moved it or why"]
         return VerificationResult(V.SUPPORTED, EvidenceLabel.ESTIMATED, reasons, lim, [c.observation_id],
                                   [est.estimate_id])  # fmt: skip
 
@@ -552,14 +564,18 @@ class Verifier:
     def _when(self, oid: str) -> str:
         o = self.store.get(RawObservation, oid)
         t = o.source_frame.normalized_utc
-        return f"{t.isoformat(timespec='seconds') if t else 'unsynchronized time'} (camera {o.camera_id})"
+        return f"{t.strftime('%H:%M:%S') if t else 'an unsynchronized time'} on {camera_name(o.camera_id)}"
+
+    def _tz(self, oid: str):
+        t = self.store.get(RawObservation, oid).source_frame.normalized_utc
+        return t.tzinfo if t else UTC
 
     def _where(self, oid: str) -> str:
         e = estimate_for(self.store, oid)
         if e is None or (e.zone_id is None and e.floor_xy_m is None):
             return "an unmapped image position"
         if e.zone_id:
-            return f"{self.zones[e.zone_id].name if e.zone_id in self.zones else e.zone_id} (estimated position)"
+            return f"{place_name(self.zones[e.zone_id].name) if e.zone_id in self.zones else e.zone_id} (estimated position)"
         return f"floor position ({e.floor_xy_m[0]:.1f} m, {e.floor_xy_m[1]:.1f} m) ±{e.uncertainty_radius_m:.1f} m"
 
     def describe(self, claim: StructuredClaim) -> str:
@@ -572,7 +588,7 @@ class Verifier:
             return f"{label} last visibly confirmed at {self._when(o)}, at {self._where(o)}"
         if isinstance(claim, PresenceClaim):
             ids = sorted(claim.observation_ids, key=lambda i: self.store.get(RawObservation, i).source_frame.pts_ms)
-            where = f", estimated in {self.zones[claim.zone_id].name}" if claim.zone_id in self.zones else ""
+            where = f", estimated in the {place_name(self.zones[claim.zone_id].name)}" if claim.zone_id in self.zones else ""
             return f"{label} visible in {len(ids)} cited frame(s) from {self._when(ids[0])} to {self._when(ids[-1])}" \
                 + where  # fmt: skip
         if isinstance(claim, TransitionClaim):
@@ -589,12 +605,13 @@ class Verifier:
                     f"between {self._when(ids[0])} and {self._when(ids[-1])}")
         if isinstance(claim, StayedInAreaClaim):
             area = area_polygon(self.store, self.site, claim.area_id)
-            name = claim.area_id if area is None else f"{claim.area_id} ({area[0].split('(')[0].split(';')[0].strip()[:50]})"
+            name = place_name(area[0]) if area else claim.area_id
             covs = self.store.find(CameraCoverage, media_id=self.store.get(RawObservation, claim.observation_id)
                                    .source_frame.media_id)  # fmt: skip
-            until = f" until the recording ends at {covs[-1].end_utc.isoformat(timespec='seconds')}" if covs else ""
-            return (f"{label} inside {name}, an area no camera sees: last confirmed at its edge at "
-                    f"{self._when(claim.observation_id)}, carried in, not seen again{until}")
+            until = f" until the recording ends at {covs[-1].end_utc.astimezone(self._tz(claim.observation_id)).strftime('%H:%M:%S')}" \
+                if covs else ""  # fmt: skip
+            return (f"{label} is in the {name}, where no camera sees inside: last seen at its door at "
+                    f"{self._when(claim.observation_id)}, carried in, not seen coming out{until}")
         if isinstance(claim, ParcelMatchClaim):
             return f"sighting at {self._when(claim.observation_ids[0])} checked against parcel {claim.waybill}'s own scans"
         return (f"observation at {self._when(claim.first_observation_id)} precedes observation at "
