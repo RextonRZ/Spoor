@@ -110,3 +110,23 @@ class ScanHandshake(ImmutableRecord):
     followed_s: float = 0.0
     note: str = ""
     at: AwareDatetime
+
+
+class LiveAlert(ImmutableRecord):
+    """A carton seen leaving a container's work area with no scan of it since its container scan (left_alert.py).
+    The candidates are the parcels whose last scan put them in a container there: an alert names who it could be,
+    never that it is one of them."""
+
+    alert_id: str
+    site_id: str
+    kind: Literal["left_without_scan"]
+    scan_point_id: str
+    camera_id: str
+    media_id: str
+    at_utc: AwareDatetime  # when the carton left the work area
+    track_id: str
+    frame_index: int
+    box_px: list[float] | None = None
+    candidates: list[dict] = []  # [{waybill, container, scanned_in}]
+    note: str = ""
+    at: AwareDatetime

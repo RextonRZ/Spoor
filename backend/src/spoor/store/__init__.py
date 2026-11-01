@@ -30,6 +30,7 @@ from .records import (
     CostEntry,
     EvidenceRequest,
     Invalidation,
+    LiveAlert,
     ReportRecord,
     ScanHandshake,
 )
@@ -46,6 +47,7 @@ __all__ = [
     "EvidenceStore",
     "Invalidation",
     "LastSeen",
+    "LiveAlert",
     "ObjectState",
     "ObjectView",
     "ReportRecord",

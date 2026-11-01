@@ -65,6 +65,7 @@ from .records import (
     CostEntry,
     EvidenceRequest,
     Invalidation,
+    LiveAlert,
     ReportRecord,
     ScanHandshake,
 )
@@ -233,6 +234,7 @@ SPECS: dict[type, Spec] = {
     Invalidation: Spec(db.invalidations, lambda r: r.invalidation_id, lambda r: {"target_id": r.target_id}),
     AuditEntry: Spec(db.audit, lambda r: r.audit_id, lambda r: {"target_id": r.target_id, "action": r.action}),
     CostEntry: Spec(db.cost_ledger, lambda r: r.cost_id, lambda r: {"case_id": r.case_id, "provider": r.provider}),
+    LiveAlert: Spec(db.live_alerts, lambda r: r.alert_id, lambda r: {"site_id": r.site_id}),
     ScanHandshake: Spec(db.handshakes, lambda r: r.handshake_id,
                         lambda r: {"site_id": r.site_id, "waybill": r.waybill, "scan_event_id": r.scan_event_id}),
     AgentStep: Spec(db.agent_steps, lambda r: r.step_id,

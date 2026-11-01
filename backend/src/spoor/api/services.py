@@ -28,7 +28,7 @@ from spoor.forensics.journey import latest_plan
 from spoor.ingest import MediaStore, asset_path, load_result
 from spoor.ingest.clips import crop_window
 from spoor.perception import MetaSamBackend, PerceptionRequest, SamBackend, track_target
-from spoor.perception.anchor import AnchorError, anchor_for, leaves
+from spoor.perception.anchor import AnchorError, anchor_for, inside, leaves
 from spoor.perception.prompts import InstancePrompt
 from spoor.reasoning import (
     BasetenChatBackend,
@@ -205,6 +205,43 @@ class Services:
         return self.store.put(ScanHandshake(**base, outcome="outlined", track_id=tid, frame_index=f_at,
                                             box_px=list(near.bbox_xyxy_px) if near else None,
                                             frames_followed=len(after), followed_s=round(span, 2)))
+
+    def watch_container_area(self, w, *, now) -> list:
+        """One planned watch (left_alert.py): SAM on the clip after the container scans, keeping cartons that start in
+        the point's work area and leave it; each one is a LiveAlert at the moment it leaves."""
+        from spoor.store import LiveAlert
+
+        plan = latest_plan(self.store, self.store.get(MediaAsset, w.media_id).site_id)
+        rp = plan.read_point(w.scan_point_id)
+        cal = self.valid_calibration(w.camera_id)
+        if cal is None:
+            return []
+        poly = anchor_for(rp, cal).polygon_px
+        res = self.anchored_sam(None, w.media_id, concept=None, start_iso=w.start.isoformat(), end_iso=w.end.isoformat(),
+                                scan_point_id=w.scan_point_id, at_iso=None)  # fmt: skip
+        out = []
+        cov = self.store.find(CameraCoverage, media_id=w.media_id)[-1]
+        for t in res.get("tracks", []):
+            obs = sorted((o for o in self.store.find(RawObservation, track_id=t["track_id"]) if o.bbox_xyxy_px),
+                         key=lambda o: o.source_frame.frame_index)  # fmt: skip
+            gone = next((o for o in obs if not inside(poly, (o.bbox_xyxy_px[0] + o.bbox_xyxy_px[2]) / 2,
+                                                      (o.bbox_xyxy_px[1] + o.bbox_xyxy_px[3]) / 2)), None)  # fmt: skip
+            if gone is None:
+                continue
+            t_left = gone.source_frame.normalized_utc or (cov.start_utc + timedelta(milliseconds=gone.source_frame.pts_ms))
+            cands = [dict(c, scanned_in=c["scanned_in"].isoformat()) for c in w.parcels if c["scanned_in"] < t_left]
+            if not cands:
+                continue
+            aid = f"alert_{t['track_id']}"
+            if self.store.exists(aid):
+                out.append(self.store.get(LiveAlert, aid))
+                continue
+            out.append(self.store.put(LiveAlert(
+                alert_id=aid, site_id=plan.site_id, kind="left_without_scan", scan_point_id=w.scan_point_id,
+                camera_id=w.camera_id, media_id=w.media_id, at_utc=t_left, track_id=t["track_id"],
+                frame_index=gone.source_frame.frame_index, box_px=list(gone.bbox_xyxy_px), candidates=cands,
+                note="a carton left the work area; no scan of the parcels last scanned into a container here since", at=now)))
+        return out
 
     def frame_at(self, media_id: str, iso: str) -> int:
         """Nearest original frame to a time on the shared clock (as /media/{id}/frame-at)."""

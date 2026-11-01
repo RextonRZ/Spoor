@@ -41,7 +41,9 @@ from spoor.spatial.homography import image_to_site, site_to_image
 
 FRONT = Path(__file__).resolve().parents[1]
 SITE, REF = "site_contoh_hub", "clkd_wcs"
-NEAR_PX = 45  # a parcel passes an event's pixel if its box centre comes this close (1920 px frame)
+NEAR_PX = 45  # a parcel passes an event's pixel if its box centre comes this close (1920 px frame) ...
+NEAR_M = 0.45  # ... or this close on the floor, whichever is more pixels (a close-up camera at 400-500 px/m: 45 px
+# was 10 cm, so no passage ever paired: six checkpoints CHK_TUNNEL)
 PAIR_S = 1.0  # an event and a passage pair if within this of the camera's overall offset
 SEARCH_S = 10.0  # cameras may be this far off the reference
 MIN_MOVE_M = 2.0  # a person must cover this much floor to carry timing information
@@ -72,10 +74,17 @@ if not any(s.method == "reference clock of the timeline" for s in svc.store.find
 
 
 def original(cam: str) -> MediaAsset:
-    """The camera's longest valid clip (a camera may hold several windows; purged uploads never count)."""
+    """The camera's valid clip with the most sorter scans in its span (a camera may hold several windows; purged
+    uploads never count); ties: the longer clip."""
     ms = [m for m in svc.store.find(MediaAsset, camera_id=cam) if m.kind.value == "original" and not svc.store.is_invalid(m.media_id)]
-    return max(ms, key=lambda m: len(svc.store.find(CameraCoverage, media_id=m.media_id)) and
-               (lambda c: (c.end_utc - c.start_utc).total_seconds())(svc.store.find(CameraCoverage, media_id=m.media_id)[-1]))
+    wcs = [s.device_time_utc for s in svc.store.find(ScanEvent, site_id=SITE) if s.clock_domain_id == ref_id]
+
+    def score(m):
+        c = svc.store.find(CameraCoverage, media_id=m.media_id)
+        if not c:
+            return (0, 0.0)
+        return (sum(c[-1].start_utc <= t <= c[-1].end_utc for t in wcs), (c[-1].end_utc - c[-1].start_utc).total_seconds())
+    return max(ms, key=score)
 
 
 def cam_time(o: RawObservation) -> datetime:
@@ -118,20 +127,23 @@ def by_sorter_events(cam: str) -> dict | None:
         kinds = {e.event_kind.value for e in events if (e.station_id or e.device_id) == sid}
         for kind in kinds:
             x, y = rp.position_for(kind)
-            uv, front = site_to_image(cal, [[x, y, rp.position_m[2]]])
+            uv, front = site_to_image(cal, [[x, y, rp.position_m[2]], [x + NEAR_M, y, rp.position_m[2]],
+                                            [x, y + NEAR_M, rp.position_m[2]]])
             if not front[0]:
                 continue
+            near_px = max(NEAR_PX, float(min(np.linalg.norm(uv[1] - uv[0]), np.linalg.norm(uv[2] - uv[0]))))
             for obs in tracks.values():
                 c = np.array([((o.bbox_xyxy_px[0] + o.bbox_xyxy_px[2]) / 2, (o.bbox_xyxy_px[1] + o.bbox_xyxy_px[3]) / 2) for o in obs])
                 d = np.linalg.norm(c - uv[0], axis=1)
                 i = int(np.argmin(d))
-                if d[i] <= NEAR_PX:
+                if d[i] <= near_px:
                     passes.append((sid, kind, cam_time(obs[i]), obs[i].observation_id))
     diffs = [round((e.device_time_utc - t).total_seconds() * 5) / 5 for e in events for sid, k, t, _ in passes
              if sid == (e.station_id or e.device_id) and k == e.event_kind.value
              and abs((e.device_time_utc - t).total_seconds()) <= SEARCH_S]
     if not diffs:
-        print(f"  {cam}: no event/passage pairs")
+        print(f"  {cam}: no event/passage pairs ({len(events)} events, {len(tracks)} tracks, {len(passes)} passages, "
+              f"clip {media.media_id} {cov.start_utc.isoformat()[11:19]}-{cov.end_utc.isoformat()[11:19]})")
         return None
     off = Counter(diffs).most_common(1)[0][0]
     anchors = []

@@ -1247,6 +1247,40 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         audit(p, "handshakes", site_id, job_id=job.job_id, rows=len(rows))
         return summary | {"job_id": job.job_id}
 
+    @app.post("/v1/sites/{site_id}/watch-containers", status_code=202)
+    def watch_containers(site_id: str, p: User, dry_run: bool = True) -> dict:
+        """Live alert "left without a scan" (forensics/left_alert.py): for every container point holding parcels whose
+        last scan put them there, SAM on the watching cameras' footage after it. dry_run: the plan and its SAM cost."""
+        from spoor.forensics.journey import latest_plan
+        from spoor.forensics.left_alert import plan_watches
+
+        p.require_role(Role.SITE_ADMIN, Role.INVESTIGATOR)
+        p.require_site(site_id)
+        plan = latest_plan(svc.store, site_id)
+        ws = plan_watches(svc.store, plan, svc.store.find(ScanEvent, site_id=site_id)) if plan else []
+        frames = int(sum((w.end - w.start).total_seconds() * 10 for w in ws))
+        summary = {"watches": [{"scan_point": w.scan_point_id, "camera": w.camera_id, "start": w.start.isoformat(),
+                                "end": w.end.isoformat(), "parcels": len(w.parcels)} for w in ws],
+                   "sam_frames": frames, "usd_estimate": round(frames * 0.20 / 1000, 3)}  # fmt: skip
+        if dry_run:
+            return summary
+
+        def work(job):
+            n = 0
+            for w in ws:
+                n += len(svc.watch_container_area(w, now=now()))
+            return summary | {"alerts": n}
+
+        job = svc.jobs.submit("watch_containers", p.user_id, work)
+        return summary | {"job_id": job.job_id}
+
+    @app.get("/v1/sites/{site_id}/alerts")
+    def live_alerts(site_id: str, p: User) -> list[dict]:
+        from spoor.store import LiveAlert
+
+        p.require_site(site_id)
+        return [a.model_dump(mode="json") for a in sorted(svc.store.find(LiveAlert, site_id=site_id), key=lambda a: a.at_utc)]
+
     @app.get("/v1/parcels/{waybill}/passport")
     def passport(waybill: str, p: User) -> dict:
         """Every checkpoint where this parcel was met on camera (its scans' handshakes), in time order: "Scanned here"
