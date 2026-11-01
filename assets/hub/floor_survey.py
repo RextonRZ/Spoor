@@ -47,7 +47,7 @@ def floor_hit(o, rot, cx, cy):
 
 
 out = {}
-for cam in sorted((o for o in bpy.data.objects if o.type == "CAMERA" and o.name.startswith("CAM_")), key=lambda o: o.name):
+for cam in sorted((o for o in bpy.data.objects if o.type == "CAMERA" and o.name.startswith(("CAM_", "CHK_"))), key=lambda o: o.name):
     k1 = TRUTH.get(cam.name, {}).get("lens_k1", -0.06)
     tx = math.tan(cam.data.angle_x / 2)
     ty = tx * RY / RX

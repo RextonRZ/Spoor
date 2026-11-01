@@ -1834,6 +1834,36 @@
    "id": "clkd_cam_19",
    "kind": "camera",
    "devices": "CAM_19"
+  },
+  {
+   "id": "clkd_chk_unload",
+   "kind": "camera",
+   "devices": "CHK_UNLOAD"
+  },
+  {
+   "id": "clkd_chk_tunnel",
+   "kind": "camera",
+   "devices": "CHK_TUNNEL"
+  },
+  {
+   "id": "clkd_chk_chute",
+   "kind": "camera",
+   "devices": "CHK_CHUTE"
+  },
+  {
+   "id": "clkd_chk_cage_w",
+   "kind": "camera",
+   "devices": "CHK_CAGE_W"
+  },
+  {
+   "id": "clkd_chk_store",
+   "kind": "camera",
+   "devices": "CHK_STORE"
+  },
+  {
+   "id": "clkd_chk_dock",
+   "kind": "camera",
+   "devices": "CHK_DOCK"
   }
  ],
  "scan_points": [
@@ -5104,6 +5134,234 @@
     "exposure": "fixed per camera",
     "osd": "camera name + date/time burned in top-left, from the camera's OWN drifting clock",
     "clock": "own offset and drift per camera — evaluator-only values in render_truth.yaml; Spoor must estimate them"
+   }
+  },
+  {
+   "id": "CHK_UNLOAD",
+   "kind": "checkpoint",
+   "zone": "Z01",
+   "question": "Checkpoint camera: the carton handed off the truck at door D05 and its unload scan.",
+   "detail_target": "identify",
+   "target_ppm": 250,
+   "position_m": [
+    3.6,
+    24.4
+   ],
+   "height_m": 3.6,
+   "heading_deg": 202.4,
+   "tilt_down_deg": 35.3,
+   "hfov_deg": 84.0,
+   "vfov_deg": 54.0,
+   "resolution": [
+    2688,
+    1520
+   ],
+   "fps": 10,
+   "mount": "truss drop-pole above the telescopic conveyor",
+   "aim_m": [
+    0.2,
+    23.0,
+    1.0
+   ],
+   "scan_point": "SP-IN-N",
+   "aim_ppm": 331,
+   "clock_domain": "clkd_chk_unload",
+   "osd_label": "DOOR D05 UNLOAD",
+   "realism": {
+    "lens": "4 mm on 1/2.8 inch (about 84 deg wide), mild barrel distortion; exact k1 in render_truth",
+    "codec": "as the wide cameras",
+    "osd": "camera name + date/time from its OWN clock",
+    "clock": "own offset and drift, evaluator-only in render_truth; Spoor must fit them"
+   }
+  },
+  {
+   "id": "CHK_TUNNEL",
+   "kind": "checkpoint",
+   "zone": "Z04",
+   "question": "Checkpoint camera: every carton as it comes out of the scan tunnel, in order.",
+   "detail_target": "identify",
+   "target_ppm": 250,
+   "position_m": [
+    25.6,
+    10.2
+   ],
+   "height_m": 2.9,
+   "heading_deg": 191.6,
+   "tilt_down_deg": 22.0,
+   "hfov_deg": 84.0,
+   "vfov_deg": 54.0,
+   "resolution": [
+    2688,
+    1520
+   ],
+   "fps": 10,
+   "mount": "gantry bracket over the belt just past the tunnel",
+   "aim_m": [
+    22.2,
+    9.5,
+    1.5
+   ],
+   "scan_point": "SP-TUNNEL",
+   "aim_ppm": 399,
+   "clock_domain": "clkd_chk_tunnel",
+   "osd_label": "TUNNEL EXIT",
+   "realism": {
+    "lens": "4 mm on 1/2.8 inch (about 84 deg wide), mild barrel distortion; exact k1 in render_truth",
+    "codec": "as the wide cameras",
+    "osd": "camera name + date/time from its OWN clock",
+    "clock": "own offset and drift, evaluator-only in render_truth; Spoor must fit them"
+   }
+  },
+  {
+   "id": "CHK_CHUTE",
+   "kind": "checkpoint",
+   "zone": "Z06",
+   "question": "Checkpoint camera: diverts off the loop into chutes C10, C11, C12 and the reject chute.",
+   "detail_target": "identify",
+   "target_ppm": 250,
+   "position_m": [
+    35.2,
+    17.6
+   ],
+   "height_m": 4.5,
+   "heading_deg": 151.3,
+   "tilt_down_deg": 34.6,
+   "hfov_deg": 84.0,
+   "vfov_deg": 54.0,
+   "resolution": [
+    2688,
+    1520
+   ],
+   "fps": 10,
+   "mount": "truss drop-pole over the chute row",
+   "aim_m": [
+    31.0,
+    19.9,
+    1.2
+   ],
+   "scan_point": "SP-DIV-C12",
+   "aim_ppm": 257,
+   "clock_domain": "clkd_chk_chute",
+   "osd_label": "CHUTES C10-C12",
+   "realism": {
+    "lens": "4 mm on 1/2.8 inch (about 84 deg wide), mild barrel distortion; exact k1 in render_truth",
+    "codec": "as the wide cameras",
+    "osd": "camera name + date/time from its OWN clock",
+    "clock": "own offset and drift, evaluator-only in render_truth; Spoor must fit them"
+   }
+  },
+  {
+   "id": "CHK_CAGE_W",
+   "kind": "checkpoint",
+   "zone": "Z10",
+   "question": "Checkpoint camera: cartons on the west cage shelves, hands taking them, the cage scans.",
+   "detail_target": "identify",
+   "target_ppm": 250,
+   "position_m": [
+    28.6,
+    28.6
+   ],
+   "height_m": 4.2,
+   "heading_deg": 90.0,
+   "tilt_down_deg": 61.4,
+   "hfov_deg": 84.0,
+   "vfov_deg": 54.0,
+   "resolution": [
+    2688,
+    1520
+   ],
+   "fps": 10,
+   "mount": "ceiling truss drop-pole over the cage aisle",
+   "aim_m": [
+    28.6,
+    30.4,
+    0.9
+   ],
+   "scan_point": "SP-CAGE-W",
+   "aim_ppm": 397,
+   "clock_domain": "clkd_chk_cage_w",
+   "osd_label": "CAGE BAYS S11-S13",
+   "realism": {
+    "lens": "4 mm on 1/2.8 inch (about 84 deg wide), mild barrel distortion; exact k1 in render_truth",
+    "codec": "as the wide cameras",
+    "osd": "camera name + date/time from its OWN clock",
+    "clock": "own offset and drift, evaluator-only in render_truth; Spoor must fit them"
+   }
+  },
+  {
+   "id": "CHK_STORE",
+   "kind": "checkpoint",
+   "zone": "Z11",
+   "question": "Checkpoint camera: who goes into or out of the exception store, and its SCAN IN.",
+   "detail_target": "identify",
+   "target_ppm": 250,
+   "position_m": [
+    14.3,
+    33.8
+   ],
+   "height_m": 3.1,
+   "heading_deg": 279.0,
+   "tilt_down_deg": 47.5,
+   "hfov_deg": 84.0,
+   "vfov_deg": 54.0,
+   "resolution": [
+    2688,
+    1520
+   ],
+   "fps": 10,
+   "mount": "bracket on the rack frame above the store's gap",
+   "aim_m": [
+    14.6,
+    31.9,
+    1.0
+   ],
+   "scan_point": "SP-STORE-IN",
+   "aim_ppm": 524,
+   "clock_domain": "clkd_chk_store",
+   "osd_label": "EXCEPTION STORE DOOR",
+   "realism": {
+    "lens": "4 mm on 1/2.8 inch (about 84 deg wide), mild barrel distortion; exact k1 in render_truth",
+    "codec": "as the wide cameras",
+    "osd": "camera name + date/time from its OWN clock",
+    "clock": "own offset and drift, evaluator-only in render_truth; Spoor must fit them"
+   }
+  },
+  {
+   "id": "CHK_DOCK",
+   "kind": "checkpoint",
+   "zone": "Z12",
+   "question": "Checkpoint camera: cages through door D07 and its RFID gate.",
+   "detail_target": "identify",
+   "target_ppm": 250,
+   "position_m": [
+    31.1,
+    39.75
+   ],
+   "height_m": 3.0,
+   "heading_deg": 212.7,
+   "tilt_down_deg": 38.7,
+   "hfov_deg": 84.0,
+   "vfov_deg": 54.0,
+   "resolution": [
+    2688,
+    1520
+   ],
+   "fps": 10,
+   "mount": "side mount on the dock door frame",
+   "aim_m": [
+    29.0,
+    38.4,
+    1.0
+   ],
+   "scan_point": "SP-RFID-D07",
+   "aim_ppm": 467,
+   "clock_domain": "clkd_chk_dock",
+   "osd_label": "DOCK D07",
+   "realism": {
+    "lens": "4 mm on 1/2.8 inch (about 84 deg wide), mild barrel distortion; exact k1 in render_truth",
+    "codec": "as the wide cameras",
+    "osd": "camera name + date/time from its OWN clock",
+    "clock": "own offset and drift, evaluator-only in render_truth; Spoor must fit them"
    }
   }
  ],
