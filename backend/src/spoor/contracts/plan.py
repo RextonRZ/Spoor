@@ -49,6 +49,9 @@ class PlanReadPoint(Record):
     zone_id: ZoneId | None = None
     event_positions: dict[str, MetresXY] = {}
     visible_by: list[CameraId] = Field(default=[], description="Cameras with a clear view of it (plan check)")
+    device_parts_m: list[MetresXYZ] = Field(
+        default=[], description="Where the scan hardware physically stands (e.g. an RFID portal's two antennas). Empty: "
+                                "no fixed device; a handheld scan in a work area, or a sorter event at a chute mouth")
 
     def position_for(self, event_kind: str) -> MetresXY:
         return self.event_positions.get(event_kind, (self.position_m[0], self.position_m[1]))

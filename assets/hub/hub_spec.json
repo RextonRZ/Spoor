@@ -1853,10 +1853,15 @@
      "ppm": 109
     },
     {
+     "camera": "CAM_02",
+     "ppm": 83
+    },
+    {
      "camera": "CAM_04",
      "ppm": 72
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-IN-N",
@@ -1874,7 +1879,8 @@
      "camera": "CAM_02",
      "ppm": 135
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-BAGOPEN",
@@ -1892,7 +1898,8 @@
      "camera": "CAM_03",
      "ppm": 199
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-INDUCT",
@@ -1914,7 +1921,8 @@
      "camera": "CAM_04",
      "ppm": 101
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-INDUCT-B",
@@ -1936,7 +1944,8 @@
      "camera": "CAM_18",
      "ppm": 137
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-TUNNEL-B",
@@ -1951,13 +1960,16 @@
    "events": "tunnel_read / tunnel_no_read on line B (DWS arch at the top of the ramp)",
    "visible_by": [
     {
-     "camera": "CAM_07",
-     "ppm": 128
-    },
-    {
      "camera": "CAM_08",
      "ppm": 174
     }
+   ],
+   "device_parts_m": [
+    [
+     45.6,
+     9.2,
+     1.7
+    ]
    ]
   },
   {
@@ -1980,6 +1992,13 @@
      "camera": "CAM_06",
      "ppm": 153
     }
+   ],
+   "device_parts_m": [
+    [
+     22.2,
+     9.5,
+     1.7
+    ]
    ]
   },
   {
@@ -1998,7 +2017,8 @@
      "camera": "CAM_04",
      "ppm": 142
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-DIV-C01",
@@ -2013,10 +2033,23 @@
    "events": "divert_confirmed",
    "visible_by": [
     {
+     "camera": "CAM_07",
+     "ppm": 71
+    },
+    {
+     "camera": "CAM_08",
+     "ppm": 77
+    },
+    {
      "camera": "CAM_10",
      "ppm": 163
+    },
+    {
+     "camera": "CAM_11",
+     "ppm": 93
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-DIV-C02",
@@ -2031,10 +2064,23 @@
    "events": "divert_confirmed",
    "visible_by": [
     {
+     "camera": "CAM_07",
+     "ppm": 71
+    },
+    {
+     "camera": "CAM_08",
+     "ppm": 78
+    },
+    {
      "camera": "CAM_10",
      "ppm": 160
+    },
+    {
+     "camera": "CAM_11",
+     "ppm": 97
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-DIV-C03",
@@ -2049,10 +2095,23 @@
    "events": "divert_confirmed",
    "visible_by": [
     {
+     "camera": "CAM_07",
+     "ppm": 70
+    },
+    {
+     "camera": "CAM_08",
+     "ppm": 79
+    },
+    {
      "camera": "CAM_10",
      "ppm": 156
+    },
+    {
+     "camera": "CAM_11",
+     "ppm": 101
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-DIV-C04",
@@ -2067,10 +2126,23 @@
    "events": "divert_confirmed",
    "visible_by": [
     {
+     "camera": "CAM_07",
+     "ppm": 70
+    },
+    {
+     "camera": "CAM_08",
+     "ppm": 79
+    },
+    {
      "camera": "CAM_10",
      "ppm": 153
+    },
+    {
+     "camera": "CAM_11",
+     "ppm": 105
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-DIV-C05",
@@ -2085,14 +2157,31 @@
    "events": "divert_confirmed",
    "visible_by": [
     {
+     "camera": "CAM_06",
+     "ppm": 82
+    },
+    {
+     "camera": "CAM_07",
+     "ppm": 70
+    },
+    {
+     "camera": "CAM_08",
+     "ppm": 80
+    },
+    {
      "camera": "CAM_10",
      "ppm": 150
+    },
+    {
+     "camera": "CAM_11",
+     "ppm": 109
     },
     {
      "camera": "CAM_13",
      "ppm": 134
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-DIV-C06",
@@ -2107,14 +2196,31 @@
    "events": "divert_confirmed",
    "visible_by": [
     {
+     "camera": "CAM_06",
+     "ppm": 82
+    },
+    {
+     "camera": "CAM_07",
+     "ppm": 69
+    },
+    {
+     "camera": "CAM_08",
+     "ppm": 80
+    },
+    {
      "camera": "CAM_10",
      "ppm": 147
+    },
+    {
+     "camera": "CAM_11",
+     "ppm": 114
     },
     {
      "camera": "CAM_13",
      "ppm": 124
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-DIV-C07",
@@ -2129,6 +2235,14 @@
    "events": "divert_confirmed",
    "visible_by": [
     {
+     "camera": "CAM_06",
+     "ppm": 81
+    },
+    {
+     "camera": "CAM_08",
+     "ppm": 81
+    },
+    {
      "camera": "CAM_11",
      "ppm": 124
     },
@@ -2136,7 +2250,8 @@
      "camera": "CAM_13",
      "ppm": 108
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-DIV-C08",
@@ -2151,6 +2266,18 @@
    "events": "divert_confirmed",
    "visible_by": [
     {
+     "camera": "CAM_06",
+     "ppm": 80
+    },
+    {
+     "camera": "CAM_08",
+     "ppm": 82
+    },
+    {
+     "camera": "CAM_10",
+     "ppm": 138
+    },
+    {
      "camera": "CAM_11",
      "ppm": 130
     },
@@ -2158,7 +2285,8 @@
      "camera": "CAM_13",
      "ppm": 101
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-DIV-C09",
@@ -2173,6 +2301,18 @@
    "events": "divert_confirmed",
    "visible_by": [
     {
+     "camera": "CAM_06",
+     "ppm": 80
+    },
+    {
+     "camera": "CAM_07",
+     "ppm": 68
+    },
+    {
+     "camera": "CAM_10",
+     "ppm": 136
+    },
+    {
      "camera": "CAM_11",
      "ppm": 137
     },
@@ -2180,7 +2320,8 @@
      "camera": "CAM_13",
      "ppm": 95
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-DIV-C10",
@@ -2195,6 +2336,18 @@
    "events": "divert_confirmed",
    "visible_by": [
     {
+     "camera": "CAM_06",
+     "ppm": 79
+    },
+    {
+     "camera": "CAM_07",
+     "ppm": 68
+    },
+    {
+     "camera": "CAM_10",
+     "ppm": 133
+    },
+    {
      "camera": "CAM_11",
      "ppm": 144
     },
@@ -2202,7 +2355,8 @@
      "camera": "CAM_13",
      "ppm": 89
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-DIV-C11",
@@ -2217,10 +2371,19 @@
    "events": "divert_confirmed",
    "visible_by": [
     {
+     "camera": "CAM_06",
+     "ppm": 79
+    },
+    {
+     "camera": "CAM_07",
+     "ppm": 67
+    },
+    {
      "camera": "CAM_11",
      "ppm": 152
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-DIV-C12",
@@ -2235,10 +2398,27 @@
    "events": "divert_confirmed",
    "visible_by": [
     {
+     "camera": "CAM_06",
+     "ppm": 78
+    },
+    {
+     "camera": "CAM_07",
+     "ppm": 67
+    },
+    {
+     "camera": "CAM_09",
+     "ppm": 274
+    },
+    {
      "camera": "CAM_11",
      "ppm": 162
+    },
+    {
+     "camera": "CAM_13",
+     "ppm": 80
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-DIV-REJECT",
@@ -2253,14 +2433,27 @@
    "events": "divert_confirmed",
    "visible_by": [
     {
+     "camera": "CAM_06",
+     "ppm": 77
+    },
+    {
+     "camera": "CAM_07",
+     "ppm": 66
+    },
+    {
      "camera": "CAM_09",
      "ppm": 324
     },
     {
      "camera": "CAM_11",
      "ppm": 173
+    },
+    {
+     "camera": "CAM_13",
+     "ppm": 76
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-BAG-C01",
@@ -2279,10 +2472,15 @@
      "ppm": 64
     },
     {
+     "camera": "CAM_08",
+     "ppm": 68
+    },
+    {
      "camera": "CAM_10",
      "ppm": 183
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-BAG-C02",
@@ -2301,10 +2499,15 @@
      "ppm": 63
     },
     {
+     "camera": "CAM_08",
+     "ppm": 69
+    },
+    {
      "camera": "CAM_10",
      "ppm": 178
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-BAG-C03",
@@ -2330,7 +2533,8 @@
      "camera": "CAM_11",
      "ppm": 108
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-BAG-C04",
@@ -2345,6 +2549,10 @@
    "events": "container_add (parcel into bag)",
    "visible_by": [
     {
+     "camera": "CAM_06",
+     "ppm": 72
+    },
+    {
      "camera": "CAM_07",
      "ppm": 63
     },
@@ -2356,7 +2564,8 @@
      "camera": "CAM_11",
      "ppm": 113
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-BAG-C05",
@@ -2370,6 +2579,10 @@
    "clock_domain": "clkd_handheld",
    "events": "container_add (parcel into bag)",
    "visible_by": [
+    {
+     "camera": "CAM_06",
+     "ppm": 72
+    },
     {
      "camera": "CAM_07",
      "ppm": 62
@@ -2386,7 +2599,8 @@
      "camera": "CAM_13",
      "ppm": 143
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-BAG-C06",
@@ -2405,14 +2619,23 @@
      "ppm": 62
     },
     {
+     "camera": "CAM_08",
+     "ppm": 70
+    },
+    {
      "camera": "CAM_10",
      "ppm": 162
+    },
+    {
+     "camera": "CAM_11",
+     "ppm": 124
     },
     {
      "camera": "CAM_13",
      "ppm": 131
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-BAG-C07",
@@ -2427,6 +2650,10 @@
    "events": "container_add (parcel into bag)",
    "visible_by": [
     {
+     "camera": "CAM_06",
+     "ppm": 71
+    },
+    {
      "camera": "CAM_10",
      "ppm": 155
     },
@@ -2438,7 +2665,8 @@
      "camera": "CAM_13",
      "ppm": 113
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-BAG-C08",
@@ -2453,6 +2681,10 @@
    "events": "container_add (parcel into bag)",
    "visible_by": [
     {
+     "camera": "CAM_08",
+     "ppm": 71
+    },
+    {
      "camera": "CAM_10",
      "ppm": 152
     },
@@ -2464,7 +2696,8 @@
      "camera": "CAM_13",
      "ppm": 106
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-BAG-C09",
@@ -2479,8 +2712,12 @@
    "events": "container_add (parcel into bag)",
    "visible_by": [
     {
-     "camera": "CAM_10",
-     "ppm": 149
+     "camera": "CAM_08",
+     "ppm": 72
+    },
+    {
+     "camera": "CAM_09",
+     "ppm": 199
     },
     {
      "camera": "CAM_11",
@@ -2490,7 +2727,8 @@
      "camera": "CAM_13",
      "ppm": 99
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-BAG-C10",
@@ -2505,6 +2743,10 @@
    "events": "container_add (parcel into bag)",
    "visible_by": [
     {
+     "camera": "CAM_06",
+     "ppm": 69
+    },
+    {
      "camera": "CAM_09",
      "ppm": 224
     },
@@ -2512,7 +2754,8 @@
      "camera": "CAM_11",
      "ppm": 161
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-BAG-C11",
@@ -2526,6 +2769,10 @@
    "clock_domain": "clkd_handheld",
    "events": "container_add (parcel into bag)",
    "visible_by": [
+    {
+     "camera": "CAM_06",
+     "ppm": 69
+    },
     {
      "camera": "CAM_09",
      "ppm": 257
@@ -2542,7 +2789,8 @@
      "camera": "CAM_13",
      "ppm": 88
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-BAG-C12",
@@ -2556,6 +2804,10 @@
    "clock_domain": "clkd_handheld",
    "events": "container_add (parcel into bag)",
    "visible_by": [
+    {
+     "camera": "CAM_06",
+     "ppm": 68
+    },
     {
      "camera": "CAM_09",
      "ppm": 301
@@ -2572,7 +2824,8 @@
      "camera": "CAM_13",
      "ppm": 83
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-REWORK",
@@ -2593,8 +2846,13 @@
     {
      "camera": "CAM_12",
      "ppm": 285
+    },
+    {
+     "camera": "CAM_13",
+     "ppm": 71
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-STORE-IN",
@@ -2607,7 +2865,19 @@
    ],
    "clock_domain": "clkd_handheld",
    "events": "store_scan_in (parcel scanned into the exception store at its doorway; handheld in a cradle on the shelf by the door, sign 'IMBAS SETIAP PARSEL MASUK / SCAN EVERY PARCEL IN')",
-   "visible_by": []
+   "visible_by": [
+    {
+     "camera": "CAM_19",
+     "ppm": 192
+    }
+   ],
+   "device_parts_m": [
+    [
+     15.608,
+     32.92,
+     1.183
+    ]
+   ]
   },
   {
    "id": "SP-CAGE-W",
@@ -2625,7 +2895,8 @@
      "camera": "CAM_13",
      "ppm": 107
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-CAGE-E",
@@ -2643,7 +2914,8 @@
      "camera": "CAM_14",
      "ppm": 95
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-LOAD-D07",
@@ -2665,7 +2937,8 @@
      "camera": "CAM_19",
      "ppm": 76
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-LOAD-D08",
@@ -2691,7 +2964,8 @@
      "camera": "CAM_19",
      "ppm": 69
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-LOAD-D09",
@@ -2717,7 +2991,8 @@
      "camera": "CAM_19",
      "ppm": 63
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-LOAD-D10",
@@ -2739,7 +3014,8 @@
      "camera": "CAM_16",
      "ppm": 85
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-LOAD-D11",
@@ -2761,7 +3037,8 @@
      "camera": "CAM_16",
      "ppm": 99
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-LOAD-D12",
@@ -2783,7 +3060,8 @@
      "camera": "CAM_16",
      "ppm": 119
     }
-   ]
+   ],
+   "device_parts_m": []
   },
   {
    "id": "SP-RFID-D07",
@@ -2791,7 +3069,7 @@
    "zone": "Z12",
    "position_m": [
     29.0,
-    39.4,
+    39.085,
     1.5
    ],
    "clock_domain": "clkd_wcs",
@@ -2799,12 +3077,24 @@
    "visible_by": [
     {
      "camera": "CAM_15",
-     "ppm": 110
+     "ppm": 126
     },
     {
      "camera": "CAM_19",
-     "ppm": 69
+     "ppm": 74
     }
+   ],
+   "device_parts_m": [
+    [
+     27.3,
+     39.085,
+     1.5
+    ],
+    [
+     30.7,
+     39.085,
+     1.5
+    ]
    ]
   },
   {
@@ -2813,7 +3103,7 @@
    "zone": "Z12",
    "position_m": [
     33.0,
-    39.4,
+    39.085,
     1.5
    ],
    "clock_domain": "clkd_wcs",
@@ -2821,12 +3111,28 @@
    "visible_by": [
     {
      "camera": "CAM_15",
-     "ppm": 88
+     "ppm": 98
+    },
+    {
+     "camera": "CAM_16",
+     "ppm": 67
     },
     {
      "camera": "CAM_19",
-     "ppm": 63
+     "ppm": 67
     }
+   ],
+   "device_parts_m": [
+    [
+     31.3,
+     39.085,
+     1.5
+    ],
+    [
+     34.7,
+     39.085,
+     1.5
+    ]
    ]
   },
   {
@@ -2835,7 +3141,7 @@
    "zone": "Z12",
    "position_m": [
     37.0,
-    39.4,
+    39.085,
     1.5
    ],
    "clock_domain": "clkd_wcs",
@@ -2843,16 +3149,24 @@
    "visible_by": [
     {
      "camera": "CAM_15",
-     "ppm": 73
+     "ppm": 80
     },
     {
      "camera": "CAM_16",
-     "ppm": 70
-    },
-    {
-     "camera": "CAM_17",
-     "ppm": 109
+     "ppm": 75
     }
+   ],
+   "device_parts_m": [
+    [
+     35.3,
+     39.085,
+     1.5
+    ],
+    [
+     38.7,
+     39.085,
+     1.5
+    ]
    ]
   },
   {
@@ -2861,7 +3175,7 @@
    "zone": "Z12",
    "position_m": [
     41.0,
-    39.4,
+    39.085,
     1.5
    ],
    "clock_domain": "clkd_wcs",
@@ -2869,12 +3183,24 @@
    "visible_by": [
     {
      "camera": "CAM_15",
-     "ppm": 63
+     "ppm": 68
     },
     {
      "camera": "CAM_16",
-     "ppm": 79
+     "ppm": 85
     }
+   ],
+   "device_parts_m": [
+    [
+     39.3,
+     39.085,
+     1.5
+    ],
+    [
+     42.7,
+     39.085,
+     1.5
+    ]
    ]
   },
   {
@@ -2883,16 +3209,32 @@
    "zone": "Z12",
    "position_m": [
     45.0,
-    39.4,
+    39.085,
     1.5
    ],
    "clock_domain": "clkd_wcs",
    "events": "departed_facility (cage RFID, can cross-read)",
    "visible_by": [
     {
+     "camera": "CAM_14",
+     "ppm": 64
+    },
+    {
      "camera": "CAM_16",
-     "ppm": 91
+     "ppm": 99
     }
+   ],
+   "device_parts_m": [
+    [
+     43.3,
+     39.085,
+     1.5
+    ],
+    [
+     46.7,
+     39.085,
+     1.5
+    ]
    ]
   },
   {
@@ -2901,7 +3243,7 @@
    "zone": "Z12",
    "position_m": [
     49.0,
-    39.4,
+    39.085,
     1.5
    ],
    "clock_domain": "clkd_wcs",
@@ -2909,12 +3251,24 @@
    "visible_by": [
     {
      "camera": "CAM_14",
-     "ppm": 68
+     "ppm": 72
     },
     {
      "camera": "CAM_16",
-     "ppm": 108
+     "ppm": 119
     }
+   ],
+   "device_parts_m": [
+    [
+     47.3,
+     39.085,
+     1.5
+    ],
+    [
+     50.7,
+     39.085,
+     1.5
+    ]
    ]
   }
  ],
