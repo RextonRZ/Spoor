@@ -5,8 +5,9 @@ never copied into it, so an eloquent but unsupported claim cannot reach the inve
 """
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 from pydantic import ValidationError
@@ -21,6 +22,7 @@ from spoor.contracts import (
     Hypothesis,
     HypothesisStatus,
     ObjectInstance,
+    RawObservation,
     VerifiedFinding,
     new_id,
 )
@@ -31,6 +33,7 @@ from spoor.store import AgentStep, EvidenceStore, epoch_ms, last_confirmed, tran
 from spoor.verification import LastSeenClaim
 from spoor.verification.engine import BASELINE_CLAIMS
 
+from .plain import plain_words
 from .roles import (
     EVIDENCE_PROMPT,
     EVIDENCE_TOOLS,
@@ -152,6 +155,7 @@ def investigate(
     hypothesis_backend: JsonBackend | None = None,
     config: InvestigationConfig | None = None,
     lead_plan: dict | None = None,
+    on_step: Callable[[dict], None] | None = None,
 ) -> InvestigationResult:
     cfg = config or InvestigationConfig()
     zones = {z.zone_id: z.name for z in ctx.site.zones}
@@ -198,6 +202,7 @@ def investigate(
 
     # 2. Evidence agent (optional).
     bundle: EvidenceBundle | None = None
+    ctx.on_step = on_step
     if evidence_backend is not None:
         ctx.agent_actor = Actor(kind=ActorKind.AGENT, id="evidence", model=evidence_backend.model)
         # the lead investigator's (Muse Wonder) checked plan, as data: which cameras and windows to analyse first
@@ -297,11 +302,29 @@ def investigate(
     # the answer as the screens show it: verified sentences apart from the agents' own wording
     ctx.store.put(AgentStep(step_id=f"answer_{rev.case_revision_id}", case_id=ctx.case.case_id,
                             request_id=rev.case_revision_id, seq=0, role="investigation", kind="final",
-                            content=answer_view(result), at=ctx.now()))  # fmt: skip
+                            content=answer_view(result, _plain(ctx)), at=ctx.now()))  # fmt: skip
     return result
 
 
-def answer_view(res: InvestigationResult) -> dict:
+def _plain(ctx: ToolContext) -> Callable[[str], str]:
+    """Agents' wording with plain place names and the hub's local time (the case's own scans give the zone and hours)."""
+    from spoor.forensics.journey import build_journey, latest_plan
+
+    scans = [s for o in build_journey(ctx.store, ctx.case.case_id)["objects"] for s in o["scans"]]
+    times = [datetime.fromisoformat(s["t"]) for s in scans]  # stored in UTC
+    # the hub's own offset: synchronized observations carry it (normalized to the site's clock)
+    tz = next((lc.observation.source_frame.normalized_utc.tzinfo for o in ctx.store.find(ObjectInstance, case_id=ctx.case.case_id)
+               if (lc := last_confirmed(ctx.store, o.object_instance_id)).observation is not None
+               and lc.observation.source_frame.normalized_utc is not None), None)  # fmt: skip
+    if tz is None:
+        obs = next(iter(ctx.store.find(RawObservation)), None)
+        tz = obs.source_frame.normalized_utc.tzinfo if obs and obs.source_frame.normalized_utc else UTC
+    hours = {t.astimezone(tz).hour for t in times}
+    plan = latest_plan(ctx.store, ctx.site.site_id)
+    return lambda text: plain_words(text, ctx.site, plan, tz, hours)
+
+
+def answer_view(res: InvestigationResult, plain: Callable[[str], str] = str) -> dict:
     """Verified sentences (the verifier's words) kept apart from what the agents proposed (their words, not verified)."""
     verified: list[str] = []
     for o in res.hypotheses:
@@ -310,7 +333,8 @@ def answer_view(res: InvestigationResult) -> dict:
             "objects": [{"label": a.label, "most_likely": a.inside_area, "inside": a.inside_facts,
                          "last_seen": a.last_seen_text, "left_area": a.left_area} for a in res.objects],
             "verified": verified,
-            "hypotheses": [{"status": o.status.value, "agent_wording": o.claim, "verified": o.verified_checks,
+            "hypotheses": [{"status": o.status.value, "agent_wording": plain(o.claim), "agent_wording_raw": o.claim,
+                            "verified": o.verified_checks,
                             "tested": o.tested}
                            for o in res.hypotheses],
             "evidence_requests": len(res.evidence_request_ids)}  # fmt: skip

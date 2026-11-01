@@ -576,13 +576,26 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         from spoor.forensics.triage import load as load_triage
 
         p.require_role(Role.INVESTIGATOR)
-        case_for(p, case_id)
+        case = case_for(p, case_id)
 
         def work(job):
+            models: dict = {"triage_flags": load_triage(svc.settings.data_dir)}
+            if svc.agent is not None and svc.spark_client is not None:  # keys: the real lead and agents
+                from spoor.agents.orchestrator import _plain
+                from spoor.reasoning.backends import MetaResponsesBackend
+
+                ctx = svc.tool_context(case)
+                if getattr(svc.agent, "supports_images", False):
+                    ctx.key_frames = key_frames(case_id)
+                models |= {
+                    "lead": lambda: plan_investigation(svc.store, case_id, MetaResponsesBackend(svc.spark_client, model=WONDER),
+                                                       now=now()),
+                    "agents": lambda plan, on_step: investigate(ctx, evidence_backend=svc.agent, hypothesis_backend=svc.agent,
+                                                                lead_plan=plan, on_step=on_step),
+                    "plain": _plain(ctx)}  # fmt: skip
             with svc.case_lock(case_id):
                 return investigation_run(svc.store, case_id, now=now(), keyed=svc.spark_client is not None,
-                                         models={"triage_flags": load_triage(svc.settings.data_dir)},
-                                         emit=lambda ev: job.emit(ev["type"], **ev))  # fmt: skip
+                                         models=models, emit=lambda ev: job.emit(ev["type"], **ev))  # fmt: skip
 
         job = svc.jobs.submit("run", p.user_id, work)
         audit(p, "investigation_run", case_id, job_id=job.job_id)

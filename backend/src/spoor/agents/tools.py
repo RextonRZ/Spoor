@@ -71,6 +71,8 @@ class ToolContext:
     agent_actor: Actor | None = None
     # J2b: evidence pictures for models that take images: (label, data URL, source sha256). Set by the service layer.
     key_frames: list[tuple[str, str, str]] = field(default_factory=list)
+    # every finished tool call, as {"role", "tool", "args", "result", "status"} (the live run screen); never fails a run
+    on_step: Callable[[dict], None] | None = None
 
     # --- scope enforcement ----------------------------------------------------------------------
     def object(self, object_id: str) -> ObjectInstance:
@@ -363,8 +365,12 @@ def t_door_crossings(ctx: ToolContext, a: AreaArgs) -> dict:
         return {"status": "unavailable", "reason": f"{a.camera_id} has no calibrated pose"}
     if not paths:
         return {"status": "no_people_tracked", "note": "run run_sam with concept 'person' on this camera's clip first"}
+    seen: list = []
+    for x in area_crossings(paths, area[1]):  # two tracks of one person (overlapping SAM runs) cross once
+        if not any(y.kind == x.kind and abs(y.t_ms - x.t_ms) <= 1000 for y in seen):
+            seen.append(x)
     return {"area": area[0], "crossings": [{"kind": x.kind, "t": datetime.fromtimestamp(x.t_ms / 1000, UTC).isoformat(),
-                                             "person_track_id": x.track_id} for x in area_crossings(paths, area[1])],
+                                             "person_track_id": x.track_id} for x in seen],
             "note": "people are anonymous tracks; a crossing says nothing about who they are"}
 
 

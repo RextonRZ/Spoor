@@ -208,3 +208,16 @@ def test_backend_failure_keeps_deterministic_answer(scene):
                       hypothesis_backend=ScriptedBackend([], fail=True), config=InvestigationConfig())
     assert res.status == "answered" and res.agent_runs["evidence"]["status"] == "error"
     assert res.hypotheses == []
+
+
+def test_agent_wording_gets_plain_place_names_and_local_time(site):
+    from datetime import timezone
+
+    from spoor.agents.plain import plain_words
+
+    myt = timezone(timedelta(hours=8))
+    text = "Case left zone_hall at 2026-10-28T06:32:30.650Z, seen by cam_CAM_19 until 06:33:36 and 06:33:40Z"
+    out = plain_words(text, site, None, myt, {14})
+    assert out == "Case left Hallway at 14:32:30, seen by CAM 19 until 14:33:36 and 14:33:40"
+    # a bare clock that is already local stays as it is
+    assert plain_words("seen at 14:32:30", site, None, myt, {14}) == "seen at 14:32:30"

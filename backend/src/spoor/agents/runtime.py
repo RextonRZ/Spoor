@@ -60,6 +60,14 @@ class AgentRunner:
         ))  # fmt: skip
         run.step_ids.append(step.step_id)
 
+    def _emit(self, req: AgentRequest, tool: str, args: dict, result: dict, status: str) -> None:
+        if self.ctx.on_step is None:
+            return
+        try:
+            self.ctx.on_step({"role": req.role.value, "tool": tool, "args": args, "result": result, "status": status})
+        except Exception:  # noqa: BLE001, S110 - a display hook never stops an investigation
+            pass
+
     def _frames(self) -> list[tuple[str, str, str]]:
         """Key frames are attached only for backends that take images (J2b); video always stays with Muse Spark."""
         return list(getattr(self.ctx, "key_frames", []) or []) if getattr(self.backend, "supports_images", False) else []
@@ -160,7 +168,9 @@ class AgentRunner:
         except (ScopeError, ValueError, KeyError) as e:
             result = {"error": f"{type(e).__name__}: {e}"}
             self._checkpoint(req, "rejected", {"reason": result["error"], "tool": tool.name}, None, run)
+            self._emit(req, tool.name, args.model_dump(mode="json"), result, "rejected")
             return result
         self._checkpoint(req, "tool_result", result, key, run)
+        self._emit(req, tool.name, args.model_dump(mode="json"), result, "done")
         return result
 

@@ -15,7 +15,7 @@ import "./investigate.css";
 interface Node { key: string; column: string; name: string; place: string; state: string; label: string }
 interface Step { type: "run_step"; seq: number; t_s: number; clock?: string; role: string; who: string; model: string; tool: string; status: string;
   text: string; node: Node | null; camera_id: string | null; cost_usd: number; cameras_checked: number }
-interface End { type: "run_end"; t_s: number; cost_usd: number; cameras_checked: number; text: string }
+interface End { type: "run_end"; t_s: number; cost_usd: number; cameras_checked: number; text: string; headline?: string | null }
 type Ev = Step | End | { type: "node"; node: Node };
 interface RunView { steps: (Step | Ev)[]; crew: { role: string; who: string; model: string; tools: string[] }[]; optional_tools: string[];
   columns: Record<string, string> }
@@ -23,9 +23,11 @@ interface CaseState { case: { case_id: string; target_description: string } }
 
 const TAG: Record<string, string> = { read_scans: "Scan records", triage_clips: "Triage on site", plan: "Planning", pick_cameras: "Planning",
   re_plan: "Re-planning", sam_track: "Tracking the box", verify: "Verified", reject: "Rejected", create_search_task: "Search task",
-  ask_a_person: "Asking a person", draft_report: "Report" };
+  ask_a_person: "Asking a person", draft_report: "Report", scan_history: "Reading the scans", footage_for: "Finding footage",
+  door_crossings: "Watching the door", carrier_check: "Who carried it", propose: "Ideas", verify_claim: "Testing an idea" };
 const secs = (t: number) => (t < 10 ? t.toFixed(1) : String(Math.round(t)));
-const WHO_COLOR: Record<string, string> = { lead: "#A5B4FC", triage: "#A5B4FC", analyst: "#93C5FD", verifier: "#FCD34D", tracker: "#86EFAC", reporter: "#C9CCD3" };
+const WHO_COLOR: Record<string, string> = { lead: "#A5B4FC", triage: "#A5B4FC", evidence: "#93C5FD", analyst: "#93C5FD", hypothesis: "#F9A8D4",
+  verifier: "#FCD34D", tracker: "#86EFAC", reporter: "#C9CCD3" };
 
 export default function InvestigatePage({ params }: { params: Promise<{ caseId: string }> }) {
   const { caseId } = use(params);
@@ -115,12 +117,12 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
   // node states: the latest word on each node wins; the node being checked right now is "checking"
   const nodes = new Map<string, Node>();
   for (const e of vis) if ((e.type === "run_step" || e.type === "node") && e.node) nodes.set(e.node.key, e.node);
-  if (!done && cur?.node && cur.tool === "observe_clip" && live) nodes.set(cur.node.key, { ...cur.node, state: "checking", label: "Checking…" });
+  if (!done && cur?.node && (cur.tool === "observe_clip" || cur.tool === "sam_track") && live) nodes.set(cur.node.key, { ...cur.node, state: "checking", label: "Checking…" });
   const cols = ["last", ...Object.keys(columns).filter((c) => c !== "last")].map((c) => ({ key: c, label: columns[c] ?? c,
     nodes: [...nodes.values()].filter((n) => n.column === c) })).filter((c) => c.key === "last" || c.nodes.length);
   const seen = steps.filter((s) => s.node?.state === "seen" && s.tool !== "read_scans").length;
   const lastScan = steps.find((s) => s.tool === "read_scans");
-  const title = !done ? "Investigating…" : seen > 0 ? "Found where it went." : `Lost track after ${lastScan?.node?.place.replace("scan ", "").slice(0, 5) ?? "the last scan"}.`;
+  const title = !done ? "Investigating…" : end?.headline ? end.headline : seen > 0 ? "Found where it went." : `Lost track after ${lastScan?.node?.place.replace("scan ", "").slice(0, 5) ?? "the last scan"}.`;
   const waybill = state.data?.case.target_description.split(" ").at(-1) ?? "";
   const tag = cur ? (cur.tool === "observe_clip" && cur.node ? `Checking ${cur.node.name}` : TAG[cur.tool] ?? cur.tool) : "Starting";
   const camPos = cur?.camera_id ? HUB.cameras.find((c) => c.id === camId.toHub(cur.camera_id!))?.position_m : undefined;
