@@ -10,6 +10,7 @@ import pytest
 from builders import World
 
 from spoor.agents import InvestigationConfig, ToolContext, investigate
+from spoor.agents.orchestrator import latest_answer
 from spoor.agents.roles import EvidenceBundle
 from spoor.agents.runtime import AgentRunner
 from spoor.contracts import (
@@ -168,6 +169,17 @@ def test_hypotheses_verified_rejected_and_requests_created(scene):
     # Ground truth never appears in prompts: only store-derived facts and the case question.
     assert "ground_truth" not in hb.prompts[0][0] + hb.prompts[0][1]
 
+
+
+def test_answer_view_keeps_agent_wording_apart_from_verified_sentences(scene):
+    w, obj, o, ctx = scene
+    res = investigate(ctx, hypothesis_backend=ScriptedBackend([final(hypotheses(obj, o))]))
+    view = latest_answer(w.store, "case_w")
+    assert view and view["revision_id"] == res.revision_id and view["objects"][0]["last_seen"]
+    # agent text only under agent_wording; the verified list holds the verifier's own sentences
+    assert {h["agent_wording"] for h in view["hypotheses"]} == {h.claim for h in res.hypotheses}
+    assert not set(view["verified"]) & {h.claim for h in res.hypotheses}
+    assert view["verified"] == list(dict.fromkeys(c for h in res.hypotheses for c in h.verified_checks))
 
 def test_new_evidence_revises_without_deleting_history(scene):
     w, obj, o, ctx = scene

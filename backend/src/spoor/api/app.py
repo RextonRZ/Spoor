@@ -15,6 +15,7 @@ from pydantic import AwareDatetime, BaseModel, Field, ValidationError
 
 from spoor import __version__
 from spoor.agents import investigate
+from spoor.agents.orchestrator import latest_answer
 from spoor.config import Settings, get_settings
 from spoor.contracts import (
     Actor,
@@ -572,6 +573,7 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
     def start_run(case_id: str, p: User) -> dict:
         """The investigation run as typed steps (agent_showcase_0925): stream them from /v1/jobs/{id}/events."""
         from spoor.forensics.run import investigation_run
+        from spoor.forensics.triage import load as load_triage
 
         p.require_role(Role.INVESTIGATOR)
         case_for(p, case_id)
@@ -579,6 +581,7 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         def work(job):
             with svc.case_lock(case_id):
                 return investigation_run(svc.store, case_id, now=now(), keyed=svc.spark_client is not None,
+                                         models={"triage_flags": load_triage(svc.settings.data_dir)},
                                          emit=lambda ev: job.emit(ev["type"], **ev))  # fmt: skip
 
         job = svc.jobs.submit("run", p.user_id, work)
@@ -642,6 +645,7 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
                             "history": [c.model_dump(mode="json") for c in svc.store.status_history(h.hypothesis_id)]}
                            for h in svc.store.find(Hypothesis, case_id=case_id)],
             "evidence_requests": [r.model_dump(mode="json") for r in svc.store.find(EvidenceRequest, case_id=case_id)],
+            "answer": latest_answer(svc.store, case_id),
         }  # fmt: skip
 
     @app.get("/v1/cases/{case_id}/world-at")

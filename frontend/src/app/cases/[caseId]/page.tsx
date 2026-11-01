@@ -11,7 +11,7 @@ import Link from "next/link";
 import { use } from "react";
 import { useResource } from "@/lib/api";
 import type { Journey, MissingMoment, Possible } from "@/lib/journey";
-import { caseAnswer } from "@/lib/answer";
+import { caseAnswer, HYPOTHESIS_WORDS, VERDICT_WORDS, verifiedAnswer, type InvestigationView } from "@/lib/answer";
 import { buildCheckpoints, CHECKPOINT_LINE, type CaseRecord } from "@/lib/checkpoints";
 import { hms, momentLabel, placeOf, shortPlace } from "@/lib/words";
 import type { Site } from "@/lib/types";
@@ -22,7 +22,7 @@ import { Identity } from "@/components/case/Identity";
 import { ZONE_NAMES } from "@/components/plan/HubPlan";
 import "./answer.css";
 
-interface CaseState { case: { case_id: string; target_description: string; complaint?: string | null } }
+interface CaseState { case: { case_id: string; target_description: string; complaint?: string | null }; answer?: InvestigationView | null }
 interface Conflicts { objects: { conflicts: { kind: string; divergence_t: string; statement: string }[]; records?: CaseRecord[] }[] }
 interface SearchView { found: { name: string; by: string; at: string } | null }
 
@@ -47,7 +47,10 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
   const ready = !!(j && mm && pr.data);
   const siteId = sites.data?.[0]?.site_id;
 
-  const { pill, head, why, level, reasons } = caseAnswer({ ready, last, next, places, conflicts, found, zoneNames: ZONE_NAMES });
+  const view = st.data?.answer;
+  // the investigation's verified answer leads when there is one (a floor find still wins); otherwise the read models
+  const { pill, head, why, level, reasons } = (!found && verifiedAnswer(view))
+    || caseAnswer({ ready, last, next, places, conflicts, found, zoneNames: ZONE_NAMES });
   const cps = j ? buildCheckpoints({ scans, records: cr.data?.objects[0]?.records ?? [], barcode: waybill || null }) : null;
   const tunnel = cps?.find((c) => c.id === "tunnel");
   const conflictAt = conflicts[0]?.divergence_t;
@@ -79,6 +82,21 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
                   {reasons.slice(0, 3).map((r) => <li key={r.text} data-tone={r.tone}>{r.text}</li>)}
                 </ul>
               </div>
+            )}
+            {ready && view && view.hypotheses.length > 0 && (
+              <details className="an-more an-agents">
+                <summary>What the agents proposed, in their own words ({view.hypotheses.length})</summary>
+                <p className="an-line">Their wording is not evidence. The checks test each idea&apos;s claims, shown under it; only the sentences above passed.</p>
+                <ul>
+                  {view.hypotheses.map((h, i) => (
+                    <li key={i}><span className="an-chip" data-tone={h.status === "supported" ? "ok" : h.status === "contradicted" ? undefined : "plain"}>
+                      {HYPOTHESIS_WORDS[h.status] ?? h.status}</span> &ldquo;{h.agent_wording}&rdquo;
+                      <span className="an-tested">{h.tested?.length
+                        ? h.tested.map((t) => `Checked: ${t.check} (${VERDICT_WORDS[t.verdict] ?? t.verdict})`).join(" ")
+                        : "Checked: nothing beyond where it was last seen."}</span></li>
+                  ))}
+                </ul>
+              </details>
             )}
           </section>
 

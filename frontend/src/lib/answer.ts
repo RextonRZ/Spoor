@@ -59,3 +59,30 @@ export function caseAnswer({ ready, last, next, places, conflicts, found, zoneNa
   else if (places.length) reasons.push({ text: `It could be in ${places.length} place${places.length === 1 ? "" : "s"}. Most likely: ${shortPlace(places[0], zoneNames)}.`, tone: "plain" });
   return { pill, head, why, level, reasons };
 }
+
+/** The last investigation's answer (GET /state "answer"): the verifier's sentences apart from the agents' own words. */
+export interface InvestigationView {
+  status: string;
+  objects: { label: string; most_likely: string | null; last_seen: string; left_area: string }[];
+  verified: string[];
+  hypotheses: { status: string; agent_wording: string; verified: string[]; tested?: { check: string; verdict: string }[] }[];
+}
+
+/** a hypothesis's status is about its claims, never its wording: say so */
+export const HYPOTHESIS_WORDS: Record<string, string> = { supported: "Claims passed", contradicted: "Claims failed",
+  insufficient_evidence: "Not enough evidence", proposed: "Not checked" };
+export const VERDICT_WORDS: Record<string, string> = { supported: "passed", contradicted: "failed", insufficient_evidence: "not enough evidence",
+  not_evaluable: "could not be checked" };
+
+/** When the verifier accepted where it most likely is, that sentence leads: "parcel X is in the Y, where ...: last
+ * seen ..." becomes the headline (before the colon) and the why (after it). Only verified sentences become reasons. */
+export function verifiedAnswer(view: InvestigationView | null | undefined): Pick<Answer, "pill" | "head" | "why" | "level" | "reasons"> | null {
+  const best = view?.objects.find((o) => o.most_likely)?.most_likely;
+  if (!view || !best) return null;
+  const cut = best.indexOf(": ");
+  const lead = (cut > 0 ? best.slice(0, cut) : best).replace(/^parcel \S+ is /, "");
+  const rest = cut > 0 ? best.slice(cut + 2) : "";
+  const reasons = view.verified.filter((v) => !best.startsWith(v)).slice(0, 3).map((text) => ({ text: `${text.charAt(0).toUpperCase()}${text.slice(1)}.`, tone: "ok" as const }));
+  return { pill: ["Likely location found", "ok"], head: `Most likely ${lead}.`, why: rest ? `${rest.charAt(0).toUpperCase()}${rest.slice(1)}.` : "",
+    level: "medium", reasons };
+}

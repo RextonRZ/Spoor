@@ -27,8 +27,9 @@ from spoor.contracts import (
 from spoor.forensics.handover import blind_areas_near
 from spoor.reasoning import JsonBackend
 from spoor.safety import find_forbidden
-from spoor.store import epoch_ms, last_confirmed, transitions, unobserved_intervals
+from spoor.store import AgentStep, EvidenceStore, epoch_ms, last_confirmed, transitions, unobserved_intervals
 from spoor.verification import LastSeenClaim
+from spoor.verification.engine import BASELINE_CLAIMS
 
 from .roles import (
     EVIDENCE_PROMPT,
@@ -62,6 +63,7 @@ class HypothesisOutcome:
     reasons: list[str]
     missing_evidence: list[str]
     verified_checks: list[str] = field(default_factory=list)  # deterministic descriptions of supported claims
+    tested: list[dict] = field(default_factory=list)  # what decided it: claims beyond last seen, verifier's words + verdict
 
 
 @dataclass
@@ -249,9 +251,11 @@ def investigate(
                                                   unchecked_claims=len(p.claims) - len(claims))  # fmt: skip
             verified = [ctx.verifier.describe(c) for c, r in zip(claims, results, strict=True)
                         if r.verdict.value == "supported"]  # fmt: skip
+            tested = [{"check": ctx.verifier.describe(c), "verdict": r.verdict.value}
+                      for c, r in zip(claims, results, strict=True) if not isinstance(c, BASELINE_CLAIMS)]  # fmt: skip
             outcomes.append(HypothesisOutcome(h.hypothesis_id, p.claim, status,
                                               [r for res in results for r in res.reasons] + bad,
-                                              p.missing_evidence, verified))  # fmt: skip
+                                              p.missing_evidence, verified, tested))  # fmt: skip
             for c, res in zip(claims, results, strict=True):
                 ans = by_object.get(getattr(c, "object_instance_id", ""))
                 if c.kind == "stayed_in_area" and ans is not None and res.verdict.value == "supported":
@@ -284,10 +288,39 @@ def investigate(
                                     actor=ORCHESTRATOR, reason="investigation run", changed_ids=changed,
                                     now=ctx.now())  # fmt: skip
     answered = any(a.last_seen_finding for a in answers)
-    return InvestigationResult(
+    result = InvestigationResult(
         "answered" if answered else "abstained", compose_answer(answers, outcomes, request_ids),
         answers, findings, outcomes, request_ids, rejected, rev.case_revision_id, runs,
     )
+    # the answer as the screens show it: verified sentences apart from the agents' own wording
+    ctx.store.put(AgentStep(step_id=f"answer_{rev.case_revision_id}", case_id=ctx.case.case_id,
+                            request_id=rev.case_revision_id, seq=0, role="investigation", kind="final",
+                            content=answer_view(result), at=ctx.now()))  # fmt: skip
+    return result
+
+
+def answer_view(res: InvestigationResult) -> dict:
+    """Verified sentences (the verifier's words) kept apart from what the agents proposed (their words, not verified)."""
+    verified: list[str] = []
+    for o in res.hypotheses:
+        verified += [c for c in o.verified_checks if c not in verified]
+    return {"status": res.status, "revision_id": res.revision_id,
+            "objects": [{"label": a.label, "most_likely": a.inside_area, "last_seen": a.last_seen_text,
+                         "left_area": a.left_area} for a in res.objects],
+            "verified": verified,
+            "hypotheses": [{"status": o.status.value, "agent_wording": o.claim, "verified": o.verified_checks,
+                            "tested": o.tested}
+                           for o in res.hypotheses],
+            "evidence_requests": len(res.evidence_request_ids)}  # fmt: skip
+
+
+def latest_answer(store: EvidenceStore, case_id: str) -> dict | None:
+    """The last investigation's answer view, or None if the case was never investigated."""
+    steps = [s for s in store.find(AgentStep, case_id=case_id) if s.role == "investigation" and s.kind == "final"]
+    if not steps:
+        return None
+    last = max(steps, key=lambda s: s.at)
+    return {**last.content, "at": last.at.isoformat()}
 
 
 def _on_site(ctx: ToolContext, observation_id: str) -> bool:

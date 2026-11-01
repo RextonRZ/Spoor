@@ -118,6 +118,9 @@ happened to the OBJECT (e.g. still in the room but occluded; moved toward the do
 - Use asserted_label="observed" only for movement inside continuous tracking; otherwise "hypothesized".
 - For each, say what evidence is missing and, if possible, one camera/time request that would distinguish it.
 - Hypotheses are about object movement and observable events, never about who did it or why.
+- Each explanation's claims must test what its wording says happened next: one that says the object left an area needs
+  an exit or transition claim, one that says it stayed needs stayed_in_area or presence. Never attach a claim that
+  says the opposite of the wording; claims that only restate where it was last seen test nothing.
 - Claim kinds for verify_claim: last_seen {{object_instance_id, observation_id}}; presence {{object_instance_id,
   observation_ids, zone_id}}; transition; exit {{object_instance_id, door_zone_id, observation_ids}}; transfer; order;
   parcel_match {{observation_ids, waybill}} (rules a sighting out as another parcel); stayed_in_area
