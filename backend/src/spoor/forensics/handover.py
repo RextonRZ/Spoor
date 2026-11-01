@@ -158,3 +158,52 @@ def area_crossings(paths: list[FloorPath], polygon_m) -> list[AreaCrossing]:
         if d_first <= DOOR_NEAR_M and d_first < d_last:
             out.append(AreaCrossing(p.track_id, "came out", float(p.t_ms[ok[0]])))
     return sorted(out, key=lambda c: c.t_ms)
+
+
+def area_polygon(store, site, area_id: str) -> tuple[str, list] | None:
+    """(name, polygon) of a site-plan area (e.g. a blind room) or a site zone, by id."""
+    from .journey import latest_plan
+
+    plan = latest_plan(store, site.site_id)
+    for a in (plan.areas if plan else []):
+        if a.area_id == area_id:
+            return a.name, list(a.polygon_m)
+    for z in site.zones:
+        if z.zone_id == area_id:
+            return z.name, list(z.polygon_m)
+    return None
+
+
+def dist_to_area(polygon_m, xy) -> float:
+    return _dist_to_poly(np.asarray(polygon_m, float), np.asarray(xy, float))
+
+
+def blind_areas_near(store, site, xy, radius_m: float) -> list[dict]:
+    """Plan areas no camera sees inside (kind blind_spot) whose edge is within reach of a position, and the cameras
+    whose view covers that edge (they watch who goes in and out). General: any blind room or corner on any site."""
+    from spoor.contracts import Camera, point_in_polygon
+
+    from .journey import latest_plan
+
+    plan = latest_plan(store, site.site_id)
+    out = []
+    for a in (plan.areas if plan else []):
+        if a.kind != "blind_spot":
+            continue
+        poly = np.asarray(a.polygon_m, float)
+        d = _dist_to_poly(poly, np.asarray(xy, float))
+        if d > radius_m + DOOR_NEAR_M:
+            continue
+        best, edge = np.inf, None
+        for i in range(len(poly)):  # the nearest point on the area's edge
+            p0, p1 = poly[i], poly[(i + 1) % len(poly)]
+            t = np.clip(np.dot(np.asarray(xy) - p0, p1 - p0) / max(np.dot(p1 - p0, p1 - p0), 1e-9), 0, 1)
+            q = p0 + t * (p1 - p0)
+            if (dq := float(np.linalg.norm(q - np.asarray(xy)))) < best:
+                best, edge = dq, q
+        watched = [c.camera_id for c in store.find(Camera, site_id=site.site_id)
+                   if c.fov_polygon_m and point_in_polygon((float(edge[0]), float(edge[1])), c.fov_polygon_m)]
+        out.append({"area_id": a.area_id, "name": a.name, "distance_m": round(d, 2), "doorway_watched_by": watched,
+                    "note": "no camera sees inside; who went in and out is visible only at its edge"})
+    return out
+

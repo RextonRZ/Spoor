@@ -16,25 +16,30 @@ from spoor.contracts import (
     CameraCoverage,
     Case,
     EvidenceScope,
+    FloorCalibration,
     MediaAsset,
     ObjectInstance,
     RawObservation,
     ReadOutcome,
     Site,
+    Track,
     new_id,
 )
+from spoor.forensics.handover import area_crossings, area_polygon, blind_areas_near, carrier_fit, floor_path
 from spoor.forensics.journey import latest_plan
 from spoor.store import (
     EvidenceRequest,
     EvidenceStore,
     estimate_for,
     last_confirmed,
+    latest_associations,
     transitions,
     unobserved_intervals,
     visibility_timeline,
 )
 from spoor.store.parcels import object_keys, scans_for
 from spoor.verification import CLAIM_ADAPTER, Verifier
+from spoor.verification.claims import normalize_claim
 
 
 class ScopeError(ValueError):
@@ -102,6 +107,11 @@ class ToolContext:
                 self.store.get(Camera, camera_id).site_id != self.case.site_id:  # fmt: skip
             raise ScopeError(f"camera {camera_id} is not on this case's site")
 
+    def verifier_calibration(self, camera_id: str) -> FloorCalibration | None:
+        cals = [c for c in self.store.find(FloorCalibration, camera_id=camera_id)
+                if c.pose_rvec is not None and not self.store.is_invalid(c.calibration_id)]
+        return cals[-1] if cals else None
+
     def media(self, media_id: str) -> MediaAsset:
         if not media_id.startswith("media_") or not self.store.exists(media_id):
             raise ScopeError(f"unknown media {media_id}")
@@ -138,8 +148,7 @@ class SamArgs(_Args):
     media_id: str
     concept: str | None = Field(default=None, description="One short noun SAM looks for, e.g. 'box' (SAM finds "
                                 "nothing for long phrases). Not needed with a device/sorter scan point")
-    scan_point_id: str | None = Field(default=None, description="Aim SAM with a scan point from the plan (e.g. "
-                                      "SP-TUNNEL, SP-CAGE-W): a device point prompts the object there at at_iso; a "
+    scan_point_id: str | None = Field(default=None, description="Aim SAM with a scan point id from scan_history: a device point prompts the object there at at_iso; a "
                                       "handheld point keeps only tracks that start in its work area and leave it")
     at_iso: str | None = Field(default=None, description="The scan's time (the parcel was at the point then)")
     start_iso: str | None = Field(default=None, description="Window start: only these seconds are sent to SAM")
@@ -199,8 +208,12 @@ def t_last_confirmed(ctx: ToolContext, a: ObjectArgs) -> dict:
     ls = last_confirmed(ctx.store, a.object_instance_id)
     if ls.observation is None:
         return {"status": "never_confirmed", "unsynced_observation_ids": ls.unsynced_observation_ids}
+    est = estimate_for(ctx.store, ls.observation.observation_id)
+    edge = blind_areas_near(ctx.store, ctx.site, est.floor_xy_m, est.uncertainty_radius_m or 0.0) \
+        if est is not None and est.floor_xy_m is not None else []  # fmt: skip
     return {"status": "ok", "last": _obs_summary(ctx, ls.observation), "ambiguous_with": ls.ambiguous_with,
-            "unsynced_observation_ids": ls.unsynced_observation_ids}  # fmt: skip
+            "unsynced_observation_ids": ls.unsynced_observation_ids,
+            "at_edge_of_unwatched_area": edge}  # fmt: skip
 
 
 def t_timeline(ctx: ToolContext, a: ObjectArgs) -> dict:
@@ -260,7 +273,7 @@ def t_ask_spark(ctx: ToolContext, a: SparkArgs) -> dict:
 
 
 class FootageArgs(_Args):
-    camera_id: str | None = Field(default=None, description="A camera, e.g. cam_CAM_13")
+    camera_id: str | None = Field(default=None, description="A camera id from footage_for or scan_history")
     scan_point_id: str | None = Field(default=None, description="Or a scan point: every camera that sees it")
     start_iso: str
     end_iso: str
@@ -316,6 +329,69 @@ def t_footage_for(ctx: ToolContext, a: FootageArgs) -> dict:
     return {"clips": out, "note": "" if out else "no recording covers this window; request_evidence to ask for it"}
 
 
+class AreaArgs(_Args):
+    camera_id: str = Field(description="The camera that watches the area's doorway")
+    area_id: str = Field(description="A site-plan area id (e.g. a blind room) or a zone id")
+
+
+class CarrierArgs(_Args):
+    object_instance_id: str
+    camera_id: str = Field(description="A camera whose people may be carrying the object")
+
+
+def _person_paths(ctx: ToolContext, camera_id: str):
+    ctx.camera_on_site(camera_id)
+    cal = ctx.verifier_calibration(camera_id)
+    tracks = [t for m in ctx.store.find(MediaAsset, camera_id=camera_id) if m.kind.value == "original"
+              for t in ctx.store.find(Track, media_id=m.media_id) if t.label == "person"]  # fmt: skip
+    return cal, [floor_path(ctx.store, t.track_id, cal, carried=False) for t in tracks] if cal else []
+
+
+def _clock_ms(ctx: ToolContext, camera_id: str) -> float:
+    covs = [c for m in ctx.store.find(MediaAsset, camera_id=camera_id)
+            for c in ctx.store.find(CameraCoverage, media_id=m.media_id)]
+    return covs[-1].time_uncertainty_ms if covs else 0.0
+
+
+def t_door_crossings(ctx: ToolContext, a: AreaArgs) -> dict:
+    """Who went into / came out of an area at its edge, from the people SAM tracked on the camera watching it."""
+    area = area_polygon(ctx.store, ctx.site, a.area_id)
+    if area is None:
+        raise ScopeError(f"unknown area {a.area_id}")
+    cal, paths = _person_paths(ctx, a.camera_id)
+    if cal is None:
+        return {"status": "unavailable", "reason": f"{a.camera_id} has no calibrated pose"}
+    if not paths:
+        return {"status": "no_people_tracked", "note": "run run_sam with concept 'person' on this camera's clip first"}
+    return {"area": area[0], "crossings": [{"kind": x.kind, "t": datetime.fromtimestamp(x.t_ms / 1000, UTC).isoformat(),
+                                             "person_track_id": x.track_id} for x in area_crossings(paths, area[1])],
+            "note": "people are anonymous tracks; a crossing says nothing about who they are"}
+
+
+def t_carrier_check(ctx: ToolContext, a: CarrierArgs) -> dict:
+    """Which tracked person on a camera was with the object (its linked track) at the same moments, by place and time,
+    within the two cameras' clock uncertainty."""
+    ctx.object(a.object_instance_id)
+    cal, paths = _person_paths(ctx, a.camera_id)
+    if cal is None or not paths:
+        return {"status": "no_people_tracked", "note": "run run_sam with concept 'person' on this camera's clip first"}
+    out = []
+    for assoc in latest_associations(ctx.store, a.object_instance_id).values():
+        if assoc.status.value not in ("verified_same_camera", "human_confirmed", "scan_bound"):
+            continue
+        t = ctx.store.get(Track, assoc.track_id)
+        tcal = ctx.verifier_calibration(t.camera_id)
+        if tcal is None:
+            continue
+        carton = floor_path(ctx.store, t.track_id, tcal, carried=True)
+        tol = 0.0 if t.camera_id == a.camera_id else _clock_ms(ctx, t.camera_id) + _clock_ms(ctx, a.camera_id)
+        for person in paths:
+            f = carrier_fit(carton, person, clock_tolerance_ms=tol)
+            out.append({"object_track_id": t.track_id, "person_track_id": person.track_id, "verdict": f.verdict,
+                        "reason": f.reason})
+    return {"results": out, "note": "a likely carrier is a candidate link by place and time, never an identity"}
+
+
 def t_request_evidence(ctx: ToolContext, a: EvidenceRequestArgs) -> dict:
     if a.camera_id is not None:
         ctx.camera_on_site(a.camera_id)
@@ -333,7 +409,7 @@ def t_request_evidence(ctx: ToolContext, a: EvidenceRequestArgs) -> dict:
 def t_verify(ctx: ToolContext, a: VerifyArgs) -> dict:
     # models filling a strict schema send every field of every claim kind, unused ones as null: drop the nulls, keep
     # everything else strict (an unknown field with a value is still refused)
-    claim = CLAIM_ADAPTER.validate_python({k: v for k, v in a.claim.items() if v is not None})
+    claim = CLAIM_ADAPTER.validate_python(normalize_claim(a.claim))
     r = ctx.verifier.verify(claim)
     return {"verdict": r.verdict.value, "label": r.label.value, "reasons": r.reasons, "limitations": r.limitations}
 
@@ -351,6 +427,10 @@ TOOLS: dict[str, Tool] = {t.name: t for t in [
          ObjectArgs, t_scan_history),
     Tool("footage_for", "Recorded clips (media_id, time span) for a camera or a scan point in a window.",
          FootageArgs, t_footage_for),
+    Tool("door_crossings", "Who went into / came out of an area no camera sees inside (people tracked by SAM).",
+         AreaArgs, t_door_crossings),
+    Tool("carrier_check", "Which tracked person was with the object at the same moments (place and time only).",
+         CarrierArgs, t_carrier_check),
     Tool("run_sam", "Follow a parcel with SAM in one clip (paid, per frame): aim it with a scan point and a time "
                     "window, not the whole clip.", SamArgs, t_run_sam, paid=True),
     Tool("ask_spark", "Ask Muse Spark a bounded question about a clip window (paid).", SparkArgs, t_ask_spark,

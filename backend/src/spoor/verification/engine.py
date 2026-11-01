@@ -13,6 +13,7 @@ from pydantic import TypeAdapter
 from spoor.contracts import (
     Actor,
     ActorKind,
+    CameraCoverage,
     EvidenceLabel,
     FindingStatus,
     FloorCalibration,
@@ -24,6 +25,7 @@ from spoor.contracts import (
     SensorEvent,
     Site,
     SourceType,
+    Track,
     VerificationVerdict,
     VerifiedFinding,
     ZoneKind,
@@ -31,6 +33,15 @@ from spoor.contracts import (
     point_in_polygon,
 )
 from spoor.forensics.conveyance import ConveyorNet
+from spoor.forensics.handover import (
+    DOOR_NEAR_M,
+    area_crossings,
+    area_polygon,
+    blind_areas_near,
+    carrier_fit,
+    dist_to_area,
+    floor_path,
+)
 from spoor.forensics.journey import ON_CONVEYANCE_DEVICES, latest_plan, scan_xy
 from spoor.safety import find_forbidden
 from spoor.spatial import ordering_is_determined
@@ -52,6 +63,7 @@ from .claims import (
     OrderClaim,
     ParcelMatchClaim,
     PresenceClaim,
+    StayedInAreaClaim,
     StructuredClaim,
     TransferClaim,
     TransitionClaim,
@@ -62,6 +74,9 @@ CLAIM_ADAPTER = TypeAdapter(StructuredClaim)
 V = VerificationVerdict
 
 
+# claims that restate established facts (where and when it was seen); a hypothesis about what happened next needs at
+# least one claim that tests it (a transition, an exit, a transfer, staying in an unseen area)
+BASELINE_CLAIMS = (LastSeenClaim, PresenceClaim)
 BELT_MARGIN_M = 2.5  # a parcel between two belt scans is on the belt: further than this from every belt rules it out
 STATION_WINDOW_S = 3.0  # a scan this close in time pins the parcel to the station
 STATION_MARGIN_M = 6.0
@@ -168,7 +183,8 @@ class Verifier:
             self._overreach(claim.statement)
             handler = {LastSeenClaim: self._last_seen, PresenceClaim: self._presence,
                        TransitionClaim: self._transition, ExitClaim: self._exit, TransferClaim: self._transfer,
-                       OrderClaim: self._order_claim, ParcelMatchClaim: self._parcel_match}[type(claim)]  # fmt: skip
+                       OrderClaim: self._order_claim, ParcelMatchClaim: self._parcel_match,
+                       StayedInAreaClaim: self._stayed_in_area}[type(claim)]  # fmt: skip
             return handler(claim)
         except _Stop as stop:
             return stop.result
@@ -412,6 +428,73 @@ class Verifier:
                                   ["not ruling out is not identification: that needs a scan or an unbroken track"],
                                   c.observation_ids)  # fmt: skip
 
+    def _stayed_in_area(self, c: StayedInAreaClaim) -> VerificationResult:
+        """Inside an area no camera sees, until the recording ends: last confirmed at its edge, carried in by a likely
+        carrier (people tracked on the same camera, by place and time), not seen again anywhere afterwards."""
+        lim: list[str] = []
+        obs = self._observation(c.observation_id)
+        self._linked(c.object_instance_id, obs, lim)
+        ls = last_confirmed(self.store, c.object_instance_id)
+        if ls.observation is None or ls.observation.observation_id != c.observation_id:
+            raise _fail(V.CONTRADICTED, "the object is confirmed again after this observation", checked_ids=[c.observation_id])
+        area = area_polygon(self.store, self.site, c.area_id)
+        if area is None:
+            raise _fail(V.UNSUPPORTED, f"unknown area {c.area_id}")
+        name, poly = area
+        name = f"{c.area_id} ({name.split('(')[0].split(';')[0].strip()[:50]})" if name != c.area_id else name
+        est = estimate_for(self.store, c.observation_id)
+        if est is None or est.floor_xy_m is None:
+            raise _fail(V.INSUFFICIENT_EVIDENCE, "the last observation has no position on the plan", checked_ids=[c.observation_id])
+        d = dist_to_area(poly, est.floor_xy_m)
+        if d > (est.uncertainty_radius_m or 0.0) + DOOR_NEAR_M:
+            raise _fail(V.INSUFFICIENT_EVIDENCE, f"last confirmed {d:.1f} m from {name}, not at its edge",
+                        checked_ids=[c.observation_id])  # fmt: skip
+        cals = [k for k in self.store.find(FloorCalibration, camera_id=obs.camera_id) if k.pose_rvec is not None]
+        if not cals:
+            raise _fail(V.INSUFFICIENT_EVIDENCE, f"{obs.camera_id} has no calibrated pose", checked_ids=[c.observation_id])
+        people = [floor_path(self.store, t.track_id, cals[-1], carried=False) for t in
+                  self.store.find(Track, media_id=obs.source_frame.media_id) if t.label == "person"]  # fmt: skip
+        if not people:
+            raise _fail(V.INSUFFICIENT_EVIDENCE, f"people on {obs.camera_id} are not tracked yet (run SAM 'person' on "
+                        "that clip): who went in and out is unknown", checked_ids=[c.observation_id])  # fmt: skip
+        t_last = obs.source_frame.normalized_utc.timestamp() * 1000
+        carton = floor_path(self.store, obs.track_id, cals[-1], carried=True)
+        crossings = area_crossings(people, poly)
+        ins = [x for x in crossings if x.kind == "went in" and t_last - 3000 <= x.t_ms <= t_last + 10000]
+        carriers = [(x, f) for x in ins for f in [carrier_fit(carton, next(p for p in people if p.track_id == x.track_id))]
+                    if f.verdict == "likely carrier"]  # fmt: skip
+        if not carriers:
+            hint = ""
+            if d == 0.0:  # the area contains the last position: nobody crosses its edge there; name the unwatched one
+                near = blind_areas_near(self.store, self.site, est.floor_xy_m, est.uncertainty_radius_m or 0.0)
+                if near:
+                    hint = (f" ({name} contains the last position; the area no camera sees inside at that point is "
+                            f"{near[0]['area_id']})")
+            raise _fail(V.INSUFFICIENT_EVIDENCE, f"nobody is seen carrying it into {name}{hint}",
+                        checked_ids=[c.observation_id])  # fmt: skip
+        went_in, fit = carriers[0]
+        covs = self.store.find(CameraCoverage, media_id=obs.source_frame.media_id)
+        end = covs[-1].end_utc if covs else None
+        if end is None or end.timestamp() * 1000 < went_in.t_ms + 10000:
+            raise _fail(V.INSUFFICIENT_EVIDENCE, "the doorway's recording ends too soon after to tell",
+                        checked_ids=[c.observation_id])  # fmt: skip
+        tz = obs.source_frame.normalized_utc.tzinfo
+        at = lambda ms: datetime.fromtimestamp(ms / 1000, UTC).astimezone(tz).strftime("%H:%M:%S")
+        out = []
+        for x in (x for x in crossings if x.kind == "came out" and x.t_ms > went_in.t_ms):
+            if not out or x.t_ms - out[-1].t_ms > 1000:  # two tracks of one exit (overlapping SAM runs) count once
+                out.append(x)
+        reasons = [f"last confirmed at the edge of {name} ({d:.1f} m) at {at(t_last)}",
+                   f"carried in at {at(went_in.t_ms)}: a likely carrier, {fit.reason}",
+                   (f"came out after: {len(out)} person(s) at {', '.join(at(x.t_ms) for x in out)}, none seen with it"
+                    if out else "nobody came out after"),
+                   f"not seen again on any camera until the recording ends at {end.astimezone(tz).strftime('%H:%M:%S')}"]
+        lim += [f"holds until the recording ends at {end.astimezone(tz).strftime('%H:%M:%S')}",
+                f"assumes the doorway {obs.camera_id} watches is the only way into {name} (site plan)",
+                "no camera sees inside the area", "says where the object went, never who moved it or why"]
+        return VerificationResult(V.SUPPORTED, EvidenceLabel.ESTIMATED, reasons, lim, [c.observation_id],
+                                  [est.estimate_id])  # fmt: skip
+
     # --- consistency scan ---------------------------------------------------------------------------
 
     def consistency_conflicts(self, object_id: str) -> list[str]:
@@ -440,7 +523,8 @@ class Verifier:
             status = HypothesisStatus.INSUFFICIENT_EVIDENCE
         elif any(r.verdict == V.CONTRADICTED for r in results):
             status = HypothesisStatus.CONTRADICTED
-        elif all(r.verdict == V.SUPPORTED for r in results) and not unchecked_claims:
+        elif all(r.verdict == V.SUPPORTED for r in results) and not unchecked_claims \
+                and any(not isinstance(c, BASELINE_CLAIMS) for c in claims):  # fmt: skip
             status = HypothesisStatus.SUPPORTED
         else:
             status = HypothesisStatus.INSUFFICIENT_EVIDENCE
@@ -449,6 +533,8 @@ class Verifier:
         if status in (HypothesisStatus.SUPPORTED, HypothesisStatus.CONTRADICTED) and not evidence:
             status = HypothesisStatus.INSUFFICIENT_EVIDENCE
         reason = "; ".join(f"{r.verdict.value}: {', '.join(r.reasons)}" for r in results) or "no checkable claims"
+        if claims and all(isinstance(c, BASELINE_CLAIMS) for c in claims) and status != HypothesisStatus.CONTRADICTED:
+            reason += "; it only restates where the object was last seen: nothing tests what it says happened next"
         if unchecked_claims:
             reason += f"; {unchecked_claims} proposed claim(s) could not be checked"
         current = self.store.hypothesis_status(hypothesis_id)
@@ -501,6 +587,16 @@ class Verifier:
             ids = claim.observation_ids
             return (f"{label} moved with visible contact from {self._where(ids[0])} to {self._where(ids[-1])} "
                     f"between {self._when(ids[0])} and {self._when(ids[-1])}")
+        if isinstance(claim, StayedInAreaClaim):
+            area = area_polygon(self.store, self.site, claim.area_id)
+            name = claim.area_id if area is None else f"{claim.area_id} ({area[0].split('(')[0].split(';')[0].strip()[:50]})"
+            covs = self.store.find(CameraCoverage, media_id=self.store.get(RawObservation, claim.observation_id)
+                                   .source_frame.media_id)  # fmt: skip
+            until = f" until the recording ends at {covs[-1].end_utc.isoformat(timespec='seconds')}" if covs else ""
+            return (f"{label} inside {name}, an area no camera sees: last confirmed at its edge at "
+                    f"{self._when(claim.observation_id)}, carried in, not seen again{until}")
+        if isinstance(claim, ParcelMatchClaim):
+            return f"sighting at {self._when(claim.observation_ids[0])} checked against parcel {claim.waybill}'s own scans"
         return (f"observation at {self._when(claim.first_observation_id)} precedes observation at "
                 f"{self._when(claim.second_observation_id)}")
 

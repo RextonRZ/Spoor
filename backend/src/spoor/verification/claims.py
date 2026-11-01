@@ -59,6 +59,17 @@ class ParcelMatchClaim(_Claim):
     waybill: str = Field(min_length=3)
 
 
+class StayedInAreaClaim(_Claim):
+    """'The object is inside area A' for an area no camera sees inside (a store room, a blind corner): last confirmed
+    at A's edge, a likely carrier went in with it, and it is not seen again on any camera until the recording ends.
+    General: any plan area or zone, any camera that watches its doorway."""
+
+    kind: Literal["stayed_in_area"] = "stayed_in_area"
+    object_instance_id: str
+    area_id: str = Field(description="a site-plan area id or a zone id")
+    observation_id: str = Field(description="the object's last confirmed observation, at the area's edge")
+
+
 class OrderClaim(_Claim):
     kind: Literal["order"] = "order"
     first_observation_id: str
@@ -66,6 +77,29 @@ class OrderClaim(_Claim):
 
 
 StructuredClaim = Annotated[
-    LastSeenClaim | PresenceClaim | TransitionClaim | ExitClaim | TransferClaim | OrderClaim | ParcelMatchClaim,
+    LastSeenClaim | PresenceClaim | TransitionClaim | ExitClaim | TransferClaim | OrderClaim | ParcelMatchClaim
+    | StayedInAreaClaim,
     Field(discriminator="kind"),
 ]
+
+
+_KINDS = {c.model_fields["kind"].default: c for c in (LastSeenClaim, PresenceClaim, TransitionClaim, ExitClaim,
+                                                      TransferClaim, OrderClaim, ParcelMatchClaim, StayedInAreaClaim)}
+_ANY_FIELD = {f for c in _KINDS.values() for f in c.model_fields}
+
+
+def normalize_claim(data: dict) -> dict:
+    """A claim as a model writes it against a strict schema: every field of every claim kind present, the unused ones
+    null or empty. Keep the chosen kind's fields; drop empties and fields that belong to OTHER kinds. A field no claim
+    kind has is kept, so it is still refused: the rules are not loosened, only the form."""
+    kind = data.get("kind")
+    if kind not in _KINDS:
+        return data
+    allowed = set(_KINDS[kind].model_fields)
+    out = {k: v for k, v in data.items() if v not in (None, [], "") and (k in allowed or k not in _ANY_FIELD)}
+    ids = data.get("observation_ids") or []
+    if "observation_id" in allowed and "observation_id" not in out and len(ids) == 1:
+        out["observation_id"] = ids[0]  # one cited observation, sent as a one-item list
+    out.setdefault("statement", f"{kind.replace('_', ' ')} claim")
+    return out
+

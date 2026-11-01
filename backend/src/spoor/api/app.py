@@ -542,7 +542,17 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
                 ctx = svc.tool_context(case)
                 if svc.agent is not None and getattr(svc.agent, "supports_images", False):
                     ctx.key_frames = key_frames(case_id)  # J2b: evidence pictures for the agents
-                res = investigate(ctx, evidence_backend=svc.agent, hypothesis_backend=svc.agent)
+                plan = None
+                if svc.agent is not None and svc.spark_client is not None:  # 1. Muse Wonder plans from the records
+                    job.emit("planning", model=WONDER)
+                    try:
+                        from spoor.reasoning.backends import MetaResponsesBackend
+
+                        plan = plan_investigation(svc.store, case_id, MetaResponsesBackend(svc.spark_client, model=WONDER),
+                                                  now=now())  # fmt: skip
+                    except Exception as e:  # noqa: BLE001 - the agents can still work from the scans without a plan
+                        job.emit("plan_unavailable", reason=f"{type(e).__name__}: {e}"[:300])
+                res = investigate(ctx, evidence_backend=svc.agent, hypothesis_backend=svc.agent, lead_plan=plan)
             finally:
                 lock.release()
             return {"status": res.status, "answer": res.answer, "revision_id": res.revision_id,
@@ -550,7 +560,9 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
                     "hypotheses": [{"id": h.hypothesis_id, "claim": h.claim, "status": h.status.value,
                                     "reasons": h.reasons} for h in res.hypotheses],
                     "evidence_requests": res.evidence_request_ids, "rejected": res.rejected,
-                    "agent_runs": res.agent_runs}  # fmt: skip
+                    "agent_runs": res.agent_runs,
+                    "lead_plan": None if plan is None else {k: plan[k] for k in ("model", "summary", "steps", "rejected",
+                                                                                  "unknowns", "usd_estimate")}}  # fmt: skip
 
         job = svc.jobs.submit("investigate", p.user_id, work)
         audit(p, "investigate", case_id, job_id=job.job_id)

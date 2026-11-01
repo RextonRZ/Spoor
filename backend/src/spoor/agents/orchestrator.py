@@ -24,6 +24,7 @@ from spoor.contracts import (
     VerifiedFinding,
     new_id,
 )
+from spoor.forensics.handover import blind_areas_near
 from spoor.reasoning import JsonBackend
 from spoor.safety import find_forbidden
 from spoor.store import epoch_ms, last_confirmed, transitions, unobserved_intervals
@@ -46,7 +47,7 @@ ORCHESTRATOR = Actor(kind=ActorKind.SYSTEM, id="spoor.agents.orchestrator/v1")
 @dataclass
 class InvestigationConfig:
     # keyed S2 (1 Nov): reading the scans, finding footage and aiming SAM/Spark takes ~10 turns; 8 ran out before SAM
-    evidence_max_steps: int = 14
+    evidence_max_steps: int = 18
     hypothesis_max_steps: int = 10
     token_budget: int = 300_000  # a runaway guard, not a squeeze (owner 1 Nov: plenty of tokens, just not excessive)
     deadline_s: float = 900.0  # one SAM pass over a window takes about 2 min
@@ -72,6 +73,7 @@ class ObjectAnswer:
     left_area: Literal["supported", "contradicted", "not_established"]
     observed_moves: list[str]
     unobserved: list[dict]
+    inside_area: str | None = None  # a supported stayed_in_area finding, worded by the verifier
 
 
 @dataclass
@@ -118,6 +120,10 @@ def _facts(ctx: ToolContext, obj: ObjectInstance, window) -> dict:
                         for t in transitions(ctx.store, obj.object_instance_id)],
         "unobserved_intervals": [{"start": iso(g.start_ms), "end": iso(g.end_ms), "reason": g.reason,
                                   "covering_camera_ids": g.covering_camera_ids} for g in gaps],
+        # computed by rules from the plan: an area no camera sees inside whose edge the last position touches
+        "last_confirmed_at_edge_of_unwatched_area": blind_areas_near(
+            ctx.store, ctx.site, ls.estimate.floor_xy_m, ls.estimate.uncertainty_radius_m or 0.0)
+        if ls.estimate is not None and ls.estimate.floor_xy_m is not None else [],
     }  # fmt: skip
 
 
@@ -142,6 +148,7 @@ def investigate(
     evidence_backend: JsonBackend | None = None,
     hypothesis_backend: JsonBackend | None = None,
     config: InvestigationConfig | None = None,
+    lead_plan: dict | None = None,
 ) -> InvestigationResult:
     cfg = config or InvestigationConfig()
     zones = {z.zone_id: z.name for z in ctx.site.zones}
@@ -190,7 +197,11 @@ def investigate(
     bundle: EvidenceBundle | None = None
     if evidence_backend is not None:
         ctx.agent_actor = Actor(kind=ActorKind.AGENT, id="evidence", model=evidence_backend.model)
-        req = _request(ctx, AgentRole.EVIDENCE, ctx.case.question, EVIDENCE_TOOLS, cfg.evidence_max_steps, cfg)
+        # the lead investigator's (Muse Wonder) checked plan, as data: which cameras and windows to analyse first
+        question = ctx.case.question if not lead_plan else json.dumps(
+            {"question": ctx.case.question, "lead_plan": {k: lead_plan.get(k) for k in ("summary", "steps", "unknowns")}},
+            default=str)  # fmt: skip
+        req = _request(ctx, AgentRole.EVIDENCE, question, EVIDENCE_TOOLS, cfg.evidence_max_steps, cfg)
         run = AgentRunner(evidence_backend, ctx, system_prompt=EVIDENCE_PROMPT, output=EvidenceBundle).run(req)
         runs["evidence"] = _run_summary(run)
         bundle = run.output
@@ -243,6 +254,12 @@ def investigate(
                                               p.missing_evidence, verified))  # fmt: skip
             for c, res in zip(claims, results, strict=True):
                 ans = by_object.get(getattr(c, "object_instance_id", ""))
+                if c.kind == "stayed_in_area" and ans is not None and res.verdict.value == "supported":
+                    if fnd := ctx.verifier.promote(c, res, case_id=ctx.case.case_id, now=ctx.now()):
+                        findings.append(fnd)
+                        changed.append(fnd.finding_id)
+                    ans.inside_area = "; ".join([ctx.verifier.describe(c), *res.limitations[:2]])
+                    continue
                 if c.kind != "exit" or ans is None:
                     continue
                 if res.verdict.value == "supported":
@@ -292,6 +309,8 @@ def _obs_ids(claim) -> list[str]:
 def compose_answer(answers: list[ObjectAnswer], outcomes: list[HypothesisOutcome], request_ids: list[str]) -> str:
     lines = []
     for a in answers:
+        if a.inside_area:  # the verified answer to "where is it now", with its limits
+            lines.append(f"[{a.label}] Most likely: {a.inside_area}.")
         lines.append(f"[{a.label}] {a.last_seen_text.rstrip('.')}.")
         if a.observed_moves:
             lines.append("  Observed movement (continuous tracking): " + "; ".join(a.observed_moves) + ".")

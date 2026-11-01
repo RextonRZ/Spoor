@@ -192,3 +192,15 @@ def test_decide_writes_status_changes_and_promote(scene, now):
     finding = v.promote(claim, v.verify(claim), case_id="case_w", now=now)
     assert finding is not None and finding.observation_ids == [o[10.5]]
     assert v.promote(claim, results[0], case_id="case_w") is None  # not supported -> no finding
+
+
+def test_hypothesis_that_only_restates_last_seen_is_not_supported(scene, now):
+    # "it left through the far door" cited only with the (true) last-seen fact: nothing tested what happened next
+    w, obj, o, v = scene
+    h = w.store.put(Hypothesis(hypothesis_id=new_id("hypothesis"), case_id="case_w", claim="it left afterwards",
+                               support_observation_ids=[o[10.5]], proposed_by=AGENT, created_at=now))  # fmt: skip
+    last = max(o, key=float)
+    status, results = v.decide(h.hypothesis_id, [LastSeenClaim(statement="last seen", object_instance_id=obj,
+                                                               observation_id=o[last])], now=now)  # fmt: skip
+    assert results[0].verdict.value == "supported" and status == HypothesisStatus.INSUFFICIENT_EVIDENCE
+    assert "nothing tests what it says happened next" in w.store.status_history(h.hypothesis_id)[-1].reason

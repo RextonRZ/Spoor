@@ -18,6 +18,10 @@ FORBIDDEN_TERMS: dict[str, tuple[str, ...]] = {
     "identity_or_biometrics": (
         "identity", "identified as", "recognized as", "recognised as", "face", "facial", "fingerprint",
         "fingerprints", "biometric", "gait",
+        # describing a person's look to follow them is identity by another name (planner 2 Nov: "clothing/appearance
+        # for re-identification")
+        "re-identification", "reidentification", "re-identify", "reidentify", "re-id", "clothing", "clothes",
+        "appearance", "outfit", "hairstyle", "tattoo",
     ),
     "protected_attributes": (
         "ethnic", "ethnicity", "race", "racial", "nationality", "religion", "religious", "gender", "male", "female",

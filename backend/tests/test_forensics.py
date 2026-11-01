@@ -446,17 +446,25 @@ def test_lead_plan_keeps_only_steps_that_cite_real_evidence_and_candidate_camera
     cam(world, "cam_b", [(4, 1.6), (6, 1.6), (6, 4), (4, 4)])
     world.clip("cam_b", -5, 60)
     sid = scan(world, "SP-TUN", "tunnel_read", 0, "tunnel")
+    at = lambda s: (world.t0 + timedelta(seconds=s)).isoformat()
     plan = InvestigationPlan(summary="check belt B", unknowns=["where it went after the tunnel"], steps=[
-        {"camera_id": "cam_b", "window_start": "a", "window_end": "b", "what_to_check": "parcel on belt B", "why": "next on the belt",
-         "evidence_ids": [sid]},
-        {"camera_id": "cam_zz", "window_start": "a", "window_end": "b", "what_to_check": "x", "why": "y", "evidence_ids": [sid]},
-        {"camera_id": "cam_b", "window_start": "a", "window_end": "b", "what_to_check": "x", "why": "y", "evidence_ids": ["scan_made_up"]},
+        {"camera_id": "cam_b", "window_start": at(0), "window_end": at(20), "what_to_check": "parcel on belt B",
+         "why": "next on the belt", "evidence_ids": [sid]},
+        {"camera_id": "cam_zz", "window_start": at(0), "window_end": at(20), "what_to_check": "x", "why": "y", "evidence_ids": [sid]},
+        {"camera_id": "cam_b", "window_start": at(0), "window_end": at(20), "what_to_check": "x", "why": "y",
+         "evidence_ids": ["scan_made_up"]},
+        {"camera_id": "cam_b", "window_start": at(3600), "window_end": at(3700), "what_to_check": "x", "why": "y",
+         "evidence_ids": [sid]},  # an hour after the footage ends
+        {"camera_id": "cam_b", "window_start": "a", "window_end": "b", "what_to_check": "x", "why": "y", "evidence_ids": [sid]},
     ])  # fmt: skip
     fake = SimpleNamespace(complete=lambda **kw: SimpleNamespace(data=plan, model="muse-wonder-1.0", provider="meta_model_api",
                                                                 response_id="resp_1", input_tokens=2000, output_tokens=3000,
                                                                 latency_s=20.0))  # fmt: skip
     out = plan_investigation(world.store, world.case.case_id, fake, now=now)
-    assert [s["camera_id"] for s in out["steps"]] == ["cam_b"] and len(out["rejected"]) == 2
-    assert {r["reason"] for r in out["rejected"]} == {"camera not a candidate", "cites unknown evidence ['scan_made_up']"}
+    assert [s["camera_id"] for s in out["steps"]] == ["cam_b"] and len(out["rejected"]) == 4
+    assert {r["reason"] for r in out["rejected"]} == {"camera has no footage on this site",
+                                                      "cites unknown evidence ['scan_made_up']",
+                                                      "window outside the camera's footage",
+                                                      "window is not an ISO time with an offset"}
     assert out["usd_estimate"] == 0.068 and world.store.find(CostEntry, case_id=world.case.case_id)[0].model == "muse-wonder-1.0"
     assert latest_plan_step(world.store, world.case.case_id)["summary"] == "check belt B"
