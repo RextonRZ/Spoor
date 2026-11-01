@@ -508,6 +508,20 @@ class Verifier:
         facts = {"place": name, "door_at": at(t_last), "camera": camera_name(obs.camera_id),
                  "carried_in_at": at(went_in.t_ms), "came_out_empty": [at(x.t_ms) for x in out],
                  "until": end.astimezone(tz).strftime("%H:%M:%S"), "observation_id": c.observation_id,
+                 "media_id": obs.source_frame.media_id, "door_xy": [round(v, 2) for v in est.floor_xy_m],
+                 # the parcel's path on the doorway camera as SAM tracked it, up to the last sighting (image px)
+                 "trail_px": [[round((o.bbox_xyxy_px[0] + o.bbox_xyxy_px[2]) / 2), round((o.bbox_xyxy_px[1] + o.bbox_xyxy_px[3]) / 2)]
+                              for o in sorted(self.store.find(RawObservation, track_id=obs.track_id),
+                                              key=lambda o: o.source_frame.pts_ms)
+                              if o.bbox_xyxy_px and o.source_frame.pts_ms <= obs.source_frame.pts_ms] if obs.track_id else [],
+                 "box_px": obs.bbox_xyxy_px, "frame_wh_px": obs.frame_wh_px,
+                 "area_polygon": [[round(x, 2), round(y, 2)] for x, y in poly],
+                 # the frame to show for each moment: a crossing is the instant the person is already past the edge, so
+                 # show them just before going in and just after coming out (the times above stay as measured)
+                 "iso": {k: datetime.fromtimestamp(ms / 1000, UTC).astimezone(tz).isoformat(timespec="milliseconds")
+                         for k, ms in (("door_at", t_last), ("carried_in_at", went_in.t_ms - 600),
+                                       *((f"came_out_{i}", x.t_ms + 1500) for i, x in enumerate(out)),
+                                       ("until", end.timestamp() * 1000 - 500))},
                  "area_xy": [round(sum(x for x, _ in poly) / len(poly), 2), round(sum(y for _, y in poly) / len(poly), 2)]}  # fmt: skip
         return VerificationResult(V.SUPPORTED, EvidenceLabel.ESTIMATED, reasons, lim, [c.observation_id],
                                   [est.estimate_id], facts)  # fmt: skip
@@ -601,7 +615,7 @@ class Verifier:
             return (f"{label} continuously tracked from {self._where(a)} at {self._when(a)} to {self._where(b)} at "
                     f"{self._when(b)}")
         if isinstance(claim, ExitClaim):
-            door = self.zones[claim.door_zone_id].name
+            door = self.zones[claim.door_zone_id].name if claim.door_zone_id in self.zones else claim.door_zone_id
             ids = sorted(claim.observation_ids, key=lambda i: self.store.get(RawObservation, i).source_frame.pts_ms)
             return f"{label} seen at {door} and then beyond it, at {self._where(ids[-1])} at {self._when(ids[-1])}"
         if isinstance(claim, TransferClaim):

@@ -204,3 +204,14 @@ def test_hypothesis_that_only_restates_last_seen_is_not_supported(scene, now):
                                                                observation_id=o[last])], now=now)  # fmt: skip
     assert results[0].verdict.value == "supported" and status == HypothesisStatus.INSUFFICIENT_EVIDENCE
     assert "nothing tests what it says happened next" in w.store.status_history(h.hypothesis_id)[-1].reason
+
+
+def test_describe_never_crashes_on_an_unknown_door_zone(scene):
+    """Rejected claims are described too (the answer shows what each idea was tested on): an agent may name an area id
+    where a zone id belongs; the sentence keeps the id instead of failing the whole investigation."""
+    from spoor.verification import ExitClaim
+
+    _, obj, o, v = scene
+    text = v.describe(ExitClaim(statement="left", object_instance_id=obj, door_zone_id="AREA_NOT_A_ZONE",
+                                observation_ids=[o[10.0]]))
+    assert "AREA_NOT_A_ZONE" in text

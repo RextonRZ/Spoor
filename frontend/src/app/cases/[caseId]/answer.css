@@ -77,23 +77,38 @@
 @media (prefers-reduced-motion: reduce) { .an-skel { animation: none; } }
 .an-chip[data-tone="plain"] { color: var(--tb-ink-2); background: rgba(255, 255, 255, 0.06); }
 
-/* verified "inside an unwatched area": evidence still beside the plan, then the facts (components/case/InsideAnswer) */
+/* verified "inside an unwatched area": the doorway still beside the plan, then the moments (components/case/InsideAnswer) */
 .ia-fig { width: 100%; display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 10px; margin-top: 4px; }
 .ia-fig figure { position: relative; margin: 0; overflow: hidden; border: 1px solid var(--tb-line); border-radius: 10px; background: #0b0d12; }
 .ia-shot { aspect-ratio: 16 / 9; }
-.ia-shot img { display: block; width: 100%; height: 100%; object-fit: cover; transform: scale(2.4); } /* toward the parcel (origin set inline) */
-.ia-skel { width: 100%; height: 100%; border-radius: 0; }
+.ia-layer { position: absolute; inset: 0; opacity: 0; transition: opacity 140ms ease; }
+.ia-layer[data-on] { opacity: 1; }
+.ia-layer img, .ia-layer svg, .ia-loupe img, .ia-loupe svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ia-loupe { position: absolute; top: 8px; right: 8px; width: 30%; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 8px;
+  border: 1.5px solid rgba(74, 222, 128, 0.7); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45); background: #0b0d12; }
+.ia-loupe > div { position: absolute; }
+.ia-loupe span { position: absolute; left: 6px; bottom: 5px; padding: 1px 6px; border-radius: 4px; font-size: 10.5px; font-weight: 600;
+  letter-spacing: 0.02em; color: #e5e7eb; background: rgba(9, 11, 16, 0.75); }
+.ia-skel { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 0; }
 .ia-fig figcaption { position: absolute; right: 8px; bottom: 8px; display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px;
   border-radius: 6px; font-size: 12px; font-variant-numeric: tabular-nums; color: #e5e7eb; background: rgba(9, 11, 16, 0.78); backdrop-filter: blur(6px); }
 .ia-fig figcaption b { font-weight: 600; }
-.ia-fig figcaption span { color: #86efac; }
-.ia-fig figcaption span::before { content: "·"; margin-right: 6px; color: #6b7280; }
 .ia-plan { display: grid; align-content: center; }
-.ia-plan > :first-child { min-height: 0; height: 100%; }
-.ia-facts { width: 100%; margin-top: 6px; padding-top: 14px; border-top: 1px solid var(--tb-line); }
-.ia-facts li { grid-template-columns: 74px minmax(0, 1fr); }
-.ia-facts time { font-variant-numeric: tabular-nums; color: var(--tb-ink-2); }
-.ia-facts em { margin-left: 8px; font-style: normal; font-size: 12px; color: var(--tb-mute); }
+
+.ia-moments { width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 6px; margin: 0; padding: 0; list-style: none; }
+.ia-moments button { position: relative; width: 100%; height: 100%; display: grid; gap: 2px; align-content: start; padding: 10px 12px 10px 12px; text-align: left;
+  border: 1px solid var(--tb-line); border-radius: 8px; background: transparent; color: var(--tb-ink-2); cursor: pointer; font: inherit;
+  transition: background-color 140ms ease, border-color 140ms ease, transform 120ms cubic-bezier(0.23, 1, 0.32, 1); }
+.ia-moments button::before { content: ""; position: absolute; left: 12px; right: 12px; top: -1px; height: 2px; border-radius: 2px; background: #4ade80; opacity: 0.5; }
+.ia-moments button[data-tone="unknown"]::before { background: repeating-linear-gradient(90deg, #6b7280 0 4px, transparent 4px 7px); opacity: 1; }
+.ia-moments time { font-size: 15px; font-weight: 650; font-variant-numeric: tabular-nums; color: var(--tb-ink); }
+.ia-moments span { font-size: 12.5px; line-height: 1.35; }
+.ia-moments button[data-tone="unknown"] span { color: var(--tb-mute); font-style: italic; }
+.ia-moments button[aria-pressed="true"] { border-color: rgba(74, 222, 128, 0.45); background: rgba(74, 222, 128, 0.07); }
+.ia-moments button[aria-pressed="true"]::before { opacity: 1; }
+.ia-moments button:active { transform: scale(0.98); }
+.ia-moments button:focus-visible { outline: 2px solid #818cf8; outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { .ia-moments button:hover { background: rgba(255, 255, 255, 0.04); } }
 .ia-ideas { width: 100%; }
 .ia-ideas summary span { margin-left: 8px; font-weight: 500; color: var(--tb-mute); }
 .ia-ideas ul { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
@@ -103,10 +118,11 @@
 .ia-ideas small { grid-column: 2; font-size: 12px; color: var(--tb-mute); }
 .ia-ideas[open] ul { animation: ia-in 180ms cubic-bezier(0.23, 1, 0.32, 1); }
 @keyframes ia-in { from { opacity: 0; transform: translateY(-4px); } }
-@media (prefers-reduced-motion: reduce) { .ia-ideas[open] ul { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .ia-ideas[open] ul { animation: none; } .ia-layer { transition: none; } }
 @media (max-width: 640px) {
   .ia-fig { grid-template-columns: 1fr; }
-  .ia-plan { height: 150px; }
+  .ia-plan { height: 170px; }
+  .ia-moments { grid-template-columns: 1fr 1fr; }
   .ia-ideas li { grid-template-columns: 1fr; }
   .ia-ideas small { grid-column: 1; }
 }

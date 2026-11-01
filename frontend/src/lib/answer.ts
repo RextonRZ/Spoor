@@ -63,7 +63,8 @@ export function caseAnswer({ ready, last, next, places, conflicts, found, zoneNa
 /** The last investigation's answer (GET /state "answer"): the verifier's facts apart from the agents' own words. */
 export interface InsideFacts {
   place: string; door_at: string; camera: string; carried_in_at: string; came_out_empty: string[]; until: string;
-  observation_id: string; area_xy: [number, number];
+  observation_id: string; area_xy: [number, number]; media_id: string; door_xy: [number, number];
+  area_polygon: [number, number][]; iso: Record<string, string>; trail_px: number[][]; box_px: number[]; frame_wh_px: number[];
 }
 export interface InvestigationView {
   status: string;

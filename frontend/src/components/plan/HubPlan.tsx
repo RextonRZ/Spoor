@@ -26,6 +26,14 @@ const BUILDING: Ext = { x0: -1.5, x1: 61.5, y0: -1.5, y1: 41.5 };
 /** On a narrow plan (phone), frame the journey (scans, routes, last point, expected spots) + a margin, not the site. */
 function frame(props: PlanProps, w: number): Ext {
   if (props.heat) return BUILDING; // the trail-ends map: the building only, readable
+  if (props.story) {
+    // the area, the point it was last seen and the cameras that watched it, with a little room
+    const pts: XY[] = [...props.story.area, props.story.from];
+    HUB.cameras.forEach((c) => props.litCameras?.includes(c.id) && pts.push([c.position_m[0], c.position_m[1]]));
+    const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]), pad = 3;
+    return { x0: Math.max(BUILDING.x0, Math.min(...xs) - pad), x1: Math.min(BUILDING.x1, Math.max(...xs) + pad),
+      y0: Math.max(BUILDING.y0, Math.min(...ys) - pad), y1: Math.min(BUILDING.y1, Math.max(...ys) + pad) };
+  }
   if (props.focus) {
     // a thumbnail around one point (Hub rows: where the parcel stopped)
     const [x, y] = props.focus.xy;
@@ -79,6 +87,8 @@ export interface PlanProps {
   quiet?: boolean;
   /** frame a small box around one point and pin it (Hub row thumbnails); hides the scale bar */
   focus?: { xy: XY; radius_m?: number; tone?: "warn" | "bad" };
+  /** "went in here": an area outlined, the point it was last seen, an arrow into the area (verified answer) */
+  story?: { area: XY[]; from: XY; to: XY };
   label: string;
   minHeight?: number;
   /** "width": the plan takes the card's full width and its own height (summary, hub); default fits the box. */
@@ -120,8 +130,9 @@ export default function HubPlan(props: PlanProps) {
   const litKey = props.litCameras?.join() ?? "";
   const fx = props.focus ? props.focus.xy.join() : "";
   const hk = props.heat ? "heat" : "";
+  const sk = props.story ? `${props.story.from.join()}|${props.story.area.length}` : "";
   // eslint-disable-next-line react-hooks/exhaustive-deps -- recompute only when the evidence or the width class changes
-  const ext = useMemo(() => frame(props, box.w), [props.journey, props.missing, litKey, narrow, fx, hk]);
+  const ext = useMemo(() => frame(props, box.w), [props.journey, props.missing, litKey, narrow, fx, hk, sk]);
   const byW = box.w / (ext.x1 - ext.x0);
   const fitW = props.fit === "width" || ext !== FULL; // a zoomed phone plan takes the width; the box shrinks to it
   const S = box.w ? Math.max(4, fitW ? byW : Math.min(byW, (box.h || 1e9) / (ext.y1 - ext.y0))) : 0;
@@ -134,7 +145,8 @@ export default function HubPlan(props: PlanProps) {
           <svg ref={svgRef} className="hp-svg" width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="group" aria-label={props.label}>
             <Base S={S} heat={props.heat} ext={ext} />
             <Overlay S={S} ext={ext} {...props} />
-            {!props.focus && <ScaleNorth S={S} W={W} H={H} zoomed={ext !== FULL && !props.heat} />}
+            {props.story && <Story S={S} ext={ext} {...props.story} />}
+            {!props.focus && !props.story && <ScaleNorth S={S} W={W} H={H} zoomed={ext !== FULL && !props.heat} />}
             {props.focus && (() => {
               const [px, py] = [(props.focus.xy[0] - ext.x0) * S, (ext.y1 - props.focus.xy[1]) * S];
               const col = props.focus.tone === "bad" ? "#f87171" : "#fbbf24";
@@ -338,6 +350,24 @@ function placeChips(want: { at: XY; t: string; sub: string; dot: string; rank: n
     if (pick) out.push({ x: pick[0], y: pick[1], w, h, ax, ay, t: c.t, sub: c.sub, dot: c.dot });
   }
   return out;
+}
+
+function Story({ S, ext, area, from, to }: { S: number; ext: Ext; area: XY[]; from: XY; to: XY }) {
+  const P = (q: XY): XY => [(q[0] - ext.x0) * S, (ext.y1 - q[1]) * S];
+  const [a, b] = [P(from), P(to)];
+  const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+  const [ux, uy] = [(b[0] - a[0]) / len, (b[1] - a[1]) / len];
+  const tip: XY = [a[0] + ux * Math.min(len, 46), a[1] + uy * Math.min(len, 46)]; // a short arrow: "went in", not a route
+  const head = `${tip[0]},${tip[1]} ${tip[0] - ux * 9 - uy * 5},${tip[1] - uy * 9 + ux * 5} ${tip[0] - ux * 9 + uy * 5},${tip[1] - uy * 9 - ux * 5}`;
+  return (
+    <g aria-hidden className="hp-story">
+      <polygon points={area.map((q) => P(q).join(",")).join(" ")} fill="rgba(251, 191, 36, 0.13)" stroke="#fbbf24" strokeWidth={1.5} />
+      <line x1={a[0]} y1={a[1]} x2={tip[0] - ux * 4} y2={tip[1] - uy * 4} stroke="#fbbf24" strokeWidth={2} strokeDasharray="4 3" />
+      <polygon points={head} fill="#fbbf24" />
+      <circle cx={a[0]} cy={a[1]} r={9} fill="#4ade80" opacity={0.2} />
+      <circle cx={a[0]} cy={a[1]} r={4.5} fill="#4ade80" stroke="#0b0c10" strokeWidth={1.5} />
+    </g>
+  );
 }
 
 function Overlay({ S, ext, journey: j, missing, marker, cloud, litCameras = [], selectedScanId, activeScanId, onScan, onObservation, quiet }: PlanProps & { S: number; ext: Ext }) {
