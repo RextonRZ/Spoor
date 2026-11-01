@@ -6,6 +6,7 @@
  * through its working proxy; the frame counter follows the ORIGINAL's frame table and a pause lands on, and loads, the
  * exact original frame.
  */
+import { TrackParcel } from "./TrackParcel";
 import { describeScan, HUB_FLOW } from "@/lib/scans";
 import { useEffect, useRef, useState } from "react";
 import { api, signedUrl, useResource } from "@/lib/api";
@@ -164,7 +165,9 @@ function FrameViewer({ mediaId, time, title, recordingKind, sha, context }: { me
       {play && pb.data ? (
         <ContextVideo pb={pb.data} from={play.from} onFrame={setLiveIdx} onEnd={stopAt} onExpired={() => pb.reload()}
           label={`${title}, context playback`} />
-      ) : url && <FrameImage src={signedUrl(url)} alt={`${title}, frame ${idx}`} onExpired={() => at.reload()} />}
+      ) : url && (idx !== null
+        ? <TrackParcel mediaId={mediaId} frame={idx}><FrameImage src={signedUrl(url)} alt={`${title}, frame ${idx}`} onExpired={() => at.reload()} /></TrackParcel>
+        : <FrameImage src={signedUrl(url)} alt={`${title}, frame ${idx}`} onExpired={() => at.reload()} />)}
       {err && <p className="sp-caption" role="alert">{err}</p>}
       {at.data && idx !== null && shownIdx !== null && (
         <>

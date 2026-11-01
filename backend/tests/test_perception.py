@@ -220,3 +220,14 @@ def test_cache_hit_reuses_stored_records_instead_of_duplicating(setup):
     assert again.cache_hit and len(backend.calls) == 1
     assert {t.track_id for t in again.tracks} == {t.track_id for t in first.tracks}
     assert len(setup.store.find(Track)) == 2 and len(setup.store.find(RawObservation)) == 4
+
+
+def test_track_ends_where_sam_loses_the_object(setup):
+    # SAM ids are not reliable after the object leaves view: a long run of missing frames splits the track.
+    lines = [sam_wire.line(0, sam_wire.record(1, (20, 30, 79, 89), (W, H), conf=0.9)),
+             sam_wire.line(1, sam_wire.record(1, (22, 31, 81, 90), (W, H), conf=0.88)),
+             sam_wire.line(20, sam_wire.record(1, (200, 150, 230, 180), (W, H), conf=0.3))]  # fmt: skip
+    res = run(track_target(setup.request(), backend=FixtureSamBackend(lines), store=setup.store, cache_dir=setup.cache,
+                           now=setup.now))  # fmt: skip
+    spans = sorted((t.first_frame_index, t.last_frame_index) for t in res.tracks)
+    assert spans == [(0, 1), (20, 20)] and {t.provider_object_id for t in res.tracks} == {"1"}

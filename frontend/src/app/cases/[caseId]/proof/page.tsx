@@ -12,7 +12,7 @@ import Link from "next/link";
 import { use, useEffect, useMemo, useRef, useState } from "react";
 import { api, signedUrl, useResource } from "@/lib/api";
 import { HUB, camId, scanPoint } from "@/lib/hub";
-import type { Journey, MissingMoment } from "@/lib/journey";
+import type { Journey, MissingMoment, ObservedSegment } from "@/lib/journey";
 import type { MediaRow, Site } from "@/lib/types";
 import { hms, momentLabel, placeOf, shortPlace } from "@/lib/words";
 import { CaseSteps } from "@/components/flow/CaseSteps";
@@ -30,7 +30,9 @@ interface CaseState { case: { case_id: string; site_id: string; target_descripti
 interface Possible { objects: { places: { area_id: string; name: string; zone_id: string | null; possible_share: number }[] }[] }
 interface Conflicts { objects: { conflicts: { kind: string; divergence_t: string; statement: string; claim: { evidence_ids: string[] } }[] }[] }
 interface Tile { key: string; cam: string | null; place: string; t: string; status: string; tone: "seen" | "notseen" | "none" | "wait" | "bad";
-  headline: string; body: string; conflict?: string }
+  headline: string; body: string; conflict?: string;
+  /** a camera sighting: SAM's outlined frames along the track (the player shows the one nearest its time) */
+  seen?: ObservedSegment["points"] }
 
 const camName = (hub: string) => hub.replace("_", " ");
 
@@ -75,13 +77,24 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
         headline: r.result === "not_seen" ? `Should have appeared on ${camName(cam)} by ${hms(r.window.end)}. It didn't.` : `Should appear on ${camName(cam)} at about ${hms(r.predicted_t)}.`,
         body: r.result === "no_footage" ? `${camName(cam)} would show where it went next, but its footage for this moment isn't in yet.` : `${r.how.charAt(0).toUpperCase()}${r.how.slice(1)}.` });
     }
+    // where a camera actually saw it: the tracks linked to this parcel (SAM 3.1 follows it from an investigator's box)
+    for (const g of j?.segments ?? []) {
+      if (g.kind !== "observed") continue;
+      const cam = camId.toHub(g.camera_id);
+      const secs = Math.max(1, Math.round((Date.parse(g.end) - Date.parse(g.start)) / 1000));
+      // opens mid-sighting: at the start the parcel is only just entering the frame
+      out.push({ key: g.track_id, cam, place: "seen on camera", t: g.points[g.points.length >> 1]?.t ?? g.start, tone: "seen", status: `Seen ${hms(g.start)}`, seen: g.points,
+        headline: `On ${camName(cam)} from ${hms(g.start)} to ${hms(g.end)}.`,
+        body: `SAM 3.1 followed this parcel frame by frame for ${secs} s, from the box drawn on it, until it left the camera's view.` });
+    }
+    out.sort((a, b) => a.t.localeCompare(b.t));
     if (conflict) out.push({ key: "conflict", cam: null, place: "sorter records", t: conflict.divergence_t, tone: "bad", status: "Records disagree",
       headline: "The sorter's times don't fit the belt.", body: `${conflict.statement.replace(/: the records conflict$/, "")}. One of these records is wrong, or the parcel didn't travel on the belt.`, conflict: conflict.statement });
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- recomputed when the evidence or the footage list changes
-  }, [scans, mm, conflict, media.data]);
+  }, [scans, mm, conflict, media.data, j]);
 
-  const lastKey = scans.at(-1)?.scan_event_id;
+  const lastKey = tiles.findLast((t) => t.seen)?.key ?? scans.at(-1)?.scan_event_id;
   const sel = tiles.find((t) => t.key === (pick ?? lastKey)) ?? tiles[0];
   const selMedia = sel?.cam ? coverage(sel.cam, sel.t) : undefined;
   const waybill = st.data?.case.target_description.split(" ").at(-1) ?? "";
@@ -101,7 +114,7 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
           {view === "3d" ? (
             <div className="pf-3d"><WorkspaceProvider caseId={caseId}><Scene3D /></WorkspaceProvider></div>
           ) : (
-            <Player tile={sel} media={selMedia} />
+            <Player caseId={caseId} tile={sel} media={selMedia} />
           )}
 
           <div className="pf-strip-head">
@@ -171,18 +184,35 @@ function useFrame(mediaId: string | undefined, t: string | undefined): string | 
   return url?.k === k ? url.u : null;
 }
 
+/** For a sighting: SAM's outlined frame (the annotated copy; the original stays unchanged) nearest the player's time. */
+function useOutlined(caseId: string, pts: Tile["seen"], t: string | undefined): string | null {
+  const [url, setUrl] = useState<{ k: string; u: string } | null>(null);
+  const near = pts?.length && t ? pts.reduce((a, b) => (Math.abs(Date.parse(b.t) - Date.parse(t)) < Math.abs(Date.parse(a.t) - Date.parse(t)) ? b : a)) : null;
+  const inside = near && t && Math.abs(Date.parse(near.t) - Date.parse(t)) < 500;
+  const k = inside ? near.observation_id : "";
+  useEffect(() => {
+    if (!k) return;
+    let live = true;
+    api<{ annotated_frame_url: string }>(`/v1/cases/${caseId}/evidence/${k}`).then((r) => live && setUrl({ k, u: r.annotated_frame_url })).catch(() => {});
+    return () => { live = false; };
+  }, [caseId, k]);
+  return k && url?.k === k ? url.u : null;
+}
+
 const PILL_TONE: Record<Tile["tone"], string> = { seen: "seen", notseen: "notseen", none: "none", wait: "none", bad: "none" };
 
 /** The big picture (zoom, pan, full screen). With a recording: the frame at that moment, plus one transport (play, scrub, 1x / 4x).
  *  Without: the camera's view of the place, labelled as not the moment. */
-function Player({ tile, media }: { tile?: Tile; media?: MediaRow }) {
+function Player({ caseId, tile, media }: { caseId: string; tile?: Tile; media?: MediaRow }) {
   const cov = media?.coverage[0];
   const [offset, setOffset] = useState(0); // seconds from the moment
   const [speed, setSpeed] = useState(1);
   const [playing, setPlaying] = useState(false);
   const raf = useRef<number | null>(null);
   const t = tile && cov ? new Date(Math.min(Math.max(new Date(tile.t).getTime() + offset * 1000, new Date(cov.start_utc).getTime()), new Date(cov.end_utc).getTime())).toISOString() : tile?.t;
-  const url = useFrame(media?.media.media_id, t);
+  const plain = useFrame(media?.media.media_id, t);
+  const outlined = useOutlined(caseId, tile?.seen, t);
+  const url = outlined ?? plain;
   useEffect(() => {
     if (!playing) return;
     raf.current = window.setInterval(() => setOffset((o) => Math.min(10, o + 0.5 * speed)), 500); // stops at the end of the window
@@ -198,7 +228,7 @@ function Player({ tile, media }: { tile?: Tile; media?: MediaRow }) {
   return (
     <>
       <Viewer key={`${cam}|${tile.key}`} id={cam} label={label} image={url ? signedUrl(url) : undefined} at={t ? hms(t) : undefined}
-        pill={{ text: url ? tile.status : `A view of the place · no footage of ${hms(tile.t)} yet`, tone: url ? PILL_TONE[tile.tone] : "none" }} />
+        pill={{ text: url ? (outlined ? "SAM 3.1 · outlined" : tile.status) : `A view of the place · no footage of ${hms(tile.t)} yet`, tone: url ? PILL_TONE[tile.tone] : "none" }} />
       {media && (
         <div className="pf-controls">
           <button type="button" aria-label={playing ? "Pause" : "Play"} className="pf-play" onClick={() => setPlaying((p) => !p)}>

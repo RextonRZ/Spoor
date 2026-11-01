@@ -400,16 +400,20 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
             job.emit("segmenting", media_id=media_id)
             r = svc.run_perception(media_id, concept=body.concept, instance=instance, case_id=body.case_id,
                                    on_floor_plane=body.on_floor_plane)  # fmt: skip
-            # An operator-selected instance is a user-verified target: link its single track to the case object.
-            if body.case_id and instance is not None and len(r.tracks) == 1:
+            # An operator-selected instance is a user-verified target: link the track through the prompted frame (the
+            # stretch before SAM lost it) to the case object. Later stretches under the same SAM id stay unlinked.
+            picked = [t for t in r.tracks if instance is not None
+                      and t.first_frame_index <= instance.frame_index <= t.last_frame_index]
+            if body.case_id and len(picked) == 1:
                 for obj in svc.store.find(ObjectInstance, case_id=body.case_id):
                     svc.store.put(TrackAssociation(object_instance_id=obj.object_instance_id,
-                                                   track_id=r.tracks[0].track_id,
+                                                   track_id=picked[0].track_id,
                                                    status=AssociationStatus.VERIFIED_SAME_CAMERA,
                                                    reason="operator-selected instance prompt", version=1,
                                                    created_at=now(), created_by=p.user_id))  # fmt: skip
             return {"status": r.status, "message": r.message, "cache_hit": r.cache_hit,
-                    "tracks": [t.model_dump(mode="json") for t in r.tracks], "observations": len(r.observations)}
+                    "tracks": [t.model_dump(mode="json") for t in r.tracks], "observations": len(r.observations),
+                    "linked_track": picked[0].model_dump(mode="json") if body.case_id and len(picked) == 1 else None}
 
         job = svc.jobs.submit("segment", p.user_id, work)
         audit(p, "segment", media_id, job_id=job.job_id, concept=body.concept)

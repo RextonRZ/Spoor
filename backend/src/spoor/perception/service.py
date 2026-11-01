@@ -43,6 +43,9 @@ SAM_MAX_FRAMES = 15_000  # dev.meta.ai/docs/sam/segmenting: clips can be up to 1
 LOW_CONFIDENCE = 0.5
 SMALL_OBJECT_FRACTION = 0.001
 LOW_MASK_FILL = 0.3
+# SAM docs: object ids are not reliable once the object leaves view or is occluded. A run of missing frames longer than
+# this ends the track; detections after it under the same id become their own track (never assumed the same object).
+MAX_GAP_FRAMES = 5
 
 Status = Literal["ok", "no_detections", "not_authorized_for_hosted_processing", "unknown_completion",
                  "analysis_unavailable", "incomplete"]  # fmt: skip
@@ -249,8 +252,17 @@ def _normalize(req, run, start, end, prompt, key, label, display_wh, now, result
         else:  # out-of-range frame indices are reported, never mapped to a guessed time
             result.message += f"dropped detection at out-of-range frame {det.frame_index} (chunk start {start}); "
 
+    segments = []
     for object_id, dets in sorted(by_object.items()):
         dets.sort(key=lambda d: d[0])
+        seg = [dets[0]]
+        for d in dets[1:]:
+            if d[0] - seg[-1][0] > MAX_GAP_FRAMES:
+                segments.append((object_id, seg))
+                seg = []
+            seg.append(d)
+        segments.append((object_id, seg))
+    for object_id, dets in segments:
         track = Track(track_id=new_id("track"), camera_id=req.camera.camera_id, media_id=req.original.media_id,
                       label=label, provider_object_id=object_id, first_frame_index=dets[0][0],
                       last_frame_index=dets[-1][0], provenance=provenance)  # fmt: skip
