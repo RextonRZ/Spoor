@@ -216,3 +216,8 @@
   .iv-story-btn { grid-template-columns: 22px minmax(0, 1fr); }
   .iv-story-q, .iv-story-text, .iv-story-meta { grid-column: 2; }
 }
+
+/* one colour per MODEL, none of them an evidence colour (reviewer 02:58): Wonder indigo, Glimmer teal, Spark Open violet,
+   Spark (hosted) sky, SAM 3.1 pink, rules grey */
+.iv { --f-sparkopen: #a78bfa; --f-spark: #38bdf8; --f-sam: #f472b6; }
+.iv [data-fam="sparkopen"] { --f: var(--f-sparkopen); }

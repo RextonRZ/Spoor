@@ -284,7 +284,7 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
           <div className="iv-card iv-relay-card">
             <div className="iv-card-head">
               <h2>Every step, by agent</h2>
-              <span>Pick a dot</span>
+              <span>Pick a dot · hollow = could not run, or an idea not proven</span>
             </div>
             {steps.length > 0 ? (
               <div className="iv-relay" onMouseLeave={() => setPeek(null)}>
@@ -411,7 +411,8 @@ interface Place { key: string; xy: XY; label: string; tone: "scan" | "seen" | "b
 
 /** the model behind an agent, as one of five colours (its name is always written beside it) */
 function fam(model: string): string {
-  return /Wonder/.test(model) ? "wonder" : /Glimmer/.test(model) ? "glimmer" : /Spark/.test(model) ? "spark" : /SAM/.test(model) ? "sam" : "rules";
+  return /Wonder/.test(model) ? "wonder" : /Glimmer/.test(model) ? "glimmer" : /Spark Open/.test(model) ? "sparkopen" : /Spark/.test(model) ? "spark"
+    : /SAM/.test(model) ? "sam" : "rules";
 }
 
 const camWords = (id: string) => id.startsWith("CHK_") ? `${CLOSE[id.slice(4)] ?? id.slice(4)} close-up camera` : id.replace("_", " ");

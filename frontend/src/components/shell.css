@@ -203,3 +203,6 @@
   .sb-main img, .sb-main video { transition: none; }
   .sb-main :has(> img[data-ld]), .sb-main :has(> video[data-ld]) { animation: none; background-image: none; background-color: rgba(255, 255, 255, 0.04); }
 }
+/* the app fills the page however tall it scrolls (a full-page capture showed the body colour below 100vh) */
+.sb-app { min-height: 100dvh; background: linear-gradient(to right, var(--tb-side) 0, var(--tb-side) var(--sb-w, 240px), var(--tb-bg) var(--sb-w, 240px)); }
+.sb-app[data-rail] { --sb-w: 68px; }
