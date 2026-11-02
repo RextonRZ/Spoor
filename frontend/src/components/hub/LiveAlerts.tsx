@@ -7,12 +7,12 @@
  */
 import Link from "next/link";
 import { useResource } from "@/lib/api";
-import { inCrop, useFocusCrop } from "@/lib/focus";
+import { inCrop, pointsIn, useContours, useFocusCrop } from "@/lib/focus";
 import { hms } from "@/lib/words";
 import "./livealerts.css";
 
 interface Alert {
-  alert_id: string; scan_point_id: string; camera_id: string; media_id: string; at_utc: string; frame_index: number;
+  alert_id: string; scan_point_id: string; camera_id: string; media_id: string; at_utc: string; frame_index: number; track_id: string;
   box_px: number[] | null; candidates: { waybill: string; container: string | null; scanned_in: string }[];
 }
 interface CaseRow { case: { case_id: string; target_description: string } }
@@ -23,6 +23,7 @@ const PLACE: Record<string, string> = { "SP-CAGE-W": "the west cage bays", "SP-C
 /** the moment it left, cropped around SAM's outline of the carton (the full frame opens in the case) */
 function Shot({ a }: { a: Alert }) {
   const got = useFocusCrop(a.media_id, a.frame_index, a.box_px);
+  const edge = useContours(a.media_id, a.track_id).get(a.frame_index);
   if (!got || !a.box_px) return <span className="la-wait" aria-hidden />;
   const b = inCrop(a.box_px, got.rect);
   return (
@@ -30,7 +31,7 @@ function Shot({ a }: { a: Alert }) {
       {/* eslint-disable-next-line @next/next/no-img-element -- a signed crop of the original frame around SAM's box */}
       <img src={got.url} alt="" />
       <svg className="la-mark" viewBox={`0 0 ${b.vw} ${b.vh}`} preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-        <rect x={b.x - 3} y={b.y - 3} width={b.w + 6} height={b.h + 6} rx="3" />
+        {edge ? <polygon points={pointsIn(edge, got.rect)} /> : <rect x={b.x - 3} y={b.y - 3} width={b.w + 6} height={b.h + 6} rx="3" />}
       </svg>
     </>
   );

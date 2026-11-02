@@ -13,7 +13,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, previewUrl, signedUrl, useResource } from "@/lib/api";
 import { hms, momentLabel } from "@/lib/words";
-import { inCrop, useFocusCrop } from "@/lib/focus";
+import { inCrop, pointsIn, useContours, useFocusCrop } from "@/lib/focus";
 import "./passport.css";
 
 interface Stamp {
@@ -32,6 +32,7 @@ const cam = (c: string) => c.replace(/^cam_/, "").replaceAll("_", " ");
 /** the labelled carton, zoomed on SAM's outline (a crop of the original frame, the outline drawn on it) */
 function Crop({ s, label }: { s: Stamp; label: string }) {
   const got = useFocusCrop(s.media_id, s.frame_index, s.box_px);
+  const edge = useContours(s.media_id, s.track_id).get(s.frame_index ?? -1);
   if (!got || !s.box_px) return <span className="pp-wait" aria-hidden />;
   const b = inCrop(s.box_px, got.rect);
   return (
@@ -39,7 +40,7 @@ function Crop({ s, label }: { s: Stamp; label: string }) {
       {/* eslint-disable-next-line @next/next/no-img-element -- a signed crop of the original frame around SAM's box */}
       <img src={got.url} alt="" />
       <svg className="pp-mark" viewBox={`0 0 ${b.vw} ${b.vh}`} preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-        <rect x={b.x - 3} y={b.y - 3} width={b.w + 6} height={b.h + 6} rx="3" />
+        {edge ? <polygon points={pointsIn(edge, got.rect)} /> : <rect x={b.x - 3} y={b.y - 3} width={b.w + 6} height={b.h + 6} rx="3" />}
       </svg>
       <span className="pp-num">{label}</span>
     </>
@@ -55,6 +56,8 @@ function Follow({ s, label, onDone }: { s: Stamp; label: string; onDone: () => v
   const track = useResource<Boxes>(s.media_id && s.track_id ? `/v1/media/${s.media_id}/tracks/${s.track_id}/boxes` : null);
   const video = useRef<HTMLVideoElement>(null);
   const rect = useRef<SVGRectElement>(null);
+  const poly = useRef<SVGPolygonElement>(null);
+  const edges = useContours(s.media_id, s.track_id);
   // the follow up to the scan instant only: after it SAM's propagation can latch onto what is left at the point (the
   // empty tray once the carton has gone down the chute: seen in the truth check), so nothing past it is shown
   const f0 = s.frame_index ?? 0;
@@ -71,10 +74,12 @@ function Follow({ s, label, onDone }: { s: Stamp; label: string; onDone: () => v
     const draw = () => {
       const ms = v.currentTime * 1000;
       const near = boxes.reduce((a, b) => (Math.abs(b[1] - ms) < Math.abs(a[1] - ms) ? b : a));
-      const r = rect.current;
+      const r = rect.current, pg = poly.current;
+      const on = Math.abs(near[1] - ms) <= 120;
+      const edge = edges.get(near[0]);
+      if (pg) { pg.style.opacity = on && edge ? "1" : "0"; if (edge) pg.setAttribute("points", pointsIn(edge)); }
       if (r) {
-        const on = Math.abs(near[1] - ms) <= 120;
-        r.style.opacity = on ? "1" : "0";
+        r.style.opacity = on && !edge ? "1" : "0";
         r.setAttribute("x", String(near[2] - 6)); r.setAttribute("y", String(near[3] - 6));
         r.setAttribute("width", String(near[4] - near[2] + 12)); r.setAttribute("height", String(near[5] - near[3] + 12));
       }
@@ -84,7 +89,7 @@ function Follow({ s, label, onDone }: { s: Stamp; label: string; onDone: () => v
     id = requestAnimationFrame(draw);
     return () => { cancelAnimationFrame(id); v.removeEventListener("loadedmetadata", start); };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- restarts per stamp and clip
-  }, [s.scan_event_id, play.data?.url, boxes.length]);
+  }, [s.scan_event_id, play.data?.url, boxes.length, edges.size]);
   return (
     <figure className="pp-follow">
       <div className="pp-follow-stage">
@@ -92,6 +97,7 @@ function Follow({ s, label, onDone }: { s: Stamp; label: string; onDone: () => v
           : <span className="pp-wait" aria-hidden />}
         <svg viewBox="0 0 1920 1086" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
           <rect ref={rect} rx="4" style={{ opacity: 0 }} />
+          <polygon ref={poly} style={{ opacity: 0 }} />
         </svg>
       </div>
       <figcaption><b>{cam(s.camera_id)}</b> {momentLabel(s.event_kind, s.scan_point_id)} at {hms(s.at_utc)} · Outlined by SAM 3.1{span > 0.5 ? `, followed on camera for ${span.toFixed(1)} s up to the scan` : ""}</figcaption>

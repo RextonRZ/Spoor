@@ -6,7 +6,7 @@
  * image; the full frame stays one click away wherever a crop is shown.
  */
 import { useEffect, useState } from "react";
-import { api, previewUrl } from "@/lib/api";
+import { api, previewUrl, useResource } from "@/lib/api";
 
 export interface FocusCrop { url: string; rect: [number, number, number, number] }
 
@@ -24,6 +24,16 @@ export function useFocusCrop(media: string | null | undefined, frame: number | n
   }, [k]);
   return got?.k === k ? got.c : null;
 }
+
+/** SAM's mask edge on each frame of a track (frame index -> polygon in frame pixels); frames without one keep the box */
+export function useContours(media: string | null | undefined, track: string | null | undefined): Map<number, number[][]> {
+  const r = useResource<{ contours: [number, number[][]][] }>(media && track ? `/v1/media/${media}/tracks/${track}/contours` : null);
+  return new Map(r.data?.contours ?? []);
+}
+
+/** a polygon as SVG points, shifted into a crop's own pixels */
+export const pointsIn = (poly: number[][], rect: [number, number, number, number] | null = null) =>
+  poly.map(([x, y]) => `${(x - (rect?.[0] ?? 0)).toFixed(1)},${(y - (rect?.[1] ?? 0)).toFixed(1)}`).join(" ");
 
 /** the box in the crop's own pixels (for an SVG drawn over the crop with viewBox 0 0 w h) */
 export function inCrop(box: number[], rect: [number, number, number, number]) {

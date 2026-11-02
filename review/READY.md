@@ -2,6 +2,64 @@
 
 Newest first. Each entry: what is done, where to look, what is still open.
 
+## 2026-11-02 13:35 · Day plan B-D: controls, customer flow, consistency + demo path, SAM outline
+
+**Decisions for Rexton**
+1. **Unload door (tick 1149):** stopped at feasibility inside the 2 h box. In W1 the story carton's release is pinned
+   by the other unloader's placement just before it (the story pull waits 2.6 s for the boom nose); a quiet door moves
+   the release, so W1's pinned start and all six W1 clips need re-render + re-ingest + re-fit, plus 5 history log
+   lines moved as store corrections: ~3 h, under US$1 Modal. Until then the Unloaded stamp shows the real CHK_UNLOAD
+   frame as the "Scan record" (no number on any carton; the reason "Three cartons scanned here within 1.0 s" in the
+   details). Say "do the W1 re-pin" and it is done tonight.
+2. **Skills:** the installed names are `emil-design-eng` and `design-taste` (no skill named "emilkowalski" / "taste").
+
+**Controls re-run (B):** look-alike and belt parcel now "Confirmed on camera" at their divert (C08, C02; right),
+unload-only "Located by scan" (right); 0 false locations; the live alert fired on none of them (only the S2 pick).
+RC-696 cannot be opened: no parcel or bag was ever scanned into it (only its own RFID at D08). EVALUATION.md updated.
+
+**Customer asked (C):** Hub chip under the tracking number, customer strip on the case (their words, 4 days waited
+after its last scan here), Report: update drafted by Spark Open from the verified answer only, the facts it used
+folded, "Approve and copy"; nothing is sent (POST /v1/cases/{id}/customer-update; safety terms fall back to a template).
+
+**Demo path (D, tick 1151)** walked at 1440 and 390: `review/shots/mon/demo_path/` (landing scroll in `landing/`).
+Found and fixed on the story parcel's path:
+- Hub: "Lost track" on every row and a side panel reading raw scans ("Not loaded onto a truck since", "no footage of
+  14:21") -> rows and panel read the verified run ("Likely location found", "Most likely in the Exception store
+  (Z11).", "Records say loaded on D07 at 14:33. Cameras say it never left.", the CHK_STORE close-up); controls moved
+  to Resolved; "Cameras: not checked yet" in the panel's tracker -> from the run; time compare bug (UTC vs +08:00
+  strings) that showed "no footage".
+- Proof: "Can't tell" / "Not seen at the point" -> "Scan record" with the real frame; thumbnails picking purged
+  2688 px clips -> purged clips skipped everywhere; "No footage" tiles removed.
+- Investigating: an internal "ScopeError: camera cam_CHK_STORE" line -> the case can be granted cameras installed
+  later (case revision, audited; the six checkpoint cameras granted), failed steps worded plainly; the lead prompt no
+  longer restates the appearance rule (it tripped the filter). Keyed re-run: "Exception store (Z11)", plan CAM 19 +
+  CHK STORE, 172 s, Wonder US$0.17.
+- Report: "Lost track after..." headline -> the verified answer; key moments were CAM 06 / CAM 13 views and "No
+  picture" -> the answer's evidence on its best cameras (cage, store in/out, dock in red).
+- Landing: the whole snapshot was the 31 Oct run (parcel CTX095138712767, a placeholder tunnel photo) -> rebuilt from
+  the final S2 render on the story's cameras (CHK_CAGE_W, CAM_13, CAM_19, CHK_STORE) and case.json refreshed.
+Automatic check of every screen's text (no "Can't tell", "Not seen at the point", "No footage", "Not checked yet",
+record ids, UTC, undefined/null, "Lost track"): clean at both widths.
+
+**SAM outline (ticks 1233-1319):**
+- Passport tiles, the Hub alert card and the moment thumbnails are focus crops from SAM's own box (server pads it;
+  never hand-tuned), with the outline drawn; click a passport tile: its clip plays with the outline following the
+  carton, then hands over to the next one.
+- **Mask edge:** SAM's masks were in its cached raw output all along (our parser kept only the fill); they are now
+  traced to polygons per frame (`/v1/media/{m}/tracks/{t}/contours`, test) and drawn instead of the box.
+- **"Not marked correctly" (Into chute C12):** checked end to end on the original 1920x1086 frame: the stored
+  handshake (frame 23) sits on the carton. What looked wrong was SAM's propagation AFTER the divert: once the carton
+  slid down the chute the track latched onto the empty tray. The follow is now shown only up to the scan instant.
+- "Black" tiles: lossless 2-3 MB PNG frames still loading while a SAM job held the process -> on-screen thumbnails
+  use a downscaled JPEG preview (labelled `*_preview`; exports keep the original) and a frame cache.
+
+**Design pass (four skills):** moments without 01-05, one time + one line, equal cards, the two problems in red, the
+selected one ringed and synced with the hero, thumbnails zoomed on the outline; tracker: place name is the map link,
+calmer type; impeccable detector: no findings.
+
+Open: the handshake re-run on the valid W1 copies (SAM slow this hour), then the precision re-check; docs (F), video
+captures (G), the 19:00 summary.
+
 ## 2026-11-02 09:55 · Six checkpoints step 6: handshake, passport, live alert (and the rest of the render)
 
 **Render of the rest (tick 0535) done, frames checked, ingested:** S2 `CHK_STORE` (200-480), W1 `CHK_CHUTE` + `CAM_11`
