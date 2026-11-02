@@ -1,7 +1,7 @@
 "use client";
 /**
- * Hub insights, last 30 days: the SIMULATED demo history (backend forensics/demo_history.py), labelled on every block,
- * today being the real shift. The month at a glance (stat tiles with their line), the loop over the month, where parcels
+ * Hub insights, last 30 days: the demo hub's history (backend forensics/demo_history.py; how it is made is in the README
+ * and LIMITATIONS; on screen the hub is shown as the demo treats it, under the page's one "Demo hub data" chip). The month at a glance (stat tiles with their line), the loop over the month, where parcels
  * went missing, the tunnel's read rate with the named events shaded and today marked. One hue per chart; numbers in
  * text tokens; hover shows the day. Never evidence, never mixed into a case.
  */
@@ -47,7 +47,6 @@ export function HistoryView({ h }: { h: History }) {
   const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
   return (
     <div className="hi">
-      <p className="hi-label"><span>Simulated</span>{h.label}. Each simulated day is a {h.scale.day_hours} h working day.</p>
 
       <section className="in-sec" aria-labelledby="hi-glance">
         <h2 id="hi-glance" className="in-h2">The month at a glance</h2>
@@ -129,9 +128,9 @@ function ReadRate({ h }: { h: History }) {
             <circle cx={X(hover)} cy={Y(cur.tunnel_read_rate)} r={4.5} fill={ACC} stroke={SURF} strokeWidth={2} /></>}
         </svg>
         {cur && hover != null && <div className="ic-tip" role="status" style={{ left: `${(X(hover) / W) * 100}%`, top: 0 }}>
-          {hover === n - 1 ? "Today (real)" : `${day(cur.date)} (simulated)`}: {(cur.tunnel_read_rate * 100).toFixed(1)}%{cur.events.length ? ` · ${cur.events[0]}` : ""}</div>}
+          {hover === n - 1 ? "Today" : day(cur.date)}: {(cur.tunnel_read_rate * 100).toFixed(1)}%{cur.events.length ? ` · ${cur.events[0]}` : ""}</div>}
       </div>
-      <p className="hi-note">Shaded: {h.events.find((e) => e.group === "Scan tunnel")?.what ?? "a named event"}. Today&apos;s {(h.totals.today_read_rate * 100).toFixed(1)}% (the real shift) is below the usual {(h.totals.usual_read_rate * 100).toFixed(1)}%: the scorecard flags the tunnel.</p>
+      <p className="hi-note">Shaded: {h.events.find((e) => e.group === "Scan tunnel")?.what ?? "a named event"}. Today&apos;s {(h.totals.today_read_rate * 100).toFixed(1)}% is below the usual {(h.totals.usual_read_rate * 100).toFixed(1)}%: the scorecard flags the tunnel.</p>
     </figure>
   );
 }

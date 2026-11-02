@@ -11,8 +11,9 @@ import Link from "next/link";
 import { useState } from "react";
 import { useResource } from "@/lib/api";
 import type { Site } from "@/lib/types";
-import { HopTimes, MissingByHop, ScansPerMinute, type Flow } from "@/components/insights/Charts";
-import { Scorecard, type Score } from "@/components/insights/Scorecard";
+import { HopTimes, MissingByHop, type Flow } from "@/components/insights/Charts";
+import type { Score } from "@/components/insights/Scorecard";
+import { Attention, Health, Kpi, Panel, Stages, type Action } from "@/components/insights/Board";
 import { HistoryView, type History } from "@/components/insights/History";
 import "@/app/hub/hub.css";
 import "@/app/wall/cameras.css";
@@ -33,13 +34,8 @@ interface Insights {
   history?: History;
   cost: { usd: number; calls: number; cases_with_spend: number; answer_seconds: number[]; footage_hours: number };
 }
-interface Action { key: string; tone: "bad" | "warn"; count: number; unit: string; title: string; why: string; fix: string;
-  cases: string[]; parcels: { waybill: string; t: string }[] }
 interface Dash { cases: { case_id: string; target: string }[] }
 
-const cam = (id: string) => id.replace(/^cam_/, "").replaceAll("_", " ");
-const mins = (s: number) => (s < 90 ? `${Math.round(s)} s` : `${(s / 60).toFixed(1)} min`);
-const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
 
 export default function InsightsPage() {
   const sites = useResource<Site[]>("/v1/sites");
@@ -62,129 +58,78 @@ export default function InsightsPage() {
             <button type="button" aria-pressed={range === "today"} onClick={() => setRange("today")}>This shift</button>
             <button type="button" aria-pressed={range === "month"} onClick={() => setRange("month")}>Last 30 days</button>
           </div>
-          <span className="in-demo">{range === "month" ? "Simulated demo history" : d?.label ?? "Demo hub data"}</span>
+          <span className="in-demo">Demo hub data</span>
         </div>
       </header>
       {range === "month" ? (d?.history ? <HistoryView h={d.history} /> : <div className="an-skel" style={{ height: 320, borderRadius: 12 }} aria-busy="true" />)
         : !d ? <div className="an-skel" style={{ height: 320, borderRadius: 12 }} aria-busy="true" /> : (
-        <>
-          {d.scorecard?.rows.length ? (
-            <section className="in-sec" aria-labelledby="in-score">
-              <h2 id="in-score" className="in-h2">Checkpoints this shift</h2>
-              <Scorecard s={d.scorecard} name={name} />
-            </section>
-          ) : null}
-
-          <section className="in-sec" aria-labelledby="in-fix">
-            <h2 id="in-fix" className="in-h2">What needs fixing</h2>
-            {d.actions?.length ? (
-              <ol className="in-acts">
-                {d.actions.map((a, i) => <ActionRow key={a.key} a={a} n={i + 1} name={name} />)}
-              </ol>
-            ) : <p className="in-empty">Nothing to fix in the records so far.</p>}
-          </section>
-
-          <section className="in-sec" aria-labelledby="in-loop">
-            <h2 id="in-loop" className="in-h2">The loop</h2>
-            <ol className="in-loop">
-              <li><b>{d.loop.opened.length}</b><span>Cases opened</span>
-                <em>{d.loop.customer_asked.length} customer asked · {plural(d.loop.alerts.length, "live alert")}</em></li>
-              <li><b>{d.loop.answered.length}</b><span>Answered by Spoor</span><em>from the hub&apos;s own cameras and scans</em></li>
-              <li data-empty={d.loop.checked.length ? undefined : ""}><b>{d.loop.checked.length}</b><span>Checked on the floor</span>
-                <em>{d.loop.checked.length ? `${d.loop.confirmed.length} found where Spoor said · ${d.loop.refuted.length} not there` : "staff mark Found or Not here on Go look"}</em></li>
-              <li><b>{d.loop.resolved.length + (d.loop.resolved_on_camera ?? []).length}</b><span>Resolved</span>
-                <em>{d.loop.resolved.length} found by staff · {(d.loop.resolved_on_camera ?? []).length} confirmed on camera</em></li>
-            </ol>
-            <p className="in-note">
-              {d.loop.checked.length
-                ? <>Spoor&apos;s answer confirmed by staff: <b>{d.loop.confirmed.length} of {d.loop.checked.length}</b> checked.</>
-                : <>No floor checks recorded yet. When staff mark a place on Go look, it counts here: a confirmed answer, or a miss that sends the agents back to plan again.</>}
-            </p>
-          </section>
-
-
-          {d.flow?.hops?.length ? (
-            <section className="in-sec" aria-labelledby="in-flow">
-              <h2 id="in-flow" className="in-h2">Across the whole scan log</h2>
-              <p className="in-sub2">{d.flow.parcels} parcels, {new Date(d.flow.window[0]).toLocaleTimeString("en-GB", { timeZone: "Asia/Kuala_Lumpur", hour: "2-digit", minute: "2-digit" })} to {new Date(d.flow.window[1]).toLocaleTimeString("en-GB", { timeZone: "Asia/Kuala_Lumpur", hour: "2-digit", minute: "2-digit" })}, every parcel, not only the cases.</p>
-              <div className="in-charts">
-                <div className="in-chart">
-                  <h3>No next scan</h3>
-                  <p>Overdue: waited more than twice the slow end of that hop. The rest were still on their way when the log ended.</p>
-                  <MissingByHop hops={d.flow.hops} />
-                </div>
-                <div className="in-chart">
-                  <h3>How long each hop takes</h3>
-                  <p>Dot: the usual time. Bar: 8 in 10 parcels.</p>
-                  <HopTimes hops={d.flow.hops} />
-                </div>
-                <div className="in-chart in-chart-wide">
-                  <h3>Scans per minute</h3>
-                  <p>All checkpoints together.</p>
-                  <ScansPerMinute data={d.flow.per_minute} />
-                </div>
-              </div>
-            </section>
-          ) : null}
-
-
-          <section className="in-sec" aria-labelledby="in-health">
-            <h2 id="in-health" className="in-h2">How well it can check itself</h2>
-            <dl className="in-health">
-              <div><dt>Scan points no camera sees</dt><dd><b>{d.health.scan_points_unseen.length}</b> of {d.health.scan_points}
-                {d.health.scan_points_unseen.length ? <span>{d.health.scan_points_unseen.slice(0, 4).join(", ")}</span> : null}</dd></div>
-              <div><dt>Camera clocks matched to the sorter</dt><dd><b>{d.health.cameras_fitted}</b> of {d.health.cameras}
-                <span>close-ups: {d.health.checkpoint_cameras.map((c) => `${cam(c.camera_id)} ${c.clock_fitted ? "matched" : "not yet"}`).join(" · ")}</span></dd></div>
-              <div><dt>Numbers shown on cartons</dt><dd>
-                <b>{d.health.numbers_by_camera.reduce((a, c) => a + c.labelled, 0)}</b> of {d.health.numbers_by_camera.reduce((a, c) => a + c.outlined, 0)} outlines
-                <span>{d.health.numbers_by_camera.filter((c) => c.labelled).map((c) => `${cam(c.camera_id)} ${c.labelled}`).join(" · ")}; a number only where no other carton could be it</span></dd></div>
-              {d.health.footage_skipped && <div><dt>Footage skipped before the cloud</dt><dd><b>{Math.round(d.health.footage_skipped.share * 100)}%</b>
-                <span>Glimmer sent only moments with parcel handling (<Link href={`/cases/${d.health.footage_skipped.case_id}/investigate`}>the run</Link>)</span></dd></div>}
-            </dl>
-            <p className="in-links"><Link href="/wall">Cameras</Link></p>
-          </section>
-
-          <section className="in-sec" aria-labelledby="in-cost">
-            <h2 id="in-cost" className="in-h2">What it cost</h2>
-            <dl className="in-health">
-              <div><dt>Model spend, all cases</dt><dd><b>US${d.cost.usd.toFixed(2)}</b><span>{d.cost.calls} recorded calls across {plural(d.cost.cases_with_spend, "case")} (<Link href="/operator">ledger</Link>)</span></dd></div>
-              {d.cost.answer_seconds.length > 0 && <div><dt>Time to an answer</dt><dd><b>{mins(d.cost.answer_seconds[d.cost.answer_seconds.length >> 1])}</b>
-                <span>median of {plural(d.cost.answer_seconds.length, "run")}, against {d.cost.footage_hours} h of footage a person would scroll</span></dd></div>}
-            </dl>
-          </section>
-          <p className="in-foot">With real hub data, this ranks the places that lose parcels most. Every count comes from stored records; nothing is estimated.</p>
-        </>
+        <TodayBoard d={d} name={name} />
       )}
     </div>
   );
 }
 
-/** one thing to fix: the count, what and why in one line each, the fix, and the parcels or cases behind it (opens in place) */
-function ActionRow({ a, n, name }: { a: Action; n: number; name: (id: string) => string }) {
-  const [open, setOpen] = useState(false);
-  const items = a.parcels.length ? a.parcels.length : a.cases.length;
-  const hm = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { timeZone: "Asia/Kuala_Lumpur", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+/** this shift as an ops dashboard: KPI tiles, throughput by stage + needs attention, checkpoint health, hop charts,
+ *  the loop and the self-checks (all from the stored records) */
+function TodayBoard({ d, name }: { d: Insights; name: (id: string) => string }) {
+  const sc = d.scorecard;
+  const tunnel = sc?.rows.find((r) => r.group === "Scan tunnel");
+  const reject = sc?.rows.find((r) => r.group === "Reject chute");
+  const total = sc ? Array.from({ length: sc.minutes }, (_, i) => sc.rows.filter((r) => r.group === "Unload").reduce((a, r) => a + r.per_minute[i], 0)) : [];
+  const ans = d.cost.answer_seconds;
+  const open = d.loop.opened.length - d.loop.resolved.length - (d.loop.resolved_on_camera ?? []).length;
+  const rate = tunnel?.read_rate ?? null;
+  const t = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { timeZone: "Asia/Kuala_Lumpur", hour: "2-digit", minute: "2-digit" });
   return (
-    <li className="in-act" data-tone={a.tone}>
-      <span className="in-act-n" aria-hidden="true">{n}</span>
-      <div className="in-act-body">
-        <p className="in-act-h"><b>{a.count}</b> {a.unit}{a.count === 1 ? "" : "s"} · {a.title}</p>
-        <p className="in-act-why">{a.why}.</p>
-        <p className="in-act-fix"><span>Fix</span>{a.fix}.</p>
-        {items > 0 && (
-          <button type="button" className="in-act-more" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
-            {open ? "Hide" : a.parcels.length ? `See the ${a.parcels.length} parcels` : a.cases.length === 1 ? "Open the case" : `See the ${a.cases.length} cases`}
-          </button>
-        )}
-        <div className="in-act-list" data-open={open ? "" : undefined} inert={!open}>
-          <div>
-            <ul>
-              {a.cases.map((id) => <li key={id}><Link href={`/cases/${id}`}>{name(id)}</Link><span>the case</span></li>)}
-              {a.parcels.map((p) => <li key={p.waybill}><Link href={`/hub?parcel=${p.waybill}`}>{p.waybill}</Link><span>unloaded {hm(p.t)}</span></li>)}
-            </ul>
-          </div>
-        </div>
+    <div className="db">
+      <div className="db-kpis">
+        <Kpi label="Parcels unloaded" value={String(d.flow?.parcels ?? 0)} sub={d.flow ? `${t(d.flow.window[0])} to ${t(d.flow.window[1])}` : ""} spark={total} />
+        <Kpi label="Tunnel read rate" value={rate != null ? (rate * 100).toFixed(1) : "100"} unit="%" tone={rate != null && rate < 0.98 ? "warn" : "ok"}
+          sub={<>target 98% · {tunnel?.no_reads ?? 0} not read</>} spark={tunnel?.per_minute} />
+        <Kpi label="Reject chute" value={String(reject?.no_reads ?? 0)} unit=" cartons" tone={reject?.no_reads ? "warn" : "ok"} sub="unread, to match to their unload scans" spark={reject?.per_minute} />
+        <Kpi label="Open cases" value={String(Math.max(0, open))} tone={d.loop.customer_asked.length ? "bad" : "ok"} sub={`${d.loop.customer_asked.length} customer waiting · ${d.loop.answered.length} answered`} />
+        <Kpi label="Time to an answer" value={ans.length ? (ans[ans.length >> 1] / 60).toFixed(1) : "0"} unit=" min" sub={`median · ${d.cost.footage_hours} h of footage`} />
       </div>
-    </li>
+
+      <div className="db-row db-row-21">
+        {sc && <Panel title="Throughput by stage" meta="scans per minute, one scale"><Stages s={sc} /></Panel>}
+        <Panel title="Needs attention" meta={`${d.actions?.length ?? 0} open`}>
+          {d.actions?.length ? <Attention items={d.actions} name={name} /> : <p className="db-empty">Nothing to fix in the records.</p>}
+        </Panel>
+      </div>
+
+      {sc && <Panel title="Checkpoint health" meta={<span className="db-key"><i className="db-dot" data-tone="bad" />Problem <i className="db-dot" data-tone="warn" />Watch <i className="db-dot" data-tone="ok" />Fine</span>}>
+        <Health s={sc} name={name} />
+      </Panel>}
+
+      {d.flow?.hops?.length ? (
+        <div className="db-row db-row-11">
+          <Panel title="No next scan, per hop" meta="overdue vs still on their way"><MissingByHop hops={d.flow.hops} /></Panel>
+          <Panel title="Time per hop" meta="dot: usual · bar: 8 in 10"><HopTimes hops={d.flow.hops} /></Panel>
+        </div>
+      ) : null}
+
+      <div className="db-row db-row-11">
+        <Panel title="The loop" meta="cases to confirmed outcomes">
+          <ol className="db-loop">
+            <li><b>{d.loop.opened.length}</b><span>Opened</span></li>
+            <li><b>{d.loop.answered.length}</b><span>Answered</span></li>
+            <li data-empty={d.loop.checked.length ? undefined : ""}><b>{d.loop.checked.length}</b><span>Checked on the floor</span></li>
+            <li><b>{d.loop.resolved.length + (d.loop.resolved_on_camera ?? []).length}</b><span>Resolved</span></li>
+          </ol>
+          <p className="db-note">{d.loop.checked.length ? `Found where Spoor said: ${d.loop.confirmed.length} of ${d.loop.checked.length}.`
+            : "No floor checks yet: a Found or Not here on Go look counts here, and a miss sends the agents back to plan."}</p>
+        </Panel>
+        <Panel title="Self-checks and cost" meta={<Link href="/operator">ledger</Link>}>
+          <dl className="db-dl">
+            <div><dt>Cameras matched to the sorter clock</dt><dd>{d.health.cameras_fitted} / {d.health.cameras}</dd></div>
+            <div><dt>Scan points no camera sees</dt><dd>{d.health.scan_points_unseen.length} / {d.health.scan_points}</dd></div>
+            <div><dt>Numbers shown on cartons</dt><dd>{d.health.numbers_by_camera.reduce((a, c) => a + c.labelled, 0)} / {d.health.numbers_by_camera.reduce((a, c) => a + c.outlined, 0)}</dd></div>
+            {d.health.footage_skipped && <div><dt>Footage skipped before the cloud</dt><dd>{Math.round(d.health.footage_skipped.share * 100)}%</dd></div>}
+            <div><dt>Model spend, all cases</dt><dd>US${d.cost.usd.toFixed(2)}</dd></div>
+          </dl>
+        </Panel>
+      </div>
+    </div>
   );
 }
