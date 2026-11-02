@@ -74,7 +74,7 @@ export default function GoLookPage({ params }: { params: Promise<{ caseId: strin
   const sub = view.data?.found ? `Recorded by ${view.data.found.by} at ${hhmm(view.data.found.at)}`
     : !task ? "Spoor lists the places it could be, most likely first. Floor staff answer each one on their phone."
     : !place ? `Not found in any of the ${places.length} places. The case stays open with these ruled out.`
-    : `Sent ${hhmm(task.created_at)} by the hub supervisor · ${left} place${left === 1 ? "" : "s"} left`;
+    : `Sent by the hub supervisor · ${left} place${left === 1 ? "" : "s"} left`;
 
   return (
     <div className="gs" data-narrow={narrow ? "" : undefined}>
