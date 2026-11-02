@@ -273,21 +273,25 @@ function Hash({ h }: { h: string }) {
  *  facts only; each fact links to its frame; a person approves it. */
 function CustomerSheet({ caseId, open, onClose, saved, onFact }: { caseId: string; open: boolean; onClose: () => void; saved: Draft | null;
   onFact: (at?: string) => void }) {
-  const [channel, setChannel] = useState(saved?.channel ?? "chat");
-  const [language, setLanguage] = useState(saved?.language ?? "en");
-  const [tone, setTone] = useState(saved?.tone ?? "short");
-  const [d, setD] = useState<Draft | null>(saved);
-  const [text, setText] = useState(saved?.draft ?? "");
+  // the person's choices; until they choose, the saved draft's (it may load after the sheet first renders)
+  const [pick, setPick] = useState<{ channel?: string; language?: string; tone?: string }>({});
+  const [d, setD] = useState<Draft | null>(null);
+  const [edit, setText] = useState<string | null>(null); // the person's edit; until then the draft as written
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const cur = d ?? saved;
+  const text = edit ?? cur?.draft ?? "";
+  const channel = pick.channel ?? cur?.channel ?? "chat", language = pick.language ?? cur?.language ?? "en", tone = pick.tone ?? cur?.tone ?? "short";
+  const setChannel = (v: string) => setPick((x) => ({ ...x, channel: v }));
+  const setLanguage = (v: string) => setPick((x) => ({ ...x, language: v }));
+  const setTone = (v: string) => setPick((x) => ({ ...x, tone: v }));
   async function make(next?: Partial<{ channel: string; language: string; tone: string }>) {
     const o = { channel, language, tone, ...next };
     setBusy("draft"); setErr(null);
     try {
       const r = await api<Draft>(`/v1/cases/${caseId}/customer-update`, { method: "POST", json: o });
-      setD(r); setText(r.draft ?? "");
+      setD(r); setText(null);
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setBusy(null); }
   }
   async function send() {
