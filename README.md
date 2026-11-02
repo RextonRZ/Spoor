@@ -38,6 +38,16 @@ scan log + CCTV (19 wide cameras, 6 checkpoint close-ups, the tunnel's own label
    answer + proof timeline + floor search task + customer update draft (a person approves; nothing is sent)
 ```
 
+## The loop: every case makes the next one easier
+
+A case ends on the floor: staff mark **Found here** or **Not here** on Go look. A miss goes straight back to the
+lead agent (Muse Wonder re-plans where it went next, with the staff's check in its evidence, so nobody is sent back to
+the same place). A find is remembered by the hub as a prior: where parcels of earlier cases turned up, used only to
+order options the evidence leaves equal, never as evidence for a new case. **Hub insights** shows the loop from stored
+records only (cases opened, answered, checked on the floor, resolved), where the trail breaks and the fix in plain words,
+the records the cameras contradicted, and, over the whole scan log, which hops leave parcels overdue. With real hub data
+this ranks the places that lose parcels most. The demo's numbers are labelled "Demo hub data".
+
 ## Measured (details and method in [EVALUATION](docs/EVALUATION.md))
 
 | What | Result |
