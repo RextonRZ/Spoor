@@ -178,9 +178,11 @@ def journey_segments(svc, case, waybill: str, answer: dict | None) -> list[Segme
     alert that named this parcel, the verified answer's tracks and clips, and the truck record. Cards where nothing
     can be seen. Labels only from labelled handshakes; outlines only from SAM tracks on that clip."""
     from spoor.contracts import MediaAsset, ScanEvent
-    from spoor.contracts.observations import CameraCoverage, RawObservation
+    from spoor.contracts.observations import CameraCoverage, RawObservation, Track
+    from spoor.forensics.journey import latest_plan
     from spoor.ingest import asset_path, load_result
     from spoor.perception.contours import contours_for
+    from spoor.spatial.homography import site_to_image
     from spoor.store import LiveAlert, ScanHandshake
 
     cams = set(svc.case_cameras(case))
@@ -201,6 +203,39 @@ def journey_segments(svc, case, waybill: str, answer: dict | None) -> list[Segme
             if c.start_utc <= t <= c.end_utc and m.media_id not in invalid and m.probe and m.probe.width_px <= 1920:
                 return m
         return None
+
+    def best_view(xy, z, t):
+        """The case camera with a clip at `t` that sees floor spot `xy` (at height z) closest: most pixels per metre."""
+        best, scale = None, 0.0
+        for cam in cams:
+            m, cal = clip_at(cam, t), svc.valid_calibration(cam)
+            if m is None or cal is None:
+                continue
+            uv, front = site_to_image(cal, [(xy[0], xy[1], z), (xy[0] + 0.5, xy[1], z), (xy[0], xy[1] + 0.5, z)])
+            w, h = cal.image_wh_px
+            if front.all() and 0 <= uv[0][0] < w and 0 <= uv[0][1] < h:
+                k = max(float(np.hypot(*(uv[1] - uv[0]))), float(np.hypot(*(uv[2] - uv[0]))))
+                if k > scale:
+                    best, scale = m, k
+        return best
+
+    def carried(mid, f0, f1):
+        """SAM's outline of a carton carried through these frames (no scan to label it): a track on this clip that
+        moves at least twice its own width inside them; the longest such. Never drawn on a person (SAM's box concept)."""
+        best = None
+        for tr in svc.store.find(Track, media_id=mid):
+            if tr.last_frame_index < f0 or tr.first_frame_index > f1:
+                continue
+            obs = [o for o in svc.store.find(RawObservation, track_id=tr.track_id)
+                   if o.bbox_xyxy_px and f0 <= o.source_frame.frame_index <= f1]  # fmt: skip
+            if len(obs) < 5:
+                continue
+            obs.sort(key=lambda o: o.source_frame.frame_index)
+            a, b = obs[0].bbox_xyxy_px, obs[-1].bbox_xyxy_px
+            moved = np.hypot((a[0] + a[2] - b[0] - b[2]) / 2, (a[1] + a[3] - b[1] - b[3]) / 2)
+            if moved >= 2 * max(a[2] - a[0], 1) and (best is None or len(obs) > best[1]):
+                best = (tr.track_id, len(obs))
+        return track(mid, best[0]) if best else ({}, {})
 
     def clip(seg, mid, t, before=PAD, after=PAD):
         m = svc.store.get(MediaAsset, mid)
@@ -274,18 +309,26 @@ def journey_segments(svc, case, waybill: str, answer: dict | None) -> list[Segme
     clip(seg, inside["media_id"], door_t, before=f_door - min(boxes, default=f_door) + 5, after=5)
     seg.contours, seg.boxes = polys, boxes
     segs.append(seg)
+    # the store door's own view (the case camera that sees the door closest, not the wide one that followed it)
     for key, title, sub in [("carried_in_at", f"Carried into the {place}", "Past the scan-in post: no scan"),
                             ("came_out_0", "Came out without it", "The carrier leaves empty-handed")]:
         if key in inside["iso"]:
             t = datetime.fromisoformat(inside["iso"][key])
-            if (m := clip_at("cam_CHK_STORE", t)) is not None:
-                segs.append(clip(Segment(title=title, tone="noscan", t=t, sub=sub), m.media_id, t, before=25, after=25))
+            m = best_view(inside["door_xy"], 1.0, t)
+            if m is not None and m.media_id != inside["media_id"]:
+                seg = clip(Segment(title=title, tone="noscan", t=t, sub=sub), m.media_id, t, before=25, after=25)
+                if key == "carried_in_at":  # the carton in the carrier's hands; coming out there is none to outline
+                    seg.contours, seg.boxes = carried(m.media_id, seg.f0, seg.f1)
+                segs.append(seg)
     # the record that says it left, made while the cameras show it still inside
     until = datetime.fromisoformat(inside["iso"]["until"])
     rec = next((s for s in sorted(svc.store.find(ScanEvent, event_kind="container_loaded"), key=lambda s: s.device_time_utc)
                 if any(i.value == where for i in [*s.identifiers, *([s.container] if s.container else [])])
                 and door_t < s.device_time_utc < until), None)  # fmt: skip
-    if rec is not None and (m := clip_at("cam_CHK_DOCK", rec.device_time_utc)) is not None:
+    plan = latest_plan(svc.store, case.site_id)
+    rp = plan.read_point(rec.station_id or rec.device_id) if rec is not None and plan else None
+    m = best_view(rp.position_m[:2], 1.0, rec.device_time_utc) if rp is not None else None
+    if rec is not None and m is not None:
         door = next((p for p in (rec.station_id or "").split("-") if p.startswith("D")), "")
         segs.append(clip(Segment(title=f"Record: {where} loaded on truck {door}".strip(), tone="noscan",
                                  t=rec.device_time_utc, sub="The cage leaves. The cameras say the carton is still inside"),
