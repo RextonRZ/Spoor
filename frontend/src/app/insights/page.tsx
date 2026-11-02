@@ -12,6 +12,7 @@ import { useState } from "react";
 import { useResource } from "@/lib/api";
 import type { Site } from "@/lib/types";
 import { HopTimes, MissingByHop, ScansPerMinute, type Flow } from "@/components/insights/Charts";
+import { Scorecard, type Score } from "@/components/insights/Scorecard";
 import "@/app/hub/hub.css";
 import "./insights.css";
 
@@ -26,6 +27,7 @@ interface Insights {
     footage_skipped: { share: number; case_id: string } | null };
   flow?: Flow;
   actions?: Action[];
+  scorecard?: Score;
   cost: { usd: number; calls: number; cases_with_spend: number; answer_seconds: number[]; footage_hours: number };
 }
 interface Action { key: string; tone: "bad" | "warn"; count: number; unit: string; title: string; why: string; fix: string;
@@ -49,12 +51,19 @@ export default function InsightsPage() {
       <header className="in-head">
         <div>
           <h1 className="in-h1">Hub insights</h1>
-          <p className="in-sub">Where this hub loses parcels, and whether the answers held up on the floor.</p>
+          <p className="in-sub">How every checkpoint did this shift, what to fix first, and whether Spoor&apos;s answers held up on the floor.</p>
         </div>
         <span className="in-demo">{d?.label ?? "Demo hub data"}</span>
       </header>
       {!d ? <div className="an-skel" style={{ height: 320, borderRadius: 12 }} aria-busy="true" /> : (
         <>
+          {d.scorecard?.rows.length ? (
+            <section className="in-sec" aria-labelledby="in-score">
+              <h2 id="in-score" className="in-h2">Checkpoints this shift</h2>
+              <Scorecard s={d.scorecard} name={name} />
+            </section>
+          ) : null}
+
           <section className="in-sec" aria-labelledby="in-fix">
             <h2 id="in-fix" className="in-h2">What needs fixing</h2>
             {d.actions?.length ? (

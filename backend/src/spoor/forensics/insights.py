@@ -113,6 +113,77 @@ def unread_at_tunnel(store: EvidenceStore, site_id: str) -> dict | None:
             "unmatched_unload_only": sorted(w for w in lone if w not in used), "usual_s": round(med, 1)}
 
 
+GROUP = [("SP-INDUCT", "Sorter"), ("SP-IN", "Unload"), ("SP-TUNNEL", "Scan tunnel"), ("SP-DIV-REJECT", "Reject chute"),
+         ("SP-DIV-", "Chutes"), ("SP-BAG-", "Bagging"), ("SP-CAGE", "Cages"), ("SP-STORE", "Exception store"),
+         ("SP-RFID", "Dock gates"), ("SP-LOAD", "Dock gates")]
+READ_WARN = 0.98  # below this a place's read rate is amber (stated on the screen)
+
+
+def scorecard(store: EvidenceStore, site_id: str, ins: dict) -> dict:
+    """One row per scan point, in flow order (Rexton 2 Nov: a checkpoint scorecard): items through, read rate, the
+    usual time from the item's previous scan, scans per minute over the shift (aligned to one clock), and its problems
+    from the records and the answered cases. Status: red where an answered case or a contradicted record sits at the
+    place; amber where its read rate is under 98 % or it holds unread cartons; else green. Nothing estimated."""
+    evs = sorted(store.find(ScanEvent, site_id=site_id), key=lambda e: e.device_time_utc)
+    if not evs:
+        return {"rows": []}
+    t0 = evs[0].device_time_utc.replace(second=0, microsecond=0)
+    n_min = int((evs[-1].device_time_utc - t0).total_seconds() // 60) + 1
+    prev: dict[str, tuple[datetime, str]] = {}  # waybill -> its last scan (time, place)
+    unread_kinds: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    rows: dict[str, dict] = {}
+    for e in evs:
+        sid = e.station_id or e.device_id
+        r = rows.setdefault(sid, {"id": sid, "group": next((g for k, g in GROUP if sid.startswith(k)), "Other"),
+                                  "reads": 0, "no_reads": 0, "per_minute": [0] * n_min, "gaps": [], "problems": [],
+                                  "cases": [], "status": "ok"})  # fmt: skip
+        r["per_minute"][int((e.device_time_utc - t0).total_seconds() // 60)] += 1
+        if e.read_outcome.value != "read":  # one unread carton can log several events at a place (divert + exception)
+            unread_kinds[sid][e.event_kind.value] += 1
+            r["no_reads"] = max(unread_kinds[sid].values())
+            continue
+        r["reads"] += 1
+        for i in e.identifiers:
+            if i.scheme.value == "carrier_waybill":
+                if i.value in prev and prev[i.value][1] != sid:  # from its previous PLACE (a repeat scan is not a hop)
+                    r["gaps"].append((e.device_time_utc - prev[i.value][0]).total_seconds())
+                prev[i.value] = (e.device_time_utc, sid)
+    unread = ins.get("unread") or {}
+    for r in rows.values():
+        tot = r["reads"] + r["no_reads"]
+        r["read_rate"] = round(r["reads"] / tot, 4) if tot and r["no_reads"] and r["reads"] else None  # (a reject chute only takes unread cartons)
+        r["usual_s"] = round(_q(r["gaps"], 0.5), 1) if len(r["gaps"]) >= 3 else None
+        del r["gaps"]
+        if r["no_reads"]:
+            if r["id"].startswith("SP-TUNNEL") and unread:
+                r["problems"].append(f"{r['no_reads']} labels not read; {len(unread.get('matched', []))} traced to their unload scan")
+            elif r["group"] == "Reject chute":
+                r["problems"].append(f"{r['no_reads']} unread cartons to match to their unload scans")
+            else:
+                r["problems"].append(f"{r['no_reads']} unread (the tunnel's no-reads)")
+            r["status"] = "warn"
+        elif r["read_rate"] is not None and r["read_rate"] < READ_WARN:
+            r["status"] = "warn"
+    # the answered cases' places: the store door they were carried through, the reader that contradicted the cameras
+    for b in ins["breaks"]:
+        for r in rows.values():
+            if r["group"] == b["where"] or (b["where"].lower() in r["group"].lower()):
+                r["problems"].append(f"{len(b['cases'])} carried in with no scan-in")
+                r["cases"] += b["cases"]
+                r["status"] = "bad"
+    for d in ins["disagreed"]:
+        door = d["where"].split(" at ")[-1]
+        for r in rows.values():
+            if r["group"] == "Dock gates" and r["id"].endswith(door):
+                r["problems"].append(f"{len(d['cases'])} cage marked loaded with its parcel still inside")
+                r["cases"] += d["cases"]
+                r["status"] = "bad"
+    order = {g: i for i, g in enumerate(["Unload", "Scan tunnel", "Sorter", "Reject chute", "Chutes", "Bagging", "Cages",
+                                         "Exception store", "Dock gates"])}  # the flow order
+    out = sorted(rows.values(), key=lambda r: (order.get(r["group"], 99), r["id"]))
+    return {"start": t0.isoformat(), "minutes": n_min, "read_warn": READ_WARN, "rows": out}
+
+
 def actions(ins: dict, unread: dict | None) -> list[dict]:
     """What needs fixing, most urgent first: a customer's case first, then records the cameras contradict, then the
     hub-wide patterns by how many parcels they touch. Each with its count, where, why (the evidence in one line), the
@@ -245,5 +316,6 @@ def hub_insights(store: EvidenceStore, site_id: str, *, now: datetime) -> dict:
                  "answer_seconds": sorted(answer_s), "footage_hours": round(footage_s / 3600, 2)},
     }  # fmt: skip
     out["actions"] = actions(out, out["unread"])
+    out["scorecard"] = scorecard(store, site_id, out)
     return out
 
