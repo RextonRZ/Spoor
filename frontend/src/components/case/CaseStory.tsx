@@ -20,7 +20,7 @@ import { api, previewUrl, signedUrl, useResource } from "@/lib/api";
 import { camId } from "@/lib/hub";
 import { pointsIn, useBestView, useContours } from "@/lib/focus";
 import type { MediaRow, Site } from "@/lib/types";
-import { HYPOTHESIS_WORDS, type InsideFacts, type InvestigationView } from "@/lib/answer";
+import type { InsideFacts, InvestigationView } from "@/lib/answer";
 import type { JourneyObject, XY } from "@/lib/journey";
 import { prefersReducedMotion } from "@/lib/motion";
 import { hms } from "@/lib/words";
@@ -28,8 +28,6 @@ import HubPlan from "@/components/plan/HubPlan";
 import "@/components/landing/landing.css";
 import "./casestory.css";
 
-const CHECK_WORDS: Record<string, string> = { stayed_in_area: "stayed inside", exit: "left through a door", transition: "moved between areas",
-  transfer: "handed over", parcel_match: "same parcel", order: "order of sightings" };
 
 interface Moment { key: string; iso: string; text: string; xy: XY; tone?: "bad"; from?: string; /** the measured time, when the frame shown is a moment off it */ at?: string;
   /** the clip that shows it and its camera; box: an outline at this moment (frame pixels) */
@@ -271,24 +269,6 @@ export function CaseStory({ caseId, inside, view, journey, truck, strip = true, 
         })}
       </ol>}
 
-      {view.hypotheses.length > 0 && (
-        <details className="an-more ia-ideas">
-          <summary>Agents&apos; ideas ({view.hypotheses.length})<span>not evidence</span></summary>
-          <ul>
-            {view.hypotheses.map((h, i) => {
-              const decided = h.tested?.find((t) => t.verdict === h.status) ?? h.tested?.[0];
-              return (
-                <li key={i}>
-                  <span className="an-chip" data-tone={h.status === "supported" ? "ok" : h.status === "contradicted" ? undefined : "plain"}>
-                    {HYPOTHESIS_WORDS[h.status] ?? h.status}</span>
-                  <q>{h.agent_wording}</q>
-                  <small>{decided ? `Tested: ${CHECK_WORDS[decided.kind] ?? decided.kind}` : "Tested: nothing new"}</small>
-                </li>
-              );
-            })}
-          </ul>
-        </details>
-      )}
     </div>
   );
 }

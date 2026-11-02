@@ -38,6 +38,12 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
   const cr = useResource<Conflicts>(`/v1/cases/${caseId}/conflicts`);
   const sr = useResource<SearchView>(`/v1/cases/${caseId}/search-tasks`);
   const reel = useResource<{ seconds: number }>(`/v1/cases/${caseId}/journey-reel`);
+  const run = useResource<{ steps: { type: string; t_s: number; cost_usd: number }[]; crew: unknown[] }>(`/v1/cases/${caseId}/run`);
+  const runEnd = run.data?.steps.findLast((x) => x.type === "run_end") ?? run.data?.steps.at(-1);
+  const runLink = runEnd ? (
+    <Link className="an-run" href={`/cases/${caseId}/investigate`}>
+      How {run.data!.crew.length} agents worked it out<span>{Math.round(runEnd.t_s)} s · US${runEnd.cost_usd.toFixed(2)}</span>
+    </Link>) : null;
   const j = jr.data?.objects[0];
   const mm = mr.data?.objects[0];
   const scans = j?.scans ?? [];
@@ -104,6 +110,7 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
                     <Link className="hb-btn hb-btn-primary" href={`/cases/${caseId}/search`}>Send someone to look</Link>
                     <Link className="hb-btn" href={`/cases/${caseId}/proof`}>Watch the proof{reel.data ? ` (${Math.round(reel.data.seconds)} s)` : ""}</Link>
                   </div>
+                  {runLink}
                 </div>
               </div>
             </section>
@@ -151,6 +158,7 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
                   <Link className="hb-btn hb-btn-primary" href={`/cases/${caseId}/search`}>Send someone to look</Link>
                   <Link className="hb-btn" href={`/cases/${caseId}/proof`}>Watch the proof</Link>
                 </div>
+                {runLink}
               </div>
             </div>
           </section>

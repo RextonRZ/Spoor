@@ -161,3 +161,10 @@
 .an-one-pic figure { margin: 0; }
 .an-skel-pic { aspect-ratio: 16 / 9; border-radius: 10px; }
 .an-next { margin-top: 8px; }
+
+/* the agents' run: a quiet link under the actions (the ideas they tested live there, marked not evidence) */
+.tb-app a.an-run { justify-self: start; display: inline-flex; align-items: baseline; gap: 8px; margin-top: 2px; font-size: 13px; font-weight: 550; color: var(--tb-ink-2); }
+.tb-app a.an-run::after { content: "→"; transition: transform 160ms cubic-bezier(0.23, 1, 0.32, 1); }
+.an-run span { font-size: 12px; font-weight: 400; color: var(--tb-mute); font-variant-numeric: tabular-nums; }
+@media (hover: hover) and (pointer: fine) { .tb-app a.an-run:hover { color: var(--tb-ink); } .tb-app a.an-run:hover::after { transform: translateX(2px); } }
+.an-run:focus-visible { outline: 2px solid #818cf8; outline-offset: 3px; border-radius: 4px; }

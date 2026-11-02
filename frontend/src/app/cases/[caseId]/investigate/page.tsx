@@ -4,15 +4,16 @@
  * log line and meter value comes from the run's typed steps (POST /v1/cases/{id}/run, streamed; GET replays the last
  * run). Model steps that are not configured say so in the log; nothing here is scripted.
  * Rexton, 3 Nov: show which agent did what and where. "Who did what" is one lane per agent with a dot per step in the
- * order they ran (a thin line passes the baton between them); "Where they looked" numbers every place the steps
+ * order they ran (a thin line passes the baton between them), under a numbered summary whose numbers sit above the dots; "Where they looked" numbers every place the steps
  * touched on the plan. Picking a step lights its places; picking a place picks its first step.
  */
 import Link from "next/link";
 import { use, useCallback, useEffect, useRef, useState } from "react";
-import { API_BASE, api, invalidate, useResource } from "@/lib/api";
+import { API_BASE, api, invalidate, signedUrl, useResource } from "@/lib/api";
 import { HUB, camId } from "@/lib/hub";
 import type { Journey, XY } from "@/lib/journey";
 import HubPlan, { type Stop } from "@/components/plan/HubPlan";
+import type { Chapter, Reel } from "@/components/case/JourneyReel";
 import "./investigate.css";
 
 interface Node { key: string; column: string; name: string; place: string; state: string; label: string }
@@ -82,6 +83,8 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
   const state = useResource<CaseState>(`/v1/cases/${caseId}/state`);
   const stored = useResource<RunView>(`/v1/cases/${caseId}/run`);
   const jr = useResource<Journey>(`/v1/cases/${caseId}/journey`);
+  const reel = useResource<Reel>(`/v1/cases/${caseId}/journey-reel`);
+  const [hoverPlace, setHoverPlace] = useState<string | null>(null);
   const [picked, setPicked] = useState<number | null>(null); // a step picked in "Who did what" (or by its place)
   const [peek, setPeek] = useState<number | null>(null); // a step under the pointer
   const [events, setEvents] = useState<Ev[]>([]);
@@ -131,13 +134,13 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
     started.current = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- the one-time kickoff: no stored run yet, start one
     if (!stored.data.steps.length) { void start(); return; }
-    replay(stored.data.steps as Ev[]);
+    replay(stored.data.steps as Ev[], true);
     return () => { if (timer.current) window.clearInterval(timer.current); started.current = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the stored run is known
   }, [stored.data]);
 
   useEffect(() => { replayRef.current = replay; });
-  function replay(evs: Ev[]) {
+  function replay(evs: Ev[], whole = false) {
     if (timer.current) window.clearInterval(timer.current);
     const end: End | null = evs.some((e) => e.type === "run_end") ? null : (() => {
       const last = [...evs].reverse().find((e) => e.type === "run_step") as Step | undefined;
@@ -146,6 +149,7 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
     })();
     const all = end ? [...evs, end] : evs;
     setEvents(all);
+    if (whole) { setShown(all.length); return; }
     setShown(0);
     let i = 0;
     timer.current = window.setInterval(() => {
@@ -195,6 +199,12 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
   };
   steps.forEach((s) => placesOf(s).forEach(addPlace));
   const nOf = (key: string) => places.findIndex((p) => p.key === key) + 1;
+  const chapters = reel.data?.chapters ?? [];
+  const frameOf = (key: string): Chapter | undefined => key === "last" ? chapters.find((c) => c.last_scan)
+    : key === "zone" ? chapters.find((c) => c.tone === "seen" && c.camera === "CHK_STORE") ?? chapters.find((c) => c.tone === "noscan")
+    : key === "cam:CHK_STORE" ? chapters.find((c) => c.tone === "noscan" && c.camera === "CHK_STORE") ?? chapters.find((c) => c.camera === "CHK_STORE")
+    : chapters.find((c) => c.camera === key.slice(4));
+  const hm = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { timeZone: "Asia/Kuala_Lumpur", hour12: false });
 
   // the step being looked at: the one picked, else the one hovered, else the one running now
   const focus = steps.find((s) => s.seq === (peek ?? picked)) ?? (!done ? cur : undefined) ?? null;
@@ -202,13 +212,29 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
   const stops: Stop[] = places.map((p, i) => ({ key: p.key, xy: p.xy, n: i + 1, tone: p.tone, label: p.label, on: focusPlaces.includes(p.key) }));
   const pickPlace = (key: string) => { const s = steps.find((x) => placesOf(x).includes(key)); if (s) setPicked(s.seq); };
 
+  const ideas = steps.flatMap((s, i) => {
+    if (s.tool !== "propose") return [];
+    const v = steps.slice(i + 1).find((x) => x.role === "verifier");
+    const quote = s.text.match(/“([^”]+)”/)?.[1] ?? s.text.replace(/^Idea:\s*/, "");
+    const passed = !!v && /^Passed/.test(v.text);
+    const inner = v?.text.match(/\(([^)]*)\)/)?.[1];
+    const tested = !!inner?.startsWith("tested: "), why = inner?.replace(/^tested: /, "");
+    return [{ seq: s.seq, quote, passed, tested, verdict: v ? (passed ? "Passed" : /^Rejected/.test(v.text) ? "Rejected" : "Not proven") : "Waiting", why }];
+  });
+  const beatAt = new Map(story.map((b, i) => [b.seq, i + 1]));
+
   // ---- who did what: one lane per agent, one dot per step in the order they ran, a thin line passing the baton
   const lanes = crew.filter((c) => steps.some((s) => s.role === c.role) || !done);
   const laneOf = (role: string) => lanes.findIndex((c) => c.role === role);
   const N = Math.max(steps.length, 1);
   const x = (i: number) => ((i + 0.5) / N) * 100;
   const LANE = 34;
-  const baton = steps.map((s, i) => `${x(i)},${laneOf(s.role) * LANE + LANE / 2}`).join(" ");
+  const pts = steps.map((s, i) => [x(i), laneOf(s.role) * LANE + LANE / 2] as const);
+  const baton = pts.map(([px, py], i) => {
+    if (i === 0) return `M${px},${py}`;
+    const [qx, qy] = pts[i - 1], m = (qx + px) / 2;
+    return `C${m},${qy} ${m},${py} ${px},${py}`;
+  }).join(" ");
 
   return (
     <div className="iv">
@@ -228,14 +254,38 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
 
       <div className="iv-main">
         <section className="iv-left">
+          <div className="iv-card iv-log">
+            <h2>In short</h2>
+            {story.length > 0 ? (
+              <ol className="iv-story" aria-label="The run in short">
+                {story.map((b, i) => {
+                  const st = steps.find((x) => x.seq === b.seq);
+                  const at = st ? placesOf(st) : [];
+                  return (
+                    <li key={b.key} className="iv-story-row" data-now={!done && i === story.length - 1 ? "" : undefined}>
+                      <button type="button" className="iv-story-btn" onClick={() => setPicked(b.seq)} aria-pressed={focus?.seq === b.seq}>
+                        <span className="iv-story-n">{i + 1}</span>
+                        <span className="iv-story-text">{b.text}</span>
+                        <span className="iv-story-meta">
+                          {st && <span className="iv-chip" data-fam={fam(st.model)}>{st.who}</span>}
+                          {at.map((k) => <b key={k} className="iv-story-at" title={places.find((p) => p.key === k)?.label}>{nOf(k)}</b>)}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ol>
+            ) : <p className="iv-log-wait" role={failed ? "alert" : undefined}>{failed ? `The run could not start: ${failed}` : stored.loading ? "Loading the last run" : "Starting the crew"}</p>}
+          </div>
+
           <div className="iv-card iv-relay-card">
             <div className="iv-card-head">
-              <h2>Who did what</h2>
-              <span>Each dot is one step, left to right in the order they ran. Pick one to see where.</span>
+              <h2>Every step, by agent</h2>
+              <span>One dot per step, in the order they ran. Numbers match the lines above. Pick a dot to see where.</span>
             </div>
             {steps.length > 0 ? (
               <div className="iv-relay" onMouseLeave={() => setPeek(null)}>
-                <ul className="iv-lanes-who" aria-hidden="true">
+                <ul className="iv-lanes-who" aria-hidden="true" style={{ paddingTop: 22 }}>
                   {lanes.map((c) => (
                     <li key={c.role} style={{ height: LANE }} data-fam={fam(c.model)} data-active={!done && cur?.role === c.role ? "" : undefined}>
                       <span className="iv-who">{c.who}</span>
@@ -244,11 +294,14 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
                   ))}
                 </ul>
                 <div className="iv-lanes-scroll">
-                  <div className="iv-lanes" style={{ height: lanes.length * LANE, minWidth: N * 22 }}>
+                  <div className="iv-lanes" style={{ height: lanes.length * LANE, minWidth: N * 22, marginTop: 22 }}>
                     {lanes.map((c, r) => <span key={c.role} className="iv-lane-line" style={{ top: r * LANE + LANE / 2 }} />)}
                     <svg className="iv-baton" viewBox={`0 0 100 ${lanes.length * LANE}`} preserveAspectRatio="none" aria-hidden="true">
-                      <polyline points={baton} fill="none" vectorEffect="non-scaling-stroke" />
+                      <path d={baton} fill="none" vectorEffect="non-scaling-stroke" />
                     </svg>
+                    {steps.map((s, i) => beatAt.has(s.seq) && (
+                      <span key={`b${s.seq}`} className="iv-beat" style={{ left: `${x(i)}%` }} aria-hidden="true">{beatAt.get(s.seq)}</span>
+                    ))}
                     <ol className="iv-dots" aria-label="Every step, in order">
                       {steps.map((s, i) => {
                         const hollow = s.status !== "done" || /^(Unproven|Rejected)/.test(s.text);
@@ -257,6 +310,7 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
                           <li key={s.seq} style={{ left: `${x(i)}%`, top: laneOf(s.role) * LANE + LANE / 2 }}>
                             <button type="button" className="iv-dot" data-fam={fam(s.model)} data-hollow={hollow ? "" : undefined}
                               data-on={focus?.seq === s.seq ? "" : undefined} aria-pressed={picked === s.seq}
+                              data-dim={hoverPlace && !placesOf(s).includes(hoverPlace) ? "" : undefined}
                               aria-label={`Step ${i + 1}, ${runTime(s.t_s)}, ${lane?.who ?? s.who}: ${s.text}`}
                               onMouseEnter={() => setPeek(s.seq)} onFocus={() => setPeek(s.seq)} onBlur={() => setPeek(null)}
                               onClick={() => setPicked((p) => (p === s.seq ? null : s.seq))} />
@@ -267,10 +321,14 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
                   </div>
                 </div>
               </div>
-            ) : <p className="iv-log-wait" role={failed ? "alert" : undefined}>{failed ? `The run could not start: ${failed}` : stored.loading ? "Loading the last run" : "Starting the crew"}</p>}
+            ) : null}
 
             {focus && (
-              <div className="iv-focus" data-fam={fam(focus.model)} aria-live="polite">
+              <div className="iv-focus" data-fam={fam(focus.model)} aria-live="polite" data-pic={focusPlaces[0] && frameOf(focusPlaces[0])?.thumb_url ? "" : undefined}>
+                {focusPlaces[0] && frameOf(focusPlaces[0])?.thumb_url && (
+                  // eslint-disable-next-line @next/next/no-img-element -- a signed frame of the journey video, from the API
+                  <img className="iv-focus-pic" src={signedUrl(frameOf(focusPlaces[0])!.thumb_url!)} alt="" />
+                )}
                 <div className="iv-focus-top">
                   <span className="iv-focus-t">{runTime(focus.t_s)}</span>
                   <span className="iv-focus-who">{focus.who}</span>
@@ -287,21 +345,22 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
             )}
           </div>
 
-          <div className="iv-card iv-log">
-            <h2>In short</h2>
-            {story.length > 0 && (
-              <ol className="iv-story" aria-label="The run, step by step">
-                {story.map((b, i) => (
-                  <li key={b.key} className="iv-story-row" data-now={!done && i === story.length - 1 ? "" : undefined}>
-                    <button type="button" className="iv-story-btn" onClick={() => setPicked(b.seq)} aria-pressed={focus?.seq === b.seq}>
-                      <span className="iv-story-text">{b.text}</span>
-                      <span className="iv-story-model">{b.model}</span>
+          {ideas.length > 0 && (
+            <div className="iv-card iv-ideas">
+              <div className="iv-card-head"><h2>Ideas they tested</h2><span>Ideas guide where to look. They are never evidence.</span></div>
+              <ol className="iv-idea-list">
+                {ideas.map((d) => (
+                  <li key={d.seq}>
+                    <button type="button" className="iv-idea" onClick={() => setPicked(d.seq)} aria-pressed={focus?.seq === d.seq}>
+                      <span className="iv-verdict" data-ok={d.passed ? "" : undefined}>{d.verdict}</span>
+                      <q>{d.quote}</q>
+                      {d.why && <small>{d.tested ? "Tested" : "Why"}: {d.why}</small>}
                     </button>
                   </li>
                 ))}
               </ol>
-            )}
-          </div>
+            </div>
+          )}
 
           <div className="iv-foot">
             {done && <Link className="iv-btn-primary" href={`/cases/${caseId}`}>See the answer</Link>}
@@ -320,13 +379,22 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
             <ol className="iv-places">
               {places.map((p, i) => {
                 const who = crew.filter((c) => steps.some((s) => s.role === c.role && placesOf(s).includes(p.key)));
+                const fr = frameOf(p.key);
                 return (
                   <li key={p.key}>
-                    <button type="button" className="iv-place" data-tone={p.tone} data-on={focusPlaces.includes(p.key) ? "" : undefined} onClick={() => pickPlace(p.key)}>
-                      <span className="iv-place-n">{i + 1}</span>
-                      <span className="iv-place-name">{p.label}</span>
-                      <span className="iv-place-who">
-                        {who.map((c) => <span key={c.role} className="iv-chip" data-fam={fam(c.model)}>{c.who}</span>)}
+                    <button type="button" className="iv-place" data-tone={p.tone} data-on={focusPlaces.includes(p.key) ? "" : undefined} onClick={() => pickPlace(p.key)}
+                      onMouseEnter={() => setHoverPlace(p.key)} onMouseLeave={() => setHoverPlace(null)} onFocus={() => setHoverPlace(p.key)} onBlur={() => setHoverPlace(null)}>
+                      <span className="iv-place-pic">
+                        {/* eslint-disable-next-line @next/next/no-img-element -- a signed frame of the journey video, from the API */}
+                        {fr?.thumb_url ? <img src={signedUrl(fr.thumb_url)} alt="" /> : <span className="iv-place-none" />}
+                        <span className="iv-place-n">{i + 1}</span>
+                      </span>
+                      <span className="iv-place-body">
+                        <span className="iv-place-name">{p.label}</span>
+                        {fr && <span className="iv-place-fr">{hm(fr.t)} · {fr.title}</span>}
+                        <span className="iv-place-who">
+                          {who.map((c) => <span key={c.role} className="iv-chip" data-fam={fam(c.model)}>{c.who}</span>)}
+                        </span>
                       </span>
                     </button>
                   </li>

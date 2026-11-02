@@ -26,6 +26,9 @@ export function CaseSteps({ caseId, waybill, said, quote, page, here }: { caseId
         <span className="fl-sep" aria-hidden="true">/</span>
         {page ? <Link href={`/cases/${caseId}`} className="fl-wb">{waybill || "Case"}</Link> : <span className="fl-wb fl-wb-now">{waybill || "Case"}</span>}
         {said && <span className="fl-said" title={quote ? `Customer service: “${quote}”` : undefined}>{said}</span>}
+        <Link href={`/cases/${caseId}/investigate`} className="fl-run">
+          How the agents worked<span aria-hidden="true">→</span>
+        </Link>
       </div>
       <nav aria-label="Case steps">
         <ol className="fl-steps">

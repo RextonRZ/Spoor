@@ -75,7 +75,7 @@
 .iv-lanes { position: relative; }
 .iv-lane-line { position: absolute; left: 0; right: 0; height: 1px; background: var(--tb-line, rgba(255, 255, 255, 0.07)); }
 .iv-baton { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.iv-baton polyline { stroke: color-mix(in srgb, var(--tb-ink-2, #c9ccd3) 30%, transparent); stroke-width: 1.25; stroke-linejoin: round; }
+.iv-baton path { stroke: color-mix(in srgb, var(--tb-ink-2, #c9ccd3) 30%, transparent); stroke-width: 1.25; stroke-linejoin: round; }
 .iv-dots { list-style: none; margin: 0; padding: 0; }
 .iv-dots li { position: absolute; width: 0; height: 0; }
 /* the dot: a 12 px mark inside a 28 px target; hollow when a step could not run or an idea was not proven */
@@ -137,3 +137,63 @@
   .iv-who { font-size: 12px; white-space: normal; }
 }
 @media (prefers-reduced-motion: reduce) { .iv-dot { animation: none; } .iv-dot::before, .iv-story-btn, .iv-place { transition: none; } }
+
+/* the summary first: number, the line, then who did it and where (the place numbers of the plan) */
+.iv-story-row { padding-left: 0; }
+.iv-story-row::before, .iv-story-row:not(:last-child)::after { display: none; }
+.iv-story-btn { grid-template-columns: 22px minmax(0, 1fr) auto; }
+.iv-story-n { align-self: start; margin-top: 2px; display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; font-size: 10.5px; font-weight: 700;
+  font-variant-numeric: tabular-nums; color: var(--tb-ink-2, #c9ccd3); box-shadow: inset 0 0 0 1.2px var(--tb-line-2, rgba(255, 255, 255, 0.18)); }
+.iv-story-row[data-now] .iv-story-n { background: var(--tb-accent, #6366f1); color: #fff; box-shadow: none; }
+.iv-story-meta { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.iv-story-at { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 4px; box-sizing: border-box; border-radius: 9px; font-size: 10.5px;
+  font-weight: 700; font-variant-numeric: tabular-nums; color: var(--tb-ink, #f4f5f7); box-shadow: inset 0 0 0 1.2px var(--tb-mute, #8b909b); }
+@media (max-width: 640px) { .iv-story-btn { grid-template-columns: 22px minmax(0, 1fr); } .iv-story-meta { grid-column: 2; } }
+/* the summary's numbers over their dots */
+.iv-beat { position: absolute; top: -21px; transform: translateX(-50%); min-width: 16px; height: 16px; padding: 0 3px; box-sizing: border-box; border-radius: 8px;
+  display: grid; place-items: center; font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--tb-ink-2, #c9ccd3);
+  box-shadow: inset 0 0 0 1px var(--tb-line-2, rgba(255, 255, 255, 0.18)); background: var(--tb-bg, #0c0d11); }
+/* ideas they tested */
+.iv-ideas { padding: 16px 0; gap: 10px; }
+.iv-idea-list { list-style: none; margin: 0; padding: 0; display: grid; }
+.iv-idea { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 3px 14px; padding: 10px 8px;
+  margin-left: -8px; border-radius: 8px; border-top: 1px solid var(--tb-line, rgba(255, 255, 255, 0.06)); transition: background-color 140ms ease; }
+@media (hover: hover) and (pointer: fine) { .iv-idea:hover { background: rgba(255, 255, 255, 0.035); } }
+.iv-idea[aria-pressed="true"] { background: rgba(99, 102, 241, 0.1); }
+.iv-idea:focus-visible { outline: 2px solid #818cf8; outline-offset: 0; }
+.iv-verdict { justify-self: start; align-self: start; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--tb-ink-2, #c9ccd3); }
+.iv-verdict::before { content: ""; width: 7px; height: 7px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px currentColor; }
+.iv-verdict[data-ok] { color: #86efac; }
+.iv-verdict[data-ok]::before { background: currentColor; box-shadow: none; }
+.iv-idea q { font-size: 14px; line-height: 1.5; color: var(--tb-ink, #f4f5f7); text-wrap: pretty; }
+.iv-idea small { grid-column: 2; font-size: 12.5px; color: var(--tb-mute, #8b909b); }
+@media (max-width: 640px) { .iv-idea { grid-template-columns: 1fr; } .iv-idea small { grid-column: 1; } }
+
+/* places as their real frames (the journey video's own frame of that camera), number on the frame */
+.iv-place { grid-template-columns: 128px minmax(0, 1fr); gap: 12px; align-items: start; }
+.iv-place-pic { position: relative; display: block; aspect-ratio: 16 / 9; border-radius: 7px; overflow: hidden; background: #15171c;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); transition: box-shadow 160ms ease; }
+.iv-place-pic img, .iv-place-none { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.iv-place-pic .iv-place-n { position: absolute; left: 5px; top: 5px; margin: 0; background: rgba(10, 11, 14, 0.78); }
+.iv-place[data-tone="scan"] .iv-place-pic { box-shadow: inset 0 0 0 1px rgba(74, 222, 128, 0.45); }
+.iv-place[data-tone="bad"] .iv-place-pic { box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.5); }
+.iv-place[data-on] .iv-place-pic { box-shadow: 0 0 0 2px var(--tb-accent, #6366f1); }
+.iv-place[data-on] .iv-place-pic .iv-place-n { background: var(--tb-accent, #6366f1); }
+.iv-place-body { display: grid; gap: 3px; min-width: 0; }
+.iv-place-fr { font-size: 12px; color: var(--tb-mute, #8b909b); font-variant-numeric: tabular-nums; }
+.iv-place-who { grid-column: auto; margin-top: 2px; }
+/* the focus card with its place's frame on the right */
+.iv-focus[data-pic] { grid-template-columns: minmax(0, 1fr) 176px; column-gap: 16px; }
+.iv-focus[data-pic] > :not(.iv-focus-pic) { grid-column: 1; }
+.iv-focus-pic { grid-column: 2; grid-row: 1 / span 3; width: 176px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 7px; align-self: start;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1); animation: iv-fade 180ms ease-out; }
+@keyframes iv-fade { from { opacity: 0; } }
+/* hovering a place: the steps that never touched it step back */
+.iv-dot { transition: opacity 160ms ease; }
+.iv-dot[data-dim] { opacity: 0.2; }
+@media (max-width: 640px) {
+  .iv-place { grid-template-columns: 104px minmax(0, 1fr); }
+  .iv-focus[data-pic] { grid-template-columns: 1fr; }
+  .iv-focus-pic { grid-column: 1; grid-row: auto; width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) { .iv-focus-pic { animation: none; } .iv-dot { transition: none; } }
