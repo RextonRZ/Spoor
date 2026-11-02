@@ -30,4 +30,4 @@
 - [x] Custom player: scrubber split into the steps (hover shows that step's frame), play/pause, time, "Step n of N", full screen; keys Space / arrows / F
 - [x] Reel sub-line unreadable on bright frames ("SAM tracked no carton..."): solid shade behind the words + brighter text with a soft shadow
 - [x] Proof: "How sure" removed (Answer keeps the one limit; the numbers stay in LIMITATIONS / EVALUATION)
-- [ ] Customer asked box on the Answer: kept for now (Rexton asked; recommendation sent)
+- [x] Customer asked box removed (it repeated the header chip; its button only opened a template). Header chip now: "customer says it never arrived · 4 days after its last scan", their words on hover. The full customer update stays on the Report

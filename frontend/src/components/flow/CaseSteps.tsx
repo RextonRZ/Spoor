@@ -15,7 +15,8 @@ const STEPS = [
   ["/report", "Report", "Close the case"],
 ] as const;
 
-export function CaseSteps({ caseId, waybill, said, page, here }: { caseId: string; waybill: string; said?: string | null; page?: string; here: 0 | 1 | 2 | 3 }) {
+export function CaseSteps({ caseId, waybill, said, quote, page, here }: { caseId: string; waybill: string; said?: string | null;
+  /** the customer's own words, on hover */ quote?: string | null; page?: string; here: 0 | 1 | 2 | 3 }) {
   return (
     <header className="fl-casebar">
       <div className="fl-top">
@@ -24,7 +25,7 @@ export function CaseSteps({ caseId, waybill, said, page, here }: { caseId: strin
         </Link>
         <span className="fl-sep" aria-hidden="true">/</span>
         {page ? <Link href={`/cases/${caseId}`} className="fl-wb">{waybill || "Case"}</Link> : <span className="fl-wb fl-wb-now">{waybill || "Case"}</span>}
-        {said && <span className="fl-said">{said}</span>}
+        {said && <span className="fl-said" title={quote ? `Customer service: “${quote}”` : undefined}>{said}</span>}
       </div>
       <nav aria-label="Case steps">
         <ol className="fl-steps">

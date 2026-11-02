@@ -16,9 +16,8 @@ import type { CaseRecord } from "@/lib/checkpoints";
 import { hms, momentLabel, placeOf } from "@/lib/words";
 import type { Site } from "@/lib/types";
 import { CaseSteps } from "@/components/flow/CaseSteps";
-import { NextCams, View } from "@/components/hub/parts";
+import { NextCams, View, waited } from "@/components/hub/parts";
 import { CaseStory } from "@/components/case/CaseStory";
-import { CustomerBox } from "@/components/case/CustomerBox";
 import { ZONE_NAMES } from "@/components/plan/HubPlan";
 import "./answer.css";
 
@@ -48,6 +47,9 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
   const found = sr.data?.found ?? null;
   const next = mm?.expected_next ?? [];
   const waybill = st.data?.case.target_description.split(" ").at(-1) ?? "";
+  // what the customer said, once, in the header: with how long they had waited since its last scan here (their words on hover)
+  const said = st.data?.case.complaint
+    ? `customer says it never arrived${last ? ` · ${waited(last.t, st.data.case.created_at)} after its last scan` : ""}` : null;
   const ready = !!(j && mm); // (the places it could have reached take longer: they add a line when they come)
   const siteId = sites.data?.[0]?.site_id;
 
@@ -85,7 +87,7 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
     ];
     return (
       <div className="an">
-        <CaseSteps caseId={caseId} waybill={waybill} said={st.data?.case.complaint ? "customer says it never arrived" : null} here={0} />
+        <CaseSteps caseId={caseId} waybill={waybill} said={said} quote={st.data?.case.complaint} here={0} />
         <div className="an-body" data-answered="">
           <div className="an-main">
             <section className="an-verdict an-one" aria-labelledby="an-h" data-level="medium">
@@ -105,7 +107,6 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
                 </div>
               </div>
             </section>
-            {st.data?.case.complaint && <CustomerBox caseId={caseId} complaint={st.data.case.complaint} opened={st.data.case.created_at} lastScan={last?.t} waybill={waybill} />}
           </div>
         </div>
       </div>
@@ -128,7 +129,7 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
   ];
   return (
     <div className="an">
-      <CaseSteps caseId={caseId} waybill={waybill} said={st.data?.case.complaint ? "customer says it never arrived" : null} here={0} />
+      <CaseSteps caseId={caseId} waybill={waybill} said={said} quote={st.data?.case.complaint} here={0} />
       <div className="an-body" data-answered="">
         <div className="an-main">
           <section className="an-verdict an-one" aria-labelledby="an-h" data-level={level}>
@@ -153,7 +154,6 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
               </div>
             </div>
           </section>
-          {st.data?.case.complaint && <CustomerBox caseId={caseId} complaint={st.data.case.complaint} opened={st.data.case.created_at} lastScan={last?.t} waybill={waybill} settled={!!found} />}
           {!found && mm && next.length > 0 && <section className="an-card an-next"><NextCams caseId={caseId} /></section>}
         </div>
       </div>
