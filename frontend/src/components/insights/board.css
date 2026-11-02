@@ -180,4 +180,4 @@
 .db-dl dd { white-space: nowrap; }
 /* loop pass: an odd last tile takes the row instead of leaving half of it empty (3-up: the last two share it) */
 @media (max-width: 1200px) { .db-kpis > :last-child:nth-child(3n + 1) { grid-column: span 3; } .db-kpis > :last-child:nth-child(3n + 2) { grid-column: span 2; } }
-@media (max-width: 700px) { .db-kpis > :last-child { grid-column: auto; } .db-kpis > :last-child:nth-child(odd) { grid-column: span 2; } }
+@media (max-width: 640px) { .db-kpis > :last-child { grid-column: auto; } .db-kpis > :last-child:nth-child(odd) { grid-column: span 2; } }
