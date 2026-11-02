@@ -42,3 +42,13 @@ def test_work_area_is_an_image_region_around_it():
 def test_point_out_of_view_is_refused():
     with pytest.raises(AnchorError):
         anchor_for(point(position_m=(3.0, -40.0, 0.0)), CAL)
+
+
+def test_leaves_out_of_view_counts_only_when_asked():
+    """A close-up whose view the work area fills: the carton is carried out of the picture, never out of the drawn
+    area. That counts as leaving only when the caller asks (container watches), and only at the frame's edge."""
+    area = [(0, 0), (100, 0), (100, 100), (0, 100)]
+    out = [(40, 40, 60, 60), (0, 50, 20, 70)]  # last box at the left edge
+    assert not leaves(area, out)
+    assert leaves(area, out, out_of_view=(100, 100))
+    assert not leaves(area, [(40, 40, 60, 60), (30, 50, 50, 70)], out_of_view=(100, 100))

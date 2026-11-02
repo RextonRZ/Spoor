@@ -592,3 +592,34 @@ def test_planners_read_the_log_after_its_corrections(world, now):
                                          "correction_reason": "incorrect_data"}))
     assert plan_watches(w.store, plan, w.store.find(ScanEvent)) == []
     assert len(plan_handshakes(w.store, plan, w.store.find(ScanEvent))) == 1
+
+
+def test_left_alert_candidates_are_parcels_and_know_when_their_cage_left(world, now):
+    """Candidates are parcels: a bag scanned into a cage is not a carton. A parcel whose cage was then loaded with the
+    cage's own read (RFID at a dock) is accounted for through the cage from that read on, so the watch carries when."""
+    from spoor.forensics.left_alert import plan_watches
+
+    w = world
+    w.camera("cam_a")
+    w.clip("cam_a", 0, 30)
+    plan = SitePlan.model_validate(plan_for(w.site.site_id, now).model_dump() | {"read_points": [
+        {"scan_point_id": "SP-CAGE", "device_kind": "handheld", "position_m": (2, 3, 1.0),
+         "work_area_m": [[(1.5, 2.5), (2.5, 2.5), (2.5, 3.5), (1.5, 3.5)]], "visible_by": ["cam_a"]}]})
+
+    def put(ident, kind, t_s, cid, **kw):
+        w.store.put(ScanEvent(scan_event_id=new_id("scan_event"), site_id=w.site.site_id, source_type="scan_simulated",
+                              import_batch="t", identifiers=ident, event_kind=kind,
+                              device_time_utc=w.t0 + timedelta(seconds=t_s), clock_domain_id="clkd_wcs",
+                              device_id=kw.pop("device", "SP-CAGE"), device_kind=kw.pop("dev_kind", "handheld"),
+                              station_id="SP-CAGE", container=ParcelIdentifier(scheme="container", value=cid),
+                              container_type="cage", **kw))
+
+    put([ParcelIdentifier(scheme="carrier_waybill", value="CTX100000000001")], "container_add", 2.0, "RC-1")
+    put([ParcelIdentifier(scheme="container", value="BAG-C01-1")], "container_add", 3.0, "RC-1")
+    put([ParcelIdentifier(scheme="carrier_waybill", value="CTX100000000002")], "container_add", 4.0, "RC-2")
+    put([], "container_loaded", 8.0, "RC-2", device="SP-RFID", dev_kind="rfid_portal",
+        parent_container=ParcelIdentifier(scheme="container", value="TRUCK-D08"))
+    ws = plan_watches(w.store, plan, w.store.find(ScanEvent))
+    got = {p["waybill"]: p["container_left"] for p in ws[0].parcels}
+    assert set(got) == {"CTX100000000001", "CTX100000000002"}  # (not the bag)
+    assert got["CTX100000000001"] is None and got["CTX100000000002"] == w.t0 + timedelta(seconds=8)

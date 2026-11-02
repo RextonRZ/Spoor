@@ -1290,6 +1290,8 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
 
         rows = sorted(svc.store.find(ScanHandshake, waybill=waybill), key=lambda h: (h.at_utc, h.camera_id))
         rows = [h for h in rows if p.can_see_site(h.site_id)] if hasattr(p, "can_see_site") else rows
+        filmed = {(h.scan_event_id, h.camera_id) for h in rows if h.media_id}  # a later clip supersedes "no footage"
+        rows = [h for h in rows if h.media_id or (h.scan_event_id, h.camera_id) not in filmed]
         return {"waybill": waybill, "stamps": [h.model_dump(mode="json") for h in rows],
                 "label": "Scanned here: the barcode says which parcel; SAM outlines the carton at the scan instant"}
 

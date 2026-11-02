@@ -208,11 +208,13 @@ for spec_name in ("hub_spec_lineAb.json", "hub_spec.json"):
         probes = sp["device_parts_m"] or ([[q[0], q[1], height] for poly in sp["work_area_m"] for q in poly]
                                           + [sp["position_m"]] if sp["work_area_m"] else [sp["position_m"]])
         vis = []
+        mounted_for = {c["id"] for c in spec["cameras"] if c.get("scan_point") == sp["id"]}
         for cam in cams:
             got = [ppm_seen(cam, p) for p in probes]
             ok = [g for g in got if g >= OBSERVE_PPM]
-            # a device counts if any part is seen; a work area only if the camera sees at least half of it
-            if ok and (not sp["work_area_m"] or len(ok) * 2 >= len(probes)):
+            # a device counts if any part is seen; a work area only if the camera sees at least half of it, or any
+            # part of it when the camera is the checkpoint camera mounted for this point (CHK_CAGE_W: bays S11-S13)
+            if ok and (not sp["work_area_m"] or len(ok) * 2 >= len(probes) or cam.name in mounted_for):
                 vis.append({"camera": cam.name, "ppm": round(min(ok))})
         sp["visible_by"] = vis
         new_vis = [v["camera"] for v in vis]

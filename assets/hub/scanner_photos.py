@@ -8,6 +8,9 @@ these stills only, never saved into a blend.
       then scanner_photo is added to those tunnel records in events_scan_simulated_S2(.jsonl, _long.jsonl)
   py -X utf8 assets/hub/scanner_photos.py --finish
       (Blender's Python has no Pillow) stamps the stills from the manifest and writes scanner_photo into the logs
+  blender -b <W1.blend> -P assets/hub/scanner_photos.py -- --replay --scenario W1
+      the story parcel replayed in W1 rides the tunnel: its real still at its read (replaces the "from recorded
+      history" stand-in; then --finish, which stamps it from the S2 log's record of that read)
   blender -b <S2.blend> -P assets/hub/scanner_photos.py -- --tile
       the DWS screen's camera tile: one window read (a kraft box), raw, + its record -> build/signs/dws_tile_A.png/.json
       (make_dws_screen.py puts both on the screen)
@@ -34,6 +37,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--all", action="store_true")
 ap.add_argument("--tile", action="store_true")
 ap.add_argument("--finish", action="store_true")
+ap.add_argument("--replay", action="store_true", help="W1/W2 blend: the replayed story parcel at its real read")
 ap.add_argument("--scenario", default="S2")
 ap.add_argument("--res", default="1280x720")
 ap.add_argument("--samples", type=int, default=16)
@@ -183,6 +187,14 @@ if a.tile:
         "destination_chute", "dims_mm", "weight_g")} | {"truth_chute": by_pid[r["parcel_id"]].get("target_chute")},
         indent=1), encoding="utf-8")
     print("TILE", r["parcel_id"], "frame", f, flush=True)
+elif a.replay:  # the replayed logged parcel (truth/replay_<S>.json) physically rides the tunnel: its real still
+    rp = json.loads((BUILD / "truth" / f"replay_{S}.json").read_text(encoding="utf-8"))
+    pid = rp["parcel"]
+    f = under_camera(by_pid[pid], 1 + int(round(rp["events"]["tunnel_read"]["physical_s"] * 10)))
+    sc.frame_set(f)
+    render(OUT / f"_{pid}.png")
+    (OUT / "manifest.json").write_text(json.dumps({pid: False}, indent=1), encoding="utf-8")
+    print("STILL (replay)", pid, "frame", f, "-> run: py -X utf8 assets/hub/scanner_photos.py --finish", flush=True)
 elif a.all:
     man = {}
     for r, f_read in reads_in_window():

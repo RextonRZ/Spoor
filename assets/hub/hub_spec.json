@@ -3366,6 +3366,10 @@
     {
      "camera": "CAM_13",
      "ppm": 77
+    },
+    {
+     "camera": "CHK_CAGE_W",
+     "ppm": 307
     }
    ],
    "device_parts_m": [],

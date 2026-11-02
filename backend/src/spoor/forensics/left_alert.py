@@ -11,13 +11,14 @@ cameras, keeping cartons that start inside the work area and leave it) is the se
 from dataclasses import dataclass
 from datetime import datetime
 
-from spoor.contracts import CameraCoverage, ClockSync, MediaAsset, ScanEvent, SitePlan
-from spoor.contracts.parcels import ContainerType, DeviceKind, ReadOutcome, ScanEventKind
+from spoor.contracts import CameraCoverage, MediaAsset, ScanEvent, SitePlan
+from spoor.contracts.parcels import ContainerType, DeviceKind, IdentifierScheme, ReadOutcome, ScanEventKind
 from spoor.store import EvidenceStore
 from spoor.store.parcels import effective, timed
 
-from .handshake import CLOCK_MS, waybill_of
+from .handshake import waybill_of
 
+CONTAINER_LEVEL = frozenset({ScanEventKind.CONTAINER_LOADED, ScanEventKind.CONTAINER_REMOVE})
 OPEN_CONTAINERS = frozenset({ContainerType.CAGE, ContainerType.PALLET, ContainerType.GAYLORD})  # cartons stay in view
 
 
@@ -42,12 +43,22 @@ def plan_watches(store: EvidenceStore, plan: SitePlan, scans: list[ScanEvent]) -
         ts = timed(store, s)
         if w not in last or ts.t > last[w][1]:
             last[w] = (s, ts.t)
+    moved: dict[str, list] = {}  # container -> times it was itself scanned (loaded, removed, closed)
+    for s in effective(scans):
+        if s.event_kind in CONTAINER_LEVEL and s.container:
+            moved.setdefault(s.container.value, []).append(timed(store, s).t)
     by_point: dict[str, list[dict]] = {}
     for w, (s, t) in last.items():
+        if any(i.scheme == IdentifierScheme.CONTAINER for i in s.identifiers):
+            continue  # a bag put in a cage is not a carton: the alert is about parcels
         if (s.event_kind == ScanEventKind.CONTAINER_ADD and s.device_kind == DeviceKind.HANDHELD
                 and s.container_type in OPEN_CONTAINERS):
             by_point.setdefault(s.station_id or s.device_id, []).append(
-                {"waybill": w, "container": s.container.value if s.container else None, "scanned_in": t})
+                {"waybill": w, "container": s.container.value if s.container else None, "scanned_in": t,
+                 # once its container leaves with its own read the parcel is accounted for through it; a carton seen
+                 # leaving BEFORE that read is still one taken out (the cage then leaves without it)
+                 "container_left": min((m for m in moved.get(s.container.value, []) if m > t), default=None)
+                 if s.container else None})
     media = [m for m in store.find(MediaAsset) if m.kind.value == "original" and not store.is_invalid(m.media_id)]
     out: list[Watch] = []
     for sp, parcels in by_point.items():
@@ -57,8 +68,6 @@ def plan_watches(store: EvidenceStore, plan: SitePlan, scans: list[ScanEvent]) -
         first_in = min(p["scanned_in"] for p in parcels)
         for m in (m for m in media if m.camera_id in rp.visible_by):
             covs = store.find(CameraCoverage, media_id=m.media_id)
-            if covs and store.get(ClockSync, covs[-1].sync_id).uncertainty_ms > CLOCK_MS:
-                continue  # the moment a carton leaves can't be put against the scans on an unfitted clock
             if covs and covs[-1].end_utc > first_in:
                 inside = [p for p in parcels if p["scanned_in"] < covs[-1].end_utc]
                 out.append(Watch(sp, m.camera_id, m.media_id, max(covs[-1].start_utc, first_in), covs[-1].end_utc, inside))

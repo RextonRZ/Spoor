@@ -82,15 +82,27 @@ def inside(poly: list[tuple[float, float]], x: float, y: float) -> bool:
     return ok
 
 
-def leaves(poly: list[tuple[float, float]], boxes: list[tuple[float, float, float, float]]) -> bool:
-    """A track (its boxes in frame order) that starts inside the area and is later wholly outside it."""
+def leaves(poly: list[tuple[float, float]], boxes: list[tuple[float, float, float, float]],
+           out_of_view: tuple[int, int] | None = None) -> bool:
+    """A track (its boxes in frame order) that starts inside the area and is later wholly outside it. With
+    out_of_view=(width, height): also one carried out of the picture, its last box at the frame's edge (a close-up
+    whose view the area fills: the carton leaves the view, not the drawn area). The caller drops tracks that only ran
+    out of footage."""
     if not boxes:
         return False
     centre = [((b[0] + b[2]) / 2, (b[1] + b[3]) / 2) for b in boxes]
     if not inside(poly, *centre[0]):
         return False
+    if out_of_view and len(boxes) > 1:
+        w, h = out_of_view
+        x1, y1, x2, y2 = boxes[-1]
+        if x1 <= EDGE_PX or y1 <= EDGE_PX or x2 >= w - 1 - EDGE_PX or y2 >= h - 1 - EDGE_PX:
+            return True
     return any(not any(inside(poly, x, y) for x, y in ((b[0], b[1]), (b[2], b[1]), (b[0], b[3]), (b[2], b[3])))
                for b in boxes[1:])
+
+
+EDGE_PX = 3  # a box this close to the frame's edge is at the edge
 
 
 PARCEL_MAX_M = 0.9  # the largest parcel a hub conveys or a person carries, edge length

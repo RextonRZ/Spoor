@@ -180,7 +180,10 @@ class Services:
         from spoor.forensics.handshake import BEFORE_S, FOLLOW_S
         from spoor.store import ScanHandshake
 
-        hid = f"hs_{row.scan.scan_event_id}_{row.camera_id or 'none'}".replace("-", "_")
+        # one row per scan, camera and clip (and clock state): footage that arrives later, or a clock fitted later,
+        # gets its own row instead of the stored "no footage" / "clock not fitted" answer
+        hid = (f"hs_{row.scan.scan_event_id}_{row.camera_id or 'none'}_{row.media_id or 'none'}"
+               f"{'_unfitted' if row.reason == 'clock_not_fitted' else ''}").replace("-", "_")
         try:  # hs_ ids have no registered kind, so exists() can't see them
             return self.store.get(ScanHandshake, hid)
         except KeyError:
@@ -245,18 +248,22 @@ class Services:
             return []
         poly = anchor_for(rp, cal).polygon_px
         res = self.anchored_sam(None, w.media_id, concept=None, start_iso=w.start.isoformat(), end_iso=w.end.isoformat(),
-                                scan_point_id=w.scan_point_id, at_iso=None)  # fmt: skip
+                                scan_point_id=w.scan_point_id, at_iso=None, out_of_view=True)  # fmt: skip
         out = []
         cov = self.store.find(CameraCoverage, media_id=w.media_id)[-1]
         for t in res.get("tracks", []):
             obs = sorted((o for o in self.store.find(RawObservation, track_id=t["track_id"]) if o.bbox_xyxy_px),
                          key=lambda o: o.source_frame.frame_index)  # fmt: skip
             gone = next((o for o in obs if not inside(poly, (o.bbox_xyxy_px[0] + o.bbox_xyxy_px[2]) / 2,
-                                                      (o.bbox_xyxy_px[1] + o.bbox_xyxy_px[3]) / 2)), None)  # fmt: skip
+                                                      (o.bbox_xyxy_px[1] + o.bbox_xyxy_px[3]) / 2)), None)                 or (obs[-1] if obs else None)  # carried out of view: it left at its last sighting  # fmt: skip
             if gone is None:
                 continue
             t_left = gone.source_frame.normalized_utc or (cov.start_utc + timedelta(milliseconds=gone.source_frame.pts_ms))
-            cands = [dict(c, scanned_in=c["scanned_in"].isoformat()) for c in w.parcels if c["scanned_in"] < t_left]
+            # on a clock known to +-u, only parcels scanned in more than u before the exit could be the one leaving
+            unc = timedelta(milliseconds=self.store.get(ClockSync, cov.sync_id).uncertainty_ms)
+            cands = [{"waybill": c["waybill"], "container": c["container"], "scanned_in": c["scanned_in"].isoformat()}
+                     for c in w.parcels if c["scanned_in"] < t_left - unc
+                     and (c["container_left"] is None or c["container_left"] > t_left + unc)]
             if not cands:
                 continue
             aid = f"alert_{t['track_id']}"
@@ -269,7 +276,9 @@ class Services:
                 alert_id=aid, site_id=plan.site_id, kind="left_without_scan", scan_point_id=w.scan_point_id,
                 camera_id=w.camera_id, media_id=w.media_id, at_utc=t_left, track_id=t["track_id"],
                 frame_index=gone.source_frame.frame_index, box_px=list(gone.bbox_xyxy_px), candidates=cands,
-                note="a carton left the work area; no scan of the parcels last scanned into a container here since", at=now)))
+                note="a carton left the work area; no scan of the parcels last scanned into a container here since"
+                     + (f"; camera clock +-{unc.total_seconds():g} s (not fitted)" if unc.total_seconds() > 1 else ""),
+                at=now)))
         return out
 
     def frame_at(self, media_id: str, iso: str) -> int:
@@ -287,7 +296,8 @@ class Services:
         return min(range(len(table.pts_ms)), key=lambda i: abs(table.pts_ms[i] - rel_ms))
 
     def anchored_sam(self, case: Case | None, media_id: str, *, concept: str | None, start_iso: str | None,
-                     end_iso: str | None, scan_point_id: str | None, at_iso: str | None) -> dict:
+                     end_iso: str | None, scan_point_id: str | None, at_iso: str | None,
+                     out_of_view: bool = False) -> dict:
         """SAM on a window of one clip, aimed by a scan point (anchor.py): a device/sorter point is a point prompt on
         the scan's frame; a handheld point's work area keeps only tracks that start inside it and leave it."""
         original = self.store.get(MediaAsset, media_id)
@@ -326,7 +336,10 @@ class Services:
             boxes = {t.track_id: [o.bbox_xyxy_px for o in sorted(
                 (o for o in r.observations if o.track_id == t.track_id), key=lambda o: o.source_frame.frame_index)]
                 for t in r.tracks}  # fmt: skip
-            tracks = [t for t in r.tracks if leaves(anchor.polygon_px, boxes[t.track_id])]
+            wh = tuple(self.valid_calibration(original.camera_id).image_wh_px) if out_of_view else None
+            last = window[1] if window else n - 1  # a track still in view at the window's end only ran out of footage
+            tracks = [t for t in r.tracks if leaves(anchor.polygon_px, boxes[t.track_id], wh)
+                      and (not out_of_view or t.last_frame_index < last - 1 or leaves(anchor.polygon_px, boxes[t.track_id]))]
         return {"status": r.status, "message": r.message, "cache_hit": r.cache_hit,
                 "frames_sent": [window[0], window[1]] if window else "whole clip",
                 "anchor": None if anchor is None else {"scan_point": anchor.scan_point_id, "kind": anchor.kind},

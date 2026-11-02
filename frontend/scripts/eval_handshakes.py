@@ -26,19 +26,22 @@ from spoor.store import ScanHandshake
 
 ROOT = Path(__file__).resolve().parents[2]
 TRUTH = ROOT / "assets" / "hub" / "build" / "truth"
-WINDOWS = {"S2": "flow_truth_S2.json", "W1": "flow_truth_W1.json"}
+WINDOWS = {"S2": "flow_truth_S2.json", "W1": "flow_truth_W1.json", "W2": "flow_truth_W2.json"}
 MARGIN = 0.25  # of the box size, each side
 # rendered windows: the first render frame of each delivered clip (the Modal render ranges); S2's wide clips start at 1
 W1_FIRST = {"CHK_UNLOAD": 170, "CAM_02": 170, "CHK_TUNNEL": 585, "CAM_05": 585, "CAM_01": 685, "CHK_CHUTE": 945,
             "CAM_11": 945}
 S2_FIRST = {"CHK_DOCK": 780, "CHK_STORE": 200}
+W2_FIRST = {"CHK_CHUTE": 30, "CHK_CAGE_W": 220}
 
 
 def first_frame(store, media_id, camera):
-    """(truth window, first render frame) of a clip: W1's clips were recorded before 14:20 on any camera's clock."""
-    start = store.find(CameraCoverage, media_id=media_id)[-1].start_utc
-    if start.astimezone(timezone(timedelta(hours=8))).hour == 14 and start.astimezone(timezone(timedelta(hours=8))).minute < 20:
+    """(truth window, first render frame) of a clip, from when it was recorded (W1 14:09-14:12, W2 14:21, S2 14:32)."""
+    local = store.find(CameraCoverage, media_id=media_id)[-1].start_utc.astimezone(timezone(timedelta(hours=8)))
+    if local.minute < 20:
         return "W1", W1_FIRST[camera]
+    if local.minute < 30:
+        return "W2", W2_FIRST[camera]
     return "S2", S2_FIRST.get(camera, 1)
 
 
