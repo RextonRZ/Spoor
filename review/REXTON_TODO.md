@@ -14,8 +14,6 @@
 ## Tick 0125
 - [x] Task 2 kit sent: labels.pdf, FILMING.md, scan_log.csv, READY entry
 - [x] Task 1: journey reel redesign (+ Rexton: no stray outline on the answer card, bigger six-step rail, caption entrance, slow push-in; player shows "Step n of N")
-- [ ] (was) Task 1: journey reel redesign (Pillow fonts, top bar, tinted chips, progress rail, card backgrounds, crossfades,
-      web player without the duplicate caption) - 3 h
 - [ ] Task 2 run when the footage arrives (<= 3 h, SAM <= US$1); drop if no footage by Tue 18:00
 - [ ] "Find a very similar real video for the demo": searched; no free CCTV-style hands-only clip with look-alike boxes;
       Intel Geti "Smart Warehouse" sample set (Apache 2.0) has conveyor + warehouse videos (link to confirm). Paused for
@@ -25,3 +23,11 @@
 - [x] Insights dashboard, live window, simulated history, How Spoor learns, polish list
 - [x] Settings removed; profile label
 - [x] Loading pass (fade + shimmer, caches); collapsed sidebar centring; "Not due yet" for case 2
+
+## Rexton 3 Nov ~02:00 (player + step strip)
+- [x] Spoor logo bigger in the reel (intro 44 px, answer footer 32 px)
+- [x] Steps under the player: each its own frame (the API cuts one per step from the reel), number + time on it, title, one status line, camera; green check on the frame where the number was confirmed
+- [x] Custom player: scrubber split into the steps (hover shows that step's frame), play/pause, time, "Step n of N", full screen; keys Space / arrows / F
+- [x] Reel sub-line unreadable on bright frames ("SAM tracked no carton..."): solid shade behind the words + brighter text with a soft shadow
+- [x] Proof: "How sure" removed (Answer keeps the one limit; the numbers stay in LIMITATIONS / EVALUATION)
+- [ ] Customer asked box on the Answer: kept for now (Rexton asked; recommendation sent)

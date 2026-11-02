@@ -133,10 +133,14 @@ def build_journey_reel(segments: list[Segment], out_dir: Path, reel_id: str, tit
         n = 0
         last: list = [None]
 
+        thumbs: dict = {}
+
         def put_seq(frames):
             """A chapter's frames, its first XFADE frames cross-faded from the last frame shown."""
             nonlocal n
             prev = last[0]
+            if frames:
+                thumbs["mid"] = frames[min(len(frames) - 1, max(XFADE + 1, len(frames) // 2))]
             for i, img in enumerate(frames):
                 if prev is not None and i < XFADE:
                     a = (i + 1) / (XFADE + 1)
@@ -221,10 +225,15 @@ def build_journey_reel(segments: list[Segment], out_dir: Path, reel_id: str, tit
                 sources.append({"kind": "clip", "camera": seg.camera, "sha256": seg.sha256, "frames": [seg.f0, seg.f1],
                                 "outlined_frames": len(seg.contours) or len(seg.boxes), "title": seg.title,
                                 "zoomed_to": list(crop) if crop else None})
+            if last[0] is not None:  # the step's thumbnail for the web player's strip: its middle frame
+                mid = thumbs.get("mid")
+                cv2.imwrite(str(out_dir / f"{reel_id}_t{ci}.jpg"), cv2.resize(mid if mid is not None else last[0], (320, 180),
+                                                                         interpolation=cv2.INTER_AREA), [cv2.IMWRITE_JPEG_QUALITY, 82])
+                thumbs.clear()
             chapters.append({"title": seg.title, "tone": seg.tone, "t": seg.t.isoformat(), "start_s": round(start, 2),
                              "end_s": round(n / FPS, 2), "camera": seg.camera, "label": seg.label, "sub": seg.sub,
                              "media_id": seg.media_id or None, "track_id": seg.track_id or None,
-                             "xy": list(seg.xy) if seg.xy else None, "last_scan": seg.last_scan})
+                             "xy": list(seg.xy) if seg.xy else None, "last_scan": seg.last_scan, "thumb": f"t{ci}"})
         vw.release()
         mp4 = out_dir / f"{reel_id}.mp4"
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(raw), "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",

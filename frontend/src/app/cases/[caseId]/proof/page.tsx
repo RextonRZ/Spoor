@@ -23,12 +23,8 @@ import "./proof.css";
 
 interface CaseState { case: { case_id: string; site_id: string; target_description: string }; answer?: InvestigationView | null }
 interface Conflicts { objects: { records?: CaseRecord[] }[] }
-interface CamRow { camera: { camera_id: string }; clock_sync: { anchor_count: number; uncertainty_ms: number; residual_ms_p95: number | null } | null;
-  calibration: { holdout_error_median_m: number | null; invalidated: boolean } | null }
-interface RunView { steps: { tool: string; status: string; receipt?: { output?: { said?: string | null; answer?: string | null } } | null }[] }
 
 const STOP_TONE: Record<string, Stop["tone"]> = { scan: "scan", seen: "seen", noscan: "bad", record: "bad", wait: "none", card: "none" };
-const camKey = (c: string) => `cam_${c}`;
 
 export default function ProofPage({ params }: { params: Promise<{ caseId: string }> }) {
   const { caseId } = use(params);
@@ -36,10 +32,8 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
   const reel = useResource<Reel>(`/v1/cases/${caseId}/journey-reel`);
   const jr = useResource<Journey>(`/v1/cases/${caseId}/journey`);
   const cr = useResource<Conflicts>(`/v1/cases/${caseId}/conflicts`);
-  const run = useResource<RunView>(`/v1/cases/${caseId}/run`);
   const sites = useResource<Site[]>("/v1/sites");
   const siteId = st.data?.case.site_id ?? sites.data?.[0]?.site_id;
-  const cams = useResource<CamRow[]>(siteId ? `/v1/sites/${siteId}/cameras` : null);
   const waybill = st.data?.case.target_description.split(" ").at(-1) ?? "";
   const inside = st.data?.answer?.objects.find((o) => o.inside)?.inside ?? null;
   const [on, setOn] = useState(0);
@@ -55,16 +49,6 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
   const tunnel = scans.length ? buildCheckpoints({ scans, records: cr.data?.objects[0]?.records ?? [], barcode: waybill || null })
     .find((c) => c.id === "tunnel") : undefined;
 
-  // how sure, from the route's own cameras and the run's records
-  const routeCams = [...new Set(chapters.map((c) => c.camera).filter((c) => /^(CHK|CAM)_/.test(c)))];
-  const rows = (cams.data ?? []).filter((r) => routeCams.some((c) => camKey(c) === r.camera.camera_id));
-  const fitted = rows.filter((r) => (r.clock_sync?.anchor_count ?? 0) > 0);
-  const worst = Math.max(0, ...rows.filter((r) => !(r.clock_sync?.anchor_count)).map((r) => r.clock_sync?.uncertainty_ms ?? 0));
-  const calib = rows.map((r) => r.calibration?.holdout_error_median_m).filter((x): x is number => x != null).sort((a, b) => a - b);
-  const scanSteps = chapters.filter((c) => c.tone === "scan");
-  const numbered = scanSteps.filter((c) => c.label && c.camera !== "Tunnel reader").length;
-  const spark = (run.data?.steps ?? []).map((s) => s.receipt?.output).find((o) => o?.answer);
-  const place = inside?.place.replace(/ \(Z\d+\)$/, "") ?? "store";
 
   return (
     <div className="pf">
@@ -95,16 +79,6 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
           </div>
         </section>
 
-        <section className="pf-sec" aria-labelledby="pf-sure">
-          <h2 id="pf-sure" className="pf-h2">How sure</h2>
-          <ul className="pf-sure">
-            {rows.length > 0 && <li><b>Camera clocks</b><span>{fitted.length} of {rows.length} matched to the sorter&apos;s clock{fitted.length < rows.length ? `; the rest within ±${Math.round(worst / 1000)} s` : ""}</span></li>}
-            {calib.length > 0 && <li><b>Positions</b><span>within {Math.max(1, Math.round(calib[calib.length >> 1] * 100))} cm on test points</span></li>}
-            {scanSteps.length > 0 && <li><b>Numbers on cartons</b><span>{numbered} of {scanSteps.length} scans: only where no other carton could be it</span></li>}
-            <li><b>Not covered</b><span>inside the {place}{spark?.answer === "can't see" ? "; the carrier's hands coming out" : ""}</span></li>
-          </ul>
-          <p className="pf-sure-note">Synthetic footage of a fictional hub. Outlines by SAM 3.1.</p>
-        </section>
       </div>
     </div>
   );

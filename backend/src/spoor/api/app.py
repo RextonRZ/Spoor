@@ -1148,7 +1148,10 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
 
     def journey_reel_out(case_id: str, man: dict) -> dict:
         exp, sig = svc.signer.sign(f"reel/{man['reel_id']}")
-        return {**man, "case_id": case_id, "url": f"/v1/signed/reels/{man['reel_id']}?exp={exp}&sig={sig}"}
+        base = f"/v1/signed/reels/{man['reel_id']}"
+        chapters = [{**c, "thumb_url": f"{base}/{c['thumb']}?exp={exp}&sig={sig}"} if c.get("thumb") else c
+                    for c in man.get("chapters", [])]
+        return {**man, "chapters": chapters, "case_id": case_id, "url": f"{base}?exp={exp}&sig={sig}"}
 
     @app.post("/v1/cases/{case_id}/journey-reel", status_code=201)
     def make_journey_reel(case_id: str, p: User) -> dict:
@@ -1185,6 +1188,17 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         if not f.exists() or not reel_id.startswith("reel_"):
             raise HTTPException(404, "reel not found")
         return FileResponse(f, media_type="video/mp4", filename=f"{reel_id}.mp4")
+
+    @app.get("/v1/signed/reels/{reel_id}/{thumb}")
+    def signed_reel_thumb(reel_id: str, thumb: str, exp: int, sig: str) -> FileResponse:
+        """A step's thumbnail (its middle frame), signed with the reel itself."""
+        svc.signer.check(f"reel/{reel_id}", exp, sig)
+        if not reel_id.startswith("reel_") or not thumb.startswith("t") or not thumb[1:].isdigit():
+            raise HTTPException(404, "thumbnail not found")
+        f = Path(svc.settings.data_dir) / "reels" / f"{reel_id}_{thumb}.jpg"
+        if not f.exists():
+            raise HTTPException(404, "thumbnail not found")
+        return FileResponse(f, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=600"})
 
     @app.post("/v1/cases/{case_id}/lead-plan", status_code=201)
     def lead_plan(case_id: str, p: User) -> dict:

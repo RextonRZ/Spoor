@@ -1,61 +1,133 @@
-/* The parcel's journey (JourneyReel.tsx): the video first, then a thin timeline in the brand mark's language: each step
-   sits under a round-capped ridge (solid = on camera, red = the records failed there, dotted = no camera saw it;
-   indigo = playing). Red is kept for the two real problems so it still means something.
-   No cards: steps are text on one surface; the player is the only bordered object. */
-.jr { display: grid; gap: 14px; margin-top: 4px; scroll-margin-top: 96px; }
+/* The parcel's journey (JourneyReel.tsx): the player with its own controls, then one strip of steps, each its own
+   frame. Hierarchy per step: the frame (number + time on it), the title, one status line, the camera in muted ink.
+   Red is kept for the two real problems so it still means something; indigo = the step playing. */
+.jr { --jr-ease: cubic-bezier(0.23, 1, 0.32, 1); display: grid; gap: 14px; margin-top: 4px; scroll-margin-top: 96px; }
 .jr-top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .jr-all:active { transform: scale(0.97); }
 .jr-meta { font-size: 12.5px; color: var(--tb-mute); font-variant-numeric: tabular-nums; }
 .tb-app a.jr-dl { margin-left: auto; font-size: 12.5px; }
 .jr-dl:focus-visible { outline: 2px solid #818cf8; outline-offset: 2px; border-radius: 4px; }
+
+/* ---------- the player ---------- */
 .jr-stage { margin: 0; position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 10px; background: #07080b;
-  border: 1px solid var(--tb-line); }
-.jr-stage video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #07080b; }
+  border: 1px solid var(--tb-line); outline: none; }
+.jr-stage:focus-visible { box-shadow: 0 0 0 2px #818cf8; }
+.jr-stage[data-full] { border: 0; border-radius: 0; aspect-ratio: auto; }
+.jr-stage[data-idle] { cursor: none; }
+.jr-stage video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #07080b; cursor: pointer; }
 .jr-wait { display: grid; place-items: center; }
 .jr-wait span { font-size: 13px; color: var(--tb-mute); }
 
-/* every step in view: the timeline wraps into rows instead of scrolling past the edge */
-.jr-rail { list-style: none; margin: 0; padding: 0 0 6px; display: grid; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
-  column-gap: 6px; row-gap: 10px; }
-.jr-step { position: relative; display: grid; padding-top: 18px; }
-/* the ridge: one stroke weight, round caps, like the mark's ridges */
-.jr-step::before { content: ""; position: absolute; left: 2px; right: 2px; top: 10px; height: 3px; border-radius: 3px;
-  background: color-mix(in srgb, var(--tb-ink-2) 38%, transparent); transition: background-color 200ms ease; }
-.jr-step:is([data-tone="noscan"], [data-tone="record"])::before { background: color-mix(in srgb, #f87171 70%, transparent); }
-.jr-step[data-nocam]::before, .jr-step:is([data-tone="card"], [data-tone="wait"])::before { background: radial-gradient(circle, color-mix(in srgb, var(--tb-ink-2) 45%, transparent) 1.5px, transparent 1.7px) 0 50% / 8px 3px repeat-x; }
-.jr-step[data-on]::before, .jr-step[data-on][data-nocam]::before { background: var(--tb-accent); }
-.jr-gap { position: absolute; left: 4px; top: -4px; font-size: 10.5px; color: var(--tb-mute); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.jr-btn { all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 3px; align-content: start; padding: 6px 4px 8px; border-radius: 6px;
-  transition: background-color 160ms ease, transform 160ms cubic-bezier(0.23, 1, 0.32, 1); }
-.jr-btn:active { transform: scale(0.98); }
-.jr-btn:focus-visible { outline: 2px solid #818cf8; outline-offset: 2px; }
-@media (hover: hover) and (pointer: fine) { .jr-btn:hover { background: rgba(255, 255, 255, 0.03); } }
-.jr-time { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--tb-mute); font-variant-numeric: tabular-nums; }
-/* the step's number: the same number marks it on the Proof's plan */
-.jr-n { display: inline-grid; place-items: center; min-width: 17px; height: 17px; border-radius: 9px; font-size: 10.5px; font-weight: 700;
-  color: var(--tb-ink-2); box-shadow: inset 0 0 0 1.2px var(--tb-line-2); }
-.jr-step[data-on] .jr-n { background: var(--tb-accent); color: #fff; box-shadow: none; }
-.jr-title { font-size: 13.5px; font-weight: 600; color: var(--tb-ink-2); line-height: 1.3; text-wrap: balance; }
-.jr-step[data-on] .jr-title { color: var(--tb-ink); }
-.jr-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 550; color: #86efac; }
-.jr-badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.jr-step:is([data-tone="noscan"], [data-tone="record"]) .jr-badge { color: #fca5a5; }
-.jr-step:is([data-tone="seen"], [data-tone="wait"], [data-tone="card"]) .jr-badge { color: var(--tb-ink-2); }
-/* the last scan the records have (after it, only cameras): marked so the hand-over from records to cameras is seen */
-.jr-badge[data-last] { justify-self: start; padding: 1px 8px 1px 7px; border-radius: 999px; box-shadow: inset 0 0 0 1px rgba(134, 239, 172, 0.5);
-  background: rgba(74, 222, 128, 0.08); }
-.jr-cam { font-size: 11.5px; color: var(--tb-mute); }
-.jr-num { font-size: 11.5px; color: var(--tb-ink-2); font-variant-numeric: tabular-nums; letter-spacing: 0.01em; }
-.jr-sub { margin: 0; font-size: 12.5px; color: var(--tb-mute); font-variant-numeric: tabular-nums; }
+/* paused: one quiet play button in the middle (from 0.92, never from nothing) */
+.jr-big { all: unset; box-sizing: border-box; position: absolute; left: 50%; top: 50%; width: 68px; height: 68px; margin: -34px 0 0 -34px;
+  display: grid; place-items: center; border-radius: 50%; cursor: pointer; color: #fff;
+  background: rgba(10, 11, 14, 0.55); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16), 0 8px 30px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  transition: opacity 200ms var(--jr-ease), transform 200ms var(--jr-ease), background-color 160ms ease; }
+.jr-big svg { width: 28px; height: 28px; margin-left: 3px; }
+.jr-big:active { transform: scale(0.95); }
+.jr-big:focus-visible { box-shadow: 0 0 0 2px #818cf8; }
+@media (hover: hover) and (pointer: fine) { .jr-big:hover { background: rgba(79, 70, 229, 0.8); } }
+.jr-stage[data-playing] .jr-big { opacity: 0; transform: scale(0.92); pointer-events: none; }
 
+/* the control bar over a soft shade; steps aside while playing and the pointer rests */
+.jr-bar { position: absolute; left: 0; right: 0; bottom: 0; padding: 36px 14px 8px; display: grid; gap: 4px;
+  background: linear-gradient(to top, rgba(7, 8, 11, 0.82), rgba(7, 8, 11, 0.45) 55%, transparent);
+  transition: opacity 220ms var(--jr-ease), transform 220ms var(--jr-ease); }
+.jr-stage[data-idle] .jr-bar { opacity: 0; transform: translateY(6px); }
+
+/* the scrubber: one segment per step, its length the step's share of the reel; the step's tone marks its track */
+.jr-scrub { position: relative; display: flex; gap: 3px; height: 18px; align-items: center; cursor: pointer; touch-action: none; }
+.jr-seg { position: relative; flex-basis: 0; min-width: 4px; height: 4px; border-radius: 2px; overflow: hidden; background: rgba(255, 255, 255, 0.22);
+  transition: transform 160ms var(--jr-ease); transform-origin: center; }
+.jr-seg:is([data-tone="noscan"], [data-tone="record"]) { background: rgba(248, 113, 113, 0.35); }
+.jr-scrub:hover .jr-seg[data-hover] { transform: scaleY(1.75); }
+.jr-seg-fill { position: absolute; inset: 0; background: #fff; transform: scaleX(0); transform-origin: left; }
+.jr-seg[data-on] .jr-seg-fill { background: #a5b4fc; }
+
+/* hovering the scrubber: the step's own frame above the pointer */
+.jr-peek { position: absolute; bottom: 24px; width: 176px; transform: translateX(-50%); display: grid; gap: 6px; pointer-events: none;
+  animation: jr-peek 140ms var(--jr-ease); }
+.jr-peek img, .jr-peek-none { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; background: #15171c;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18), 0 10px 28px rgba(0, 0, 0, 0.5); }
+.jr-peek-t { justify-self: center; display: inline-flex; gap: 6px; align-items: baseline; max-width: 100%; padding: 3px 8px; border-radius: 6px;
+  background: rgba(10, 11, 14, 0.85); color: #f4f4f5; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.jr-peek-t b { color: #a5b4fc; font-variant-numeric: tabular-nums; }
+@keyframes jr-peek { from { opacity: 0; transform: translateX(-50%) translateY(4px) scale(0.97); } }
+
+.jr-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.jr-ic { all: unset; box-sizing: border-box; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 8px; color: #f4f4f5; cursor: pointer;
+  transition: background-color 140ms ease, transform 140ms var(--jr-ease); }
+.jr-ic svg { width: 20px; height: 20px; }
+.jr-ic:active { transform: scale(0.94); }
+.jr-ic:focus-visible { outline: 2px solid #818cf8; outline-offset: 0; }
+@media (hover: hover) and (pointer: fine) { .jr-ic:hover { background: rgba(255, 255, 255, 0.1); } }
+.jr-clock { font-size: 12.5px; color: #f4f4f5; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.jr-clock span { color: rgba(244, 244, 245, 0.6); }
+.jr-now { min-width: 0; display: inline-flex; gap: 7px; align-items: baseline; font-size: 12.5px; color: rgba(244, 244, 245, 0.85);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.jr-fs { margin-left: auto; }
+
+/* ---------- the steps: every one in view, each its own frame ---------- */
+.jr-rail { list-style: none; margin: 0; padding: 0 0 4px; display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  column-gap: 10px; row-gap: 12px; }
+.jr-step { display: grid; grid-template-rows: 16px auto; min-width: 0; }
+/* the time since the step before (blank where a card names its own stretch) */
+.jr-gap { font-size: 11px; color: var(--tb-mute); font-variant-numeric: tabular-nums; padding-left: 2px; }
+.jr-btn { all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 2px; align-content: start; min-width: 0; padding: 0 0 4px; border-radius: 8px;
+  transition: transform 160ms var(--jr-ease); }
+.jr-btn:active { transform: scale(0.98); }
+.jr-btn:focus-visible { outline: 2px solid #818cf8; outline-offset: 3px; }
+
+.jr-thumb { position: relative; display: block; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: #15171c; margin-bottom: 7px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); transition: box-shadow 200ms ease; }
+.jr-thumb img, .jr-thumb-none { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block;
+  transition: opacity 200ms ease, filter 200ms ease; }
+.jr-thumb-none { background: linear-gradient(160deg, #1b1e25, #0d0f13); }
+/* the steps not playing are dimmed a little so the one playing reads first */
+.jr-step:not([data-on]) .jr-thumb img { opacity: 0.78; filter: saturate(0.85); }
+@media (hover: hover) and (pointer: fine) { .jr-btn:hover .jr-thumb img { opacity: 1; filter: none; } }
+.jr-step[data-on] .jr-thumb { box-shadow: 0 0 0 2px var(--tb-accent); }
+.jr-step:is([data-tone="noscan"], [data-tone="record"]):not([data-on]) .jr-thumb { box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.55); }
+/* the step's number (the same number marks it on the plan) and its time, on the frame */
+.jr-n { position: absolute; left: 6px; top: 6px; min-width: 20px; height: 20px; padding: 0 5px; box-sizing: border-box; display: grid; place-items: center;
+  border-radius: 10px; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; color: #f4f4f5; background: rgba(10, 11, 14, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14); }
+.jr-step[data-on] .jr-n { background: var(--tb-accent); box-shadow: none; color: #fff; }
+.jr-time { position: absolute; right: 6px; bottom: 6px; padding: 1px 5px; border-radius: 4px; font-size: 10.5px; font-weight: 500;
+  font-variant-numeric: tabular-nums; color: #e4e4e7; background: rgba(10, 11, 14, 0.72); }
+/* the number checked on this frame (the reel's green tag, as a mark) */
+.jr-id { position: absolute; right: 6px; top: 6px; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%;
+  color: #0a0b0e; background: #4ade80; }
+.jr-id svg { width: 12px; height: 12px; }
+/* how far the step playing has run */
+.jr-tfill { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--tb-accent); transform: scaleX(0); transform-origin: left; }
+
+.jr-title { font-size: 13px; font-weight: 600; color: var(--tb-ink-2); line-height: 1.3; overflow: hidden; display: -webkit-box;
+  -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.jr-step[data-on] .jr-title { color: var(--tb-ink); }
+.jr-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 550; color: #86efac; }
+.jr-status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
+.jr-step:is([data-tone="noscan"], [data-tone="record"]) .jr-status { color: #fca5a5; }
+.jr-step:is([data-tone="seen"], [data-tone="wait"], [data-tone="card"]) .jr-status { color: var(--tb-ink-2); }
+.jr-step:is([data-tone="wait"], [data-tone="card"]) .jr-status::before { background: transparent; box-shadow: inset 0 0 0 1.2px currentColor; }
+.jr-cam { font-size: 11.5px; color: var(--tb-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* phone: one row that swipes, two and a bit steps in view; the step playing is kept in view by the strip itself */
 @media (max-width: 640px) {
-  .jr-rail { grid-template-columns: 1fr; row-gap: 0; padding-left: 14px; }
-  .jr-step { padding-top: 0; padding-left: 12px; }
-  .jr-step::before { left: -12px; right: auto; top: 6px; bottom: 6px; width: 3px; height: auto; }
-  .jr-step[data-nocam]::before, .jr-step:is([data-tone="card"], [data-tone="wait"])::before { background: radial-gradient(circle, color-mix(in srgb, var(--tb-ink-2) 45%, transparent) 1.5px, transparent 1.7px) 50% 0 / 3px 8px repeat-y; }
-  .jr-gap { position: static; padding: 2px 4px 0; }
-  .jr-btn { grid-template-columns: auto 1fr; column-gap: 10px; align-items: baseline; }
-  .jr-title, .jr-badge, .jr-cam, .jr-num { grid-column: 2; }
+  .jr-rail { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; margin: 0 -16px; padding: 0 16px 4px;
+    scroll-padding: 0 16px; gap: 10px; }
+  .jr-rail::-webkit-scrollbar { display: none; }
+  .jr-step { flex: 0 0 142px; scroll-snap-align: start; }
   .tb-app a.jr-dl { margin-left: 0; }
+  .jr-bar { padding: 28px 8px 4px; }
+  .jr-now { display: none; }
+  .jr-big { width: 56px; height: 56px; margin: -28px 0 0 -28px; }
 }
-@media (prefers-reduced-motion: reduce) { .jr-btn, .jr-step::before { transition: none; } .jr-btn:active { transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .jr-btn, .jr-big, .jr-bar, .jr-seg, .jr-ic { transition: opacity 120ms ease; }
+  .jr-btn:active, .jr-big:active, .jr-ic:active { transform: none; }
+  .jr-stage[data-idle] .jr-bar { transform: none; }
+  .jr-peek { animation: none; }
+}

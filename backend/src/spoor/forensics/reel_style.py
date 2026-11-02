@@ -11,7 +11,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 W, H = 1280, 720
 S = 2  # supersampling of the overlay layer
@@ -20,6 +20,7 @@ FONTS = ROOT / "assets" / "fonts"
 LOGO = ROOT / "assets" / "brand" / "spoor_logo_fingerprint_dark.png"
 
 INK, MUTE = (242, 243, 245), (163, 168, 179)
+SUB = (212, 215, 222)  # the bar's sub-line: lighter than MUTE, it sits on footage
 INDIGO = (99, 102, 241)
 # chip tones: (border / dot colour, text colour); the fill is the border colour at 18 %
 TONES = {"scan": ((34, 197, 94), (74, 222, 128)), "last": ((34, 197, 94), (74, 222, 128)),
@@ -61,7 +62,11 @@ def text_w(s: str, size: int, weight: int = 400, mono: bool = False, tnum: bool 
 
 def _gradient(layer: Image.Image, height: int, top_alpha: float = 0.82):
     g = np.zeros((height * S, W * S, 4), np.uint8)
-    ramp = (np.linspace(1.0, 0.0, height * S) ** 1.2 * top_alpha * 255).astype(np.uint8)
+    # solid behind the words (the sub-line sat where the old ramp had faded to ~10 %, unreadable on a bright floor),
+    # then a smooth fade below them
+    u = np.linspace(0.0, 1.0, height * S)
+    fade = np.clip((u - 0.62) / 0.38, 0, 1)
+    ramp = ((1 - fade * fade * (3 - 2 * fade)) * top_alpha * 255).astype(np.uint8)
     g[:, :, :3] = (10, 11, 14)
     g[:, :, 3] = ramp[:, None]
     layer.alpha_composite(Image.fromarray(g, "RGBA"), (0, 0))
@@ -100,10 +105,22 @@ def top_bar(frame: np.ndarray, *, time: str, title: str, tone: str | None, sub: 
     return _over(frame, _bar(time, title, tone, sub, tuple(tones or ()), cur, note, round(min(1.0, rise), 2)))
 
 
+def _shadow(layer: Image.Image, draw) -> None:
+    """A soft dark halo under the words drawn by draw(d): readable on any frame, invisible on a dark one."""
+    sh = Image.new("RGBA", layer.size, (0, 0, 0, 0))
+    draw(ImageDraw.Draw(sh))
+    a = sh.getchannel("A").filter(ImageFilter.GaussianBlur(3 * S))
+    dark = Image.new("RGBA", layer.size, (6, 7, 9, 0))
+    dark.putalpha(a.point(lambda v: min(255, int(v * 0.9))))
+    layer.alpha_composite(dark)
+
+
 @lru_cache(maxsize=256)
 def _bar(time, title, tone, sub, tones, cur, note, rise=1.0) -> np.ndarray:
     layer, d = _layer()
-    _gradient(layer, 96 if sub else 72)
+    _gradient(layer, 132 if sub else 88, 0.86)
+    if sub or note:
+        _shadow(layer, lambda d_: (sub and _text(d_, (24, 84), sub, 18, 500, INK), note and _text(d_, (16, H - 20), note, 14, 500, INK)))
     e = 1 - (1 - rise) ** 3  # ease-out
     a, dy = int(255 * e), 8 * (1 - e)
     _text(d, (24, 34 + dy), time, 22, 500, INK, a, tnum=True)
@@ -113,9 +130,9 @@ def _bar(time, title, tone, sub, tones, cur, note, rise=1.0) -> np.ndarray:
     if tones:
         rail(d, 56, list(tones), cur)
     if sub:
-        _text(d, (24, 84 + dy), sub, 17, 400, MUTE, a)
+        _text(d, (24, 84 + dy), sub, 18, 500, SUB, a)
     if note:  # a still with no on-screen display of its own (the tunnel reader's photo): its source, OSD-style
-        _text(d, (16, H - 20), note, 14, 500, MUTE)
+        _text(d, (16, H - 20), note, 14, 500, SUB)
     return _small(layer)
 
 
@@ -206,16 +223,16 @@ def card(bg: np.ndarray, lines: list[tuple[str, int, int, tuple]], *, rise: floa
     layer, d = _layer()
     alpha = int(255 * rise)
     off = 8 * (1 - rise)
-    heights = [size * 1.45 for _, size, _, _ in lines] + ([96] if dots else []) + ([44] if logo else [])
+    heights = [size * 1.45 for _, size, _, _ in lines] + ([96] if dots else []) + ([60] if logo else [])
     y = (H - sum(heights)) / 2 + off
     x = 72
     if logo and LOGO.exists():
         lg = Image.open(LOGO).convert("RGBA")
-        lg = lg.resize((round(lg.width * 32 * S / lg.height), 32 * S), Image.LANCZOS)
+        lg = lg.resize((round(lg.width * 44 * S / lg.height), 44 * S), Image.LANCZOS)
         if alpha < 255:
             lg.putalpha(lg.getchannel("A").point(lambda v: v * alpha // 255))
         layer.alpha_composite(lg, (int(x * S), int(y * S)))
-        y += 44
+        y += 60
     for text, size, weight, color in lines:
         y += size * 1.1
         _text(d, (x, y), text, size, weight, color, alpha, tnum=bool(re.match(r"^\d\d:\d\d", text)))
@@ -235,12 +252,12 @@ def card(bg: np.ndarray, lines: list[tuple[str, int, int, tuple]], *, rise: floa
     if footer:
         if LOGO.exists():
             lg = Image.open(LOGO).convert("RGBA")
-            lg = lg.resize((round(lg.width * 24 * S / lg.height), 24 * S), Image.LANCZOS)
-            layer.alpha_composite(lg, (24 * S, (H - 48) * S))
+            lg = lg.resize((round(lg.width * 32 * S / lg.height), 32 * S), Image.LANCZOS)
+            layer.alpha_composite(lg, (24 * S, (H - 56) * S))
             fx = 24 + lg.width / S + 8
         else:
             fx = 24
-        _text(d, (fx + 6, H - 30), "Every parcel leaves a trail.", 15, 400, MUTE)
+        _text(d, (fx + 8, H - 34), "Every parcel leaves a trail.", 16, 400, MUTE)
     return _compose(bg, layer)
 
 
