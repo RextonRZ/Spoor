@@ -52,8 +52,25 @@ def _hull(pts: np.ndarray) -> np.ndarray:
     return np.asarray(half(p) + half(reversed(p)))
 
 
-def anchor_for(rp: PlanReadPoint, cal: FloorCalibration) -> Anchor:
-    """The scan point as pixels in this camera's delivered frame."""
+def event_xyz(rp: PlanReadPoint, event_kind: str | None, conveyors=()) -> list[float]:
+    """Where this event physically happens, in 3-D: the read point's own spot, or (when the plan says the event happens
+    elsewhere, e.g. a sorter PLC's induct reported where the parcel boards the loop) that spot at the deck height of
+    the conveyor under it (the plan stores only x, y for it; the read point's own height there was 0.4 m off)."""
+    if not event_kind or event_kind not in rp.event_positions:
+        return list((rp.device_parts_m or [rp.position_m])[0] if rp.device_kind != "rfid_portal" else rp.position_m)
+    x, y = rp.event_positions[event_kind]
+    best = None
+    for cv in conveyors:
+        hs = cv.deck_heights_m if len(cv.deck_heights_m) == len(cv.path_m) else cv.deck_heights_m * len(cv.path_m)
+        for (px, py), h in zip(cv.path_m, hs, strict=False):
+            d = ((px - x) ** 2 + (py - y) ** 2) ** 0.5
+            if d <= 0.6 and (best is None or d < best[0]):
+                best = (d, h)
+    return [x, y, best[1] if best else rp.position_m[2]]
+
+
+def anchor_for(rp: PlanReadPoint, cal: FloorCalibration, event_kind: str | None = None, conveyors=()) -> Anchor:
+    """The scan point as pixels in this camera's delivered frame (at the event's own spot when the plan has one)."""
     if cal.pose_rvec is None:
         raise AnchorError(f"{cal.camera_id} has no camera pose; it cannot place {rp.scan_point_id}")
     w, h = cal.image_wh_px
@@ -65,7 +82,7 @@ def anchor_for(rp: PlanReadPoint, cal: FloorCalibration) -> Anchor:
             raise AnchorError(f"{rp.scan_point_id}'s work area is behind {cal.camera_id}")
         hull = _hull(np.clip(uv[front], [0, 0], [w - 1, h - 1]))
         return Anchor(rp.scan_point_id, "area", polygon_px=[(float(u), float(v)) for u, v in hull])
-    xyz = (rp.device_parts_m or [rp.position_m])[0] if rp.device_kind != "rfid_portal" else rp.position_m
+    xyz = event_xyz(rp, event_kind, conveyors)
     uv, front = site_to_image(cal, [xyz])
     u, v = uv[0]
     if not front[0] or not (0 <= u < w and 0 <= v < h):

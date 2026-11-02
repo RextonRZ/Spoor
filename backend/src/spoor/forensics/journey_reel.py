@@ -333,7 +333,7 @@ def journey_segments(svc, case, waybill: str, answer: dict | None) -> list[Segme
         title = TITLES.get(h.event_kind, h.event_kind.replace("_", " ").capitalize()).format(
             chute=(h.scan_point_id or "").rsplit("-", 1)[-1], cage=ev.container.value if ev.container else "")
         rp_ = plan.read_point(ev.station_id or ev.device_id) if plan else None
-        seg = Segment(title=title, tone="scan", t=ev.device_time_utc, xy=tuple(rp_.position_m[:2]) if rp_ else None)
+        seg = Segment(title=title, tone="scan", t=ev.device_time_utc, xy=tuple(rp_.position_for(ev.event_kind.value)) if rp_ else None)
         if h.event_kind == "tunnel_read" and photo.exists():
             seg.image, seg.label, seg.camera, seg.sub = photo, waybill, "Tunnel reader", "The reader's own photo at the read"
         elif not h.media_id or svc.store.get(MediaAsset, h.media_id).camera_id not in cams:

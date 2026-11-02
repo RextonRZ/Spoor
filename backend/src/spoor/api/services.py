@@ -63,6 +63,8 @@ class ServiceError(ValueError):
 
 GRANT_REASON = "scope: cameras granted"
 DIVERT_EVENTS = {"divert_confirmed", "recirculated"}
+BOARD_EVENTS = {"inducted"}  # reported where the parcel boards the loop (the plan's event_positions)
+RIDE_M = 1.0  # boarding: the outline rides at least this far along the loop in ~1.5 s (the loop runs ~2 m/s)
 CARTON_X = 2.5  # an outline more than this many times the parcel's own projected area is not that parcel
 
 
@@ -224,7 +226,7 @@ class Services:
         try:
             res = self.anchored_sam(None, row.media_id, concept=None, start_iso=start, end_iso=end,
                                     scan_point_id=row.scan_point_id, at_iso=None if row.rule == "work_area" else at_iso,
-                                    keep="handled")
+                                    keep="handled", event_kind=row.scan.event_kind.value)
             f_at = self.frame_at(row.media_id, at_iso)
         except (ServiceError, AnchorError) as e:
             return self.store.put(ScanHandshake(**base, outcome="failed", note=str(e)[:300]))
@@ -240,7 +242,12 @@ class Services:
         plan = latest_plan(self.store, row.scan.site_id)
         cal = self.valid_calibration(self.store.get(MediaAsset, row.media_id).camera_id)
         if plan and cal and plan.read_point(row.scan_point_id):  # a belt, a cage or the frame is not a parcel
-            pw, ph = parcel_extent_px(plan.read_point(row.scan_point_id), cal)
+            rp0 = plan.read_point(row.scan_point_id)
+            from types import SimpleNamespace
+
+            from spoor.perception.anchor import event_xyz
+            at_rp = SimpleNamespace(device_parts_m=None, position_m=event_xyz(rp0, row.scan.event_kind.value, plan.conveyors))                 if row.scan.event_kind.value in rp0.event_positions else rp0  # (sized where the event happens)
+            pw, ph = parcel_extent_px(at_rp, cal)
             big = {k for k, b in near_box.items() if b[2] - b[0] > 2 * pw or b[3] - b[1] > 2 * ph}
             if big and len(big) == len(tracks):
                 return self.store.put(ScanHandshake(**base, outcome="not_found", frame_index=f_at,
@@ -262,7 +269,8 @@ class Services:
         after = [o for o in obs if o.source_frame.frame_index >= f_at]
         span = (after[-1].source_frame.pts_ms - after[0].source_frame.pts_ms) / 1000 if len(after) > 1 else 0.0
         labelled, note = row.rule == "work_area", ""
-        if row.rule == "point" and row.scan.event_kind.value in DIVERT_EVENTS and box and plan and cal:
+        boards = row.rule == "point" and row.scan.event_kind.value in BOARD_EVENTS and plan is not None             and row.scan.event_kind.value in plan.read_point(row.scan_point_id).event_positions
+        if row.rule == "point" and (row.scan.event_kind.value in DIVERT_EVENTS or boards) and box and plan and cal:
             # carton-sized? a point at a chute mouth often outlines the whole tray: compare with this parcel's own
             # measured size at the point; if much bigger, prompt SAM again with a box of that size; else no label
             exp = self._expected_box(row, plan, cal)
@@ -277,8 +285,17 @@ class Services:
                                                         box_px=box, note="SAM outlined more than the parcel (its "
                                                         "tray); a box of the parcel's size found nothing tighter"))  # fmt: skip
                 tid, obs, box, after, span = re
-        if row.rule == "point" and row.scan.event_kind.value not in DIVERT_EVENTS:
-            labelled = False  # the motion rule was checked at divert points only (an induction outline was wrong 4/4)
+        if boards:
+            # boarding the loop (the induct the sorter reports where the parcel boards a carrier): the carrier taking it
+            # is empty, so the one carton there is the parcel, if it then rides off ALONG the loop at the loop's speed
+            # (a carton resting, or crossing, is something else). Measured on the floor at the deck's height
+            labelled = self._rides_loop(row, plan, cal, obs, f_at)
+            if not labelled:
+                return self.store.put(ScanHandshake(**base, outcome="cant_tell", track_id=tid, frame_index=f_at,
+                                                    box_px=box, note="the outline did not ride off along the loop: "
+                                                    "can't tell it is the carton boarding"))  # fmt: skip
+        elif row.rule == "point" and row.scan.event_kind.value not in DIVERT_EVENTS:
+            labelled = False  # (the device's own spot: a belt passes a carton a second there; no label)
         elif row.rule == "point":
             # the diverted carton slides off its tray INTO the chute: from where the plan puts the event (on the loop)
             # towards the chute mouth. A tray (empty, or carrying it) carries on along the loop; a still outline is
@@ -306,6 +323,36 @@ class Services:
                                             labelled=labelled, frames_followed=len(after), followed_s=round(span, 2),
                                             note=note))
 
+    def _rides_loop(self, row, plan, cal, obs, f_at) -> bool:
+        """The outline, on the floor at the deck height, moves at least RIDE_M along the loop's direction at the boarding
+        spot within ~1.5 s, and at least twice as far along as across."""
+        from spoor.perception.anchor import event_xyz
+        from spoor.spatial.homography import image_to_site
+
+        rp = plan.read_point(row.scan_point_id)
+        x, y, deck = event_xyz(rp, row.scan.event_kind.value, plan.conveyors)
+        loop = [cv for cv in plan.conveyors if cv.kind == "loop"]
+        segs = [(a, b) for cv in loop for a, b in zip(cv.path_m, cv.path_m[1:] + ([cv.path_m[0]] if cv.closed else []), strict=False)]
+        if not segs:
+            return False
+        p = np.array([x, y])
+
+        def dist(a, b):
+            a, b = np.array(a), np.array(b)
+            t = np.clip(np.dot(p - a, b - a) / max(1e-9, np.dot(b - a, b - a)), 0, 1)
+            return float(np.linalg.norm(p - (a + t * (b - a))))
+        a, b = min(segs, key=lambda s_: dist(*s_))
+        d = np.array(b) - np.array(a)
+        d = d / max(1e-9, np.linalg.norm(d))
+        moving = [o for o in obs if f_at <= o.source_frame.frame_index <= f_at + 15]
+        if len(moving) < 2:
+            return False
+        c = [((o.bbox_xyxy_px[0] + o.bbox_xyxy_px[2]) / 2, (o.bbox_xyxy_px[1] + o.bbox_xyxy_px[3]) / 2) for o in moving]
+        xy = image_to_site(cal, c, deck)[:, :2]
+        step = xy[-1] - xy[0]
+        along, across = float(step @ d), abs(float(step @ np.array([-d[1], d[0]])))
+        return along >= RIDE_M and along >= 2 * across
+
     def _expected_box(self, row, plan, cal):
         """This parcel's own measured size (its tunnel read's dims) projected at the scan point, or None."""
         from spoor.contracts import ScanEvent
@@ -313,6 +360,13 @@ class Services:
         dims = next((s.dims_mm for s in self.store.find(ScanEvent, event_kind="tunnel_read")
                      if s.dims_mm and any(i.value == row.waybill for i in s.identifiers)), None)  # fmt: skip
         rp = plan.read_point(row.scan_point_id)
+        kind = row.scan.event_kind.value
+        if dims and rp and kind in rp.event_positions:  # where it boards: its bottom on that conveyor's deck
+            from types import SimpleNamespace
+
+            from spoor.perception.anchor import event_xyz
+            x, y, deck = event_xyz(rp, kind, plan.conveyors)
+            rp = SimpleNamespace(device_parts_m=None, position_m=[x, y, deck + min(dims) / 2000])
         return expected_carton_px(rp, cal, tuple(v / 1000 for v in dims)) if dims and rp else None
 
     def _reprompt(self, row, start, end, at_iso, exp, f_at, first):
@@ -323,7 +377,7 @@ class Services:
         try:
             res = self.anchored_sam(None, row.media_id, concept=None, start_iso=start, end_iso=end,
                                     scan_point_id=row.scan_point_id, at_iso=at_iso,
-                                    prompt_box=(cx - hw, cy - hh, cx + hw, cy + hh))  # fmt: skip
+                                    prompt_box=(cx - hw, cy - hh, cx + hw, cy + hh), event_kind=row.scan.event_kind.value)  # fmt: skip
         except (ServiceError, AnchorError):
             return None
         tracks = [t for t in res.get("tracks", []) if t["frames"][0] <= f_at + 10 and t["frames"][1] >= f_at - 2]
@@ -400,7 +454,8 @@ class Services:
 
     def anchored_sam(self, case: Case | None, media_id: str, *, concept: str | None, start_iso: str | None,
                      end_iso: str | None, scan_point_id: str | None, at_iso: str | None,
-                     out_of_view: bool = False, keep: str = "leaves", prompt_box: tuple | None = None) -> dict:
+                     out_of_view: bool = False, keep: str = "leaves", prompt_box: tuple | None = None,
+                     event_kind: str | None = None) -> dict:
         """SAM on a window of one clip, aimed by a scan point (anchor.py): a device/sorter point is a point prompt on
         the scan's frame; a handheld point's work area keeps only tracks that start inside it and leave it."""
         original = self.store.get(MediaAsset, media_id)
@@ -417,13 +472,15 @@ class Services:
             rp = plan.read_point(scan_point_id) if plan else None
             if rp is None:
                 raise ServiceError(f"unknown scan point {scan_point_id}")
-            if original.camera_id not in rp.visible_by:
+            moved = bool(event_kind and event_kind in rp.event_positions)  # the event happens away from the device:
+            # the cameras that see THAT spot (checked through each one's calibration below), not the device's
+            if original.camera_id not in rp.visible_by and not moved:
                 raise ServiceError(f"{original.camera_id} does not see {scan_point_id} (plan check); try "
                                    f"{', '.join(rp.visible_by) or 'no camera'}")
             cal = self.valid_calibration(original.camera_id)
             if cal is None:
                 raise ServiceError(f"{original.camera_id} has no valid calibration")
-            anchor = anchor_for(rp, cal)
+            anchor = anchor_for(rp, cal, event_kind, plan.conveyors)
         instance = None
         if anchor is not None and anchor.kind == "point":
             if not at_iso:

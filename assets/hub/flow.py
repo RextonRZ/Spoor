@@ -973,7 +973,14 @@ for step in range(steps + 1):
             # height over 0.6 s, then hidden) - only C07 has a bag change, so every other chute's heap grew 2-3.2 m
             # high over the 90 s + preroll (51 parcels in the air over C01 / C12 / ...: motion gate, 31 Oct)
             settle = p.target != "REJECT" and best[1].pos.z + p.dims[2] > c["lip_z"] - 0.02
-            if settle:  # onto the opening, gone as it lands (sinking through the heap it crossed the bag's static
+            # the replayed (story) parcel is never hidden on a full bag: it comes off the chute and stays on top of the
+            # heap at the rim, in view (hidden as it left the chute it read as vanishing in mid-air: Rexton 3 Nov)
+            story_top = settle and REPLAY and REPLAY.get("p") is p
+            if story_top:
+                settle = False
+                best[1].pos.z = c["lip_z"] + 0.02
+                landed[p.target].append(best[1])
+            elif settle:  # onto the opening, gone as it lands (sinking through the heap it crossed the bag's static
                 best[1].pos.z = c["lip_z"] + 0.02  # contents and the chute end: +370 collision rows, 31 Oct)
             else:
                 landed[p.target].append(best[1])
