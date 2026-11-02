@@ -3,8 +3,10 @@
 For each handshake that outlined a carton, the render truth gives every parcel's 3-D centre at the scan's frame. Each
 centre goes into the camera through Spoor's validated calibration (pose + lens, held-out error 1-2 cm), and the
 handshake is right when the scanned parcel's projection is the one nearest the outlined box's centre and falls inside
-the box (with a margin). Also replays the parcel-size rule offline over the stored tracks (no SAM call), so the stored
-rows can be judged before and after it. Writes docs/open_weights_proof/handshake_eval.json.
+the box (with a margin); its number on the outline is right when the scanned parcel is the one nearest it. Reports,
+per kind of scan, how many outlines carry a label (labelled) and how many of those are right (target: all), how many
+were withheld ("can't tell which carton"), and the story parcel's own checkpoints. Writes
+docs/open_weights_proof/handshake_eval.json.
 
     uv run --project ../backend python scripts/eval_handshakes.py --data .local/backend-data-s2r18c
 """
@@ -12,15 +14,12 @@ rows can be judged before and after it. Writes docs/open_weights_proof/handshake
 import argparse
 import json
 import math
-from collections import Counter
 from datetime import timedelta, timezone
 from pathlib import Path
 
 from spoor.api.services import Services
 from spoor.config import Settings
 from spoor.contracts import CameraCoverage
-from spoor.forensics.journey import latest_plan
-from spoor.perception.anchor import parcel_extent_px
 from spoor.spatial.homography import site_to_image
 from spoor.store import ScanHandshake
 
@@ -63,7 +62,6 @@ def main():
     store = svc.store
     truths = {k: json.loads((TRUTH / f).read_text(encoding="utf-8")) for k, f in WINDOWS.items()}
     hs = [h for h in store.find(ScanHandshake) if h.track_id or h.outcome == "cant_tell"]
-    plan = latest_plan(store, hs[0].site_id) if hs else None
     out = []
     for h in hs:
         win, first = first_frame(store, h.media_id, h.camera_id.removeprefix("cam_"))
@@ -77,19 +75,31 @@ def main():
         w, hh = cal.image_wh_px
         pts = {i: (float(u), float(v)) for i, (u, v), f in zip(ids, uv, front, strict=True) if f and 0 <= u < w and 0 <= v < hh}
         before = judge(h.box_px, pts.get(h.waybill), pts, h.waybill)
-        pw, ph = parcel_extent_px(plan.read_point(h.scan_point_id), cal)
-        x1, y1, x2, y2 = h.box_px
-        too_big = x2 - x1 > 2 * pw or y2 - y1 > 2 * ph
         out.append({"window": win, "waybill": h.waybill, "camera": h.camera_id.removeprefix("cam_"),
-                    "scan_point": h.scan_point_id, "rule": h.rule, "at": h.at_utc.isoformat(), "media": h.media_id, "box": h.box_px,
-                    "parcel_px": [round(pw), round(ph)], "truth_px": (o := pts.get(h.waybill)) and [round(o[0]), round(o[1])],
-                    "verdict": before, "after_size_rule": "dropped_too_big" if too_big else before})
-    def summ(key):
-        c = Counter(o[key] for o in out)
-        judged = c["right"] + c["near_miss"] + c["other_parcel"]
-        return {"verdicts": dict(c), "precision": round(c["right"] / judged, 3) if judged else None,
-                "by_rule": {r: dict(Counter(o[key] for o in out if o["rule"] == r)) for r in sorted({o["rule"] for o in out})}}
-    summary = {"outlined": len(out), "as_stored": summ("verdict"), "with_size_rule": summ("after_size_rule")}
+                    "scan_point": h.scan_point_id, "event": h.event_kind, "rule": h.rule, "at": h.at_utc.isoformat(),
+                    "media": h.media_id, "box": h.box_px, "outcome": h.outcome, "labelled": h.labelled,
+                    "truth_px": (o := pts.get(h.waybill)) and [round(o[0]), round(o[1])], "verdict": before,
+                    # the scanned parcel is the one nearest the outline: a label with its number on it is right
+                    "identity_right": before in ("right", "near_miss")})
+
+    def kind(o):
+        return ("cage" if o["scan_point"].startswith("SP-CAGE") else "handheld") if o["rule"] == "work_area" else             {"point": "divert", "tunnel_exit": "tunnel exit"}[o["rule"]]
+
+    def summ(rows):
+        shown = [o for o in rows if o["outcome"] == "outlined" and o["labelled"]]
+        wrong = [o for o in shown if not o["identity_right"]]
+        return {"outlines": len(rows), "labelled": len(shown), "withheld": len(rows) - len(shown),
+                "labelled_right": len(shown) - len(wrong),
+                "label_precision": round((len(shown) - len(wrong)) / len(shown), 3) if shown else None,
+                "strict_right": sum(o["verdict"] == "right" for o in shown),
+                "coverage_of_right": round(len(shown) / max(1, sum(o["identity_right"] for o in rows)), 3),
+                "wrong_labels": [f"{o['waybill']} {o['camera']} {o['at'][11:19]}" for o in wrong]}
+
+    story = json.loads((TRUTH / "scenario_S2.json").read_text(encoding="utf-8"))["story_parcel"]
+    summary = {"all": summ(out), "by_type": {k: summ([o for o in out if kind(o) == k]) for k in sorted({kind(o) for o in out})},
+               "story": [{"at": o["at"][11:22], "event": o["event"], "camera": o["camera"], "outcome": o["outcome"],
+                          "labelled": o["labelled"], "verdict": o["verdict"]} for o in sorted(out, key=lambda o: o["at"])
+                         if o["waybill"] == story]}
     dest = ROOT / "docs" / "open_weights_proof" / "handshake_eval.json"
     dest.write_text(json.dumps({"summary": summary, "rows": out}, indent=1), encoding="utf-8")
     print(json.dumps(summary, indent=1))

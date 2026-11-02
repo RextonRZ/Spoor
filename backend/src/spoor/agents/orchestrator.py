@@ -26,10 +26,20 @@ from spoor.contracts import (
     VerifiedFinding,
     new_id,
 )
+from spoor.contracts.parcels import ReadOutcome
 from spoor.forensics.handover import blind_areas_near
 from spoor.reasoning import JsonBackend
 from spoor.safety import find_forbidden
-from spoor.store import AgentStep, EvidenceStore, epoch_ms, last_confirmed, transitions, unobserved_intervals
+from spoor.store import (
+    AgentStep,
+    EvidenceStore,
+    ScanHandshake,
+    epoch_ms,
+    last_confirmed,
+    transitions,
+    unobserved_intervals,
+)
+from spoor.store.parcels import object_keys, scans_for
 from spoor.verification import LastSeenClaim
 from spoor.verification.engine import BASELINE_CLAIMS
 
@@ -80,6 +90,9 @@ class ObjectAnswer:
     unobserved: list[dict]
     inside_area: str | None = None  # a supported stayed_in_area finding, worded by the verifier
     inside_facts: dict | None = None  # the same finding as short values (place, times, camera) for screens
+    # never followed on camera: where its LAST SCAN RECORD puts it ("located by scan"), and whether a camera met the
+    # parcel at that scan (the scan-to-camera handshake outlined it: "confirmed on camera" at that moment)
+    last_scan: dict | None = None
 
 
 @dataclass
@@ -133,6 +146,23 @@ def _facts(ctx: ToolContext, obj: ObjectInstance, window) -> dict:
     }  # fmt: skip
 
 
+def _last_scan(ctx: ToolContext, obj: ObjectInstance) -> dict | None:
+    """The object's last read scan on the shared clock and the handshake that met it on camera, if any."""
+    keys = object_keys(ctx.store, obj.object_instance_id)
+    timeline = scans_for(ctx.store, keys, site_id=ctx.case.site_id) if keys else None
+    reads = [ts for ts in (timeline.scans if timeline else []) if ts.scan.read_outcome == ReadOutcome.READ]
+    if not reads:
+        return None
+    last = reads[-1]
+    met = [h for h in ctx.store.find(ScanHandshake, scan_event_id=last.scan.scan_event_id) if h.outcome == "outlined"]
+    met.sort(key=lambda h: not h.camera_id.startswith("cam_CHK_"))  # a checkpoint camera first
+    return {"scan_event_id": last.scan.scan_event_id, "event_kind": last.scan.event_kind.value, "at": last.t.isoformat(),
+            "scan_point_id": last.scan.station_id or last.scan.device_id, "zone_id": last.scan.read_point_zone_id,
+            "container": last.scan.container.value if last.scan.container else None,
+            "located_by": "camera" if met else "scan", "camera": met[0].camera_id if met else None,
+            "handshake_id": met[0].handshake_id if met else None}
+
+
 def _existing_finding(ctx: ToolContext, statement: str, obs_ids: list[str]) -> VerifiedFinding | None:
     for f in ctx.store.find(VerifiedFinding, case_id=ctx.case.case_id):
         if f.statement == statement and f.observation_ids == obs_ids and not ctx.store.is_invalid(f.finding_id):
@@ -175,7 +205,13 @@ def investigate(
     # 1. Deterministic baseline: last visibly confirmed position, verified and promoted.
     for obj in objects:
         f = facts[obj.object_instance_id]
-        finding, text = None, "Never visibly confirmed in the available, synchronized footage."
+        finding, text, last_scan = None, "Never visibly confirmed in the available, synchronized footage.", None
+        if f["last_confirmed_observation_id"] is None and (last_scan := _last_scan(ctx, obj)) is not None:
+            where = last_scan["scan_point_id"] + (f" ({zones.get(last_scan['zone_id'], last_scan['zone_id'])})"
+                                                  if last_scan["zone_id"] else "")  # fmt: skip
+            text = (f"Not followed on camera. Last scan record: {last_scan['event_kind'].replace('_', ' ')} at {where}, "
+                    f"{last_scan['at']}; " + (f"the camera {last_scan['camera']} saw it there at that scan."
+                                              if last_scan["camera"] else "not seen on camera."))  # fmt: skip
         if (oid := f["last_confirmed_observation_id"]) is not None:
             claim = LastSeenClaim(statement="last visibly confirmed", object_instance_id=obj.object_instance_id,
                                   observation_id=oid)  # fmt: skip
@@ -191,7 +227,7 @@ def investigate(
             obj.object_instance_id, obj.label, finding, text, "not_established",
             [f"{zones.get(t['from'], t['from'])} -> {zones.get(t['to'], t['to'])}" for t in f["transitions"]
              if t["label"] == "observed"],
-            f["unobserved_intervals"],
+            f["unobserved_intervals"], last_scan=last_scan,
         ))  # fmt: skip
 
     by_object = {a.object_instance_id: a for a in answers}
@@ -331,7 +367,8 @@ def answer_view(res: InvestigationResult, plain: Callable[[str], str] = str) -> 
         verified += [c for c in o.verified_checks if c not in verified]
     return {"status": res.status, "revision_id": res.revision_id,
             "objects": [{"label": a.label, "most_likely": a.inside_area, "inside": a.inside_facts,
-                         "last_seen": a.last_seen_text, "left_area": a.left_area} for a in res.objects],
+                         "last_seen": plain(a.last_seen_text), "left_area": a.left_area, "last_scan": a.last_scan}
+                        for a in res.objects],
             "verified": verified,
             "hypotheses": [{"status": o.status.value, "agent_wording": plain(o.claim), "agent_wording_raw": o.claim,
                             "verified": o.verified_checks,

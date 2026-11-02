@@ -108,6 +108,9 @@ class ScanHandshake(ImmutableRecord):
     box_px: list[float] | None = None
     frames_followed: int = 0
     followed_s: float = 0.0
+    # a tracking number goes on the outline only when the rule for this kind of scan rules out a neighbour (checked
+    # against the render truth: none shown wrong); otherwise the clip is shown as "can't tell which carton"
+    labelled: bool = False
     note: str = ""
     at: AwareDatetime
 

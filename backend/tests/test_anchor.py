@@ -52,3 +52,12 @@ def test_leaves_out_of_view_counts_only_when_asked():
     assert not leaves(area, out)
     assert leaves(area, out, out_of_view=(100, 100))
     assert not leaves(area, [(40, 40, 60, 60), (30, 50, 50, 70)], out_of_view=(100, 100))
+
+
+def test_handled_keeps_a_carton_put_in_or_taken_out_not_stock_standing_still():
+    from spoor.perception.anchor import handled
+
+    area = [(0, 0), (100, 0), (100, 100), (0, 100)]
+    assert handled(area, [(150, 40, 170, 60), (60, 40, 80, 60), (60, 40, 80, 60)])  # carried in, set down
+    assert not handled(area, [(40, 40, 60, 60), (41, 40, 61, 60), (40, 41, 60, 61)])  # stock on a shelf
+    assert not handled(area, [(150, 40, 170, 60), (180, 40, 200, 60)])  # never in the area

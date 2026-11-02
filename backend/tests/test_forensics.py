@@ -623,3 +623,21 @@ def test_left_alert_candidates_are_parcels_and_know_when_their_cage_left(world, 
     got = {p["waybill"]: p["container_left"] for p in ws[0].parcels}
     assert set(got) == {"CTX100000000001", "CTX100000000002"}  # (not the bag)
     assert got["CTX100000000001"] is None and got["CTX100000000002"] == w.t0 + timedelta(seconds=8)
+
+
+def test_unfitted_handheld_point_is_looked_at_only_when_no_other_scan_shares_its_window(world, now):
+    """On a +-5 s clock a handheld scan with another scan at the same point within 10 s can't be told apart on camera;
+    an isolated one is looked at over the whole window."""
+    from spoor.forensics.handshake import plan_handshakes
+
+    w = world
+    w.camera("cam_a", sync_uncertainty_ms=5000)
+    w.clip("cam_a", 0, 60)
+    plan = SitePlan.model_validate(plan_for(w.site.site_id, now).model_dump() | {"read_points": [
+        {"scan_point_id": "SP-BENCH", "device_kind": "handheld", "position_m": (2, 3, 1.0),
+         "work_area_m": [[(1.5, 2.5), (2.5, 2.5), (2.5, 3.5), (1.5, 3.5)]], "visible_by": ["cam_a"]}]})
+    scan(w, "SP-BENCH", "arrived_facility", 10.0, "handheld")
+    scan(w, "SP-BENCH", "arrived_facility", 14.0, "handheld")
+    scan(w, "SP-BENCH", "arrived_facility", 40.0, "handheld")
+    rows = sorted(plan_handshakes(w.store, plan, w.store.find(ScanEvent)), key=lambda r: r.at)
+    assert [r.reason for r in rows] == ["clock_not_fitted", "clock_not_fitted", ""]

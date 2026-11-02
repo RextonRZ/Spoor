@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import numpy as np
+
 from spoor.agents import ToolContext
 from spoor.config import Settings
 from spoor.contracts import (
@@ -28,7 +30,7 @@ from spoor.forensics.journey import latest_plan
 from spoor.ingest import MediaStore, asset_path, load_result
 from spoor.ingest.clips import crop_window
 from spoor.perception import MetaSamBackend, PerceptionRequest, SamBackend, track_target
-from spoor.perception.anchor import AnchorError, anchor_for, inside, leaves, parcel_extent_px
+from spoor.perception.anchor import AnchorError, anchor_for, handled, inside, leaves, parcel_extent_px
 from spoor.perception.prompts import InstancePrompt
 from spoor.reasoning import (
     BasetenChatBackend,
@@ -177,7 +179,8 @@ class Services:
         camera; the carton it finds there is the scanned parcel. Stored as a ScanHandshake whatever the outcome."""
         from datetime import timedelta
 
-        from spoor.forensics.handshake import BEFORE_S, FOLLOW_S
+        from spoor.forensics.handshake import BEFORE_S, CLOCK_MS, FOLLOW_S, STILL_M
+        from spoor.spatial.homography import image_to_site
         from spoor.store import ScanHandshake
 
         # one row per scan, camera and clip (and clock state): footage that arrives later, or a clock fitted later,
@@ -195,17 +198,22 @@ class Services:
             return self.store.put(ScanHandshake(**base, outcome=row.reason))
         at_iso = row.at.isoformat()
         cov = self.store.find(CameraCoverage, media_id=row.media_id)[-1]  # the follow stops where the clip does
-        start = max(row.at - timedelta(seconds=BEFORE_S), cov.start_utc).isoformat()
-        end = min(row.at + timedelta(seconds=FOLLOW_S), cov.end_utc).isoformat()
+        unc = timedelta(milliseconds=self.store.get(ClockSync, cov.sync_id).uncertainty_ms)
+        wide = row.rule == "work_area" and unc.total_seconds() * 1000 > CLOCK_MS  # handheld on an unfitted clock
+        pad = unc if wide else timedelta(0)
+        start = max(row.at - timedelta(seconds=BEFORE_S) - pad, cov.start_utc).isoformat()
+        end = min(row.at + timedelta(seconds=FOLLOW_S) + pad, cov.end_utc).isoformat()
         try:
             res = self.anchored_sam(None, row.media_id, concept=None, start_iso=start, end_iso=end,
-                                    scan_point_id=row.scan_point_id, at_iso=None if row.rule == "work_area" else at_iso)
+                                    scan_point_id=row.scan_point_id, at_iso=None if row.rule == "work_area" else at_iso,
+                                    keep="handled")
             f_at = self.frame_at(row.media_id, at_iso)
         except (ServiceError, AnchorError) as e:
             return self.store.put(ScanHandshake(**base, outcome="failed", note=str(e)[:300]))
         if res.get("status") not in (None, "ok", "completed", "succeeded"):
             return self.store.put(ScanHandshake(**base, outcome="failed", note=f"{res.get('status')}: {res.get('message')}"[:300]))
-        tracks = [t for t in res.get("tracks", []) if t["frames"][0] <= f_at + 10 and t["frames"][1] >= f_at - 2]
+        tracks = res.get("tracks", []) if wide else [
+            t for t in res.get("tracks", []) if t["frames"][0] <= f_at + 10 and t["frames"][1] >= f_at - 2]
         near_box = {}
         for t in tracks:
             obs = [o for o in self.store.find(RawObservation, track_id=t["track_id"]) if o.bbox_xyxy_px]
@@ -229,12 +237,30 @@ class Services:
         tid = tracks[0]["track_id"]
         obs = sorted((o for o in self.store.find(RawObservation, track_id=tid) if o.bbox_xyxy_px),
                      key=lambda o: o.source_frame.frame_index)  # fmt: skip
+        if wide and obs:  # the carton's own moment in the hands, not the unfitted clock's guess
+            f_at = obs[0].source_frame.frame_index
         near = min(obs, key=lambda o: abs(o.source_frame.frame_index - f_at)) if obs else None
+        box = list(near.bbox_xyxy_px) if near else None
         after = [o for o in obs if o.source_frame.frame_index >= f_at]
         span = (after[-1].source_frame.pts_ms - after[0].source_frame.pts_ms) / 1000 if len(after) > 1 else 0.0
-        return self.store.put(ScanHandshake(**base, outcome="outlined", track_id=tid, frame_index=f_at,
-                                            box_px=list(near.bbox_xyxy_px) if near else None,
-                                            frames_followed=len(after), followed_s=round(span, 2)))
+        labelled, note = row.rule == "work_area", ""
+        if row.rule == "point":  # the diverted carton is moving at the confirm; a still outline is something resting
+            rp = plan.read_point(row.scan_point_id) if plan else None
+            moving = [o for o in obs if f_at - 2 <= o.source_frame.frame_index <= f_at + 15]
+            if rp is not None and cal is not None and len(moving) > 1:
+                centres = [((o.bbox_xyxy_px[0] + o.bbox_xyxy_px[2]) / 2, (o.bbox_xyxy_px[1] + o.bbox_xyxy_px[3]) / 2)
+                           for o in moving]  # fmt: skip
+                xy = image_to_site(cal, centres, rp.position_m[2])[:, :2]
+                labelled = float(np.linalg.norm(xy[-1] - xy[0])) > STILL_M
+            if not labelled:
+                return self.store.put(ScanHandshake(**base, outcome="cant_tell", track_id=tid, frame_index=f_at,
+                                                    box_px=box, note="the outline at the point stood still; the "
+                                                    "diverted carton was moving: can't tell which carton"))  # fmt: skip
+        if row.rule == "tunnel_exit":
+            note = "the tunnel's own photo identifies it; at the exit it can't be told from the carton queued before it"
+        return self.store.put(ScanHandshake(**base, outcome="outlined", track_id=tid, frame_index=f_at, box_px=box,
+                                            labelled=labelled, frames_followed=len(after), followed_s=round(span, 2),
+                                            note=note))
 
     def watch_container_area(self, w, *, now) -> list:
         """One planned watch (left_alert.py): SAM on the clip after the container scans, keeping cartons that start in
@@ -297,7 +323,7 @@ class Services:
 
     def anchored_sam(self, case: Case | None, media_id: str, *, concept: str | None, start_iso: str | None,
                      end_iso: str | None, scan_point_id: str | None, at_iso: str | None,
-                     out_of_view: bool = False) -> dict:
+                     out_of_view: bool = False, keep: str = "leaves") -> dict:
         """SAM on a window of one clip, aimed by a scan point (anchor.py): a device/sorter point is a point prompt on
         the scan's frame; a handheld point's work area keeps only tracks that start inside it and leave it."""
         original = self.store.get(MediaAsset, media_id)
@@ -338,15 +364,19 @@ class Services:
                 for t in r.tracks}  # fmt: skip
             wh = tuple(self.valid_calibration(original.camera_id).image_wh_px) if out_of_view else None
             last = window[1] if window else n - 1  # a track still in view at the window's end only ran out of footage
-            tracks = [t for t in r.tracks if leaves(anchor.polygon_px, boxes[t.track_id], wh)
-                      and (not out_of_view or t.last_frame_index < last - 1 or leaves(anchor.polygon_px, boxes[t.track_id]))]
+            if keep == "handled":  # a handshake at a handheld point: the carton in the hands, put in or taken out
+                tracks = [t for t in r.tracks if handled(anchor.polygon_px, boxes[t.track_id])]
+            else:
+                tracks = [t for t in r.tracks if leaves(anchor.polygon_px, boxes[t.track_id], wh)
+                          and (not out_of_view or t.last_frame_index < last - 1 or leaves(anchor.polygon_px, boxes[t.track_id]))]
         return {"status": r.status, "message": r.message, "cache_hit": r.cache_hit,
                 "frames_sent": [window[0], window[1]] if window else "whole clip",
                 "anchor": None if anchor is None else {"scan_point": anchor.scan_point_id, "kind": anchor.kind},
                 "tracks": [{"track_id": t.track_id, "frames": [t.first_frame_index, t.last_frame_index]}
                            for t in tracks],
                 "dropped": len(r.tracks) - len(tracks),
-                "note": ("kept only tracks that start inside the work area and leave it; " if anchor and anchor.kind
+                "note": (("kept only cartons handled in the work area; " if keep == "handled" else
+                          "kept only tracks that start inside the work area and leave it; ") if anchor and anchor.kind
                          == "area" else "") + "new tracks are NOT linked to the case object until an investigator "
                                               "confirms them"}  # fmt: skip
 

@@ -10,8 +10,17 @@ Rules by where the carton is at the scan instant (general, from the record and t
 - a handheld scan: the carton is in the worker's hands in the work area at the scan instant (area prompt, keep the
   carton that leaves the area after it);
 - RFID (a cage's tag) and scan points no camera sees get a record saying so ("not on camera"), never a fake clip;
-- a camera whose clock is not fitted (only the uploader's declared start) gets "clock not fitted": belts pass a
-  carton a second, so its frame at the scan's second could show any of several.
+- a camera whose clock is not fitted (only the uploader's declared start) gets "clock not fitted" at belt points: belts
+  pass a carton a second, so its frame at the scan's second could show any of several. A handheld point is looked at
+  over the clock's whole +- window instead, only when no other scan at that point falls in the same window, and counts
+  only if exactly one carton is handled there (in the area and moved: put in or taken out) in all of it.
+
+Which outlines carry the tracking number (labelled), by rule, from the truth check (eval_handshakes.py):
+- divert point: the carton is moving at the confirm (it leaves its tray); an outline that stands still at the point
+  is something resting there (a carton already in the chute) -> "can't tell", not labelled;
+- tunnel exit: no picture signal tells the scanned carton from the one queued before it at the exit, so the CCTV
+  outline is not labelled; the tunnel's own photo, taken by the reader at the read, identifies it;
+- handheld: exactly one carton handled in the work area in the window -> labelled.
 Nothing here reads the scenario truth."""
 
 from dataclasses import dataclass
@@ -25,6 +34,7 @@ from spoor.store.parcels import effective, timed
 TUNNEL_EXIT_S = 0.3  # the first carton out of the exit: this long after the read (the reader sits at the exit)
 FOLLOW_S = 5.0  # how long SAM follows it after the scan
 BEFORE_S = 0.5
+STILL_M = 0.3  # a divert's carton moves more than this in the 1.7 s around the confirm
 CLOCK_MS = 1000  # a camera clock known only to the uploader's +-5 s can't say which carton was at the point
 
 
@@ -51,6 +61,10 @@ def plan_handshakes(store: EvidenceStore, plan: SitePlan, scans: list[ScanEvent]
     out: list[Planned] = []
     media = [m for m in store.find(MediaAsset) if m.kind.value == "original"]
     covs = {m.media_id: store.find(CameraCoverage, media_id=m.media_id) for m in media}
+    at_point: dict[str, list[datetime]] = {}  # every read's time at each scan point (who else was handled there)
+    for s in effective(scans):
+        if s.read_outcome == ReadOutcome.READ and s.identifiers:
+            at_point.setdefault(s.station_id or s.device_id, []).append(timed(store, s).t)
     for s in effective(scans):
         if s.read_outcome != ReadOutcome.READ or not s.identifiers or s.device_kind == DeviceKind.RFID_PORTAL:
             continue
@@ -70,8 +84,10 @@ def plan_handshakes(store: EvidenceStore, plan: SitePlan, scans: list[ScanEvent]
                       and covs[m.media_id][-1].start_utc <= at - timedelta(seconds=BEFORE_S)
                       and at + timedelta(seconds=1.0) <= covs[m.media_id][-1].end_utc), None)  # fmt: skip
             why = "" if m else "no_footage"
-            if m and store.get(ClockSync, covs[m.media_id][-1].sync_id).uncertainty_ms > CLOCK_MS:
-                why = "clock_not_fitted"  # the scan's second could be any of several parcels on this picture
+            unc_ms = store.get(ClockSync, covs[m.media_id][-1].sync_id).uncertainty_ms if m else 0.0
+            if m and unc_ms > CLOCK_MS and (rule != "work_area" or any(
+                    abs((o - ts.t).total_seconds()) * 1000 < 2 * unc_ms for o in at_point.get(sp, []) if o != ts.t)):
+                why = "clock_not_fitted"  # several cartons could be the one at the scan's second on this picture
             out.append(Planned(s, waybill_of(s), sp, cam, m.media_id if m else None, at, rule, why))
     return out
 
