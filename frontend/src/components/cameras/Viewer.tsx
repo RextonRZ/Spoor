@@ -12,8 +12,11 @@ type View = { s: number; x: number; y: number };
 
 /** `image`: show this exact picture (a frame from a recording) instead of the camera's feed; `at`: a fixed time for the on-screen
  *  display (evidence of one moment) instead of the running live clock; `pill`: a status over the picture. */
-export function Viewer({ id, label, src, baseMs = 0, image, at, pill, mark }: {
+export function Viewer({ id, label, src, baseMs = 0, image, at, pill, mark, clip }: {
   id: string; label: string; src?: string; baseMs?: number; image?: string; at?: string; pill?: { text: string; tone: string };
+  /** a recording to play in place (the real video, not frame by frame): `time` in seconds into it; while paused an
+   *  `image` (the outlined frame of the moment) may sit over it */
+  clip?: { src: string; time: number; playing: boolean; rate: number; onTime: (s: number) => void; onEnd: () => void };
   /** an outline on the frame, in the frame's own pixels (wh); text is shown only when given (a label that is sure) */
   mark?: { box: number[]; wh: [number, number]; text?: string };
 }) {
@@ -95,10 +98,11 @@ export function Viewer({ id, label, src, baseMs = 0, image, at, pill, mark }: {
         aria-label={`${label}. Scroll to zoom, drag to move, plus and minus to zoom, zero to reset.`}
         onKeyDown={onKey} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onDoubleClick={onDouble}>
         <div className="cv-pic" style={{ transform: `translate(${v.x}px, ${v.y}px) scale(${v.s})` }}>
-          {image ? (
+          {clip && <ClipVideo clip={clip} />}
+          {image && !(clip && clip.playing) ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img className="cf-media" src={image} alt={`${id.replaceAll("_", " ")} at ${at ? at.slice(11, 19) : ""}`} draggable={false} />
-          ) : <Feed id={id} src={src} eager />}
+          ) : clip ? null : <Feed id={id} src={src} eager />}
           {image && mark && (
             <svg className="cv-mark" viewBox={`0 0 ${mark.wh[0]} ${mark.wh[1]}`} preserveAspectRatio="xMidYMid slice" aria-hidden="true">
               <rect x={mark.box[0] - 6} y={mark.box[1] - 6} width={mark.box[2] - mark.box[0] + 12} height={mark.box[3] - mark.box[1] + 12} rx="6" />
@@ -107,7 +111,8 @@ export function Viewer({ id, label, src, baseMs = 0, image, at, pill, mark }: {
             </svg>
           )}
         </div>
-        <div className="cf-osd" aria-hidden="true">
+        {/* a recording carries its own burned-in name and clock */}
+        <div className="cf-osd" aria-hidden="true" hidden={!!clip}>
           <span className="cf-name">{id.replaceAll("_", " ")}<em>{label}</em></span>
           {at ? <span className="cf-meta"><time className="cf-clock">{at}</time></span>
             : <span className="cf-meta"><i className="cf-rec" />REC<Clock baseMs={baseMs} /></span>}
@@ -131,5 +136,27 @@ export function Viewer({ id, label, src, baseMs = 0, image, at, pill, mark }: {
       </div>
       <p className="cv-hint">Scroll to zoom · drag to move · double-click to zoom in on a spot</p>
     </div>
+  );
+}
+
+/** The recording itself: seeks to `time` while paused, plays at `rate`, reports its time while playing. */
+function ClipVideo({ clip }: { clip: NonNullable<Parameters<typeof Viewer>[0]["clip"]> }) {
+  const v = useRef<HTMLVideoElement>(null);
+  const { src, time, playing, rate, onTime, onEnd } = clip;
+  useEffect(() => {
+    const el = v.current;
+    if (!el || playing) return;
+    const seek = () => { if (Math.abs(el.currentTime - time) > 0.04) el.currentTime = Math.max(0, time); };
+    if (el.readyState >= 1) seek(); else el.addEventListener("loadedmetadata", seek, { once: true });
+  }, [time, playing, src]);
+  useEffect(() => {
+    const el = v.current;
+    if (!el) return;
+    el.playbackRate = rate;
+    if (playing) el.play().catch(() => {}); else el.pause();
+  }, [playing, rate]);
+  return (
+    <video ref={v} className="cf-media" src={src} muted playsInline preload="auto" aria-hidden="true"
+      onTimeUpdate={(e) => playing && onTime(e.currentTarget.currentTime)} onEnded={onEnd} />
   );
 }

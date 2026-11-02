@@ -7,7 +7,7 @@
  * Everything comes from the case's read models (journey, missing moment, possible places, conflicts, floor search);
  * without model keys it says what is really known. The same words as the Hub and the landing page (lib/answer).
  */
-import { JourneyReel } from "@/components/case/JourneyReel";
+import { JourneyReel, PLAY_JOURNEY } from "@/components/case/JourneyReel";
 import Link from "next/link";
 import { use } from "react";
 import { useResource } from "@/lib/api";
@@ -82,7 +82,7 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
               <div className="an-verdict-top">
                 <span className="an-chip" data-tone="ok">Likely location found</span>
                 <div className="an-acts">
-                  <Link className="hb-btn" href={`/cases/${caseId}/proof`}>Watch the proof</Link>
+                  <button type="button" className="hb-btn" onClick={() => window.dispatchEvent(new Event(PLAY_JOURNEY))}>Watch the proof</button>
                   <Link className="hb-btn hb-btn-primary" href={`/cases/${caseId}/search`}>Send someone to look</Link>
                 </div>
               </div>

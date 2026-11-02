@@ -470,6 +470,92 @@ class Docks:
             pk.parcel.state = "held"
         for w in self.workers:
             w.picks.sort(key=lambda q: q.t["reach"])
+        self._stage_quiet()
+
+    # ------------------------------------------------------------------------------------------------ quiet-door staging
+    STAGE_S = dict(settle=0.3, hold=0.45, place=0.9, ret=0.8)  # (reach, pull, turn: drawn per move)
+
+    def _stage_quiet(self):
+        """Nobody stands idle at the quiet door (Rexton 2 Nov 21:4x: the mate stood still ~35 s, then both stood
+        still after the set-down). While the door is quiet around the replayed carton, each unloader takes his next
+        carton(s) out of the wall and stacks them on the trailer floor in his corner (wall face / side wall); he
+        feeds them to the boom from there afterwards, at the times and set-down poses the simulation planned, so the
+        boom's traffic, every record and every clip downstream stay as they were. The mate: two cartons around the
+        scan (the door close-up's ~10 s); the replayed carton's unloader: one, right after its set-down."""
+        rb = self.replay_box
+        rw = self.replay_worker
+        rp = rb.pick if rb is not None else None
+        if rw is None or rp is None or rp.t_rel is None:
+            return
+        rel = rp.t_rel
+        rnd = random.Random(self.ctx.get("seed", 0) * 7 + 5)
+        mate = next((o for o in self.workers if o.dock is rw.dock and o is not rw), None)
+        plan = ([(mate, [rel - 9.5, rel - 2.6])] if mate is not None else []) + [(rw, [rp.t["end"] + 0.4])]
+        self.stage_rows = []
+        for w, starts in plan:
+            later = [q for q in w.picks if q.parcel is not None and q.t["reach"] > starts[-1]]
+            if len(later) < len(starts):
+                continue
+            feed = later[:len(starts)]  # fed to the boom in this order: the first one on top of the stack
+            stack_z, sd = 0.0, (1.0 if w.pos.y >= w.dock["cy"] else -1.0)
+            moved = set()
+            for t0, q in zip(starts, reversed(feed)):  # the bottom of the stack first
+                box = q.box
+                gone = lambda b, t=t0: b in moved or (b.pick is not None and b.pick.t.get("pull", 1e9) <= t)  # noqa
+                covered = any(b is not box and not gone(b) and b.pos.z > box.pos.z + 0.01 and
+                              abs(b.pos.y - box.pos.y) < 0.5 * (b.y_ext() + box.y_ext()) - 0.01
+                              for b in self.walls[w.dock["door"]][0])
+                if covered:
+                    self.stage_rows.append(dict(worker=w.name, k=q.parcel.k, skipped="covered"))
+                    break
+                w_, d_, h_ = box.dims
+                low = box.pos.z + h_ * 0.65 < 0.8
+                heavy = 1.0 + 0.35 * min(w_ * d_ * h_ / 0.03, 1.0)
+                # where it goes: flush in his corner (6 cm off the face, 3 cm off the lorry's side wall), turned with
+                # his body and squared to the trailer
+                a0 = math.atan2(box.pos.y - w.pos.y, box.pos.x - w.pos.x)
+                a1 = math.atan2(sd * 0.25, -0.31)
+                yaw = box.yaw + ((a1 - a0 + math.pi) % (2 * math.pi) - math.pi)
+                yaw = round(yaw / (math.pi / 2)) * (math.pi / 2)
+                ex = abs(math.cos(yaw)) * w_ / 2 + abs(math.sin(yaw)) * d_ / 2
+                ey = abs(math.sin(yaw)) * w_ / 2 + abs(math.cos(yaw)) * d_ / 2
+                rest = Vector((X_FACE + 0.06 + ex, w.dock["cy"] + sd * (1.08 - 0.03 - ey), stack_z))
+                sp = Pick(box, w)
+                sp.below_top = q.below_top if hasattr(q, "below_top") else None
+                T_reach = rnd.uniform(1.0, 1.3) + (0.4 if low else 0.0)
+                T_pull = (rnd.uniform(0.35, 0.5) + (0.2 if low else 0.0)) * heavy
+                T_turn = rnd.uniform(0.9, 1.1) * heavy
+                S = self.STAGE_S
+                tt = dict(reach=t0)
+                tt["settle"] = tt["reach"] + T_reach
+                tt["pull"] = tt["settle"] + S["settle"]
+                tt["hold"] = tt["pull"] + T_pull
+                tt["turn"] = tt["hold"] + S["hold"]
+                tt["place"] = tt["turn"] + T_turn
+                tt["release"] = tt["place"] + S["place"] * heavy
+                tt["end"] = tt["release"] + S["ret"]
+                sp.t, sp.t_rel = tt, tt["release"]
+                sp.place, sp.release_up = (rest, yaw), 0.0
+                sp.pause = 0.0
+                nxt = next((p_ for p_ in w.picks if p_.t["reach"] > t0), None)
+                if nxt is not None and tt["end"] > nxt.t["reach"] - 0.3:
+                    self.stage_rows.append(dict(worker=w.name, k=q.parcel.k, skipped="no time"))
+                    break
+                for p_ in w.picks:  # a pause before it ends where it starts
+                    if p_.t["reach"] < t0:
+                        p_.pause = max(0.0, min(p_.pause, t0 - p_.t["end"]))
+                # the boom pick takes it off the stack later (same times, same set-down)
+                fl = Box(rest.x, rest.y, rest.z, box.dims, yaw)
+                fl.pick = q
+                q.stage, q.box = sp, fl
+                q.below_top = stack_z if stack_z > 0 else None
+                w.picks.append(sp)
+                w.picks.sort(key=lambda p_: p_.t["reach"])
+                moved.add(box)
+                self.stage_rows.append(dict(worker=w.name, k=q.parcel.k, reach=round(t0, 2),
+                                            release=round(tt["release"], 2), end=round(tt["end"], 2),
+                                            at=[round(rest.x, 2), round(rest.y, 2), round(rest.z, 2)]))
+                stack_z += h_
 
     def _turn_angle(self, w, box):
         """How far the carton turns about the vertical while carried (= trunk turn from wall to boom)."""
@@ -536,6 +622,11 @@ class Docks:
 
     def carton_pose(self, pk, t):
         """(bottom-centre position, yaw) of the carton at time t (None after release)."""
+        sp = getattr(pk, "stage", None)
+        if sp is not None and t < pk.t["pull"]:  # staged on the floor first (_stage_quiet): that carry, then the stack
+            if t < sp.t["release"]:
+                return self.carton_pose(sp, t)
+            return pk.box.pos.copy(), pk.box.yaw
         box, w, T = pk.box, pk.worker, pk.t
         if t < T["pull"]:
             return box.pos.copy(), box.yaw
@@ -552,7 +643,8 @@ class Docks:
             return self._to_hold(p1, hold, (t - T["hold"]) / self._hold_s(p1, hold), pk), box.yaw
         start = self._to_hold(p1, hold, (T["turn"] - T["hold"]) / self._hold_s(p1, hold), pk)
         place, yaw_end = pk.place
-        above = place + UP * (0.075 + self.RELEASE_UP)  # (down 7.5 cm to the let-go point, wherever that is: from
+        ru = getattr(pk, "release_up", self.RELEASE_UP)  # (staged on the floor: set down, not let go over it)
+        above = place + UP * (0.075 + ru)  # (down 7.5 cm to the let-go point, wherever that is: from
         # 7.5 to 8 cm it hovered still in his hands, run 13)
         if t < T["place"]:
             u = C.smooth((t - T["turn"]) / (T["place"] - T["turn"]))
@@ -600,7 +692,7 @@ class Docks:
                 dy += math.copysign(2 * math.pi, da)
             return self._side_clear(box, Vector((piv.x + r * math.cos(a), piv.y + r * math.sin(a), z))), box.yaw + dy * u
         u = C.smooth((t - T["place"]) / (T["release"] - T["place"]))
-        return above.lerp(place + UP * self.RELEASE_UP, u), yaw_end
+        return above.lerp(place + UP * ru, u), yaw_end
 
     def _hold_point(self, w, box, hold):
         """The carton's centre at least 0.2 m + its half size (toward him) from his root: never into his body (the
@@ -835,6 +927,7 @@ class Docks:
             nb = fill_mesh(f"truck_fill_{door}", back, wall_coll)  # behind the face: plain cartons, never seen
             rep["walls"][door] = {"face_cartons": n, "fill_cartons": nb,
                                   "picked_in_window": sum(1 for b in front if b.pick and b.pick.parcel is not None)}
+        rep["staged"] = getattr(self, "stage_rows", [])
         self.animate(scene, coll, frames, rep)
         return rep
 

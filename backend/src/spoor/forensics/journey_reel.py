@@ -26,6 +26,12 @@ GREEN, RED, INK, MUTE, BG = (128, 222, 74), (113, 113, 248), (244, 242, 240), (1
 # red only where the records fail; a carton seen on camera without a scan is not a failure of the footage
 BADGES = {"scan": ("Scanned here", GREEN), "seen": ("On camera", MUTE), "noscan": ("Not scanned in", RED),
           "record": ("Records disagree", RED)}
+# how a "loaded" record is made (no person types it): the cage is read, and every parcel scanned into it counts as loaded
+LOAD_HOW = {"rfid_portal": "Automatic: the door's RFID reader read the cage's tag, so every parcel in it counts as "
+                             "loaded. The cameras say this carton is still inside",
+            "handheld": "A scan of the cage at the door marks every parcel in it as loaded. The cameras say this "
+                          "carton is still inside",
+            None: "The cage's load record counts every parcel in it as loaded. The cameras say this carton is still inside"}
 
 
 @dataclass
@@ -326,7 +332,7 @@ def journey_segments(svc, case, waybill: str, answer: dict | None) -> list[Segme
                   if len(a.candidates) == 1 and a.candidates[0]["waybill"] == waybill), None)  # fmt: skip
     if alert is not None:
         mins = round((alert.at_utc - last.device_time_utc).total_seconds() / 60)
-        segs.append(Segment(title=f"In {where}, no scan for {mins} min", tone="wait",
+        segs.append(Segment(title=f"Waiting in {where} for {mins} min", tone="wait",
                             t=last.device_time_utc + timedelta(seconds=1),
                             sub=f"{_hm(last.device_time_utc)} to {_hm(alert.at_utc)}: no camera saw it move"))
         polys, boxes = track(alert.media_id, alert.track_id)
@@ -371,7 +377,7 @@ def journey_segments(svc, case, waybill: str, answer: dict | None) -> list[Segme
     if rec is not None and m is not None:
         door = next((p for p in (rec.station_id or "").split("-") if p.startswith("D")), "")
         segs.append(clip(Segment(title=f"Record says {where} loaded on {door}".strip(), tone="record",
-                                 t=rec.device_time_utc, sub="The cage leaves. The cameras say the carton is still inside"),
+                                 t=rec.device_time_utc, sub=LOAD_HOW.get(rec.device_kind, LOAD_HOW[None])),
                          m.media_id, rec.device_time_utc, before=30, after=30))  # fmt: skip
     segs.append(Segment(title=f"Most likely in the {inside['place']}", tone="card", t=until,
                         sub=f"Carried in at {inside['carried_in_at']}, not seen coming out", seconds=3.0))

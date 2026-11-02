@@ -2,7 +2,7 @@
    sits under a round-capped ridge (solid = on camera, red = the records failed there, dotted = no camera saw it;
    indigo = playing). Red is kept for the two real problems so it still means something.
    No cards: steps are text on one surface; the player is the only bordered object. */
-.jr { display: grid; gap: 14px; margin-top: 4px; }
+.jr { display: grid; gap: 14px; margin-top: 4px; scroll-margin-top: 96px; }
 .jr-top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .jr-all:active { transform: scale(0.97); }
 .jr-meta { font-size: 12.5px; color: var(--tb-mute); font-variant-numeric: tabular-nums; }

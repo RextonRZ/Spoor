@@ -29,6 +29,9 @@ function gapWords(ms: number): string {
   return m < 90 ? `${m} min` : `${Math.round(m / 60)} h`;
 }
 
+/** "Watch the proof" on the answer plays this reel in place (it was a second, frame-by-frame player of the same clips) */
+export const PLAY_JOURNEY = "spoor:play-journey";
+
 export function JourneyReel({ caseId }: { caseId: string }) {
   const r = useResource<Reel>(`/v1/cases/${caseId}/journey-reel`);
   const [made, setMade] = useState<Reel | null>(null);
@@ -71,6 +74,18 @@ export function JourneyReel({ caseId }: { caseId: string }) {
     void v.play().catch(() => undefined);
   };
 
+  const box = useRef<HTMLDivElement>(null);
+  const playRef = useRef(play);
+  useEffect(() => { playRef.current = play; });
+  useEffect(() => {
+    const go = () => {
+      box.current?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+      playRef.current(null);
+    };
+    window.addEventListener(PLAY_JOURNEY, go);
+    return () => window.removeEventListener(PLAY_JOURNEY, go);
+  }, []);
+
   if (!reel) {
     return (
       <div className="jr" aria-busy="true">
@@ -80,7 +95,7 @@ export function JourneyReel({ caseId }: { caseId: string }) {
   }
   const cur = steps[on];
   return (
-    <div className="jr">
+    <div className="jr" ref={box}>
       <div className="jr-top">
         <button type="button" className="hb-btn hb-btn-primary jr-all" onClick={() => play(null)}>Play the whole journey</button>
         <span className="jr-meta">{steps.length} steps · {Math.round(reel.seconds)} s · outline: SAM 3.1, where it followed the carton</span>

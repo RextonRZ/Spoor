@@ -11,7 +11,7 @@ import { conflictWords, type Conflict } from "@/lib/conflict";
 import dynamic from "next/dynamic";
 import { SpoorLoader } from "@/components/brand/SpoorLoader";
 import Link from "next/link";
-import { use, useEffect, useMemo, useRef, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import { api, previewUrl, signedUrl, useResource } from "@/lib/api";
 import { HUB, camId, scanPoint } from "@/lib/hub";
 import type { Journey, MissingMoment, ObservedSegment } from "@/lib/journey";
@@ -194,7 +194,7 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
           {view === "3d" ? (
             <div className="pf-3d"><WorkspaceProvider caseId={caseId}><Scene3D /></WorkspaceProvider></div>
           ) : (
-            <Player caseId={caseId} tile={sel} media={selMedia} />
+            <Player key={sel?.key} caseId={caseId} tile={sel} media={selMedia} />
           )}
 
           <div className="pf-strip-head">
@@ -288,16 +288,19 @@ function Player({ caseId, tile, media }: { caseId: string; tile?: Tile; media?: 
   const [offset, setOffset] = useState(0); // seconds from the moment
   const [speed, setSpeed] = useState(1);
   const [playing, setPlaying] = useState(false);
-  const raf = useRef<number | null>(null);
-  const t = tile && cov ? new Date(Math.min(Math.max(new Date(tile.t).getTime() + offset * 1000, new Date(cov.start_utc).getTime()), new Date(cov.end_utc).getTime())).toISOString() : tile?.t;
-  const plain = useFrame(media?.media.media_id, t);
+  // the recording itself plays (its checked working proxy); a frame-by-frame fetch went black between frames
+  const pb = useResource<{ url: string; start_utc: string | null }>(media ? `/v1/media/${media.media.media_id}/playback` : null);
+  const t0 = tile && cov ? new Date(tile.t).getTime() : NaN;
+  const lo = cov ? new Date(cov.start_utc).getTime() : NaN, hi = cov ? new Date(cov.end_utc).getTime() : NaN;
+  const t = tile && cov ? new Date(Math.min(Math.max(t0 + offset * 1000, lo), hi)).toISOString() : tile?.t;
+  const start = pb.data?.start_utc ? Date.parse(pb.data.start_utc) : NaN;
+  const clipAt = Number.isFinite(start) && t ? (Date.parse(t) - start) / 1000 : NaN;
+  const plain = useFrame(Number.isFinite(clipAt) ? undefined : media?.media.media_id, t);
   const outlined = useOutlined(caseId, tile?.seen, t);
-  const url = tile?.photo && offset === 0 ? tile.photo : outlined ?? plain;
-  useEffect(() => {
-    if (!playing) return;
-    raf.current = window.setInterval(() => setOffset((o) => Math.min(10, o + 0.5 * speed)), 500); // stops at the end of the window
-    return () => { if (raf.current) window.clearInterval(raf.current); };
-  }, [playing, speed]);
+  const still = tile?.photo && offset === 0 ? tile.photo : outlined;
+  const url = Number.isFinite(clipAt) ? (offset === 0 ? still : null) : still ?? plain;
+  // scrub range: the clip's own span round the moment
+  const minOff = cov ? Math.max(-30, (lo - t0) / 1000) : -10, maxOff = cov ? Math.min(30, (hi - t0) / 1000) : 10;
   if (tile?.tone === "bad" && !media) {
     return <div className="pf-player pf-player-bad"><span className="pf-player-bad-h">{tile.headline}</span><span className="pf-player-bad-b">{tile.body}</span></div>;
   }
@@ -309,18 +312,21 @@ function Player({ caseId, tile, media }: { caseId: string; tile?: Tile; media?: 
     <>
       <Viewer key={`${cam}|${tile.key}`} id={tile.photo && offset === 0 ? "DWS tunnel camera" : cam} label={label}
         image={url ? (url.startsWith("/scanner/") ? url : signedUrl(url)) : undefined} at={t ? hms(t) : undefined}
+        clip={pb.data && Number.isFinite(clipAt) ? { src: signedUrl(pb.data.url), time: clipAt, playing, rate: speed,
+          onTime: (s) => setOffset((start + s * 1000 - t0) / 1000), onEnd: () => setPlaying(false) } : undefined}
         mark={tile.mark && offset === 0 && !(tile.photo) ? { box: tile.mark.box, wh: FRAME_WH, text: tile.mark.text } : undefined}
-        pill={{ text: url ? (outlined ? "SAM 3.1 · outlined" : tile.status) : `A view of the place · no footage of ${hms(tile.t)} yet`, tone: url ? PILL_TONE[tile.tone] : "none" }} />
+        pill={{ text: url && outlined && !playing ? "SAM 3.1 · outlined" : url || pb.data ? tile.status : `A view of the place · no footage of ${hms(tile.t)} yet`,
+          tone: url || pb.data ? PILL_TONE[tile.tone] : "none" }} />
       {media && (
         <div className="pf-controls">
-          <button type="button" aria-label={playing ? "Pause" : "Play"} className="pf-play" onClick={() => setPlaying((p) => !p)}>
+          <button type="button" aria-label={playing ? "Pause" : "Play"} className="pf-play" onClick={() => { if (!playing && offset >= maxOff - 0.2) setOffset(minOff); setPlaying((p) => !p); }}>
             {playing ? <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5h3v11H4zM9 2.5h3v11H9z" fill="currentColor" /></svg>
               : <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor" /></svg>}
           </button>
-          <button type="button" aria-label="Back one frame" className="pf-step" onClick={() => setOffset((o) => o - 0.1)}>−1</button>
-          <button type="button" aria-label="Forward one frame" className="pf-step" onClick={() => setOffset((o) => o + 0.1)}>+1</button>
+          <button type="button" aria-label="Back one frame" className="pf-step" onClick={() => { setPlaying(false); setOffset((o) => Math.max(minOff, o - 0.1)); }}>−1</button>
+          <button type="button" aria-label="Forward one frame" className="pf-step" onClick={() => { setPlaying(false); setOffset((o) => Math.min(maxOff, o + 0.1)); }}>+1</button>
           <label htmlFor="scrub" className="sp-sr">Time around this moment</label>
-          <input id="scrub" type="range" min={-10} max={10} step={0.1} value={offset} onChange={(e) => setOffset(Number(e.target.value))} />
+          <input id="scrub" type="range" min={minOff} max={maxOff} step={0.1} value={offset} onChange={(e) => { setPlaying(false); setOffset(Number(e.target.value)); }} />
           <span className="pf-time">{t ? hms(t) : ""}</span>
           <div role="group" aria-label="Speed" className="pf-speed">
             {[1, 4].map((x) => <button key={x} type="button" aria-pressed={speed === x} onClick={() => setSpeed(x)}>{x}×</button>)}
