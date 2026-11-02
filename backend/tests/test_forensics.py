@@ -641,3 +641,33 @@ def test_unfitted_handheld_point_is_looked_at_only_when_no_other_scan_shares_its
     scan(w, "SP-BENCH", "arrived_facility", 40.0, "handheld")
     rows = sorted(plan_handshakes(w.store, plan, w.store.find(ScanEvent)), key=lambda r: r.at)
     assert [r.reason for r in rows] == ["clock_not_fitted", "clock_not_fitted", ""]
+
+
+def test_never_followed_parcel_is_located_by_its_last_scan_and_confirmed_only_by_a_labelled_handshake(world, now):
+    """Not seen on camera: the answer is its last scan record ("located by scan"). A handshake that met it there counts
+    as "confirmed on camera" only when it carries the label (an unlabelled outline could be a neighbour)."""
+    from spoor.agents import ToolContext
+    from spoor.agents.orchestrator import _last_scan
+    from spoor.contracts import EvidenceScope
+    from spoor.store import ScanHandshake
+    from spoor.verification import Verifier
+
+    w = world
+    scan(w, "SP-TUN", "tunnel_read", 1.0, "tunnel")
+    sid = scan(w, "SP-PLC", "divert_confirmed", 6.0, "sorter_plc")
+    ctx = ToolContext(store=w.store, site=w.site, case=w.case, verifier=Verifier(w.store, w.site), scope=EvidenceScope(),
+                      now=lambda: now)  # fmt: skip
+    obj = w.store.get(ObjectInstance, w.oid)
+    first = _last_scan(ctx, obj)
+    assert first["scan_point_id"] == "SP-PLC" and first["located_by"] == "scan" and first["camera"] is None
+
+    def met(hid, labelled):
+        w.store.put(ScanHandshake(handshake_id=hid, site_id=w.site.site_id, scan_event_id=sid, waybill=WAYBILL.value,
+                                  event_kind="divert_confirmed", scan_point_id="SP-PLC", camera_id="cam_a",
+                                  media_id="media_x", at_utc=w.t0 + timedelta(seconds=6), rule="point",
+                                  outcome="outlined", labelled=labelled, at=now))  # fmt: skip
+
+    met("hs_unlabelled", False)
+    assert _last_scan(ctx, obj)["located_by"] == "scan"
+    met("hs_labelled", True)
+    assert _last_scan(ctx, obj)["located_by"] == "camera" and _last_scan(ctx, obj)["camera"] == "cam_a"

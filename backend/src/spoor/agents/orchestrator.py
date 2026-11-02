@@ -154,7 +154,7 @@ def _last_scan(ctx: ToolContext, obj: ObjectInstance) -> dict | None:
     if not reads:
         return None
     last = reads[-1]
-    met = [h for h in ctx.store.find(ScanHandshake, scan_event_id=last.scan.scan_event_id) if h.outcome == "outlined"]
+    met = [h for h in ctx.store.find(ScanHandshake, scan_event_id=last.scan.scan_event_id) if h.labelled]
     met.sort(key=lambda h: not h.camera_id.startswith("cam_CHK_"))  # a checkpoint camera first
     return {"scan_event_id": last.scan.scan_event_id, "event_kind": last.scan.event_kind.value, "at": last.t.isoformat(),
             "scan_point_id": last.scan.station_id or last.scan.device_id, "zone_id": last.scan.read_point_zone_id,
