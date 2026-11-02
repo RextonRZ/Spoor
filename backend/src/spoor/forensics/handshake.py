@@ -47,7 +47,8 @@ class Planned:
     media_id: str | None
     at: datetime
     rule: str  # point | tunnel_exit | work_area
-    reason: str  # "" when it can run; else why not (no_footage / not_on_camera / clock_not_fitted)
+    reason: str  # "" when it can run; else why not (no_footage / not_on_camera / clock_not_fitted / cant_tell)
+    note: str = ""
 
 
 def waybill_of(scan: ScanEvent) -> str | None:
@@ -85,11 +86,26 @@ def plan_handshakes(store: EvidenceStore, plan: SitePlan, scans: list[ScanEvent]
                       and at + timedelta(seconds=1.0) <= covs[m.media_id][-1].end_utc), None)  # fmt: skip
             why = "" if m else "no_footage"
             unc_ms = store.get(ClockSync, covs[m.media_id][-1].sync_id).uncertainty_ms if m else 0.0
-            if m and unc_ms > CLOCK_MS and (rule != "work_area" or any(
-                    abs((o - ts.t).total_seconds()) * 1000 < 2 * unc_ms for o in at_point.get(sp, []) if o != ts.t)):
-                why = "clock_not_fitted"  # several cartons could be the one at the scan's second on this picture
-            out.append(Planned(s, waybill_of(s), sp, cam, m.media_id if m else None, at, rule, why))
+            note = ""
+            if m and unc_ms > CLOCK_MS and rule != "work_area":
+                why = "clock_not_fitted"  # a belt passes a carton a second: the scan's second could be any of them
+            elif m and unc_ms > CLOCK_MS:
+                near = sorted(o for o in at_point.get(sp, []) if o != ts.t and abs((o - ts.t).total_seconds()) * 1000 < 2 * unc_ms)
+                if near:  # other cartons handled here inside the clock's window: on camera they can't be told apart
+                    why, note = "cant_tell", crowd_words(len(near) + 1, [ts.t, *near])
+            out.append(Planned(s, waybill_of(s), sp, cam, m.media_id if m else None, at, rule, why, note))
     return out
+
+
+NUMBER = {2: "Two", 3: "Three", 4: "Four", 5: "Five"}
+
+
+def crowd_words(n: int, times: list[datetime]) -> str:
+    """'Two cartons scanned 0.2 s apart here' / 'Three cartons scanned here within 1.0 s' (why a handshake is withheld)."""
+    span = (max(times) - min(times)).total_seconds()
+    if n == 2:
+        return f"Two cartons scanned {span:.1f} s apart here"
+    return f"{NUMBER.get(n, str(n))} cartons scanned here within {span:.1f} s"
 
 
 def sam_frames(rows: list[Planned], fps: float = 10.0) -> int:

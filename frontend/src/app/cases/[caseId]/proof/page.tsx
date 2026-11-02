@@ -34,7 +34,7 @@ interface RunView { steps: { type: string; camera_id?: string | null; status?: s
 interface Possible { objects: { places: { area_id: string; name: string; zone_id: string | null; possible_share: number }[] }[] }
 interface Conflicts { objects: { conflicts: Conflict[]; records?: { t: string; event_kind?: string | null; station_id?: string | null }[] }[] }
 interface Stamp { scan_event_id: string; camera_id: string; media_id: string | null; at_utc: string; rule: string; outcome: string;
-  frame_index: number | null; box_px: number[] | null; labelled: boolean }
+  frame_index: number | null; box_px: number[] | null; labelled: boolean; note: string }
 interface Alert { at_utc: string; camera_id: string; media_id: string; frame_index: number; box_px: number[] | null;
   candidates: { waybill: string; container: string | null; scanned_in: string }[] }
 interface Tile { key: string; cam: string | null; place: string; t: string; status: string; tone: "seen" | "notseen" | "none" | "wait" | "bad";
@@ -105,7 +105,8 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
         headline: best.labelled ? `${label} at ${hms(s.t)}: this carton.` : `${label} at ${hms(s.t)}.`,
         body: best.labelled ? `The scan says which parcel; ${camName(cam)} sees ${where}, and SAM 3.1 outlined the one carton there that could be it.`
           : tunnel ? `The scan tunnel's own camera took this photo at the read. On ${camName(cam)} the carton at the exit can't be told from the one queued before it, so no number goes on it.`
-          : best.outcome === "clock_not_fitted" ? `${camName(cam)} sees ${where}, but its clock is not fitted and other cartons were handled there close to this moment, so no number goes on any carton.`
+          : best.outcome === "cant_tell" && best.note.endsWith(" here") ? `${best.note}, and ${camName(cam)}'s clock is not fitted closely enough to tell them apart, so no number goes on either.`
+          : best.outcome === "clock_not_fitted" ? `${camName(cam)} sees ${where}, but its clock is not fitted, so the carton at the scan's second can't be told from its neighbours.`
           : `${camName(cam)} sees ${where}; more than one carton could be the one scanned, so no number goes on any of them.` });
     }
     // taken out of its cage without a scan: the live alert (the only parcel caged there with no scan since)

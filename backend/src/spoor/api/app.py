@@ -1232,7 +1232,8 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
                    "usd_estimate": round(frames * 0.20 / 1000, 3),
                    "not_on_camera": sum(1 for r in rows if r.reason == "not_on_camera"),
                    "no_footage": sum(1 for r in rows if r.reason == "no_footage"),
-                   "clock_not_fitted": sum(1 for r in rows if r.reason == "clock_not_fitted")}  # fmt: skip
+                   "clock_not_fitted": sum(1 for r in rows if r.reason == "clock_not_fitted"),
+                   "crowded": sum(1 for r in rows if r.reason == "cant_tell")}  # fmt: skip
         if body.dry_run:
             return summary
 
@@ -1281,6 +1282,24 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
 
         p.require_site(site_id)
         return [a.model_dump(mode="json") for a in sorted(svc.store.find(LiveAlert, site_id=site_id), key=lambda a: a.at_utc)]
+
+    @app.post("/v1/cases/{case_id}/customer-update")
+    def customer_update(case_id: str, p: User) -> dict:
+        """Draft the update for the customer who asked, from the verified answer only (spoor/customer.py). Stored as a
+        draft; a person approves it; nothing is sent."""
+        from spoor.customer import draft
+
+        p.require_role(Role.SITE_ADMIN, Role.INVESTIGATOR)
+        case = case_for(p, case_id)
+        out = draft(svc.store, case, svc.agent, now=now())
+        audit(p, "customer_update_drafted", case_id, model=out.get("model"))
+        return out
+
+    @app.get("/v1/cases/{case_id}/customer-update")
+    def customer_update_latest(case_id: str, p: User) -> dict | None:
+        case_for(p, case_id)
+        steps = [s for s in svc.store.find(AgentStep, case_id=case_id) if s.role == "customer_update"]
+        return max(steps, key=lambda s: s.at).content if steps else None
 
     @app.get("/v1/parcels/{waybill}/passport")
     def passport(waybill: str, p: User) -> dict:

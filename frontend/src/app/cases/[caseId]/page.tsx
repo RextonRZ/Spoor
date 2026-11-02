@@ -53,7 +53,8 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
   const view = st.data?.answer;
   // the investigation's verified answer leads when there is one (a floor find still wins); otherwise the read models
   const inside = !found ? view?.objects.find((o) => o.inside)?.inside : null;
-  const { pill, head, why, level, reasons } = caseAnswer({ ready, last, next, places, conflicts, found, zoneNames: ZONE_NAMES });
+  const lastScan = !found && !inside ? view?.objects.find((o) => o.last_scan)?.last_scan ?? null : null;
+  const { pill, head, why, level, reasons } = caseAnswer({ ready, last, next, places, conflicts, found, zoneNames: ZONE_NAMES, lastScan });
   // one source of truth: once the run verified where it went, the checkpoints read from it too (the store's missing
   // scan-in, and a truck record made while the cameras show it still inside)
   const records = cr.data?.objects[0]?.records ?? [];

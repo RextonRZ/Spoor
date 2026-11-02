@@ -65,7 +65,8 @@ export function Passport({ waybill }: { waybill: string }) {
         {stamps.map((s) => (
           <li key={s.scan_event_id} className="pp-stamp" data-outcome={s.outcome}>
             <span className="pp-pic">{s.labelled ? <Crop s={s} /> : tunnel(s) ? <TunnelPhoto waybill={waybill} />
-              : <span className="pp-none">{s.outcome === "outlined" ? WHY.cant_tell : WHY[s.outcome] ?? s.outcome}</span>}</span>
+              : <span className="pp-none">{s.outcome === "cant_tell" && s.note.endsWith(" here") ? s.note
+                : s.outcome === "outlined" ? WHY.cant_tell : WHY[s.outcome] ?? s.outcome}</span>}</span>
             <span className="pp-what">{momentLabel(s.event_kind, s.scan_point_id)}</span>
             <span className="pp-meta"><time>{hms(s.at_utc)}</time>{s.camera_id && <> · {cam(s.camera_id)}</>}</span>
             {s.labelled && <span className="pp-tag">{waybill} · scanned here{s.followed_s > 0 ? ` · followed ${s.followed_s.toFixed(0)} s` : ""}</span>}

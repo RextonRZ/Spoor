@@ -186,7 +186,7 @@ class Services:
         # one row per scan, camera and clip (and clock state): footage that arrives later, or a clock fitted later,
         # gets its own row instead of the stored "no footage" / "clock not fitted" answer
         hid = (f"hs_{row.scan.scan_event_id}_{row.camera_id or 'none'}_{row.media_id or 'none'}"
-               f"{'_unfitted' if row.reason == 'clock_not_fitted' else ''}").replace("-", "_")
+               f"{'_unfitted' if row.reason in ('clock_not_fitted', 'cant_tell') else ''}").replace("-", "_")
         try:  # hs_ ids have no registered kind, so exists() can't see them
             return self.store.get(ScanHandshake, hid)
         except KeyError:
@@ -195,7 +195,7 @@ class Services:
                 "waybill": row.waybill, "event_kind": row.scan.event_kind.value, "scan_point_id": row.scan_point_id,
                 "camera_id": row.camera_id, "media_id": row.media_id, "at_utc": row.at, "rule": row.rule, "at": now}
         if row.reason:
-            return self.store.put(ScanHandshake(**base, outcome=row.reason))
+            return self.store.put(ScanHandshake(**base, outcome=row.reason, note=row.note))
         at_iso = row.at.isoformat()
         cov = self.store.find(CameraCoverage, media_id=row.media_id)[-1]  # the follow stops where the clip does
         unc = timedelta(milliseconds=self.store.get(ClockSync, cov.sync_id).uncertainty_ms)

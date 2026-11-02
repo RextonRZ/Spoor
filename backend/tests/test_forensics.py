@@ -640,7 +640,8 @@ def test_unfitted_handheld_point_is_looked_at_only_when_no_other_scan_shares_its
     scan(w, "SP-BENCH", "arrived_facility", 14.0, "handheld")
     scan(w, "SP-BENCH", "arrived_facility", 40.0, "handheld")
     rows = sorted(plan_handshakes(w.store, plan, w.store.find(ScanEvent)), key=lambda r: r.at)
-    assert [r.reason for r in rows] == ["clock_not_fitted", "clock_not_fitted", ""]
+    assert [r.reason for r in rows] == ["cant_tell", "cant_tell", ""]
+    assert rows[0].note == "Two cartons scanned 4.0 s apart here"
 
 
 def test_never_followed_parcel_is_located_by_its_last_scan_and_confirmed_only_by_a_labelled_handshake(world, now):

@@ -17,6 +17,8 @@ export interface AnswerInputs {
   places: { area_id: string; name: string; zone_id?: string | null; possible_share: number }[];
   conflicts: Conflict[];
   found: { name: string; by: string; at: string } | null;
+  /** the investigation's last scan record for a parcel never followed on camera (and whether a camera met it there) */
+  lastScan?: LastScan | null;
   zoneNames: Record<string, string>;
 }
 
@@ -28,7 +30,7 @@ export interface Answer {
   reasons: { text: string; tone: "ok" | "bad" | "plain" }[];
 }
 
-export function caseAnswer({ ready, last, next, places, conflicts, found, zoneNames }: AnswerInputs): Answer {
+export function caseAnswer({ ready, last, next, places, conflicts, found, zoneNames, lastScan }: AnswerInputs): Answer {
   const withFootage = next.filter((r) => r.result !== "no_footage");
   const seen = next.filter((r) => r.result === "seen");
   let pill: [string, string] = ["Lost track", "bad"];
@@ -38,6 +40,14 @@ export function caseAnswer({ ready, last, next, places, conflicts, found, zoneNa
     pill = ["Found", "ok"];
     head = `Found at ${low(clean(found.name))} at ${hms(found.at)}.`;
     why = `Floor staff (${found.by}) found it there during the search. The last record before that was ${last ? `${low(momentLabel(last.event_kind, last.station_id))} at ${hms(last.t)}` : "none"}.`;
+  } else if (ready && lastScan) {
+    // located by its last scan record: counted apart from "confirmed on camera" (a labelled handshake met it there)
+    const what = low(momentLabel(lastScan.event_kind, lastScan.scan_point_id));
+    const cam = lastScan.camera?.replace(/^cam_/, "").replaceAll("_", " ");
+    pill = cam ? ["Confirmed on camera", "ok"] : ["Located by scan", "plain"];
+    head = `Last scan record: ${what} at ${hms(lastScan.at)}.`;
+    why = cam ? `${cam} saw this carton there at that scan. Nothing records it after that.`
+      : "Not seen on camera. The scanner put it there; no camera confirmed it, and nothing records it after that.";
   } else if (ready && seen.length) {
     pill = ["Likely location found", "ok"];
     head = `Seen on ${seen[0].camera_id.replace("cam_", "").replace("_", " ")} at ${hms(seen[0].predicted_t)}.`;
@@ -50,7 +60,7 @@ export function caseAnswer({ ready, last, next, places, conflicts, found, zoneNa
   } else if (ready) {
     head = "No scans of this parcel at this hub.";
   }
-  const level = found ? "high" : seen.length ? "medium" : "low";
+  const level = found ? "high" : seen.length || lastScan?.camera ? "medium" : "low";
   const reasons: Answer["reasons"] = [];
   if (last) reasons.push({ text: `Last scan: ${low(momentLabel(last.event_kind, last.station_id))} at ${hms(last.t)}.`, tone: "ok" });
   if (next.length) reasons.push({ text: withFootage.length
@@ -60,6 +70,9 @@ export function caseAnswer({ ready, last, next, places, conflicts, found, zoneNa
   else if (places.length) reasons.push({ text: `It could be in ${places.length} place${places.length === 1 ? "" : "s"}. Most likely: ${shortPlace(places[0], zoneNames)}.`, tone: "plain" });
   return { pill, head, why, level, reasons };
 }
+
+export interface LastScan { event_kind: string; at: string; scan_point_id: string; zone_id: string | null; container: string | null;
+  located_by: "scan" | "camera"; camera: string | null }
 
 /** The last investigation's answer (GET /state "answer"): the verifier's facts apart from the agents' own words. */
 export interface InsideFacts {
@@ -71,7 +84,8 @@ export interface InsideFacts {
 }
 export interface InvestigationView {
   status: string;
-  objects: { label: string; most_likely: string | null; inside: InsideFacts | null; last_seen: string; left_area: string }[];
+  objects: { label: string; most_likely: string | null; inside: InsideFacts | null; last_seen: string; left_area: string;
+    last_scan?: LastScan | null }[];
   verified: string[];
   hypotheses: { status: string; agent_wording: string; verified: string[]; tested?: { kind: string; check: string; verdict: string }[] }[];
 }
