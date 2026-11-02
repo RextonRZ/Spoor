@@ -42,6 +42,49 @@ Footage sent on to the cloud models: 286 s of 1,710 s (17 %, 83 % less), each fl
 the sample after. Key moments: CAM_13 14:32:10-12 (the pick from the cage) covered; CAM_19 14:32:21-31 covered, 14:32:32
 not. With only the flagged frame's own 2 s (±1 s), 187 s would be sent but the CAM_13 pick would be missed.
 
+## Scan-to-camera handshake: is the outlined carton the scanned parcel? (2026-11-02)
+
+At each scan the scanner gives identity (barcode), place (scan point) and time; the site plan names the cameras that
+see the point, the calibration puts the point in the picture, the clock fit gives the frame, and SAM 3.1 outlines the
+carton there. A wrong outline with a tracking number on it would undo the whole idea, so every outline was checked
+against the render truth (`frontend/scripts/eval_handshakes.py`, evaluation only: every parcel's true 3-D centre at
+the box's true frame, projected through Spoor's validated calibration; the label is right when the scanned parcel is
+the one nearest the outline). Windows: S2 (90 s, 19 wide + 6 checkpoint cameras) and the W1/W2 story clips.
+
+| Stage | Outlines | With a number on them | Of those, right | Notes |
+|---|---|---|---|---|
+| First run (point prompt, any clock) | 257 | 257 | 12 % | belt-sized and whole-frame outlines counted; unfitted clocks 5 s off |
+| + no outline bigger than 2x the largest parcel; no handshake on a +-5 s clock at belt points | 81 | 81 | 67 % strictly, 86 % right parcel nearest | |
+| + labels only where the rule rules out a neighbour (below) | 83 | **49** | **49 of 49 (100 %)** | 34 withheld as "can't tell which carton" |
+
+By kind of scan (final):
+
+| Scan | Outlines | Labelled | Right | Withheld | Labelled share of the right ones | Rule that decides the label |
+|---|---|---|---|---|---|---|
+| Divert (sorter) | 68 | 48 | 48 | 20 | 83 % | the diverted carton moves at the confirm; an outline that stands still is something resting at the chute (all 10 wrong outlines were still: 0.00-0.12 m in 1.7 s) |
+| Tunnel exit | 14 | 0 | - | 14 | 0 % on CCTV | no picture signal (motion, record spacing, measured size) told the scanned carton from the one queued before it, so the CCTV outline carries no number; the stamp is the tunnel's own photo, taken by the reader at the read |
+| Cage (handheld) | 1 | 1 | 1 | 0 | 100 % | one carton handled in the work area (put in or taken out), and on an unfitted clock only when no other scan at that point shares the +-5 s window |
+| Other handheld (unload door) | 0 | 0 | - | - | - | the inbound door scans every 3-7 s and its close-up's clock is not fitted: with the window rule above, nothing is shown (the first try labelled 7 of 11 wrong there) |
+
+Overall 49 of the 67 outlines whose nearest parcel is the scanned one carry a label (73 %); none of the 49 is wrong.
+Meta SAM spend for the handshakes: ~US$3.25 for the first pass, ~US$0.7 for the re-runs (the rest read SAM's cache).
+
+**The story parcel's checkpoints** (CTX334048419302):
+
+| Checkpoint | Camera | Shown | Right? |
+|---|---|---|---|
+| Unload, door SP-IN-N, 14:10:01 | CHK_UNLOAD | no number: "camera clock not fitted" | withheld, because the log has another parcel scanned at the same door 0.2 s later and the close-up's clock is +-5 s |
+| Tunnel read, 14:10:40.99 | tunnel's own photo (CHK_TUNNEL outline unlabelled) | its number, on the reader's photo | right (the reader took it at the read) |
+| Induction, 14:10:50 | CHK_TUNNEL | "not seen" (only belt-sized outlines) | withheld |
+| Divert into C12, 14:11:16 | CAM_11 | its number | right |
+| Into cage RC-760, 14:21:33 | CHK_CAGE_W | its number | right |
+| Taken out of the cage (no scan), 14:32:13.8 | CHK_CAGE_W | live alert "could be CTX334048419302" (the only parcel caged there with no scan since) | right (its true position is inside the outline) |
+| Store door (no scan), 14:32:30-51 | CHK_STORE, CAM_19 | no handshake: there is no scan; the answer's "carried in, not seen coming out" comes from CAM_19 | n/a |
+
+Not done in the 2 h box (Rexton's ideas 1 and 3): an expected box from the tunnel-measured size (tried: the projected
+size at the exit was too far from SAM's boxes to separate right from wrong), and assigning a window's reads to the
+cartons in order (Hungarian). Both could bring tunnel-exit labels back.
+
 ## Question being tested (PRD §21.1)
 
 Does a persistent evidence graph plus bounded agent investigation produce more accurate, better-grounded answers than
