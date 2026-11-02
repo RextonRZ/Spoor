@@ -1,0 +1,121 @@
+{
+ "CTX976456695076": {
+  "case_id": "case_18e3f83a562c2484567418f3",
+  "status": "done",
+  "seconds": 211,
+  "end": "Took 206 s. Muse Wonder US$0.23; Spark Open 57k tokens on Baseten. 19 wide cameras swept on site, 5 examined closely.",
+  "most_likely": null,
+  "last_seen": "Not followed on camera. Last scan record: divert confirmed at SP-DIV-C08 (Chutes + bagging (C01\u2013C12) (Z06)), 14:32:35; the camera CAM 10 saw it there at that scan.",
+  "last_scan": {
+   "scan_event_id": "scan_18e3effff9f8e20c86f2c331",
+   "event_kind": "divert_confirmed",
+   "at": "2026-10-28T14:32:35.800000+08:00",
+   "scan_point_id": "SP-DIV-C08",
+   "zone_id": "zone_Z06",
+   "container": null,
+   "located_by": "camera",
+   "camera": "cam_CAM_10",
+   "handshake_id": "hs_scan_18e3effff9f8e20c86f2c331_cam_CAM_10_media_070749c931efab2dd762"
+  },
+  "hypotheses": [
+   [
+    "insufficient_evidence",
+    "Parcel remained inside chute area Chutes + bagging (C01\u2013C12) (Z06) at SP-DIV-C08 after divert (occluded in bag/chute interior not covered by cameras)"
+   ],
+   [
+    "insufficient_evidence",
+    "Parcel was carried out of Chutes + bagging (C01\u2013C12) (Z06) on sorter loop toward outbound dock Outbound dock (Z12) via cross-belt loop Cross-belt loop (one raised level) (Z05)"
+   ],
+   [
+    "insufficient_evidence",
+    "Parcel was diverted to reject/exception handling (Reject chute (no-read / exception) (Z07) or Exception bench (rework / relabel / damage hold) (Z08) exception bench)"
+   ],
+   [
+    "insufficient_evidence",
+    "Parcel left coverage gap into unmonitored interior (chute drop/bag) and onward location unknown due to no_camera_coverage 14:33:36 onwards"
+   ]
+  ],
+  "error": null
+ },
+ "CTX119368214201": {
+  "case_id": "case_18e3f874b5c69480e7e39dae",
+  "status": "done",
+  "seconds": 286,
+  "end": "Took 280 s. Muse Wonder US$0.12; Spark Open 121k tokens on Baseten. 19 wide cameras swept on site, 5 examined closely.",
+  "most_likely": null,
+  "last_seen": "Not followed on camera. Last scan record: divert confirmed at SP-DIV-C02 (Chutes + bagging (C01\u2013C12) (Z06)), 14:32:38; the camera CAM 10 saw it there at that scan.",
+  "last_scan": {
+   "scan_event_id": "scan_18e3effff9faeb8827e0c678",
+   "event_kind": "divert_confirmed",
+   "at": "2026-10-28T14:32:38.700000+08:00",
+   "scan_point_id": "SP-DIV-C02",
+   "zone_id": "zone_Z06",
+   "container": null,
+   "located_by": "camera",
+   "camera": "cam_CAM_10",
+   "handshake_id": "hs_scan_18e3effff9faeb8827e0c678_cam_CAM_10_media_070749c931efab2dd762"
+  },
+  "hypotheses": [
+   [
+    "insufficient_evidence",
+    "Parcel CTX119368214201 remained in Chutes + bagging (C01\u2013C12) (Z06) (C02) after its divert_confirmed scan at 14:32:38 and was not observed onward due to unreadable identifiers in CAM_10/CAM_11"
+   ],
+   [
+    "insufficient_evidence",
+    "Parcel left Chutes + bagging (C01\u2013C12) zone (Z06) C02 chute on the 1-2m on-foot trajectory at 14:32:39-14:32:40 to an adjacent position within Chutes + bagging (C01\u2013C12) zone (Z06) or downstream handling"
+   ],
+   [
+    "insufficient_evidence",
+    "Parcel was diverted to exception/reject pathway Reject chute (no-read / exception) zone (Z07) or Exception bench (rework / relabel / damage hold) zone (Z08) and left Chutes + bagging (C01\u2013C12) zone (Z06) entirely"
+   ]
+  ],
+  "error": null
+ },
+ "CTX639569664089": {
+  "case_id": "case_18e3f89a04f42228bde505af",
+  "status": "done",
+  "seconds": 201,
+  "end": "Took 198 s. Muse Wonder US$0.22; Spark Open 83k tokens on Baseten. 19 wide cameras swept on site, 2 examined closely.",
+  "most_likely": null,
+  "last_seen": "Not followed on camera. Last scan record: arrived facility at SP-IN-N (Inbound dock (telescopic conveyors) (Z01)), 14:33:04; not seen on camera.",
+  "last_scan": {
+   "scan_event_id": "scan_18e3effffa181654ebf3d831",
+   "event_kind": "arrived_facility",
+   "at": "2026-10-28T14:33:04.200000+08:00",
+   "scan_point_id": "SP-IN-N",
+   "zone_id": "zone_Z01",
+   "container": null,
+   "located_by": "scan",
+   "camera": null,
+   "handshake_id": null
+  },
+  "hypotheses": [
+   [
+    "insufficient_evidence",
+    "Parcel CTX639569664089 remained in Inbound dock (telescopic conveyors) (Z01) (SP-IN-N) after its last arrived_facility scan and did not observably exit toward induction/conveyor in the reviewed footage window"
+   ],
+   [
+    "insufficient_evidence",
+    "Parcel moved from Inbound dock (telescopic conveyors) (Z01) along normal forward flow toward induction/scan tunnel (Induction (Z03)/Scan tunnel (DWS) (Z04)) but was not visually confirmed due to unobserved and no-coverage intervals"
+   ],
+   [
+    "insufficient_evidence",
+    "Parcel was diverted to exception/reject handling (Reject chute (no-read / exception) (Z07) or Exception bench (rework / relabel / damage hold) (Z08) exception bench) after last scan and held there, explaining lack of onward confirmation"
+   ],
+   [
+    "insufficient_evidence",
+    "Parcel left the inbound building envelope via Outbound dock (Z12) / Truck yard (outside west + north walls) zone (Z14) after last scan without intermediate camera confirmation"
+   ]
+  ],
+  "error": null
+ },
+ "_alerts": [
+  {
+   "at": "2026-10-28T14:32:13.800000+08:00",
+   "camera": "cam_CHK_CAGE_W",
+   "candidates": [
+    "CTX334048419302"
+   ]
+  }
+ ]
+}

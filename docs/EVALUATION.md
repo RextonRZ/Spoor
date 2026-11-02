@@ -37,6 +37,21 @@ and the agents did not aim SAM at the chute cameras after the divert. Both are l
 was caged and then left normally does not exist in the S2 scan log (the only cage scan with a waybill is the S2 parcel),
 so that control is not run.
 
+**Controls re-run (2026-11-02 11:34, after the six checkpoint cameras, the handshakes and the "last scan record"
+answer; same footage, keyed runs, Wonder US$0.12-0.23 each, 57k-121k Spark Open tokens, 198-280 s):**
+
+| Parcel | Spoor's answer now | Counted as | Truth | Verdict |
+|---|---|---|---|---|
+| CTX976456695076 (the look-alike) | "Last scan record: into chute C08 at 14:32:35. CAM 10 saw this carton there at that scan." | confirmed on camera | in chute C08 | right; still NOT placed in the Exception store |
+| CTX119368214201 (belt parcel) | "Last scan record: into chute C02 at 14:32:38. CAM 10 saw this carton there at that scan." | confirmed on camera | in chute C02 | right |
+| CTX639569664089 (unload scan only) | "Last scan record: unloaded at the north door at 14:33:04. Not seen on camera." | located by scan | on the inbound belt by that door | right (located by scan, not confirmed) |
+| a parcel in cage RC-696 (RFID at D08 14:32:19) | not opened: the log has the cage's own RFID read and no parcel or bag scanned into RC-696, so there is no tracking number to ask about | - | - | n/a |
+
+Counted separately: **located by scan 1 of 3**, **confirmed on camera 2 of 3**, false locations 0 of 3 (the look-alike
+is never placed in the Exception store). Live alert "left without a scan": fired once in the whole footage, at the
+S2 parcel's pick from RC-760 (CHK_CAGE_W 14:32:13.8); not on any control, and not when RC-696 or RC-112 left with
+their own RFID reads (a container's own read accounts for what is in it).
+
 **On-site triage (Muse Glimmer, Modal A100):** 855 frames from all 19 cameras (one every 2 s), US$0.62, 0 unparsed.
 Footage sent on to the cloud models: 286 s of 1,710 s (17 %, 83 % less), each flag sending from the sample before to
 the sample after. Key moments: CAM_13 14:32:10-12 (the pick from the cage) covered; CAM_19 14:32:21-31 covered, 14:32:32
