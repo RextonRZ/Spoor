@@ -87,8 +87,11 @@ export default function HubPage() {
     const [pill, tone] = CASE_PILL[c.status] ?? CASE_PILL.unknown;
     return { kind: "case", key: c.case_id, c, pill, tone };
   };
-  const openAll = useMemo(() => (dash.data?.cases ?? []).filter((c) => c.status !== "found").map(caseItem), [dash.data]);
-  const resolvedAll = useMemo(() => (dash.data?.cases ?? []).filter((c) => c.status === "found").map(caseItem), [dash.data]);
+  // resolved: found on the floor, or confirmed on camera at its last scan (nothing left to look for)
+  const done = (s: string) => s === "found" || s === "confirmed";
+  const openAll = useMemo(() => (dash.data?.cases ?? []).filter((c) => !done(c.status)).map(caseItem)
+    .sort((x, y) => Number(!!y.c.customer_asked) - Number(!!x.c.customer_asked)), [dash.data]); // a waiting customer first
+  const resolvedAll = useMemo(() => (dash.data?.cases ?? []).filter((c) => done(c.status)).map(caseItem), [dash.data]);
   const hit = (a: CaseItem) => !q.trim() || a.c.target.toUpperCase().includes(q.trim().toUpperCase());
   const shownOpen = openAll.filter(hit);
   const shownResolved = resolvedAll.filter(hit);

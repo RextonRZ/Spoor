@@ -9,7 +9,8 @@ import Link from "next/link";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api, signedUrl, useResource } from "@/lib/api";
 import type { Journey, MissingMoment } from "@/lib/journey";
-import { hhmm, lastScanSentence, minutes, missingNextSentence, placeOf } from "@/lib/words";
+import { hhmm, hms, lastScanSentence, minutes, missingNextSentence, momentLabel, placeOf } from "@/lib/words";
+import { low, type LastScan } from "@/lib/answer";
 import { camId, scanPoint } from "@/lib/hub";
 import { buildCheckpoints, type CaseRecord } from "@/lib/checkpoints";
 import type { MediaRow } from "@/lib/types";
@@ -20,10 +21,12 @@ import "@/app/hub/hub.css";
 export interface Dashboard {
   kpis: { open_cases: number; found: number; median_hours_to_locate: number | null };
   trail_ends_by_zone: { zone_id: string; zone: string; cases: number }[];
-  cases: { case_id: string; target: string; status: string }[];
+  cases: { case_id: string; target: string; status: string; customer_asked?: boolean }[];
 }
 export type Tone = "bad" | "warn" | "ok";
-export const CASE_PILL: Record<string, [string, Tone]> = { found: ["Found", "ok"], located: ["Likely location", "ok"], unknown: ["Lost track", "bad"] };
+// a floor find, else the latest verified run's answer (dashboard.py): never "Lost track" once a run placed it
+export const CASE_PILL: Record<string, [string, Tone]> = { found: ["Found", "ok"], located: ["Likely location found", "ok"],
+  confirmed: ["Confirmed on camera", "ok"], by_scan: ["Located by scan", "warn"], unknown: ["Lost track", "bad"] };
 export interface CaseItem { kind: "case"; key: string; c: Dashboard["cases"][number]; pill: string; tone: Tone }
 
 export const placeWords = (kind: string | undefined, point: string | null | undefined) => (kind ? placeOf(kind, point).replace(/^the /, "") : undefined);
@@ -92,7 +95,8 @@ export function waited(lastScan: string, opened: string): string | null {
 
 export function useCase(caseId: string) {
   const j = useResource<Journey>(`/v1/cases/${caseId}/journey`);
-  const cs = useResource<{ case: { complaint?: string | null; created_at: string } }>(`/v1/cases/${caseId}/state`);
+  const cs = useResource<{ case: { complaint?: string | null; created_at: string };
+    answer?: { objects: { inside: { place: string; iso: Record<string, string> } | null; last_scan?: LastScan | null }[] } | null }>(`/v1/cases/${caseId}/state`);
   const cf = useResource<{ objects: { records?: CaseRecord[] }[] }>(`/v1/cases/${caseId}/conflicts`);
   const run = useResource<{ steps: unknown[] }>(`/v1/cases/${caseId}/run`);
   const scans = j.data?.objects[0]?.scans ?? [];
@@ -105,7 +109,7 @@ export function CasesTable({ rows, openKey, onOpen, asOf, empty }: { rows: CaseI
     <div className="hb-table" aria-label="Cases">
       <div className="hb-tr hb-th hb-cols-case">
         <span>Status</span><span>Parcel</span><span>Where it stopped</span>
-        <span>Last scan</span><span className="hb-num">Since</span><span>Customer</span><span />
+        <span>Last scan</span><span className="hb-num">Since</span><span />
       </div>
       {rows.map((a) => <CaseRow key={a.key} a={a} open={openKey === a.key} onOpen={onOpen} asOf={asOf} />)}
     </div>
@@ -113,18 +117,20 @@ export function CasesTable({ rows, openKey, onOpen, asOf, empty }: { rows: CaseI
 }
 
 function CaseRow({ a, open, onOpen, asOf }: { a: CaseItem; open: boolean; onOpen: (k: string, el: HTMLElement) => void; asOf: string | null }) {
-  const { cs, last, j } = useCase(a.c.case_id);
+  const { last, j, cs } = useCase(a.c.case_id);
+  const inside = cs.data?.answer?.objects[0]?.inside;
   const waybill = a.c.target.split(" ").at(-1) ?? a.c.target;
   const since = last && asOf ? minutes(Math.max(0, (Date.parse(asOf) - Date.parse(last.t)) / 1000)) : "";
-  const where = last ? lastScanSentence(last.event_kind, last.station_id, last.t).replace(/ at \d\d:\d\d\.$/, "") : "No scans yet";
+  const where = inside ? `Carried into the ${inside.place.replace(/ \(Z\d+\)$/, "").toLowerCase()}`
+    : last ? lastScanSentence(last.event_kind, last.station_id, last.t).replace(/ at \d\d:\d\d\.$/, "") : "No scans yet";
   return (
     <button type="button" className="hb-tr hb-cols-case" aria-pressed={open} onClick={(e) => onOpen(a.key, e.currentTarget)}>
       <span><span className="hb-chip" data-tone={a.tone}>{a.pill}</span></span>
-      <span className="hb-mono">{waybill}</span>
+      <span className="hb-parcel"><span className="hb-mono">{waybill}</span>
+        {a.c.customer_asked && <span className="hb-chip" data-tone="ask">Customer asked</span>}</span>
       <span className="hb-ellipsis">{last || !j.loading ? where : <span className="hb-skel" style={{ width: 150 }} />}</span>
       <span className="hb-dim">{last ? hhmm(last.t) : ""}</span>
       <span className="hb-num">{since}</span>
-      <span>{cs.data?.case.complaint ? <span className="hb-chip" data-tone="ask">Customer asked</span> : ""}</span>
       <span className="hb-chev" aria-hidden="true">›</span>
     </button>
   );
@@ -176,8 +182,9 @@ export function View({ siteId, point, at, tone, place }: { siteId: string; point
   const sp = scanPoint(point);
   const [frame, setFrame] = useState<{ url: string; cam: string } | null>(null);
   const [viewOk, setViewOk] = useState(true);
-  const hit = at && sp ? (media.data ?? []).find((m) => m.media.camera_id && sp.visible_by.includes(camId.toHub(m.media.camera_id))
-    && m.coverage.some((c) => c.start_utc <= at && at <= c.end_utc)) : undefined;
+  const hit = at && sp ? [...(media.data ?? [])].sort((x, y) => Number(!!y.media.camera_id?.includes("CHK_")) - Number(!!x.media.camera_id?.includes("CHK_")))
+    .find((m) => m.media.camera_id && sp.visible_by.includes(camId.toHub(m.media.camera_id))
+    && m.coverage.some((c) => Date.parse(c.start_utc) <= Date.parse(at) && Date.parse(at) <= Date.parse(c.end_utc))) : undefined;
   const mediaId = hit?.media.media_id;
   const camHub = hit?.media.camera_id ? camId.toHub(hit.media.camera_id) : null;
   useEffect(() => {
@@ -220,23 +227,34 @@ export function CaseDetail({ siteId, a, keyed }: { siteId: string; a: CaseItem; 
   const cps = scans.length ? buildCheckpoints({ scans, records: cf.data?.objects[0]?.records ?? [], barcode: waybill }) : null;
   const sub = [dims ? `${dims.map((d) => Math.round(d / 10)).join(" × ")} cm` : "",
     cs.data?.case.complaint ? `customer asked: says it never arrived${last && waited(last.t, cs.data.case.created_at) ? `, ${waited(last.t, cs.data.case.created_at)} after its last scan here` : ""} · case opened ${ago(cs.data.case.created_at)}` : ""].filter(Boolean).join(" · ");
+  const ans = cs.data?.answer?.objects[0];
+  const inside = ans?.inside ?? null;
+  const ls = !inside ? ans?.last_scan ?? null : null;
+  const records = cf.data?.objects[0]?.records ?? [];
+  const truck = records.find((r) => r.event_kind === "container_loaded" || r.event_kind === "departed_facility");
+  const truckLie = !!(inside && truck && Date.parse(truck.t) > Date.parse(inside.iso.carried_in_at) && Date.parse(truck.t) < Date.parse(inside.iso.until));
+  const head = inside ? `Most likely in the ${inside.place}.`
+    : ls ? `Last scan record: ${low(momentLabel(ls.event_kind, ls.scan_point_id))} at ${hms(ls.at)}. ${ls.camera ? `Seen there on ${ls.camera.replace(/^cam_/, "").replaceAll("_", " ")}.` : "Not seen on camera."}`
+    : last ? `${lastScanSentence(last.event_kind, last.station_id, last.t)} ${missingNextSentence(last.event_kind)}` : "No scans of this parcel at this hub.";
   return (
     <>
-      <h2 className="hb-d-h">{last ? `${lastScanSentence(last.event_kind, last.station_id, last.t)} ${missingNextSentence(last.event_kind)}` : "No scans of this parcel at this hub."}</h2>
+      <h2 className="hb-d-h">{head}</h2>
+      {truckLie && truck && <p className="hb-d-lie">Records say loaded on {truck.station_id?.match(/D\d{2}/)?.[0] ?? "a truck"} at {hhmm(truck.t)}. Cameras say it never left.</p>}
       {sub && <p className="hb-d-sub">{sub}</p>}
       <div className="hb-d-acts">
         <Link className="hb-btn hb-btn-primary" href={href}>{investigated ? "Open case" : "Investigate"}</Link>
         <Link className="hb-btn" href={`/cases/${a.c.case_id}/search`}>Send someone to look</Link>
       </div>
       <p className="hb-d-note">{keyed ? "Investigate: about 1 min, ~US$0.30." : "Shows what the scan log knows."}</p>
-      <View siteId={siteId} point={last?.station_id ?? last?.device_id} at={last?.t} tone={a.tone} place={placeWords(last?.event_kind, last?.station_id)} />
+      {inside ? <View siteId={siteId} point="SP-STORE-IN" at={inside.iso.carried_in_at} tone="ok" place={`the ${inside.place.replace(/ \(Z\d+\)$/, "").toLowerCase()} door`} />
+        : <View siteId={siteId} point={ls?.scan_point_id ?? last?.station_id ?? last?.device_id} at={ls?.at ?? last?.t} tone={a.tone} place={placeWords(ls?.event_kind ?? last?.event_kind, ls?.scan_point_id ?? last?.station_id)} />}
       {cps && (
         <section className="hb-d-sec">
           <h3>Where it was scanned</h3>
           <CheckpointStrip cps={cps} compact vertical where />
         </section>
       )}
-      <NextCams caseId={a.c.case_id} />
+      {!inside && !ls && <NextCams caseId={a.c.case_id} />}
     </>
   );
 }

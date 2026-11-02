@@ -88,7 +88,8 @@
   border: 0; border-bottom: 1px solid var(--tb-line); background: none; color: var(--tb-ink); font: inherit; font-size: 13.5px; text-align: left;
 }
 .hb-tr:last-child { border-bottom: 0; }
-.hb-cols-case { grid-template-columns: 120px 150px minmax(160px, 1.6fr) 72px 72px minmax(120px, 1fr) 16px; }
+.hb-cols-case { grid-template-columns: 172px minmax(150px, 1fr) minmax(160px, 1.6fr) 72px 72px 16px; }
+.hb-parcel { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
 .hb-cols-place { grid-template-columns: minmax(200px, 2fr) repeat(4, minmax(90px, 1fr)) 16px; }
 .hb-th { white-space: nowrap; min-height: 34px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #6c717d; background: rgba(255, 255, 255, 0.015); }
 button.hb-tr { cursor: pointer; transition: background-color 120ms ease; }
@@ -178,14 +179,14 @@ button.hb-tr:focus-visible { outline: 2px solid #818cf8; outline-offset: -2px; }
 .hb-err { grid-column: 1 / -1; font-size: 12px; color: #fca5a5; }
 
 @container hbp (max-width: 860px) {
-  .hb-cols-case { grid-template-columns: 110px 140px minmax(0, 1fr) 84px 16px; }
-  .hb-cols-case > :nth-child(5), .hb-cols-case > :nth-child(6) { display: none; }
+  .hb-cols-case { grid-template-columns: 164px minmax(0, 1fr) minmax(0, 1.2fr) 64px 16px; }
+  .hb-cols-case > :nth-child(5) { display: none; }
   .hb-cols-place { grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(70px, 1fr)) 16px; }
   .hb-cols-place > :nth-child(3) { display: none; }
 }
 @media (max-width: 1100px) {
-  .hb-cols-case { grid-template-columns: 110px 140px minmax(0, 1fr) 64px 16px; }
-  .hb-cols-case > :nth-child(5), .hb-cols-case > :nth-child(6) { display: none; }
+  .hb-cols-case { grid-template-columns: 150px minmax(0, 1fr) minmax(0, 1.2fr) 56px 16px; }
+  .hb-cols-case > :nth-child(5) { display: none; }
 }
 @media (max-width: 700px) {
   .hb { padding: 16px 16px 40px; gap: 16px; }
@@ -250,3 +251,6 @@ button.hb-tr:focus-visible { outline: 2px solid #818cf8; outline-offset: -2px; }
 }
 .hb-cols-parcel { grid-template-columns: minmax(136px, 1.15fr) minmax(128px, 1fr) minmax(90px, 1fr) 52px 88px 12px; }
 .hb-cols-parcel > :nth-child(5) { white-space: nowrap; }
+
+/* the records contradict the cameras (a truck record made while the parcel is still inside) */
+.hb-d-lie { margin: 6px 0 0; padding: 8px 10px; border-radius: 8px; font-size: 13px; font-weight: 600; color: #fca5a5; background: rgba(248, 113, 113, 0.1); }

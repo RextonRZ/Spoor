@@ -17,7 +17,7 @@ interface Alert {
 }
 interface CaseRow { case: { case_id: string; target_description: string } }
 
-const cam = (c: string) => c.replace(/^cam_/, "").replace("_", " ");
+const cam = (c: string) => c.replace(/^cam_/, "").replaceAll("_", " ");
 const PLACE: Record<string, string> = { "SP-CAGE-W": "the west cage bays", "SP-CAGE-E": "the east cage bays" };
 
 function Shot({ a }: { a: Alert }) {

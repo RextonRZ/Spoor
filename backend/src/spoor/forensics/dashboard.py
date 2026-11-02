@@ -1,6 +1,6 @@
 """Hub dashboard (QUEUE H15): what a hub / regional manager watches, aggregated from the same read models the cases use.
 
-Per case: status (found / located / unknown), how long it has been open, where its evidence trail ends, the cameras it
+Per case: status (found / located / confirmed / by_scan / unknown: a floor find, else the latest verified run's answer), how long it has been open, where its evidence trail ends, the cameras it
 depends on next, records that conflict with the belt, and model spend. Across cases: trail ends by zone (the blind
 spots that cost the most), cameras most relied on, conflicts by read point, cost per case. Nothing is estimated here
 that the case views do not already show."""
@@ -9,6 +9,7 @@ from collections import Counter
 from datetime import datetime
 from statistics import median
 
+from spoor.agents.orchestrator import latest_answer
 from spoor.contracts import Case, ObjectInstance, Site, point_in_polygon
 from spoor.store import CostEntry, EvidenceStore
 
@@ -56,9 +57,15 @@ def hub_dashboard(store: EvidenceStore, site_id: str, *, now: datetime) -> dict:
         spend = store.find(CostEntry, case_id=case.case_id)
         usd = round(sum(c.usd_estimate or 0 for c in spend), 4)
         costs.append(usd)
+        status = search_view(store, case.case_id)["status"].replace("none", "unknown").replace("searching", "unknown")
+        if status == "unknown":  # the latest verified run's answer, when there is one (a floor find still wins)
+            ans = latest_answer(store, case.case_id) or {}
+            o = next(iter(ans.get("objects") or []), {})
+            status = "located" if o.get("inside") else {"camera": "confirmed", "scan": "by_scan"}.get(
+                (o.get("last_scan") or {}).get("located_by"), status)
         rows.append({
             "case_id": case.case_id, "question": case.question, "target": case.target_description,
-            "status": search_view(store, case.case_id)["status"].replace("none", "unknown").replace("searching", "unknown"),
+            "status": status, "customer_asked": bool(case.complaint),
             "opened_at": case.created_at.isoformat(), "open_hours": round((now - case.created_at).total_seconds() / 3600, 1),
             "trail_end": {"zone_id": zone, "zone": zones.get(zone, zone), "t": last["t"] if last else None,
                           "kind": last["kind"] if last else None, "event_kind": last.get("event_kind") if last else None},
