@@ -227,7 +227,7 @@ def build_journey_reel(segments: list[Segment], out_dir: Path, reel_id: str, tit
                                 "zoomed_to": list(crop) if crop else None})
             if last[0] is not None:  # the step's thumbnail for the web player's strip: its middle frame
                 mid = thumbs.get("mid")
-                cv2.imwrite(str(out_dir / f"{reel_id}_t{ci}.jpg"), cv2.resize(mid if mid is not None else last[0], (320, 180),
+                cv2.imwrite(str(out_dir / f"{reel_id}_t{ci}.jpg"), cv2.resize(mid if mid is not None else last[0], (480, 270),
                                                                          interpolation=cv2.INTER_AREA), [cv2.IMWRITE_JPEG_QUALITY, 82])
                 thumbs.clear()
             chapters.append({"title": seg.title, "tone": seg.tone, "t": seg.t.isoformat(), "start_s": round(start, 2),

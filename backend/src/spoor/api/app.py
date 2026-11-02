@@ -1457,16 +1457,40 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
             audit(p, "case_cameras_granted", case_id, cameras=new)
         return {"camera_ids": svc.case_cameras(case), "granted": new}
 
+    class CustomerDraftRequest(BaseModel):
+        channel: Literal["chat", "email"] = "chat"
+        language: Literal["en", "ms"] = "en"
+        tone: Literal["short", "detailed"] = "short"
+
     @app.post("/v1/cases/{case_id}/customer-update")
-    def customer_update(case_id: str, p: User) -> dict:
-        """Draft the update for the customer who asked, from the verified answer only (spoor/customer.py). Stored as a
-        draft; a person approves it; nothing is sent."""
+    def customer_update(case_id: str, p: User, body: CustomerDraftRequest | None = None) -> dict:
+        """Draft the update for the customer who asked, from verified facts only (spoor/customer.py): channel, language
+        and tone are the wording's; the facts are the case's. Stored as a draft; a person approves it; nothing is sent."""
         from spoor.customer import draft
 
         p.require_role(Role.SITE_ADMIN, Role.INVESTIGATOR)
         case = case_for(p, case_id)
-        out = draft(svc.store, case, svc.agent, now=now())
-        audit(p, "customer_update_drafted", case_id, model=out.get("model"))
+        b = body or CustomerDraftRequest()
+        out = draft(svc.store, case, svc.agent, now=now(), channel=b.channel, language=b.language, tone=b.tone)
+        audit(p, "customer_update_drafted", case_id, model=out.get("model"), channel=b.channel, language=b.language)
+        return out
+
+    class CustomerApproveRequest(BaseModel):
+        text: str = Field(min_length=10, max_length=1500)
+
+    @app.post("/v1/cases/{case_id}/customer-update/approve")
+    def customer_update_approve(case_id: str, body: CustomerApproveRequest, p: User) -> dict:
+        """A person approves the draft (as edited) and marks it sent to customer service: an audited record with the
+        approver and the time. In this demo no message leaves Spoor."""
+        from spoor.customer import approve
+
+        p.require_role(Role.SITE_ADMIN, Role.INVESTIGATOR)
+        case = case_for(p, case_id)
+        try:
+            out = approve(svc.store, case, text=body.text, approver=p.user_id, now=now())
+        except ValueError as e:
+            raise HTTPException(409, str(e)) from e
+        audit(p, "customer_update_sent", case_id, edited=out.get("edited"), sha256=out.get("content_sha256"))
         return out
 
     @app.get("/v1/cases/{case_id}/customer-update")

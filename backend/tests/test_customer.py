@@ -45,3 +45,33 @@ def test_unsafe_model_words_fall_back_to_the_plain_template():
 def test_no_verified_answer_means_nothing_to_tell():
     store, case = case_with({"objects": [{"inside": None, "last_scan": {"located_by": "scan", "at": NOW.isoformat()}}]})
     assert draft(store, case, None, now=NOW)["status"] == "no_answer"
+
+
+def test_malay_template_and_email_wrapping_keep_only_the_facts():
+    store, case = case_with({"objects": [{"inside": INSIDE}]})
+    out = draft(store, case, None, now=NOW, channel="email", language="ms")
+    assert out["language"] == "ms" and out["draft"].startswith("Pelanggan yang dihormati")
+    assert "jam 14:32" in out["draft"] and out["stage"] == "holding"
+    assert out["refs"][1]["kind"] == "camera"
+
+
+def test_found_on_the_floor_is_the_found_update_and_promises_no_date(monkeypatch):
+    import spoor.customer as cu
+
+    store, case = case_with({"objects": [{"inside": INSIDE}]})
+    monkeypatch.setattr(cu, "_found", lambda *_: SimpleNamespace(recorded_at=NOW))  # floor staff recorded "found"
+    out = draft(store, case, None, now=NOW)
+    assert out["stage"] == "found" and "found it" in out["draft"] and "booked" in out["draft"]
+
+
+def test_approve_marks_sent_with_the_approver_and_refuses_unsafe_edits():
+    import pytest
+
+    from spoor.customer import approve
+
+    store, case = case_with({"objects": [{"inside": INSIDE}]})
+    draft(store, case, None, now=NOW)
+    out = approve(store, case, text="Hello, your parcel is at the hub and a team member is checking.", approver="u1", now=NOW)
+    assert out["sent"] and out["approved_by"] == "u1" and out["edited"] and len(out["content_sha256"]) == 64
+    with pytest.raises(ValueError):
+        approve(store, case, text="A worker stole your parcel, sorry.", approver="u1", now=NOW)

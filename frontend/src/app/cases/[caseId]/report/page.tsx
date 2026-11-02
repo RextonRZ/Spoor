@@ -1,232 +1,365 @@
 "use client";
 /**
- * Report (step 4), ops-console style: "Close the case". The report itself is shown as a sheet (the answer, four key
- * moments, what to fix, what to tell the customer), and the actions sit beside it, docked: Download PDF (the full report
- * document, printable), Evidence video (the reel) and Share report. One demo user, so there is no approval step in the
- * UI; a shared report stays marked "not reviewer-approved" in the document, because the backend's four-eyes rule is kept.
+ * Report (step 4): the case file a hub manager signs (Rexton 3 Nov; reviewer 03:40 spec). One paper sheet, A4 when
+ * printed, six sections in the order a reader asks: what happened (summary, how sure), the journey on camera (the reel
+ * and EVERY step as its own frame card, the frames the API cut from the reel), where (a clean vector plan: the route
+ * numbered like the cards, solid where a camera saw it, dashed where none did, the cameras used, the answer zone), the
+ * records against the cameras, the floor check, and the evidence list (clips with SHA-256, models and cost, limits).
+ * "Draft the update to the customer" opens a side sheet beside the report (not over it): channel, language, tone, the
+ * draft from verified facts only with each fact linked to its frame, Approve and send (a person approves; in this demo
+ * nothing leaves Spoor: an audited record), Copy text.
  */
-import { conflictWords, type Conflict } from "@/lib/conflict";
 import Link from "next/link";
-import { use, useEffect, useState } from "react";
-import { API_BASE, api, previewUrl, signedUrl, useResource } from "@/lib/api";
-import type { Journey, MissingMoment, XY } from "@/lib/journey";
-import { hhmm, hms, momentLabel, placeOf, shortPlace } from "@/lib/words";
-import { scanPoint } from "@/lib/hub";
-import type { MediaRow, Site } from "@/lib/types";
+import { use, useMemo, useState } from "react";
+import { api, invalidate, signedUrl, useResource } from "@/lib/api";
+import { conflictWords, type Conflict } from "@/lib/conflict";
+import type { Journey, XY } from "@/lib/journey";
+import { hhmm, hms } from "@/lib/words";
+import { HUB } from "@/lib/hub";
 import { CaseSteps } from "@/components/flow/CaseSteps";
-import HubPlan, { ZONE_NAMES } from "@/components/plan/HubPlan";
+import type { Chapter, Reel } from "@/components/case/JourneyReel";
+import { waited } from "@/components/hub/parts";
+import FloorPlan, { type FPCam, type FPLeg, type FPStop } from "@/components/plan/FloorPlan";
 import "@/app/hub/hub.css";
 import "./report.css";
 
-interface CaseState { case: { target_description: string; complaint?: string | null; created_at: string };
+interface CaseState { case: { case_id: string; target_description: string; complaint?: string | null; created_at: string };
   answer?: { objects: { inside: { place: string; carried_in_at: string; iso: Record<string, string> } | null }[] } | null }
-interface Draft { draft: string; facts: string[]; model: string; note: string; approved: boolean; sent: boolean; status?: string }
-interface Possible { objects: { places: { area_id: string; name: string; zone_id: string | null; possible_share: number; centroid_xy: XY }[] }[] }
 interface Conflicts { objects: { conflicts: Conflict[] }[] }
-interface SearchView { found: { area_id: string; name: string; by: string; at: string } | null }
-const low = (t: string) => t.charAt(0).toLowerCase() + t.slice(1); // keeps "C12"
-interface Moment { key: string; t: string | null; text: string; who: string; xy: XY | null; frame?: string; cam?: string | null; tone?: "bad" | "ok";
-  /** a clip that shows the moment (the frame is fetched from it) */
-  media?: string }
+interface SearchView { found: { area_id: string; name: string; by: string; at: string } | null;
+  tasks: { search_task_id: string; created_at: string; places: { area_id: string; name: string }[];
+    outcomes: { area_id: string; outcome: "found" | "not_found"; note?: string | null; recorded_by?: string; recorded_at?: string }[] }[] }
+interface Draft { status?: string; draft: string; facts: string[]; refs?: ({ kind: string; at?: string; label: string } | null)[]; model: string;
+  note: string; approved: boolean; sent: boolean; stage?: string; channel?: string; language?: string; tone?: string; approved_by?: string;
+  sent_at?: string; edited?: boolean }
+interface RunView { steps: { type: string; t_s?: number; cost_usd?: number; text?: string; model?: string; role?: string }[];
+  crew: { role: string; who: string; model: string }[] }
+type Source = { kind: string; camera?: string; sha256?: string; frames?: number[]; title?: string; path?: string };
+type FullReel = Reel & { sources?: Source[] };
 
-/** the frame of a clip at a moment (a signed original frame) */
-function MomentFrame({ media, t, alt }: { media: string; t: string; alt: string }) {
-  const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => {
-    let live = true;
-    api<{ frame_url: string }>(`/v1/media/${media}/frame-at?time=${encodeURIComponent(t)}`).then((r) => live && setUrl(previewUrl(r.frame_url, 800))).catch(() => {});
-    return () => { live = false; };
-  }, [media, t]);
-  // eslint-disable-next-line @next/next/no-img-element -- a signed CCTV frame
-  return url ? <img src={url} alt={alt} /> : <span className="rp-fig-none" aria-busy="true" />;
-}
+const CHIP: Record<string, string> = { scan: "Scanned", seen: "On camera", noscan: "Not scanned in", record: "Records disagree", wait: "No camera", card: "Answer" };
+const CLOSE: Record<string, string> = { UNLOAD: "Unload", TUNNEL: "Tunnel", CAGE_W: "Cage", CAGE_E: "Cage", STORE: "Store door", DOCK: "Dock", CHUTE: "Chute" };
+const camWords = (c: string) => c === "Tunnel reader" ? "Tunnel reader's photo"
+  : c.startsWith("CHK_") ? `${CLOSE[c.slice(4)] ?? c.slice(4)} close-up camera` : c.replace("_", " ");
+const modelName = (m: string) => /spark-open/i.test(m) ? "Muse Spark Open" : /spark/i.test(m) ? "Muse Spark" : /wonder/i.test(m) ? "Muse Wonder" : m;
+const floorName = (n: string) => n.replace(/^Z\d+ /, "").replace(/\s*[(,;].*$/, "");
+const day = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { timeZone: "Asia/Kuala_Lumpur", day: "numeric", month: "short", year: "numeric" });
 
 export default function ReportPage({ params }: { params: Promise<{ caseId: string }> }) {
   const { caseId } = use(params);
   const st = useResource<CaseState>(`/v1/cases/${caseId}/state`);
   const jr = useResource<Journey>(`/v1/cases/${caseId}/journey`);
-  const mr = useResource<MissingMoment>(`/v1/cases/${caseId}/missing-moment`);
-  const pr = useResource<Possible>(`/v1/cases/${caseId}/possible-locations`);
   const cr = useResource<Conflicts>(`/v1/cases/${caseId}/conflicts`);
   const sr = useResource<SearchView>(`/v1/cases/${caseId}/search-tasks`);
+  const rr = useResource<FullReel>(`/v1/cases/${caseId}/journey-reel`);
+  const run = useResource<RunView>(`/v1/cases/${caseId}/run`);
+  const saved = useResource<Draft | null>(`/v1/cases/${caseId}/customer-update`);
+  const [sheet, setSheet] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
-  const [reel, setReel] = useState<string | null>(null);
-  const saved = useResource<Draft | null>(`/v1/cases/${caseId}/customer-update`);
-  const [drafted, setDrafted] = useState<Draft | null>(null);
-  const [copied, setCopied] = useState(false);
-  const upd = drafted ?? saved.data ?? null;
-  const inside = st.data?.answer?.objects.find((o) => o.inside)?.inside ?? null;
-  const sites = useResource<Site[]>("/v1/sites");
-  const media = useResource<MediaRow[]>(sites.data?.[0] ? `/v1/sites/${sites.data[0].site_id}/media` : null);
-  const clipAt = (hub: string, iso: string) => (media.data ?? []).find((m) => m.media.camera_id === `cam_${hub}` && !m.purged
-    && m.coverage.some((c) => Date.parse(c.start_utc) <= Date.parse(iso) && Date.parse(iso) <= Date.parse(c.end_utc)))?.media.media_id;
+  const [flash, setFlash] = useState<number | null>(null);
 
-  const j = jr.data?.objects[0];
-  const scans = j?.scans ?? [];
+  const waybill = st.data?.case.target_description.split(" ").at(-1) ?? "";
+  const scans = jr.data?.objects[0]?.scans ?? [];
   const last = scans.at(-1);
-  const lc = mr.data?.objects[0]?.last_confirmed;
-  const places = (pr.data?.objects[0]?.places ?? []).filter((p) => p.possible_share > 0);
+  const inside = st.data?.answer?.objects.find((o) => o.inside)?.inside ?? null;
   const conflict = cr.data?.objects[0]?.conflicts[0];
   const found = sr.data?.found ?? null;
-  const waybill = st.data?.case.target_description.split(" ").at(-1) ?? "";
-  const ready = !!(j && mr.data && pr.data && cr.data && sr.data);
+  const task = sr.data?.tasks.at(-1);
+  const chapters: Chapter[] = useMemo(() => rr.data?.chapters ?? [], [rr.data]);
+  const steps = chapters.filter((c) => c.tone !== "card");
+  const wait = last && st.data ? waited(last.t, st.data.case.created_at) : null;
+  const end = run.data?.steps.findLast((s) => s.type === "run_end");
+  const sent = saved.data?.sent ? saved.data : null;
+  const place = inside?.place.replace(/\s*\(Z\d+\)$/, "") ?? null;
 
-  const foundPlace = found ? shortPlace({ area_id: found.area_id, name: found.name, zone_id: `zone_${found.area_id}` }, ZONE_NAMES) : null;
-  const head = found ? `Found in the ${foundPlace}.` : inside ? `Most likely in the ${inside.place}.` : last ? `Lost track after ${placeOf(last.event_kind, last.station_id)} at ${hms(last.t)}.` : "No scans of this parcel at this hub.";
-  const story = last ? [
-    `The last scan was ${low(momentLabel(last.event_kind, last.station_id))} at ${hms(last.t)}.`,
-    conflict ? conflictWords(conflict).headline : "",
-    found ? `Floor staff found it at ${hhmm(found.at)}.` : places.length ? `It could be in ${places.length} places; the most likely is the ${shortPlace(places[0], ZONE_NAMES)}.` : "",
-  ].filter(Boolean).join(" ") : "";
+  const head = found ? `Found in the ${found.name.replace(/\s*\(Z\d+\)$/, "")}.` : inside ? `Most likely in the ${place}.`
+    : last ? "Lost track after the last scan." : "No scans of this parcel at this hub.";
+  const summary = [
+    last ? `${waybill} was last scanned at ${hhmm(last.t)} on ${day(last.t)}, ${(steps.find((c) => c.last_scan)?.title ?? "at the hub").replace(/^\w/, (x) => x.toLowerCase())}.` : "",
+    inside ? `At ${hhmm(inside.iso.carried_in_at)} it was carried into the ${place} without a scan-in, and no camera saw it come out.` : "",
+    conflict ? `${conflictWords(conflict).headline}` : "",
+    found ? `Floor staff found it there at ${hhmm(found.at)}.` : inside ? "A floor search has been sent to confirm it." : "",
+  ].filter(Boolean);
+  const sure = inside
+    ? found ? "Confirmed on the floor. The carry-in is on the store door camera with SAM's outline; nothing inside the store is on camera."
+      : "Likely, not yet confirmed. The carry-in is on the store door camera with SAM's outline; nothing inside the store is on camera, so the floor search decides."
+    : "Unconfirmed: the cameras lose the parcel after its last scan.";
 
-  const records = (cr.data?.objects[0] as { records?: { t: string; event_kind?: string | null; station_id?: string | null }[] } | undefined)?.records ?? [];
-  const truckRec = records.find((r) => r.event_kind === "container_loaded");
-  const cage = scans.findLast((s) => s.event_kind === "container_add");
-  const answered: Moment[] = inside ? [
-    ...(cage ? [{ key: "cage", t: cage.t, text: low(momentLabel(cage.event_kind, cage.station_id)), who: "scan record", xy: null,
-      cam: "CHK_CAGE_W", media: clipAt("CHK_CAGE_W", cage.t) }] : []),
-    { key: "in", t: inside.iso.carried_in_at, text: `carried into the ${inside.place.replace(/ \(Z\d+\)$/, "").toLowerCase()}, not scanned in`, who: "camera", xy: null,
-      cam: "CHK_STORE", media: clipAt("CHK_STORE", inside.iso.carried_in_at), tone: "bad" as const },
-    ...(inside.iso.came_out_0 ? [{ key: "out", t: inside.iso.came_out_0, text: "came out without it", who: "camera", xy: null, cam: "CHK_STORE",
-      media: clipAt("CHK_STORE", inside.iso.came_out_0) }] : []),
-    ...(truckRec ? [{ key: "truck", t: truckRec.t, text: `record says loaded on truck ${truckRec.station_id?.match(/D\d{2}/)?.[0] ?? ""}, it never left`.replace("  ", " "),
-      who: "records check", xy: null, cam: "CHK_DOCK", media: clipAt("CHK_DOCK", truckRec.t), tone: "bad" as const }] : []),
-  ].filter((m) => m.media) : [];
-  // four key moments: the last two scans, the records conflict, the floor search
-  const moments: Moment[] = answered.length ? answered : [
-    ...scans.slice(-2).map((s) => ({ key: s.scan_event_id, t: s.t, text: low(momentLabel(s.event_kind, s.station_id)),
-      who: "scan record", xy: s.xy, cam: scanPoint(s.station_id ?? s.device_id)?.visible_by[0] ?? null,
-      frame: s.scan_event_id === lc?.evidence_id ? lc?.frames?.[0]?.frame_url : undefined })),
-    ...(conflict ? [{ key: "conflict", t: conflict.divergence_t, text: conflictWords(conflict).short, who: "records check", xy: null, tone: "bad" as const }] : []),
-    found ? { key: "found", t: found.at, text: `found in the ${foundPlace}`, who: found.by, xy: null, tone: "ok" as const }
-      : { key: "search", t: null, text: places.length ? `go look: ${shortPlace(places[0], ZONE_NAMES)}` : "no place left to search", who: "floor search", xy: places[0]?.centroid_xy ?? null },
-  ].slice(0, 4).sort((x, y) => (x.t ?? "9").localeCompare(y.t ?? "9")); // in time order; "next" last
+  // the map: the steps that have a place, numbered like the cards; a leg is solid when both ends were on camera
+  const stops: FPStop[] = steps.flatMap((c) => c.xy ? [{ n: steps.indexOf(c) + 1, xy: c.xy as XY, tone: c.tone === "scan" ? "scan" as const : c.tone === "noscan" || c.tone === "record" ? "bad" as const : "seen" as const, label: c.title }] : []);
+  const legs: FPLeg[] = stops.slice(1).map((s, i) => {
+    const a = steps[Number(stops[i].n) - 1], b = steps[Number(s.n) - 1];
+    const between = steps.slice(Number(stops[i].n), Number(s.n) - 1);
+    return { from: stops[i].xy, to: s.xy, seen: !!a.camera && !!b.camera && !between.some((c) => c.tone === "wait") && b.tone !== "wait" };
+  });
+  const cams: FPCam[] = [...new Set(steps.map((c) => c.camera).filter((c) => /^(CAM|CHK)_/.test(c)))].flatMap((id) => {
+    const h = (HUB.cameras as unknown as { id: string; position_m: number[]; heading_deg: number }[]).find((x) => x.id === id);
+    return h ? [{ id, xy: [h.position_m[0], h.position_m[1]] as XY, heading_deg: h.heading_deg }] : [];
+  });
+  const zoneId = (found?.name ?? inside?.place ?? "").match(/Z\d+/)?.[0];
 
-  async function exportReport(): Promise<string> {
-    const r = await api<{ report_id: string }>(`/v1/cases/${caseId}/export`, { method: "POST" });
-    return `${API_BASE}/v1/reports/${r.report_id}?format=html`;
-  }
-  async function download() {
+  // records against the cameras: every scan, the missing scan-in, the disagreeing truck record
+  const rows = steps.filter((c) => c.tone === "scan" || c.tone === "noscan" || c.tone === "record").map((c) => ({
+    n: steps.indexOf(c) + 1, t: c.t,
+    record: c.tone === "scan" ? `Scan: ${c.title.toLowerCase()}` : c.tone === "noscan" ? "No scan-in at the store's post" : c.title,
+    camera: c.tone === "scan" ? `${camWords(c.camera)}${c.label ? ", number confirmed" : ", seen"}` : c.sub || camWords(c.camera),
+    verdict: c.tone === "scan" ? "Agree" : c.tone === "noscan" ? "Not scanned in" : "Records disagree", tone: c.tone,
+  }));
+
+  async function exportPdf() {
     setBusy("pdf"); setNote(null);
     try {
-      const url = await exportReport();
-      const w = window.open(url, "_blank");
-      w?.addEventListener("load", () => w.print());
+      const r = await api<{ report_id: string }>(`/v1/cases/${caseId}/export`, { method: "POST" });
+      void r; window.print();
     } catch (e) { setNote(e instanceof Error ? e.message : String(e)); } finally { setBusy(null); }
   }
-  async function video() {
-    setBusy("reel"); setNote(null);
-    try { const r = await api<{ url: string }>(`/v1/cases/${caseId}/reel`, { method: "POST" }); setReel(signedUrl(r.url)); }
-    catch (e) { setNote(e instanceof Error ? e.message : String(e)); } finally { setBusy(null); }
-  }
-  async function draftUpdate() {
-    setBusy("customer"); setNote(null); setCopied(false);
-    try { setDrafted(await api<Draft>(`/v1/cases/${caseId}/customer-update`, { method: "POST" })); }
-    catch (e) { setNote(e instanceof Error ? e.message : String(e)); } finally { setBusy(null); }
-  }
-  async function approveCopy() {
-    if (!upd?.draft) return;
-    await navigator.clipboard?.writeText(upd.draft).catch(() => {});
-    setCopied(true);
-  }
-  async function share() {
-    setBusy("share"); setNote(null);
-    try {
-      const url = new URL(await exportReport(), window.location.href).toString();
-      await navigator.clipboard?.writeText(url).catch(() => {});
-      setNote("Report link copied.");
-    } catch (e) { setNote(e instanceof Error ? e.message : String(e)); } finally { setBusy(null); }
-  }
-
-  const checks: [string, boolean][] = [
-    ["Answer reviewed", !!last],
-    ["Checked on camera", !!lc || scans.length > 0],
-    ["Floor search", !!sr.data && (found !== null || !!sr.data.found)],
-  ];
+  const jump = (at?: string) => {
+    if (!at) return;
+    const i = steps.reduce((best, c, k) => Math.abs(Date.parse(c.t) - Date.parse(at)) < Math.abs(Date.parse(steps[best].t) - Date.parse(at)) ? k : best, 0);
+    document.getElementById(`rp-step-${i + 1}`)?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
+    setFlash(i + 1); window.setTimeout(() => setFlash(null), 1600);
+  };
 
   return (
-    <div className="rp">
+    <div className="rp" data-sheet={sheet ? "" : undefined}>
       <CaseSteps caseId={caseId} waybill={waybill} page="Report" here={3} />
       <div className="rp-body">
-        <article className="rp-sheet" aria-label="Case report">
-          <header className="rp-sheet-head">
-            <span className="rp-brand">
-              {/* eslint-disable-next-line @next/next/no-img-element -- the brand's own logo file (light, for the paper) */}
-              <img src="/brand/spoor-logo-light.png" alt="Spoor" width={78} height={25} /><span>Case report</span>
-            </span>
-            <span className="rp-ref">{waybill}</span>
-          </header>
-          <span className="rp-pill" data-tone={found || inside ? "ok" : ready ? "bad" : undefined}>{found ? `Found · ${hhmm(found.at)} by ${found.by}` : inside ? "Likely location found" : ready ? "Lost track" : "Checking"}</span>
-          <h1 className="rp-h1">{ready || inside ? head : "Checking the records"}</h1>
-          {story && <p className="rp-p">{story}</p>}
-
-          {(ready || answered.length > 0) && <h2 className="rp-h2">Key moments</h2>}
-          {(ready || answered.length > 0) && <div className="rp-frames">
-            {moments.map((m) => (
-              <figure key={m.key} className="rp-fig">
-                {m.media && m.t ? <MomentFrame media={m.media} t={m.t} alt={m.text} /> : m.frame ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={signedUrl(m.frame)} alt={m.text} />
-                ) : m.cam ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={`/cameras/${m.cam}.jpg`} alt={`${m.cam.replaceAll("_", " ")}'s view of the place`} loading="lazy" />
-                ) : m.xy ? (
-                  <span className="rp-fig-plan"><HubPlan label={m.text} focus={{ xy: m.xy, radius_m: 9, tone: m.tone === "bad" ? "bad" : "warn" }} legend={false} fit="contain" minHeight={0} /></span>
-                ) : (
-                  <span className="rp-fig-none" data-tone={m.tone}>{m.tone === "bad" ? "Records disagree" : m.tone === "ok" ? "Found" : "No picture"}</span>
-                )}
-                <figcaption data-tone={m.tone}><strong>{m.t ? hms(m.t) : "next"}</strong> · {m.text} · {m.cam ? `${m.cam.replaceAll("_", " ")} view` : m.who}</figcaption>
-              </figure>
-            ))}
-          </div>}
-
-          {conflict && (
-            <>
-              <h2 className="rp-h2">What to fix</h2>
-              <p className="rp-p">{conflictWords(conflict).body}{conflict.kind === "custody" ? " The scan records and the cameras disagree about where it was." : " Ask the sorter team to check this parcel\u2019s tracking between induction and the chute."}</p>
-            </>
-          )}
-          <h2 className="rp-h2" id="customer">Update for the customer who asked</h2>
-          {upd?.draft ? (
-            <div className="rp-cu">
-              <p className="rp-cu-draft">{upd.draft}</p>
-              <p className="rp-cu-meta">Draft from the verified answer only{upd.model === "template" ? "" : `, worded by ${upd.model}`}. A person approves it; customer service sends it. Spoor sends nothing.{upd.note ? ` ${upd.note}.` : ""}</p>
-              <details className="rp-cu-facts"><summary>The facts it uses</summary><ul>{upd.facts.map((f) => <li key={f}>{f}</li>)}</ul></details>
-              <div className="rp-cu-acts">
-                <button type="button" className="hb-btn hb-btn-primary" onClick={approveCopy}>{copied ? "Approved and copied" : "Approve and copy"}</button>
-                <button type="button" className="hb-btn" onClick={draftUpdate} disabled={busy === "customer"}>{busy === "customer" ? "Drafting…" : "Draft again"}</button>
+        <article className="rp-paper" aria-label="Case report">
+          <header className="rp-head">
+            <div className="rp-head-top">
+              <span className="rp-brand">
+                {/* eslint-disable-next-line @next/next/no-img-element -- the brand's own logo file (light, for paper) */}
+                <img src="/brand/spoor-logo-light.png" alt="Spoor" width={78} height={25} /><span>Case report</span>
+              </span>
+              <div className="rp-acts">
+                <button type="button" className="rp-btn" onClick={exportPdf} disabled={!!busy}>{busy === "pdf" ? "Preparing" : "Export PDF"}</button>
+                <button type="button" className="rp-btn rp-btn-primary" onClick={() => setSheet(true)}>
+                  {sent ? "Customer update sent" : saved.data?.draft ? "Update to the customer" : "Draft the update to the customer"}
+                </button>
               </div>
             </div>
-          ) : upd?.status === "no_answer" || (st.data && !inside && !found) ? (
-            <p className="rp-p">No verified answer yet, so there is nothing to tell the customer. The update is drafted once the investigation places it.</p>
-          ) : (
-            <div className="rp-cu-acts">
-              <button type="button" className="hb-btn hb-btn-primary" onClick={draftUpdate} disabled={busy === "customer"}>{busy === "customer" ? "Drafting…" : "Draft the update to the customer"}</button>
-              <span className="rp-cu-meta">From the verified answer only. Nothing is sent.</span>
-            </div>
-          )}
+            <span className="rp-status" data-tone={found ? "ok" : inside ? "open" : "bad"}>{found ? "Found" : inside ? "Open · likely location" : "Open · lost track"}</span>
+            <h1 className="rp-h1">{head}</h1>
+            <dl className="rp-meta">
+              <div><dt>Parcel</dt><dd className="rp-mono">{waybill}</dd></div>
+              <div><dt>Case</dt><dd className="rp-mono">{caseId.replace(/^case_/, "").slice(0, 10)}</dd></div>
+              <div><dt>Customer waiting</dt><dd>{wait ? `${wait} before asking` : "Not a customer case"}</dd></div>
+              <div><dt>{found ? "Closed by" : "Opened"}</dt><dd>{found ? `${found.by} · ${hhmm(found.at)}, ${day(found.at)}` : st.data ? `${hhmm(st.data.case.created_at)}, ${day(st.data.case.created_at)}` : ""}</dd></div>
+            </dl>
+            {sent && <p className="rp-sent">Update to the customer approved by {sent.approved_by} and sent to customer service at {sent.sent_at ? hhmm(sent.sent_at) : ""}.</p>}
+            {note && <p className="rp-note" role="status">{note}</p>}
+          </header>
 
-          <div className="rp-plan"><HubPlan label="Floor plan with the parcel's route" journey={j} fit="width" legend={false} quiet /></div>
-          <footer className="rp-fine">Decision support, not a forensic certificate. Every parcel leaves a trail. Spoor reads it.</footer>
+          <section className="rp-sec" aria-labelledby="rp-1">
+            <h2 id="rp-1" className="rp-h2"><span>1</span>Summary</h2>
+            <p className="rp-summary">{summary.join(" ")}</p>
+            <p className="rp-sure"><b>How sure.</b> {sure}</p>
+          </section>
+
+          <section className="rp-sec" aria-labelledby="rp-2">
+            <h2 id="rp-2" className="rp-h2"><span>2</span>Journey on camera</h2>
+            {rr.data && (
+              <video className="rp-video" src={signedUrl(rr.data.url)} controls preload="metadata" playsInline muted
+                poster={steps[0]?.thumb_url ? signedUrl(steps[0].thumb_url) : undefined} aria-label="The parcel's journey, every step on camera" />
+            )}
+            <ol className="rp-steps">
+              {steps.map((c, i) => (
+                <li key={`${c.t}-${i}`} id={`rp-step-${i + 1}`} className="rp-step" data-tone={c.tone} data-flash={flash === i + 1 ? "" : undefined}>
+                  <figure className="rp-frame">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- a signed frame of the step, cut from the reel by the API */}
+                    {c.thumb_url ? <img src={signedUrl(c.thumb_url)} alt={`${c.title}, ${camWords(c.camera || "")}`} loading="lazy" /> : <span className="rp-frame-none" />}
+                    <span className="rp-frame-n">{i + 1}</span>
+                    {c.label && <span className="rp-frame-id">{c.camera === "Tunnel reader" ? "Number read" : "Number confirmed"}</span>}
+                  </figure>
+                  <div className="rp-step-txt">
+                    <span className="rp-step-top"><span className="rp-time">{hms(c.t)}</span><span className="rp-chip" data-tone={c.tone}>{c.last_scan ? "Last scan" : CHIP[c.tone]}</span></span>
+                    <b>{c.title}</b>
+                    {c.sub && <span className="rp-step-sub">{c.sub}</span>}
+                    <span className="rp-step-cam">{c.camera ? camWords(c.camera) : "No camera"}</span>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </section>
+
+          <section className="rp-sec rp-break" aria-labelledby="rp-3">
+            <h2 id="rp-3" className="rp-h2"><span>3</span>Where it went</h2>
+            <FloorPlan label="Floor plan: the parcel's route, numbered like the steps above" stops={stops} legs={legs} cameras={cams} highlight={zoneId}
+              labels="major" legend onStop={(n) => { const el = document.getElementById(`rp-step-${n}`); el?.scrollIntoView({ behavior: "smooth", block: "center" }); setFlash(Number(n)); window.setTimeout(() => setFlash(null), 1600); }} />
+          </section>
+
+          <section className="rp-sec" aria-labelledby="rp-4">
+            <h2 id="rp-4" className="rp-h2"><span>4</span>Records against the cameras</h2>
+            <table className="rp-table">
+              <thead><tr><th>Step</th><th>Time</th><th>The record says</th><th>The cameras show</th><th>Verdict</th></tr></thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.n} data-tone={r.tone}>
+                    <td className="rp-mono">{r.n}</td><td className="rp-mono">{hms(r.t)}</td><td>{r.record}</td><td>{r.camera}</td>
+                    <td><span className="rp-chip" data-tone={r.tone}>{r.verdict}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {conflict && <p className="rp-fix"><b>To fix.</b> {conflictWords(conflict).body} Check why the door&apos;s RFID read counts every parcel in a cage as loaded.</p>}
+          </section>
+
+          <section className="rp-sec" aria-labelledby="rp-5">
+            <h2 id="rp-5" className="rp-h2"><span>5</span>Floor check</h2>
+            {task ? (
+              <ul className="rp-floor">
+                {task.places.filter((p, i, all) => all.findIndex((q) => floorName(q.name) === floorName(p.name)) === i).slice(0, 6).map((p) => {
+                  const same = task.places.filter((q) => floorName(q.name) === floorName(p.name)).map((q) => q.area_id);
+                  const o = task.outcomes.find((x) => same.includes(x.area_id));
+                  return (
+                    <li key={p.area_id} data-out={o?.outcome ?? "waiting"}>
+                      <span className="rp-floor-place">{floorName(p.name)}</span>
+                      <span className="rp-chip" data-tone={o?.outcome === "found" ? "scan" : o ? "seen" : "wait"}>{o?.outcome === "found" ? "Found" : o ? "Not here" : "Not checked yet"}</span>
+                      <span className="rp-floor-who">{o ? `${o.recorded_by ?? "Floor staff"}${o.recorded_at ? ` · ${hhmm(o.recorded_at)}` : ""}` : ""}</span>
+                      {o?.note && <q>{o.note}</q>}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : <p className="rp-p">No floor search yet. <Link href={`/cases/${caseId}/search`}>Send someone to look</Link>.</p>}
+          </section>
+
+          <section className="rp-sec rp-break" aria-labelledby="rp-6">
+            <h2 id="rp-6" className="rp-h2"><span>6</span>Evidence</h2>
+            <table className="rp-table rp-ev">
+              <thead><tr><th>Step</th><th>Source</th><th>Frames</th><th>SHA-256</th></tr></thead>
+              <tbody>
+                {(rr.data?.sources ?? []).map((s, i) => (
+                  <tr key={i}>
+                    <td className="rp-mono">{i + 1}</td>
+                    <td>{s.kind === "clip" ? camWords(s.camera ?? "") : s.kind === "still" ? "Tunnel reader's photo" : s.title}</td>
+                    <td className="rp-mono">{s.frames ? `${s.frames[0]}–${s.frames[1]}` : "1 photo"}</td>
+                    <td>{s.sha256 ? <Hash h={s.sha256} /> : <span className="rp-mute">{s.path}</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <dl className="rp-models">
+              {(run.data?.crew ?? []).filter((c, i, all) => all.findIndex((x) => x.model === c.model) === i).map((c) => (
+                <div key={c.model}><dt>{c.model}</dt><dd>{c.who}</dd></div>
+              ))}
+              {end && <div><dt>Run</dt><dd>{end.text}</dd></div>}
+            </dl>
+            <ul className="rp-limits">
+              <li>No camera sees inside the {place ?? "store"}: where it is inside is for the floor search to confirm.</li>
+              <li>Steps without a number: the outline at that moment could not be told apart from a person or the next carton, so no number is shown.</li>
+              <li>Ideas the agents tested guide where to look; they are never evidence. Outlines are SAM 3.1&apos;s, timed on each camera&apos;s fitted clock.</li>
+            </ul>
+          </section>
+          <footer className="rp-fine">Decision support for the hub, not a forensic certificate. Every parcel leaves a trail.</footer>
         </article>
-
-        <aside className="rp-dock" aria-label="Close the case">
-          <h2 className="rp-dock-h">Close the case</h2>
-          <ul className="rp-checks">
-            {checks.map(([label, ok]) => <li key={label} data-ok={ok ? "" : undefined}><i aria-hidden="true">{ok ? <svg viewBox="0 0 16 16"><path d="m3.5 8.5 3 3 6-6.5" /></svg> : null}</i>{label}</li>)}
-          </ul>
-          <div className="rp-acts">
-            <button type="button" className="hb-btn hb-btn-primary" onClick={share} disabled={!!busy}>{busy === "share" ? "Sharing" : "Share report"}</button>
-            <button type="button" className="hb-btn" onClick={download} disabled={!!busy}>{busy === "pdf" ? "Preparing" : "Download PDF"}</button>
-            <button type="button" className="hb-btn" onClick={video} disabled={!!busy}>{busy === "reel" ? "Building" : "Evidence video"}</button>
-          </div>
-          {note && <p className="rp-note" role="status">{note}</p>}
-          {reel && <video className="rp-reel" controls src={reel} aria-label="Evidence video" />}
-          <p className="rp-dock-fine">A shared report is marked &ldquo;not reviewer-approved&rdquo;: this demo has one user.</p>
-          <Link className="rp-back" href={`/cases/${caseId}`}>Back to the answer</Link>
-        </aside>
       </div>
+      <CustomerSheet caseId={caseId} open={sheet} onClose={() => setSheet(false)} saved={saved.data ?? null} onFact={jump} />
     </div>
   );
 }
+
+function Hash({ h }: { h: string }) {
+  const [ok, setOk] = useState(false);
+  return (
+    <button type="button" className="rp-hash" title={h} onClick={() => { void navigator.clipboard?.writeText(h).then(() => { setOk(true); window.setTimeout(() => setOk(false), 1400); }); }}>
+      <span className="rp-mono">{h.slice(0, 12)}…</span><span className="rp-hash-copy">{ok ? "Copied" : "Copy"}</span>
+    </button>
+  );
+}
+
+/** The update to the customer who asked: a side sheet beside the report (the report stays readable), drafted from verified
+ *  facts only; each fact links to its frame; a person approves it. */
+function CustomerSheet({ caseId, open, onClose, saved, onFact }: { caseId: string; open: boolean; onClose: () => void; saved: Draft | null;
+  onFact: (at?: string) => void }) {
+  const [channel, setChannel] = useState(saved?.channel ?? "chat");
+  const [language, setLanguage] = useState(saved?.language ?? "en");
+  const [tone, setTone] = useState(saved?.tone ?? "short");
+  const [d, setD] = useState<Draft | null>(saved);
+  const [text, setText] = useState(saved?.draft ?? "");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const cur = d ?? saved;
+  async function make(next?: Partial<{ channel: string; language: string; tone: string }>) {
+    const o = { channel, language, tone, ...next };
+    setBusy("draft"); setErr(null);
+    try {
+      const r = await api<Draft>(`/v1/cases/${caseId}/customer-update`, { method: "POST", json: o });
+      setD(r); setText(r.draft ?? "");
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setBusy(null); }
+  }
+  async function send() {
+    setBusy("send"); setErr(null);
+    try {
+      const r = await api<Draft>(`/v1/cases/${caseId}/customer-update/approve`, { method: "POST", json: { text } });
+      setD(r); invalidate(`/v1/cases/${caseId}/customer-update`);
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setBusy(null); }
+  }
+  const seg = (v: string, set: (x: string) => void, key: "channel" | "language" | "tone", opts: [string, string][]) => (
+    <div className="cs-seg" role="radiogroup">
+      {opts.map(([k, label]) => (
+        <button key={k} type="button" role="radio" aria-checked={v === k} disabled={!!busy || cur?.sent}
+          onClick={() => { if (v !== k) { set(k); void make({ [key]: k }); } }}>{label}</button>
+      ))}
+    </div>
+  );
+  return (
+    <aside className="cs" data-open={open ? "" : undefined} aria-hidden={!open} inert={!open} aria-label="Update to the customer">
+      <header className="cs-head">
+        <div><h2>Update to the customer</h2><p>{cur?.stage === "found" ? "Found on the floor: the found update." : "Not found on the floor yet: a holding update."}</p></div>
+        <button type="button" className="cs-x" onClick={onClose} aria-label="Close"><svg viewBox="0 0 20 20" aria-hidden><path d="M5 5l10 10M15 5L5 15" /></svg></button>
+      </header>
+      <div className="cs-body">
+        <div className="cs-controls">
+          <label>Channel{seg(channel, setChannel, "channel", [["chat", "Marketplace chat"], ["email", "Email"]])}</label>
+          <label>Language{seg(language, setLanguage, "language", [["en", "English"], ["ms", "Malay"]])}</label>
+          <label>Length{seg(tone, setTone, "tone", [["short", "Short"], ["detailed", "Detailed"]])}</label>
+        </div>
+        <div className="cs-draft" data-busy={busy === "draft" ? "" : undefined}>
+          {!cur && !busy ? (
+            <div className="cs-start">
+              <p>Pick how customer service will send it, then Spark writes it from the verified facts below.</p>
+              <button type="button" className="rp-btn rp-btn-primary" onClick={() => make()}>Write the draft</button>
+            </div>
+          ) : busy === "draft" && !text ? <span className="cs-skel" aria-busy="true"><i /><i /><i /></span> : (
+            <textarea value={text} onChange={(e) => setText(e.target.value)} rows={channel === "email" ? 11 : 7} readOnly={!!cur?.sent}
+              aria-label="The update, edit before approving" />
+          )}
+          <span className="cs-by">{cur ? (cur.model === "template" ? "Plain template" : `Worded by ${modelName(cur.model)}`) : ""}{busy === "draft" ? " · rewording…" : ""}</span>
+        </div>
+        {cur?.facts && (
+          <div className="cs-facts">
+            <span className="cs-k">Every sentence comes from these verified facts</span>
+            <ul>
+              {cur.facts.slice(1).map((f, i) => {
+                const ref = cur.refs?.[i + 1];
+                return (
+                  <li key={f}>
+                    <span>{f}</span>
+                    {ref && (ref.at ? <button type="button" className="cs-ref" onClick={() => onFact(ref.at)}>{ref.label} <span aria-hidden>→</span></button>
+                      : <span className="cs-ref cs-ref-plain">{ref.label}</span>)}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+        {err && <p className="cs-err" role="alert">{err}</p>}
+      </div>
+      <footer className="cs-foot">
+        {cur?.sent ? (
+          <p className="cs-sent"><svg viewBox="0 0 16 16" aria-hidden><path d="m3.5 8.5 3 3 6-6.5" /></svg>Approved by {cur.approved_by} and sent to customer service at {cur.sent_at ? hhmm(cur.sent_at) : ""}. Kept on the case with its hash.</p>
+        ) : (
+          <>
+            <button type="button" className="rp-btn" onClick={() => { void navigator.clipboard?.writeText(text).then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 1400); }); }}>{copied ? "Copied" : "Copy text"}</button>
+            <button type="button" className="rp-btn rp-btn-primary" disabled={!text.trim() || !!busy} onClick={send}>{busy === "send" ? "Sending" : "Approve and send"}</button>
+          </>
+        )}
+      </footer>
+      <p className="cs-fine">A person approves every update. It goes to customer service, who answer the customer; Spoor never writes to customers itself.</p>
+    </aside>
+  );
+}
+

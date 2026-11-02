@@ -71,7 +71,7 @@ export default function FloorPlan(p: Props) {
   const loopD = `M${L.west_cx},${Y(L.south_y)} L${L.east_cx},${Y(L.south_y)} A${L.radius},${L.radius} 0 0 0 ${L.east_cx},${Y(L.north_y)} `
     + `L${L.west_cx},${Y(L.north_y)} A${L.radius},${L.radius} 0 0 0 ${L.west_cx},${Y(L.south_y)} Z`;
   const showLabel = (id: string) => p.labels === "all" || ((p.labels ?? "major") === "major" && (MAJOR.has(id) || id === p.highlight));
-  const fs = 1.5 * k; // label size in metres of the drawing (≈ 11-12 px on screen)
+  const fs = 1.2 * k; // label size in metres of the drawing (≈ 10-11 px on screen)
 
   return (
     <figure className="fp" aria-label={p.label}>
@@ -120,7 +120,9 @@ export default function FloorPlan(p: Props) {
         })}
         {/* labels */}
         {hub.zones.filter((z) => SHORT[z.id] && showLabel(z.id)).map((z) => {
-          const [cx, cy] = centroid(z.polygons[0]);
+          const [cx0, cy] = centroid(z.polygons[0]);
+          const half = SHORT[z.id].length * fs * 0.29; // keep the whole label inside the frame
+          const cx = Math.min(Math.max(cx0, box.x0 + half + 0.4 * k), box.x1 - half - 0.4 * k);
           return <text key={z.id} x={X(cx)} y={Y(cy)} fontSize={fs} className={`fp-label${z.id === p.highlight ? " fp-label-hl" : ""}`} textAnchor="middle" dominantBaseline="middle">{SHORT[z.id]}</text>;
         })}
         {/* the route */}
@@ -141,7 +143,7 @@ export default function FloorPlan(p: Props) {
             </g>
           );
         })}
-        {p.stops?.map((s) => (
+        {fanned(p.stops ?? [], 2.6 * k).map((s) => (
           <g key={String(s.n)} className="fp-stop" data-tone={s.tone ?? "none"} data-on={s.on ? "" : undefined}
             role={p.onStop ? "button" : undefined} tabIndex={p.onStop ? 0 : undefined} onClick={() => p.onStop?.(s.n)}
             onKeyDown={(e) => e.key === "Enter" && p.onStop?.(s.n)}>
@@ -179,6 +181,18 @@ export default function FloorPlan(p: Props) {
       )}
     </figure>
   );
+}
+
+/** stops closer than d (metres) spread around their spot so each number reads */
+function fanned(stops: FPStop[], d: number): FPStop[] {
+  const placed: XY[] = [];
+  return stops.map((s) => {
+    let q: XY = s.xy;
+    for (let k = 0; placed.some((p) => Math.hypot(p[0] - q[0], p[1] - q[1]) < d) && k < 10; k++)
+      q = [s.xy[0] + d * Math.cos(k * 1.9), s.xy[1] + d * Math.sin(k * 1.9)];
+    placed.push(q);
+    return { ...s, xy: q };
+  });
 }
 
 /** A walking route between two points along the hub's walkways (rect graph: walkways that touch are joined), ending at the
