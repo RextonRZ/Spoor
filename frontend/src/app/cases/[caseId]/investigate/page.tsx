@@ -59,8 +59,11 @@ function storyline(steps: Step[], crew: RunView["crew"]): Beat[] {
   const door = doors.at(-1)?.text.match(/^(.+?): (.+?) at its door/);
   add("track", tracked[0], door ? `Tracked who went in and out: ${door[2]} at the ${door[1]} door` : tracked[0] ? unparen(tracked[0].text) : "", "tracker");
   const carrier = done("carrier_check")[0], looked = done("observe_clip");
-  add("carrier", carrier ?? looked[0], carrier ? `${unparen(carrier.text)}${looked.length ? `; ${looked.length === 1 ? "a clip" : `${looked.length} clips`} checked` : ""}`
-    : looked[0] ? unparen(looked[0].text).replace(/Muse \w+ /, "") : "", "analyst");
+  // Spark's own words on the clip (kept on the step), first clause only: never a paraphrase of what it did not say
+  const said = looked.map((x) => (x.receipt?.output as { said?: string | null } | undefined)?.said).find(Boolean);
+  const quote = said ? ` Spark on the clip: “${said.split(/[;.]\s/)[0].replace(/\.$/, "")}”` : "";
+  add("carrier", carrier ?? looked[0], carrier ? `${unparen(carrier.text)}.${quote || (looked.length ? ` ${looked.length === 1 ? "A clip" : `${looked.length} clips`} checked` : "")}`
+    : looked[0] ? `${unparen(looked[0].text).replace(/Muse \w+ /, "")}.${quote}` : "", "analyst");
   const ideas = done("propose");
   const tests = steps.filter((s) => s.role === "verifier" && s.seq > (ideas[0]?.seq ?? Infinity) && /^(Passed|Unproven|Rejected)/.test(s.text));
   const passed = tests.filter((s) => s.text.startsWith("Passed")).length;

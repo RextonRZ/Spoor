@@ -121,7 +121,7 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
       const cam = camId.toHub(a.camera_id);
       const only = a.candidates.length === 1;
       const sp = scanPoint(a.scan_point_id)?.position_m;
-      out.push({ key: `alert${a.at_utc}`, cam, place: "taken out of the cage", t: a.at_utc, tone: "notseen", status: "Left without a scan", xy: sp ? [sp[0], sp[1]] : undefined,
+      out.push({ key: `alert${a.at_utc}`, cam, place: "taken out of the cage", t: a.at_utc, tone: "notseen", status: "No scan when taken out", xy: sp ? [sp[0], sp[1]] : undefined,
         media_id: a.media_id, frame: a.frame_index, mark: a.box_px ? { box: a.box_px, text: only ? `could be ${waybillOf}` : undefined } : undefined,
         headline: `A carton was taken out of the cage at ${hms(a.at_utc)}, with no scan.`,
         body: `${camName(cam)} saw a carton carried out of the cage bays. ${only ? `It could only be ${waybillOf}: the one parcel scanned into a cage there with no scan since.` : `${a.candidates.length} parcels scanned into a cage there have no scan since.`} The live alert was raised at this moment.` });
@@ -189,13 +189,9 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
   const sel = tiles.find((t) => t.key === (pick ?? lastKey)) ?? tiles[0];
   const selMedia = sel?.media_id ? (media.data ?? []).find((m) => m.media.media_id === sel.media_id) : sel?.cam ? coverage(sel.cam, sel.t) : undefined;
   const waybill = waybillOf;
-  // the route on the plan: every checkpoint with a place, numbered as in the strip; the picked one shows its still
-  const selStillMedia = sel?.media_id ?? (sel?.cam ? coverage(sel.cam, sel.t)?.media.media_id : undefined);
-  const selFrame = useFrame(selStillMedia, sel?.t);
-  const selStill = sel?.photo ?? (selFrame ? previewUrl(selFrame, 320) : null);
+  // the route on the plan: every checkpoint with a place, numbered as in the strip
   const STOP_TONE: Record<Tile["tone"], Stop["tone"]> = { seen: "seen", notseen: "bad", bad: "bad", none: "none", wait: "scan" };
   const stops: Stop[] = tiles.flatMap((t, i) => t.xy ? [{ key: t.key, xy: t.xy, n: i + 1, tone: STOP_TONE[t.tone], on: t.key === sel?.key,
-    still: t.key === sel?.key ? selStill : null,
     label: `${t.cam ? camName(t.cam) : "Records"}, ${t.place}, ${hms(t.t)}` }] : []);
 
   return (

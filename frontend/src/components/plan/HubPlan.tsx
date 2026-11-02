@@ -88,8 +88,8 @@ export interface PlanProps {
   quiet?: boolean;
   /** frame a small box around one point and pin it (Hub row thumbnails); hides the scale bar */
   focus?: { xy: XY; radius_m?: number; tone?: "warn" | "bad" };
-  /** the whole route as numbered stops in order (the proof's checkpoints): joined by a thin line where nothing above
-   *  draws the way (a carry, a gap), the picked one larger with its camera still beside it. Replaces scan diamonds and chips. */
+  /** the whole route as numbered stops in order (the proof's checkpoints), joined by a thin line; the picked one larger.
+   *  Replaces scan diamonds and chips. */
   stops?: Stop[];
   onStop?: (key: string) => void;
   /** "went in here": an area outlined, the point it was last seen, an arrow into the area (verified answer) */
@@ -100,7 +100,7 @@ export interface PlanProps {
   fit?: "width" | "contain";
 }
 
-export interface Stop { key: string; xy: XY; n: number; tone: "scan" | "seen" | "bad" | "none"; on?: boolean; still?: string | null; label: string }
+export interface Stop { key: string; xy: XY; n: number; tone: "scan" | "seen" | "bad" | "none"; on?: boolean; label: string }
 const STOP_COL: Record<Stop["tone"], string> = { scan: C.scan, seen: C.obs, bad: C.con, none: C.inkM };
 
 function useBox() {
@@ -424,7 +424,7 @@ function Overlay({ S, ext, journey: j, missing, marker, cloud, litCameras = [], 
             {hi && <path d={`M${cx},${cy} L${p1} A${rng * S},${rng * S} 0 0 0 ${p2} Z`} fill={C.acc} fillOpacity={0.07} stroke={C.acc} strokeOpacity={0.35} />}
             <circle cx={cx} cy={cy} r={hi ? 6 : 3.5} fill={C.surf} stroke={col} strokeWidth={1.6}><title>{`${c.id} ${c.osd_label}`}</title></circle>
             <line x1={cx} y1={cy} x2={cx + dx * (hi ? 11 : 6.5)} y2={cy + dy * (hi ? 11 : 6.5)} stroke={col} strokeWidth={1.8} strokeLinecap="round" />
-            {hi && <text className="hp-t" x={cx - dx * 15} y={cy - dy * 15 + 4} fontSize={10} fill={C.acc} fontWeight={640} textAnchor="middle">{c.id.replaceAll("_", " ")}</text>}
+            {hi && !stops && <text className="hp-t" x={cx - dx * 15} y={cy - dy * 15 + 4} fontSize={10} fill={C.acc} fontWeight={640} textAnchor="middle">{c.id.replaceAll("_", " ")}</text>}
           </g>
         );
       })}
@@ -460,7 +460,7 @@ function Overlay({ S, ext, journey: j, missing, marker, cloud, litCameras = [], 
           <circle cx={x} cy={y} r={10} fill="none" stroke={seen ? C.obs : C.scan} strokeWidth={1.5} strokeOpacity={0.85} />
         </g>;
       })()}
-      {stops && <Stops stops={stops} P={P} W={W} H={H} onStop={onStop} />}
+      {stops && <Stops stops={stops} P={P} onStop={onStop} />}
       {!stops && j?.scans.filter((s) => s.xy).map((s) => {
         const [x, y] = P(s.xy!);
         const sel = selectedScanId === s.scan_event_id;
@@ -495,8 +495,9 @@ function Overlay({ S, ext, journey: j, missing, marker, cloud, litCameras = [], 
 }
 
 /** The route stop by stop: a thin line joining them in order (under the belts' dotted runs and SAM's trails), a numbered
- *  dot per stop (the number is the checkpoint's number below the player), the picked one larger with its still. */
-function Stops({ stops, P, W, H, onStop }: { stops: Stop[]; P: (p: XY) => XY; W: number; H: number; onStop?: (key: string) => void }) {
+ *  dot per stop (the number is the checkpoint's number below the player), the picked one larger; picking one opens
+ *  its frame in the player (a still on the plan as well only crowded it: Rexton 2 Nov). */
+function Stops({ stops, P, onStop }: { stops: Stop[]; P: (p: XY) => XY; onStop?: (key: string) => void }) {
   const at = stops.map((s) => P(s.xy));
   // stops at the same spot (a scan and the camera that saw it) fan out a little so each number stays readable
   const placed: XY[] = [];
@@ -505,19 +506,6 @@ function Stops({ stops, P, W, H, onStop }: { stops: Stop[]; P: (p: XY) => XY; W:
     for (let k = 0; placed.some(([px, py]) => Math.hypot(px - q[0], py - q[1]) < 17) && k < 8; k++) q = [x + 17 * Math.cos(k * 1.9), y + 17 * Math.sin(k * 1.9)];
     placed.push(q);
   });
-  const on = stops.findIndex((s) => s.on);
-  const tw = 120, th = 68; // the still: 16:9
-  // the still beside its stop, on the side that hides the fewest other stops (then the nearest)
-  const callout = on >= 0 && stops[on].still ? (() => {
-    const [x, y] = placed[on];
-    const clampR = (cx: number, cy: number) => ({ x: Math.min(Math.max(6, cx), W - tw - 6), y: Math.min(Math.max(6, cy), H - th - 6) });
-    const tries = [clampR(x + 18, y - th - 10), clampR(x - 18 - tw, y - th - 10), clampR(x + 18, y + 10), clampR(x - 18 - tw, y + 10),
-      clampR(x - tw / 2, y + 22), clampR(x - tw / 2, y - th - 22)];
-    const hides = (c: { x: number; y: number }) => placed.filter(([px, py], i) => i !== on && px > c.x - 12 && px < c.x + tw + 12
-      && py > c.y - 12 && py < c.y + th + 12).length + (x > c.x - 12 && x < c.x + tw + 12 && y > c.y - 12 && y < c.y + th + 12 ? 9 : 0);
-    const best = tries.reduce((a, b) => (hides(b) < hides(a) ? b : a));
-    return hides(best) === 0 ? best : null; // no free spot (a small plan): the player above shows the same frame
-  })() : null;
   return (
     <g data-ev="stops">
       <polyline points={placed.map((p) => p.join(",")).join(" ")} fill="none" stroke={C.ink} strokeOpacity={0.35} strokeWidth={1.5}
@@ -536,14 +524,6 @@ function Stops({ stops, P, W, H, onStop }: { stops: Stop[]; P: (p: XY) => XY; W:
           </g>
         );
       })}
-      {callout && (
-        <g pointerEvents="none" aria-hidden>
-          <line x1={placed[on][0]} y1={placed[on][1]} x2={callout.x + (callout.x > placed[on][0] ? 0 : tw)} y2={callout.y + th / 2} stroke={C.acc} strokeOpacity={0.7} />
-          <clipPath id="hp-still"><rect x={callout.x} y={callout.y} width={tw} height={th} rx={6} /></clipPath>
-          <rect x={callout.x - 1.5} y={callout.y - 1.5} width={tw + 3} height={th + 3} rx={7} fill={C.surf} stroke={C.acc} strokeWidth={1.5} />
-          <image href={stops[on].still!} x={callout.x} y={callout.y} width={tw} height={th} preserveAspectRatio="xMidYMid slice" clipPath="url(#hp-still)" />
-        </g>
-      )}
     </g>
   );
 }
