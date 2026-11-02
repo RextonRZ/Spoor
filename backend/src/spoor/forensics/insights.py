@@ -79,6 +79,67 @@ def scan_flow(store: EvidenceStore, site_id: str) -> dict:
             "hops": hops, "per_minute": [{"t": k, "scans": v} for k, v in sorted(minute.items())]}  # fmt: skip
 
 
+def unread_at_tunnel(store: EvidenceStore, site_id: str) -> dict | None:
+    """Root cause of the parcels 'lost' after unloading (tick 2315 RCA): a tunnel NO-READ carries no waybill, so a parcel
+    whose label was not read shows only its unload scan and then nothing. Each no-read is matched to the unload-only
+    parcel whose unload scan sits one usual unload-to-tunnel time before it (median +- 3x the 10th-90th spread, nearest
+    first, each used once). Matched = the parcel went on unread (to the reject chute), not lost; unmatched stays open."""
+    evs = store.find(ScanEvent, site_id=site_id)
+    nr = sorted((e for e in evs if e.event_kind.value == "tunnel_no_read"), key=lambda e: e.device_time_utc)
+    if not nr:
+        return None
+    first: dict[str, dict] = defaultdict(dict)
+    for e in sorted(evs, key=lambda e: e.device_time_utc):
+        if e.read_outcome.value != "read":
+            continue
+        for i in e.identifiers:
+            if i.scheme.value == "carrier_waybill":
+                first[i.value].setdefault(e.event_kind.value, e.device_time_utc)
+    hop = [(p["tunnel_read"] - p["arrived_facility"]).total_seconds() for p in first.values()
+           if "arrived_facility" in p and "tunnel_read" in p]  # fmt: skip
+    if len(hop) < 5:
+        return None
+    med, tol = _q(hop, 0.5), max(2.0, 3 * (_q(hop, 0.9) - _q(hop, 0.1)))
+    lone = {w: p["arrived_facility"] for w, p in first.items() if "arrived_facility" in p and "tunnel_read" not in p}
+    exc = {e.device_time_utc for e in evs if e.event_kind.value == "exception_diverted" and e.read_outcome.value != "read"}
+    matched, used = [], set()
+    for r in nr:
+        best = min(((abs((r.device_time_utc - t).total_seconds() - med), w) for w, t in lone.items() if w not in used),
+                   default=None)  # fmt: skip
+        if best and best[0] <= tol:
+            used.add(best[1])
+            matched.append({"waybill": best[1], "unloaded": lone[best[1]].isoformat(), "no_read": r.device_time_utc.isoformat()})
+    return {"no_reads": len(nr), "to_reject_chute": len(exc), "matched": sorted(matched, key=lambda m: m["unloaded"]),
+            "unmatched_unload_only": sorted(w for w in lone if w not in used), "usual_s": round(med, 1)}
+
+
+def actions(ins: dict, unread: dict | None) -> list[dict]:
+    """What needs fixing, most urgent first: a customer's case first, then records the cameras contradict, then the
+    hub-wide patterns by how many parcels they touch. Each with its count, where, why (the evidence in one line), the
+    fix in plain words and the parcels or cases behind it."""
+    out = []
+    for b in ins["breaks"]:
+        out.append({"key": f"break:{b['where']}", "tone": "bad", "count": len(b["cases"]), "unit": "case",
+                    "title": f"{b['where']}: {b['what'].lower()}", "why": "An answered case: the cameras show it carried in, with no scan-in",
+                    "fix": b.get("fix", ""), "cases": b["cases"], "parcels": []})  # fmt: skip
+    for d in ins["disagreed"]:
+        out.append({"key": f"rec:{d['where']}", "tone": "bad", "count": len(d["cases"]), "unit": "case",
+                    "title": f"{d['where']} {d['what']}", "why": "The record says it left; the cameras show it still inside",
+                    "fix": "Read each parcel at the dock, or check the cage's contents before it is marked loaded",
+                    "cases": d["cases"], "parcels": []})  # fmt: skip
+    if unread and unread["no_reads"]:
+        m = len(unread["matched"])
+        out.append({"key": "unread", "tone": "warn", "count": unread["no_reads"], "unit": "carton",
+                    "title": "Labels not read at the scan tunnel",
+                    "why": f"{m} of them match a parcel that was unloaded {round(unread['usual_s'])} s earlier and never scanned "
+                           "again: not lost, sent on unread" + (f"; {unread['to_reject_chute']} went to the reject chute"
+                                                                 if unread["to_reject_chute"] else ""),
+                    "fix": "Check the tunnel's read rate (camera, lighting, damaged labels) and match the reject chute's "
+                           "cartons to these unload scans", "cases": [],
+                    "parcels": [{"waybill": x["waybill"], "t": x["unloaded"]} for x in unread["matched"]]})  # fmt: skip
+    return out
+
+
 def hub_insights(store: EvidenceStore, site_id: str, *, now: datetime) -> dict:
     dash = hub_dashboard(store, site_id, now=now)
     plan = latest_plan(store, site_id)
@@ -113,7 +174,7 @@ def hub_insights(store: EvidenceStore, site_id: str, *, now: datetime) -> dict:
         # 2. where the trail breaks: the answer's own place (carried in, not scanned in), else where the scans stop
         if inside:
             breaks[(_place(inside["place"]), "Carried in, not scanned in",
-                    f"The scan-in at the {_place(inside['place'])} door was skipped")].append(cid)
+                    f"Make the scan-in at the {_place(inside['place'])} door a must: nothing goes in without it")].append(cid)
             # 3. a record the cameras contradict: the cage's load read while its parcel was inside
             until, came_in = inside["iso"].get("until"), inside["iso"].get("carried_in_at")
             for s in store.find(ScanEvent, event_kind="container_loaded"):
@@ -162,7 +223,7 @@ def hub_insights(store: EvidenceStore, site_id: str, *, now: datetime) -> dict:
         return [{"where": k[0], "what": k[1], **({"fix": k[2]} if len(k) > 2 else {}), "cases": v}
                 for k, v in sorted(d.items(), key=lambda kv: -len(kv[1]))]
 
-    return {
+    out = {
         "site_id": site_id, "generated_at": now.isoformat(), "label": "Demo hub data",
         "loop": {"customer_asked": asked, "alerts": alerts, "opened": [r["case_id"] for r in rows], "answered": answered,
                  "checked": sorted(set(confirmed) | set(refuted) | set(resolved)), "confirmed": confirmed,
@@ -178,8 +239,11 @@ def hub_insights(store: EvidenceStore, site_id: str, *, now: datetime) -> dict:
             "footage_skipped": skipped,
         },
         "flow": scan_flow(store, site_id),
+        "unread": unread_at_tunnel(store, site_id),
         "cost": {"usd": round(sum(c.usd_estimate or 0 for c in spend), 4), "calls": len(spend),
                  "cases_with_spend": len({c.case_id for c in spend}),
                  "answer_seconds": sorted(answer_s), "footage_hours": round(footage_s / 3600, 2)},
     }  # fmt: skip
+    out["actions"] = actions(out, out["unread"])
+    return out
 

@@ -8,6 +8,7 @@
  * Operate surface: hairline sections, tabular numbers, no charts that would invent precision.
  */
 import Link from "next/link";
+import { useState } from "react";
 import { useResource } from "@/lib/api";
 import type { Site } from "@/lib/types";
 import { HopTimes, MissingByHop, ScansPerMinute, type Flow } from "@/components/insights/Charts";
@@ -24,8 +25,11 @@ interface Insights {
     cameras_fitted: number; cameras: number; numbers_by_camera: { camera_id: string; outlined: number; labelled: number }[];
     footage_skipped: { share: number; case_id: string } | null };
   flow?: Flow;
+  actions?: Action[];
   cost: { usd: number; calls: number; cases_with_spend: number; answer_seconds: number[]; footage_hours: number };
 }
+interface Action { key: string; tone: "bad" | "warn"; count: number; unit: string; title: string; why: string; fix: string;
+  cases: string[]; parcels: { waybill: string; t: string }[] }
 interface Dash { cases: { case_id: string; target: string }[] }
 
 const cam = (id: string) => id.replace(/^cam_/, "").replaceAll("_", " ");
@@ -39,9 +43,6 @@ export default function InsightsPage() {
   const dash = useResource<Dash>(site ? `/v1/sites/${site}/dashboard` : null);
   const name = (id: string) => dash.data?.cases.find((c) => c.case_id === id)?.target.split(" ").at(-1) ?? "the case";
   const d = r.data;
-  const CaseLinks = ({ ids }: { ids: string[] }) => (
-    <span className="in-cases">{ids.map((id) => <Link key={id} href={`/cases/${id}`}>{name(id)}</Link>)}</span>
-  );
 
   return (
     <div className="hb in">
@@ -54,6 +55,15 @@ export default function InsightsPage() {
       </header>
       {!d ? <div className="an-skel" style={{ height: 320, borderRadius: 12 }} aria-busy="true" /> : (
         <>
+          <section className="in-sec" aria-labelledby="in-fix">
+            <h2 id="in-fix" className="in-h2">What needs fixing</h2>
+            {d.actions?.length ? (
+              <ol className="in-acts">
+                {d.actions.map((a, i) => <ActionRow key={a.key} a={a} n={i + 1} name={name} />)}
+              </ol>
+            ) : <p className="in-empty">Nothing to fix in the records so far.</p>}
+          </section>
+
           <section className="in-sec" aria-labelledby="in-loop">
             <h2 id="in-loop" className="in-h2">The loop</h2>
             <ol className="in-loop">
@@ -72,21 +82,6 @@ export default function InsightsPage() {
             </p>
           </section>
 
-          <section className="in-sec" aria-labelledby="in-breaks">
-            <h2 id="in-breaks" className="in-h2">Where parcels go missing</h2>
-            {d.breaks.length ? (
-              <ul className="in-rank">
-                {d.breaks.map((b) => (
-                  <li key={b.where + b.what}>
-                    <span className="in-n">{b.cases.length}</span>
-                    <span className="in-what"><b>{b.where}</b>{b.what}</span>
-                    <span className="in-fix">{b.fix}</span>
-                    <CaseLinks ids={b.cases} />
-                  </li>
-                ))}
-              </ul>
-            ) : <p className="in-empty">No lost parcels among the cases yet.</p>}
-          </section>
 
           {d.flow?.hops?.length ? (
             <section className="in-sec" aria-labelledby="in-flow">
@@ -112,21 +107,6 @@ export default function InsightsPage() {
             </section>
           ) : null}
 
-          <section className="in-sec" aria-labelledby="in-dis">
-            <h2 id="in-dis" className="in-h2">Records the cameras disagreed with</h2>
-            {d.disagreed.length ? (
-              <ul className="in-rank">
-                {d.disagreed.map((b) => (
-                  <li key={b.where + b.what} data-bad="">
-                    <span className="in-n">{b.cases.length}</span>
-                    <span className="in-what"><b>{b.where}</b>{b.what}</span>
-                    <span className="in-fix">Check what the reader counts as loaded</span>
-                    <CaseLinks ids={b.cases} />
-                  </li>
-                ))}
-              </ul>
-            ) : <p className="in-empty">No record contradicted by the cameras yet.</p>}
-          </section>
 
           <section className="in-sec" aria-labelledby="in-health">
             <h2 id="in-health" className="in-h2">How well it can check itself</h2>
@@ -156,5 +136,35 @@ export default function InsightsPage() {
         </>
       )}
     </div>
+  );
+}
+
+/** one thing to fix: the count, what and why in one line each, the fix, and the parcels or cases behind it (opens in place) */
+function ActionRow({ a, n, name }: { a: Action; n: number; name: (id: string) => string }) {
+  const [open, setOpen] = useState(false);
+  const items = a.parcels.length ? a.parcels.length : a.cases.length;
+  const hm = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { timeZone: "Asia/Kuala_Lumpur", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return (
+    <li className="in-act" data-tone={a.tone}>
+      <span className="in-act-n" aria-hidden="true">{n}</span>
+      <div className="in-act-body">
+        <p className="in-act-h"><b>{a.count}</b> {a.unit}{a.count === 1 ? "" : "s"} · {a.title}</p>
+        <p className="in-act-why">{a.why}.</p>
+        <p className="in-act-fix"><span>Fix</span>{a.fix}.</p>
+        {items > 0 && (
+          <button type="button" className="in-act-more" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+            {open ? "Hide" : a.parcels.length ? `See the ${a.parcels.length} parcels` : a.cases.length === 1 ? "Open the case" : `See the ${a.cases.length} cases`}
+          </button>
+        )}
+        <div className="in-act-list" data-open={open ? "" : undefined} inert={!open}>
+          <div>
+            <ul>
+              {a.cases.map((id) => <li key={id}><Link href={`/cases/${id}`}>{name(id)}</Link><span>the case</span></li>)}
+              {a.parcels.map((p) => <li key={p.waybill}><Link href={`/hub?parcel=${p.waybill}`}>{p.waybill}</Link><span>unloaded {hm(p.t)}</span></li>)}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </li>
   );
 }
