@@ -42,6 +42,12 @@ function frame(props: PlanProps, w: number): Ext {
     const cx = Math.min(Math.max(x, BUILDING.x0 + r * 1.5), BUILDING.x1 - r * 1.5), cy = Math.min(Math.max(y, BUILDING.y0 + r), BUILDING.y1 - r);
     return { x0: cx - r * 1.5, x1: cx + r * 1.5, y0: cy - r, y1: cy + r };
   }
+  if (props.fitStops && (props.stops?.length ?? 0) > 1) {
+    // the stops and a little room (the agents' places on Investigate): the rest of the hub is not the story
+    const xs = props.stops!.map((q) => q.xy[0]), ys = props.stops!.map((q) => q.xy[1]), pad = 6;
+    return { x0: Math.max(BUILDING.x0, Math.min(...xs) - pad), x1: Math.min(BUILDING.x1, Math.max(...xs) + pad),
+      y0: Math.max(BUILDING.y0, Math.min(...ys) - pad), y1: Math.min(BUILDING.y1, Math.max(...ys) + pad) };
+  }
   if (w >= 640 || !props.journey) return FULL;
   const pts: XY[] = [];
   props.journey.scans.forEach((s) => s.xy && pts.push(s.xy));
@@ -92,6 +98,8 @@ export interface PlanProps {
    *  Replaces scan diamonds and chips. */
   stops?: Stop[];
   onStop?: (key: string) => void;
+  /** frame the plan around the stops instead of the whole site */
+  fitStops?: boolean;
   /** "went in here": an area outlined, the point it was last seen, an arrow into the area (verified answer) */
   story?: { area: XY[]; from: XY; to: XY };
   label: string;
@@ -139,8 +147,9 @@ export default function HubPlan(props: PlanProps) {
   const fx = props.focus ? props.focus.xy.join() : "";
   const hk = props.heat ? "heat" : "";
   const sk = props.story ? `${props.story.from.join()}|${props.story.area.length}` : "";
+  const stk = props.fitStops ? (props.stops ?? []).map((q) => q.xy.join()).join("|") : "";
   // eslint-disable-next-line react-hooks/exhaustive-deps -- recompute only when the evidence or the width class changes
-  const ext = useMemo(() => frame(props, box.w), [props.journey, props.missing, litKey, narrow, fx, hk, sk]);
+  const ext = useMemo(() => frame(props, box.w), [props.journey, props.missing, litKey, narrow, fx, hk, sk, stk]);
   const byW = box.w / (ext.x1 - ext.x0);
   const fitW = props.fit === "width" || ext !== FULL; // a zoomed phone plan takes the width; the box shrinks to it
   const S = box.w ? Math.max(4, fitW ? byW : Math.min(byW, (box.h || 1e9) / (ext.y1 - ext.y0))) : 0;

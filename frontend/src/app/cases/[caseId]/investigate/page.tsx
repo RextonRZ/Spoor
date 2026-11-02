@@ -3,13 +3,16 @@
  * Investigating, ported from review/refs/flow/Investigate.dc.html (owner 09:22; agent_showcase_0925). Every node, chip,
  * log line and meter value comes from the run's typed steps (POST /v1/cases/{id}/run, streamed; GET replays the last
  * run). Model steps that are not configured say so in the log; nothing here is scripted.
+ * Rexton, 3 Nov: show which agent did what and where. "Who did what" is one lane per agent with a dot per step in the
+ * order they ran (a thin line passes the baton between them); "Where they looked" numbers every place the steps
+ * touched on the plan. Picking a step lights its places; picking a place picks its first step.
  */
 import Link from "next/link";
 import { use, useCallback, useEffect, useRef, useState } from "react";
 import { API_BASE, api, invalidate, useResource } from "@/lib/api";
 import { HUB, camId } from "@/lib/hub";
-import type { MissingMoment, XY } from "@/lib/journey";
-import HubPlan from "@/components/plan/HubPlan";
+import type { Journey, XY } from "@/lib/journey";
+import HubPlan, { type Stop } from "@/components/plan/HubPlan";
 import "./investigate.css";
 
 interface Node { key: string; column: string; name: string; place: string; state: string; label: string }
@@ -78,7 +81,9 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
   const { caseId } = use(params);
   const state = useResource<CaseState>(`/v1/cases/${caseId}/state`);
   const stored = useResource<RunView>(`/v1/cases/${caseId}/run`);
-  const mm = useResource<MissingMoment>(`/v1/cases/${caseId}/missing-moment`);
+  const jr = useResource<Journey>(`/v1/cases/${caseId}/journey`);
+  const [picked, setPicked] = useState<number | null>(null); // a step picked in "Who did what" (or by its place)
+  const [peek, setPeek] = useState<number | null>(null); // a step under the pointer
   const [events, setEvents] = useState<Ev[]>([]);
   const [shown, setShown] = useState(0); // how many events are revealed (live: all; replay: stepping)
   const [live, setLive] = useState(false);
@@ -151,8 +156,6 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
   }
 
   const crew = stored.data?.crew ?? [];
-  const optional = new Set(stored.data?.optional_tools ?? []);
-  const columns = stored.data?.columns ?? {};
   const vis = events.slice(0, shown);
   const steps = vis.filter((e): e is Step => e.type === "run_step");
   const end = vis.find((e): e is End => e.type === "run_end");
@@ -161,20 +164,51 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
   const swept = end?.swept ?? steps.find((s) => s.tool === "triage_clips" && s.status === "done")?.receipt?.output?.cameras ?? 0;
   const done = !!end;
   const story = storyline(steps, stored.data?.crew ?? []);
-
-  // node states: the latest word on each node wins; the node being checked right now is "checking"
-  const nodes = new Map<string, Node>();
-  for (const e of vis) if ((e.type === "run_step" || e.type === "node") && e.node) nodes.set(e.node.key, e.node);
-  if (!done && cur?.node && (cur.tool === "observe_clip" || cur.tool === "sam_track") && live) nodes.set(cur.node.key, { ...cur.node, state: "checking", label: "Checking…" });
-  const cols = ["last", ...Object.keys(columns).filter((c) => c !== "last")].map((c) => ({ key: c, label: columns[c] ?? c,
-    nodes: [...nodes.values()].filter((n) => n.column === c) })).filter((c) => c.key === "last" || c.nodes.length);
   const seen = steps.filter((s) => s.node?.state === "seen" && s.tool !== "read_scans").length;
-  const lastScan = steps.find((s) => s.tool === "read_scans");
-  const title = !done ? "Investigating…" : end?.headline ? end.headline : seen > 0 ? "Found where it went." : `Lost track after ${lastScan?.node?.place.replace("scan ", "").slice(0, 5) ?? "the last scan"}.`;
+  const lastScanStep = steps.find((s) => s.tool === "read_scans");
+  const title = !done ? "Investigating…" : end?.headline ? end.headline : seen > 0 ? "Found where it went." : `Lost track after ${lastScanStep?.node?.place.replace("scan ", "").slice(0, 5) ?? "the last scan"}.`;
   const waybill = state.data?.case.target_description.split(" ").at(-1) ?? "";
-  const tag = cur ? (cur.tool === "observe_clip" && cur.node ? `Checking ${cur.node.name}` : TAG[cur.tool] ?? cur.tool) : "Starting";
-  const camPos = cur?.camera_id ? HUB.cameras.find((c) => c.id === camId.toHub(cur.camera_id!))?.position_m : undefined;
-  const heroPin: XY | null = camPos ? [camPos[0], camPos[1]] : mm.data?.objects[0]?.last_confirmed?.xy ?? null;
+
+  // ---- where: every place the crew worked, numbered in the order they first touched it (from the steps themselves)
+  const lastXy = jr.data?.objects[0]?.scans.filter((s) => s.xy).at(-1)?.xy ?? null;
+  const zoneTag = [end?.headline ?? "", ...steps.map((s) => s.text)].join(" ").match(/\((Z\d+)\)/)?.[1] ?? null;
+  const zone = zoneTag ? HUB.zones.find((z) => z.id === zoneTag) : undefined;
+  const zoneXy: XY | null = zone?.polygons[0]?.length
+    ? [zone.polygons[0].reduce((a, p) => a + p[0], 0) / zone.polygons[0].length, zone.polygons[0].reduce((a, p) => a + p[1], 0) / zone.polygons[0].length] : null;
+  const zoneName = zone ? `${zone.name} (${zone.id})` : "";
+  const placesOf = (s: Step): string[] => {
+    if (s.tool === "read_scans" || s.tool === "scan_history") return lastXy ? ["last"] : [];
+    if (s.tool === "pick_cameras" || s.tool === "plan") return ((s.receipt?.output as { cameras?: string[] } | undefined)?.cameras ?? []).map((c) => `cam:${camId.toHub(c)}`);
+    const out = s.camera_id ? [`cam:${camId.toHub(s.camera_id)}`] : s.node?.key.startsWith("cam_") ? [`cam:${camId.toHub(s.node.key)}`] : [];
+    if (zoneXy && (s.role === "reporter" || (s.role === "verifier" && s.text.startsWith("Verified")))) out.push("zone");
+    return out;
+  };
+  const places: Place[] = [];
+  const addPlace = (key: string) => {
+    if (places.some((p) => p.key === key)) return;
+    if (key === "last" && lastXy) places.push({ key, xy: lastXy, label: `Last scan: ${(lastScanStep?.node?.name ?? "scan point").toLowerCase()} at ${lastScanStep?.node?.place.replace("scan ", "").slice(0, 5) ?? ""}`, tone: "scan" });
+    else if (key === "zone" && zoneXy) places.push({ key, xy: zoneXy, label: zoneName, tone: "bad" });
+    else if (key.startsWith("cam:")) {
+      const c = HUB.cameras.find((x) => x.id === key.slice(4));
+      if (c) places.push({ key, xy: [c.position_m[0], c.position_m[1]], label: camWords(c.id), tone: "seen" });
+    }
+  };
+  steps.forEach((s) => placesOf(s).forEach(addPlace));
+  const nOf = (key: string) => places.findIndex((p) => p.key === key) + 1;
+
+  // the step being looked at: the one picked, else the one hovered, else the one running now
+  const focus = steps.find((s) => s.seq === (peek ?? picked)) ?? (!done ? cur : undefined) ?? null;
+  const focusPlaces = focus ? placesOf(focus) : [];
+  const stops: Stop[] = places.map((p, i) => ({ key: p.key, xy: p.xy, n: i + 1, tone: p.tone, label: p.label, on: focusPlaces.includes(p.key) }));
+  const pickPlace = (key: string) => { const s = steps.find((x) => placesOf(x).includes(key)); if (s) setPicked(s.seq); };
+
+  // ---- who did what: one lane per agent, one dot per step in the order they ran, a thin line passing the baton
+  const lanes = crew.filter((c) => steps.some((s) => s.role === c.role) || !done);
+  const laneOf = (role: string) => lanes.findIndex((c) => c.role === role);
+  const N = Math.max(steps.length, 1);
+  const x = (i: number) => ((i + 0.5) / N) * 100;
+  const LANE = 34;
+  const baton = steps.map((s, i) => `${x(i)},${laneOf(s.role) * LANE + LANE / 2}`).join(" ");
 
   return (
     <div className="iv">
@@ -188,58 +222,85 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
           {swept > 0 && <span><strong>{swept}</strong> <span>wide cameras swept</span></span>}
           <span><strong>{end?.cameras_checked ?? cur?.cameras_checked ?? 0}</strong> <span>{swept > 0 ? "examined closely" : "of 19 wide cameras examined"}</span></span>
           <span><strong>{secs(end?.t_s ?? cur?.t_s ?? 0)} s</strong></span>
-          <button type="button" onClick={() => (events.length && !live ? replay(events) : undefined)} disabled={live || !events.length}>Replay</button>
+          <button type="button" onClick={() => { setPicked(null); if (events.length && !live) replay(events); }} disabled={live || !events.length}>Replay</button>
         </div>
       </div>
 
       <div className="iv-main">
         <section className="iv-left">
-          <div className="iv-card iv-map">
+          <div className="iv-card iv-relay-card">
             <div className="iv-card-head">
-              <h2>Search map</h2>
-              <span>The lead picks where to look next. Cameras that show nothing are ruled out.</span>
+              <h2>Who did what</h2>
+              <span>Each dot is one step, left to right in the order they ran. Pick one to see where.</span>
             </div>
-            <div className="iv-cols">
-              {cols.map((c) => (
-                <div key={c.key} className="iv-col">
-                  <span className="iv-col-label">{c.label}</span>
-                  {c.nodes.length ? c.nodes.map((n) => (
-                    <div key={n.key} className="iv-node" data-state={n.state}>
-                      <span className="iv-node-name">{n.name}</span>
-                      <span className="iv-node-place">{n.place}</span>
-                      <span className="iv-node-status">{n.label}</span>
-                    </div>
-                  )) : <div className="iv-node" data-state="hidden" aria-hidden="true"><span className="iv-node-name">…</span><span className="iv-node-place">not chosen yet</span></div>}
+            {steps.length > 0 ? (
+              <div className="iv-relay" onMouseLeave={() => setPeek(null)}>
+                <ul className="iv-lanes-who" aria-hidden="true">
+                  {lanes.map((c) => (
+                    <li key={c.role} style={{ height: LANE }} data-fam={fam(c.model)} data-active={!done && cur?.role === c.role ? "" : undefined}>
+                      <span className="iv-who">{c.who}</span>
+                      <span className="iv-model">{c.model.replace(/\s*·.*$/, "")}</span>
+                    </li>
+                  ))}
+                </ul>
+                <div className="iv-lanes-scroll">
+                  <div className="iv-lanes" style={{ height: lanes.length * LANE, minWidth: N * 22 }}>
+                    {lanes.map((c, r) => <span key={c.role} className="iv-lane-line" style={{ top: r * LANE + LANE / 2 }} />)}
+                    <svg className="iv-baton" viewBox={`0 0 100 ${lanes.length * LANE}`} preserveAspectRatio="none" aria-hidden="true">
+                      <polyline points={baton} fill="none" vectorEffect="non-scaling-stroke" />
+                    </svg>
+                    <ol className="iv-dots" aria-label="Every step, in order">
+                      {steps.map((s, i) => {
+                        const hollow = s.status !== "done" || /^(Unproven|Rejected)/.test(s.text);
+                        const lane = crew.find((c) => c.role === s.role);
+                        return (
+                          <li key={s.seq} style={{ left: `${x(i)}%`, top: laneOf(s.role) * LANE + LANE / 2 }}>
+                            <button type="button" className="iv-dot" data-fam={fam(s.model)} data-hollow={hollow ? "" : undefined}
+                              data-on={focus?.seq === s.seq ? "" : undefined} aria-pressed={picked === s.seq}
+                              aria-label={`Step ${i + 1}, ${runTime(s.t_s)}, ${lane?.who ?? s.who}: ${s.text}`}
+                              onMouseEnter={() => setPeek(s.seq)} onFocus={() => setPeek(s.seq)} onBlur={() => setPeek(null)}
+                              onClick={() => setPicked((p) => (p === s.seq ? null : s.seq))} />
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            ) : <p className="iv-log-wait" role={failed ? "alert" : undefined}>{failed ? `The run could not start: ${failed}` : stored.loading ? "Loading the last run" : "Starting the crew"}</p>}
+
+            {focus && (
+              <div className="iv-focus" data-fam={fam(focus.model)} aria-live="polite">
+                <div className="iv-focus-top">
+                  <span className="iv-focus-t">{runTime(focus.t_s)}</span>
+                  <span className="iv-focus-who">{focus.who}</span>
+                  <span className="iv-focus-model">{focus.model}</span>
+                  <span className="iv-focus-tool">{TOOL_WORDS[focus.tool] ?? TAG[focus.tool] ?? focus.tool}</span>
+                </div>
+                <p className="iv-focus-text">{focus.text.replace(/\s*\([a-z]+_v\d+\)/g, "")}</p>
+                {focusPlaces.length > 0 && (
+                  <p className="iv-focus-at">
+                    {focusPlaces.map((k) => <span key={k} className="iv-at"><b>{nOf(k)}</b>{places.find((p) => p.key === k)?.label}</span>)}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="iv-card iv-log">
-            <h2>What the crew did</h2>
+            <h2>In short</h2>
             {story.length > 0 && (
               <ol className="iv-story" aria-label="The run, step by step">
                 {story.map((b, i) => (
                   <li key={b.key} className="iv-story-row" data-now={!done && i === story.length - 1 ? "" : undefined}>
-                    <span className="iv-story-text">{b.text}</span>
-                    <span className="iv-story-model">{b.model}</span>
+                    <button type="button" className="iv-story-btn" onClick={() => setPicked(b.seq)} aria-pressed={focus?.seq === b.seq}>
+                      <span className="iv-story-text">{b.text}</span>
+                      <span className="iv-story-model">{b.model}</span>
+                    </button>
                   </li>
                 ))}
               </ol>
             )}
-            {steps.length > 0 && (
-            <details className="iv-every">
-              <summary>Show every step <span>{steps.length}</span></summary>
-            {steps.map((s) => (
-              <div key={s.seq} className="iv-log-row" data-status={s.status}>
-                <span className="iv-log-t" title="Time since the run started">{runTime(s.t_s)}</span>
-                <span className="iv-log-who">{s.who.replace(/s$/, "")}</span>
-                <span className="iv-log-text">{s.text}</span>
-              </div>
-            ))}
-            </details>
-            )}
-            {!steps.length && <p className="iv-log-wait" role={failed ? "alert" : undefined}>{failed ? `The run could not start: ${failed}` : stored.loading ? "Loading the last run" : "Starting the crew"}</p>}
           </div>
 
           <div className="iv-foot">
@@ -249,40 +310,42 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
         </section>
 
         <aside className="iv-right">
-          <div className="iv-hero">
-            {/* no frame for this step: the plan, pinned at the camera being checked or where the parcel stopped (review F-046 #2) */}
-            {heroPin && <HubPlan label={`${tag}: on the floor plan`} focus={{ xy: heroPin, radius_m: 10, tone: "bad" }} legend={false} fit="contain" minHeight={0} quiet />}
-          </div>
-          <p className="iv-hero-tag">{tag}</p>
-
-          <div className="iv-card iv-crew">
-            <h2>The investigation crew</h2>
-            {crew.map((c) => {
-              const mine = steps.filter((s) => s.role === c.role);
-              const active = !done && cur?.role === c.role;
-              return (
-                <div key={c.role} className="iv-crew-row" data-active={active ? "" : undefined}>
-                  <div className="iv-crew-top"><span className="iv-crew-who">{c.who}</span><span className="iv-crew-model">{c.model}</span></div>
-                  <div className="iv-tools">
-                    {c.tools.map((t) => {
-                      const ran = mine.filter((s) => s.tool === t);
-                      const st = ran.some((s) => s.status === "done" || s.status === "rejected") ? "done"
-                        : optional.has(t) ? "optional" : ran.some((s) => s.status === "unavailable") ? "off" : "waiting";
-                      const n = ran.filter((s) => s.status === "done").length;
-                      return (
-                        <span key={t} className="iv-tool" data-state={st} title={st === "off" ? ran.find((s) => s.status === "unavailable")?.text : undefined}>
-                          {TOOL_WORDS[t] ?? t.replace(/_/g, " ")}{n > 1 ? ` ×${n}` : ""}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-            <p className="iv-crew-note">Steps in grey only run when needed.</p>
+          <div className="iv-card iv-where">
+            <div className="iv-card-head"><h2>Where they looked</h2></div>
+            <div className="iv-plan">
+              {places.length > 0
+                ? <HubPlan label="Floor plan: every place the crew worked, numbered" fit="width" legend={false} quiet fitStops stops={stops} onStop={pickPlace} />
+                : <div className="iv-plan-wait">The places appear here as the crew reaches them</div>}
+            </div>
+            <ol className="iv-places">
+              {places.map((p, i) => {
+                const who = crew.filter((c) => steps.some((s) => s.role === c.role && placesOf(s).includes(p.key)));
+                return (
+                  <li key={p.key}>
+                    <button type="button" className="iv-place" data-tone={p.tone} data-on={focusPlaces.includes(p.key) ? "" : undefined} onClick={() => pickPlace(p.key)}>
+                      <span className="iv-place-n">{i + 1}</span>
+                      <span className="iv-place-name">{p.label}</span>
+                      <span className="iv-place-who">
+                        {who.map((c) => <span key={c.role} className="iv-chip" data-fam={fam(c.model)}>{c.who}</span>)}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
           </div>
         </aside>
       </div>
     </div>
   );
 }
+
+interface Place { key: string; xy: XY; label: string; tone: Stop["tone"] }
+
+/** the model behind an agent, as one of five colours (its name is always written beside it) */
+function fam(model: string): string {
+  return /Wonder/.test(model) ? "wonder" : /Glimmer/.test(model) ? "glimmer" : /Spark/.test(model) ? "spark" : /SAM/.test(model) ? "sam" : "rules";
+}
+
+const CLOSE: Record<string, string> = { UNLOAD: "Unload", TUNNEL: "Tunnel", CAGE_W: "Cage", CAGE_E: "Cage", STORE: "Store door", DOCK: "Dock", CHUTE: "Chute" };
+const camWords = (id: string) => id.startsWith("CHK_") ? `${CLOSE[id.slice(4)] ?? id.slice(4)} close-up camera` : id.replace("_", " ");

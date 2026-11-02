@@ -31,3 +31,4 @@
 - [x] Reel sub-line unreadable on bright frames ("SAM tracked no carton..."): solid shade behind the words + brighter text with a soft shadow
 - [x] Proof: "How sure" removed (Answer keeps the one limit; the numbers stay in LIMITATIONS / EVALUATION)
 - [x] Customer asked box removed (it repeated the header chip; its button only opened a template). Header chip now: "customer says it never arrived · 4 days after its last scan", their words on hover. The full customer update stays on the Report
+- [x] Investigate page (Rexton: which agent did what, where): "Who did what" lanes (one per agent + model colour, a dot per step in order, baton line); picking a dot shows who / model / what / where; "Where they looked" plan zoomed to the numbered places, each listing the agents that worked there. Old search-map columns, thumbnail and crew card removed
