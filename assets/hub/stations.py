@@ -535,7 +535,7 @@ class Docks:
                 tt["release"] = tt["place"] + S["place"] * heavy
                 tt["end"] = tt["release"] + S["ret"]
                 sp.t, sp.t_rel = tt, tt["release"]
-                sp.place, sp.release_up = (rest, yaw), 0.0
+                sp.place, sp.release_up, sp.staging = (rest, yaw), 0.0, True
                 sp.pause = 0.0
                 nxt = next((p_ for p_ in w.picks if p_.t["reach"] > t0), None)
                 if nxt is not None and tt["end"] > nxt.t["reach"] - 0.3:
@@ -582,7 +582,7 @@ class Docks:
             # then): pulled 20 cm out at shin height it went 6 cm into his legs, run 9
             p1 = box.pos + Vector((0.12 if high else (0.06 if low else self.PULL_OUT), 0.0, 0.3 if low else self.PULL_LIFT))
             # (low: up 0.3 m before it comes out - at 0.15 it still met his forearm and thigh, 8 cm, run 15)
-            hold = self._dock_hold(w, box, p1)
+            hold = self._stage_hold(w, box, p1, pk.place[0]) if getattr(pk, "staging", False) else self._dock_hold(w, box, p1)
             hold.x = max(hold.x, X_FACE + 0.01 + box.depth_x() / 2)
             ye_ = box.y_ext() / 2  # clear of the lorry's side walls (KEEP_OUT's side lines; at the chest a carton from
             for n_, off in self.KEEP_OUT:  # the end column stood 4 cm into the wall, run 12)
@@ -656,8 +656,9 @@ class Docks:
             ty0, ty1 = self._trunk_for(w, start, 1.0)[0], self._trunk_for(w, above, 1.0)[0]
             # (the short way to the boom: "the way the body turns" sent cartons round behind him, through his
             # forearms and back, 4-9 cm, runs 13-17 - an unloader turns the short way)
+            tight = False
+            hb = max(box.dims[0], box.dims[1]) / 2
             if self.KEEP_OUT:  # ...unless that sweeps the carton through the wall he faces: then round the other side
-                hb = max(box.dims[0], box.dims[1]) / 2
 
                 def worst(d_a):
                     m = 9.0
@@ -671,9 +672,16 @@ class Docks:
                     return m
                 alt = da - math.copysign(2 * math.pi, da)
                 if worst(da) < -0.02 and worst(alt) > worst(da):
-                    da = alt
+                    # ...but only when the short way can't be made by drawing the carton in to the chest past the
+                    # face (Rexton 2 Nov, "zombie hands": a top-row carton went 0.6 m round behind his back)
+                    if not all(self._face_r(piv, a0 + da * i / 12, hb) >= self.TURN_R_MIN + hb for i in range(1, 12)):
+                        da = alt
+                    else:
+                        tight = True
             a = a0 + da * u
             r_lin = lerp(r0, r1, u)
+            if tight:  # drawn in past the face: no wider than the face allows, no closer than TURN_R_MIN to him
+                r_lin = max(self.TURN_R_MIN + hb, min(r_lin, self._face_r(piv, a, hb)))
             # carried out in front mid-turn - only as far as the body needs (its near edge 0.22 m from his feet:
             # a fixed 0.5 m left big cartons beyond reach, hands 10-19 cm off them through the turn)
             dd = Vector((math.cos(a0 + da * u), math.sin(a0 + da * u)))
@@ -686,6 +694,8 @@ class Docks:
                 nd = n_.dot(d_)
                 if nd < -1e-3:
                     r = max(r_lin, min(r, (n_.dot(piv.xy) - off - max(box.dims[0], box.dims[1]) / 2) / -nd))
+            if tight:  # (the outward swing too stays off the face)
+                r = max(self.TURN_R_MIN + hb, min(r, self._face_r(piv, a, hb)))
             z = lerp(start.z, above.z, u) + self.TURN_LIFT * math.sin(math.pi * u)
             dy = (yaw_end - box.yaw + math.pi) % (2 * math.pi) - math.pi
             if abs(da) > math.pi and dy * da < 0:
@@ -693,6 +703,18 @@ class Docks:
             return self._side_clear(box, Vector((piv.x + r * math.cos(a), piv.y + r * math.sin(a), z))), box.yaw + dy * u
         u = C.smooth((t - T["place"]) / (T["release"] - T["place"]))
         return above.lerp(place + UP * ru, u), yaw_end
+
+    TURN_R_MIN = 0.22  # carton centre less its half size from his root, drawn in past the face (the face is 0.55 m from him)
+
+    def _face_r(self, piv, ang, hb):
+        """The furthest a carton's centre may be from piv at angle ang and stay off the wall face (KEEP_OUT x lines)."""
+        d = Vector((math.cos(ang), math.sin(ang)))
+        m = 9.0
+        for n_, off in self.KEEP_OUT:
+            nd = n_.dot(d)
+            if abs(n_.x) > 0.5 and nd < -1e-3:
+                m = min(m, (n_.dot(piv.xy) - off - hb) / -nd)
+        return m
 
     def _hold_point(self, w, box, hold):
         """The carton's centre at least 0.2 m + its half size (toward him) from his root: never into his body (the
@@ -720,6 +742,16 @@ class Docks:
         ext_y = abs(c_) * box.dims[1] / 2 + abs(s_) * box.dims[0] / 2
         side = 1.0 if w.pos.y >= w.dock["cy"] else -1.0
         q.y = w.dock["cy"] + side * max(side * (q.y - w.dock["cy"]), 0.33 + ext_y)
+        return Vector((q.x, q.y, hold.z))
+
+    def _stage_hold(self, w, box, hold, to):
+        """A carton going to his floor stack is held toward that corner, not over the boom (held toward the boom it met
+        his mate's carton at the nose: the preview read as a hand-over)."""
+        d = Vector((to.x - w.pos.x, to.y - w.pos.y))
+        d = d.normalized() if d.length > 1e-6 else Vector((-1.0, 0.0))
+        c_, s_ = math.cos(box.yaw), math.sin(box.yaw)
+        ext = abs(d.x * c_ + d.y * s_) * box.dims[0] / 2 + abs(-d.x * s_ + d.y * c_) * box.dims[1] / 2
+        q = Vector((w.pos.x, w.pos.y)) + d * (0.2 + ext)
         return Vector((q.x, q.y, hold.z))
 
     def _side_clear(self, box, q):

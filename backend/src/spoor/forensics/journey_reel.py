@@ -108,7 +108,7 @@ def _burn(img, seg: Segment, when: datetime):
     (tw, _), _ = cv2.getTextSize(badge, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
     sub = _wrap(seg.sub, 0.54, W - 48)[:2] if seg.sub else []
     band = 52 + 24 * len(sub)
-    shade = img[:band].astype(np.float32) * 0.25 + np.array((10, 10, 12), np.float32) * 0.75
+    shade = img[:band].astype(np.float32) * 0.1 + np.array((10, 10, 12), np.float32) * 0.9
     img[:band] = shade.astype(np.uint8)
     _txt(img, f"{seg.camera}   {when.astimezone(MYT):%H:%M:%S}   {seg.title}", (24, 34), 0.66)
     cv2.rectangle(img, (W - tw - 46, 14), (W - 22, 44), col, -1)
