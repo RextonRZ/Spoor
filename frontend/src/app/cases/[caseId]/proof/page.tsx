@@ -17,14 +17,14 @@ import { CaseSteps } from "@/components/flow/CaseSteps";
 import { ScannerScreen } from "@/components/checkpoints/Checkpoints";
 import { Identity } from "@/components/case/Identity";
 import { JourneyReel, SEEK_JOURNEY, type Reel } from "@/components/case/JourneyReel";
-import HubPlan, { type Stop } from "@/components/plan/HubPlan";
+import FloorPlan, { type FPLeg, type FPStop } from "@/components/plan/FloorPlan";
 import "@/app/hub/hub.css";
 import "./proof.css";
 
 interface CaseState { case: { case_id: string; site_id: string; target_description: string }; answer?: InvestigationView | null }
 interface Conflicts { objects: { records?: CaseRecord[] }[] }
 
-const STOP_TONE: Record<string, Stop["tone"]> = { scan: "scan", seen: "seen", noscan: "bad", record: "bad", wait: "none", card: "none" };
+const STOP_TONE: Record<string, NonNullable<FPStop["tone"]>> = { scan: "scan", seen: "seen", noscan: "bad", record: "bad", wait: "none", card: "none" };
 
 export default function ProofPage({ params }: { params: Promise<{ caseId: string }> }) {
   const { caseId } = use(params);
@@ -40,9 +40,16 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
   const onStep = useCallback((i: number) => setOn(i), []);
 
   const chapters = reel.data?.chapters ?? [];
-  const stops: Stop[] = chapters.flatMap((c, i) => c.xy ? [{ key: String(i), xy: c.xy, n: i + 1, tone: STOP_TONE[c.tone] ?? "none",
+  const stops: FPStop[] = chapters.flatMap((c, i) => c.xy ? [{ xy: c.xy, n: i + 1, tone: STOP_TONE[c.tone] ?? "none",
     on: i === on, label: c.title }] : []);
-  const seek = (key: string) => window.dispatchEvent(new CustomEvent(SEEK_JOURNEY, { detail: Number(key) }));
+  const seek = (n: FPStop["n"]) => window.dispatchEvent(new CustomEvent(SEEK_JOURNEY, { detail: Number(n) - 1 }));
+  // the route between the stops: solid where both ends were on camera, dashed across a stretch no camera saw
+  const legs: FPLeg[] = stops.slice(1).map((st, i) => {
+    const a = chapters[Number(stops[i].n) - 1], b = chapters[Number(st.n) - 1];
+    const between = chapters.slice(Number(stops[i].n), Number(st.n) - 1);
+    return { from: stops[i].xy, to: st.xy, seen: !!a?.camera && !!b?.camera && b.tone !== "wait" && !between.some((c) => c.tone === "wait") };
+  });
+  const zone = (inside?.place ?? "").match(/Z\d+/)?.[0];
 
   // how we know: the tunnel's own record (its screen and photo) for this parcel
   const scans = jr.data?.objects[0]?.scans ?? [];
@@ -63,7 +70,7 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
             <div className="pf-reel"><JourneyReel caseId={caseId} onStep={onStep} /></div>
             <aside className="pf-side" aria-label="Where each step happened">
               <div className="pf-plan">
-                <HubPlan label="Floor plan: each step of the journey, numbered" fit="width" legend={false} quiet stops={stops} onStop={seek} />
+                <FloorPlan label="Floor plan: each step of the journey, numbered" stops={stops} legs={legs} highlight={zone} labels="major" onStop={seek} />
               </div>
               <p className="pf-plan-note">Numbers follow the steps. Red: where the records fail.</p>
               <Link className="hb-btn hb-btn-primary pf-go" href={`/cases/${caseId}/search`}>{inside ? `Go look: ${inside.place}` : "Start a floor search"}</Link>
