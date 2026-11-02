@@ -106,15 +106,16 @@ EDGE_PX = 3  # a box this close to the frame's edge is at the edge
 
 
 def handled(poly: list[tuple[float, float]], boxes: list[tuple[float, float, float, float]]) -> bool:
-    """A track handled in the area: its centre is inside it at some frame and it moves by more than half its own size
-    (a carton in someone's hands, put in or taken out; not stock standing still on a shelf)."""
+    """A track handled in the area: its centre is inside it at some frame and it travels more than twice its own size
+    (a carton in someone's hands, put in or taken out, went 6-8x; stock standing in a trailer wall or on a shelf jitters
+    under 1x as SAM re-fits it when an arm passes in front of it)."""
     if len(boxes) < 2:
         return False
     centre = [((b[0] + b[2]) / 2, (b[1] + b[3]) / 2) for b in boxes]
     if not any(inside(poly, x, y) for x, y in centre):
         return False
     size = max(max(b[2] - b[0], b[3] - b[1]) for b in boxes)
-    return max(abs(x - centre[0][0]) + abs(y - centre[0][1]) for x, y in centre) > size / 2
+    return max(abs(x - centre[0][0]) + abs(y - centre[0][1]) for x, y in centre) > 2 * size
 
 
 def expected_carton_px(rp: PlanReadPoint, cal: FloorCalibration, dims_m: tuple[float, float, float],

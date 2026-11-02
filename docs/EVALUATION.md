@@ -73,7 +73,8 @@ the one nearest the outline). Windows: S2 (90 s, 19 wide + 6 checkpoint cameras)
 | + labels only where a rule rules out a neighbour; valid 1920 px copies only; induction never labelled | 100 | 51 | 51 right parcel nearest | judged by "nearest parcel" only |
 | Stronger eval (Rexton, 2 Nov 14:02): IoU and area against the true carton's own projected box | 100 | 54 | 22 carton-sized | 39 of the 51 were the sorter TRAY, 4-8x the carton |
 | Eye check of every labelled tile, zoomed (`review/shots/mon/labelled_sheet.jpg`) | | | | many sat on EMPTY trays (the carton already down the chute or not yet there), one on the camera's clock text |
-| + carton-size rule, no label without a measured size, divert labels only when the outline slides INTO the chute | 100 | **13** | **13 of 13 right parcel; 12 carton-sized by IoU, 1 a flat bag at 2.55x (limit 2.5)** | checked by eye: `review/shots/mon/labelled_sheet_chute.jpg` |
+| + carton-size rule, no label without a measured size, divert labels only when the outline slides INTO the chute | 100 | 13 | 13 of 13 right parcel; 12 carton-sized by IoU, 1 a flat bag at 2.55x (limit 2.5) | checked by eye: `review/shots/mon/labelled_sheet_chute.jpg` |
+| + W1 re-rendered with a quiet unload door; a handheld "handled" carton must travel more than twice its own size (trailer-wall stock jitters under 1x) | 98 | **14** | **14 of 14 right parcel; 12 carton-sized, 2 just over (2.55x, 2.61x: the story's C12 carton on its tray)** | the unload label is new (IoU 0.49, 0.77x) |
 
 Rules that decide a label at a sorter point (general, from the site plan and the scan log, never from truth):
 - **carton-sized**: the outline is compared with this parcel's own size from the tunnel's dimensioner, projected at the
@@ -93,7 +94,7 @@ By kind of scan (final):
 | Divert (sorter points) | 87 | 12 | 12 | 11 (+1 flat bag at 2.55x) | 19 % |
 | Tunnel exit | 12 | 0 | - | - | 0 % on CCTV: the stamp is the tunnel's own photo, taken by the reader at the read |
 | Cage (handheld) | 1 | 1 | 1 | 1 (IoU 0.95) | 100 % |
-| Other handheld (unload door) | 0 | 0 | - | - | the door was busy (scans every 3-7 s) and the close-up's clock is not fitted: nothing shown |
+| Other handheld (unload door) | 1 | 1 | 1 | 1 (IoU 0.49) | the story door after the quiet re-stage (nothing else handled within 10.5 s; the close-up's clock is not fitted, so a busy door is still withheld) |
 
 The price of 100 % precision is coverage: 13 of the 76 outlines whose nearest parcel is the scanned one carry a label
 (17 %). The rest are shown as the scan record (the frame at the scan, no number). Some early handshakes had used
@@ -105,10 +106,10 @@ read SAM's cache).
 
 | Checkpoint | Camera | Shown | Right? |
 |---|---|---|---|
-| Unload, door SP-IN-N, 14:10:01 | CHK_UNLOAD | no number: "camera clock not fitted" | withheld, because the log has another parcel scanned at the same door 0.2 s later and the close-up's clock is +-5 s |
+| Unload, door SP-IN-N, 14:10:01 | CHK_UNLOAD | its number (after the quiet-door re-stage, 2 Nov) | right, carton-sized (IoU 0.49) |
 | Tunnel read, 14:10:40.99 | tunnel's own photo (CHK_TUNNEL outline unlabelled) | its number, on the reader's photo | right (the reader took it at the read) |
 | Induction, 14:10:50 | CHK_TUNNEL | "not seen" (only belt-sized outlines) | withheld |
-| Divert into C12, 14:11:16 | CAM_11 | its number | right |
+| Divert into C12, 14:11:16 | CAM_11 | its number | right (IoU 0.38, 2.61x: the box takes in some of its tray; the screen draws SAM's tighter mask edge) |
 | Into cage RC-760, 14:21:33 | CHK_CAGE_W | its number | right |
 | Taken out of the cage (no scan), 14:32:13.8 | CHK_CAGE_W | live alert "could be CTX334048419302" (the only parcel caged there with no scan since) | right (its true position is inside the outline) |
 | Store door (no scan), 14:32:30-51 | CHK_STORE, CAM_19 | no handshake: there is no scan; the answer's "carried in, not seen coming out" comes from CAM_19 | n/a |

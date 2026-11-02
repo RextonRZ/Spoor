@@ -1,16 +1,17 @@
 {
  "summary": {
   "all": {
-   "outlines": 100,
-   "labelled": 13,
-   "withheld": 87,
-   "labelled_right": 13,
+   "outlines": 98,
+   "labelled": 14,
+   "withheld": 84,
+   "labelled_right": 14,
    "label_precision": 1.0,
-   "strict_right": 13,
-   "coverage_of_right": 0.171,
+   "strict_right": 14,
+   "coverage_of_right": 0.187,
    "wrong_labels": [],
    "not_carton_sized": [
-    "CTX561768291850 CAM_11 14:32:53 iou 0.392 x2.55"
+    "CTX561768291850 CAM_11 14:32:53 iou 0.392 x2.55",
+    "CTX334048419302 CAM_11 14:11:16 iou 0.382 x2.61"
    ]
   },
   "by_type": {
@@ -35,13 +36,25 @@
     "coverage_of_right": 0.188,
     "wrong_labels": [],
     "not_carton_sized": [
-     "CTX561768291850 CAM_11 14:32:53 iou 0.392 x2.55"
+     "CTX561768291850 CAM_11 14:32:53 iou 0.392 x2.55",
+     "CTX334048419302 CAM_11 14:11:16 iou 0.382 x2.61"
     ]
    },
+   "handheld": {
+    "outlines": 1,
+    "labelled": 1,
+    "withheld": 0,
+    "labelled_right": 1,
+    "label_precision": 1.0,
+    "strict_right": 1,
+    "coverage_of_right": 1.0,
+    "wrong_labels": [],
+    "not_carton_sized": []
+   },
    "tunnel exit": {
-    "outlines": 12,
+    "outlines": 9,
     "labelled": 0,
-    "withheld": 12,
+    "withheld": 9,
     "labelled_right": 0,
     "label_precision": null,
     "strict_right": 0,
@@ -52,24 +65,24 @@
   },
   "story": [
    {
-    "at": "14:10:40.99",
-    "event": "tunnel_read",
-    "camera": "CAM_05",
+    "at": "14:10:01.26",
+    "event": "arrived_facility",
+    "camera": "CHK_UNLOAD",
     "outcome": "outlined",
-    "labelled": false,
+    "labelled": true,
     "verdict": "right",
-    "iou": 0.075,
-    "x": 3.01
+    "iou": 0.491,
+    "x": 0.77
    },
    {
-    "at": "14:10:40.99",
-    "event": "tunnel_read",
+    "at": "14:10:50.49",
+    "event": "inducted",
     "camera": "CHK_TUNNEL",
     "outcome": "outlined",
     "labelled": false,
-    "verdict": "near_miss",
-    "iou": 0.068,
-    "x": 2.85
+    "verdict": "not_in_truth_view",
+    "iou": 0.0,
+    "x": 99.0
    },
    {
     "at": "14:11:16.38",
@@ -78,8 +91,8 @@
     "outcome": "outlined",
     "labelled": true,
     "verdict": "right",
-    "iou": 0.473,
-    "x": 2.12
+    "iou": 0.382,
+    "x": 2.61
    },
    {
     "at": "14:21:33.60",
@@ -311,84 +324,6 @@
    "carton_right": true
   },
   {
-   "window": "W1",
-   "waybill": "CTX334048419302",
-   "camera": "CAM_05",
-   "scan_point": "SP-TUNNEL",
-   "event": "tunnel_read",
-   "rule": "tunnel_exit",
-   "at": "2026-10-28T14:10:40.990000+08:00",
-   "media": "media_d1ac66083d686b25590c",
-   "box": [
-    320.0,
-    236.0,
-    445.0,
-    328.0
-   ],
-   "outcome": "outlined",
-   "labelled": false,
-   "truth_px": [
-    464,
-    316
-   ],
-   "verdict": "right",
-   "identity_right": true,
-   "iou": 0.075,
-   "size_ratio": 3.01,
-   "carton_right": false
-  },
-  {
-   "window": "W1",
-   "waybill": "CTX334048419302",
-   "camera": "CHK_TUNNEL",
-   "scan_point": "SP-TUNNEL",
-   "event": "tunnel_read",
-   "rule": "tunnel_exit",
-   "at": "2026-10-28T14:10:40.990000+08:00",
-   "media": "media_fc3be75b9a195ef16677",
-   "box": [
-    914.0,
-    425.0,
-    1043.0,
-    524.0
-   ],
-   "outcome": "outlined",
-   "labelled": false,
-   "truth_px": [
-    953,
-    554
-   ],
-   "verdict": "near_miss",
-   "identity_right": true,
-   "iou": 0.068,
-   "size_ratio": 2.85,
-   "carton_right": false
-  },
-  {
-   "window": "W1",
-   "waybill": "CTX747826029841",
-   "camera": "CHK_TUNNEL",
-   "scan_point": "SP-TUNNEL",
-   "event": "tunnel_read",
-   "rule": "tunnel_exit",
-   "at": "2026-10-28T14:10:46.200000+08:00",
-   "media": "media_fc3be75b9a195ef16677",
-   "box": [
-    916.0,
-    453.0,
-    1006.0,
-    553.0
-   ],
-   "outcome": "outlined",
-   "labelled": false,
-   "truth_px": null,
-   "verdict": "not_in_truth_view",
-   "identity_right": false,
-   "iou": null,
-   "size_ratio": null,
-   "carton_right": false
-  },
-  {
    "window": "S2",
    "waybill": "CTX235687544500",
    "camera": "CHK_TUNNEL",
@@ -440,54 +375,6 @@
    "identity_right": true,
    "iou": 0.048,
    "size_ratio": 0.05,
-   "carton_right": false
-  },
-  {
-   "window": "W1",
-   "waybill": "CTX546164904166",
-   "camera": "CHK_TUNNEL",
-   "scan_point": "SP-INDUCT",
-   "event": "inducted",
-   "rule": "point",
-   "at": "2026-10-28T14:10:41.800000+08:00",
-   "media": "media_fc3be75b9a195ef16677",
-   "box": [
-    1072.0,
-    209.0,
-    1179.0,
-    301.0
-   ],
-   "outcome": "outlined",
-   "labelled": false,
-   "truth_px": null,
-   "verdict": "not_in_truth_view",
-   "identity_right": false,
-   "iou": null,
-   "size_ratio": null,
-   "carton_right": false
-  },
-  {
-   "window": "W1",
-   "waybill": "CTX196721723997",
-   "camera": "CHK_TUNNEL",
-   "scan_point": "SP-INDUCT",
-   "event": "inducted",
-   "rule": "point",
-   "at": "2026-10-28T14:10:44.200000+08:00",
-   "media": "media_fc3be75b9a195ef16677",
-   "box": [
-    1120.0,
-    247.0,
-    1150.0,
-    272.0
-   ],
-   "outcome": "outlined",
-   "labelled": false,
-   "truth_px": null,
-   "verdict": "not_in_truth_view",
-   "identity_right": false,
-   "iou": null,
-   "size_ratio": null,
    "carton_right": false
   },
   {
@@ -561,33 +448,6 @@
    "iou": 0.0,
    "size_ratio": 99.0,
    "carton_right": false
-  },
-  {
-   "window": "W1",
-   "waybill": "CTX334048419302",
-   "camera": "CAM_11",
-   "scan_point": "SP-DIV-C12",
-   "event": "divert_confirmed",
-   "rule": "point",
-   "at": "2026-10-28T14:11:16.380000+08:00",
-   "media": "media_7af061ed03442b0d78cc",
-   "box": [
-    1242.0,
-    246.0,
-    1290.0,
-    290.0
-   ],
-   "outcome": "outlined",
-   "labelled": true,
-   "truth_px": [
-    1269,
-    265
-   ],
-   "verdict": "right",
-   "identity_right": true,
-   "iou": 0.473,
-   "size_ratio": 2.12,
-   "carton_right": true
   },
   {
    "window": "S2",
@@ -2775,6 +2635,108 @@
    "iou": 0.0,
    "size_ratio": 99.0,
    "carton_right": false
+  },
+  {
+   "window": "W1",
+   "waybill": "CTX334048419302",
+   "camera": "CHK_TUNNEL",
+   "scan_point": "SP-INDUCT",
+   "event": "inducted",
+   "rule": "point",
+   "at": "2026-10-28T14:10:50.490000+08:00",
+   "media": "media_abba37780560ada646c4",
+   "box": [
+    1119.0,
+    250.0,
+    1145.0,
+    279.0
+   ],
+   "outcome": "outlined",
+   "labelled": false,
+   "truth_px": null,
+   "verdict": "not_in_truth_view",
+   "identity_right": false,
+   "iou": 0.0,
+   "size_ratio": 99.0,
+   "carton_right": false
+  },
+  {
+   "window": "W1",
+   "waybill": "CTX747826029841",
+   "camera": "CHK_TUNNEL",
+   "scan_point": "SP-INDUCT",
+   "event": "inducted",
+   "rule": "point",
+   "at": "2026-10-28T14:10:50.800000+08:00",
+   "media": "media_abba37780560ada646c4",
+   "box": [
+    1117.0,
+    255.0,
+    1146.0,
+    278.0
+   ],
+   "outcome": "outlined",
+   "labelled": false,
+   "truth_px": null,
+   "verdict": "not_in_truth_view",
+   "identity_right": false,
+   "iou": null,
+   "size_ratio": null,
+   "carton_right": false
+  },
+  {
+   "window": "W1",
+   "waybill": "CTX334048419302",
+   "camera": "CAM_11",
+   "scan_point": "SP-DIV-C12",
+   "event": "divert_confirmed",
+   "rule": "point",
+   "at": "2026-10-28T14:11:16.380000+08:00",
+   "media": "media_af6909f503dd564698f2",
+   "box": [
+    1213.0,
+    239.0,
+    1264.0,
+    289.0
+   ],
+   "outcome": "outlined",
+   "labelled": true,
+   "truth_px": [
+    1239,
+    258
+   ],
+   "verdict": "right",
+   "identity_right": true,
+   "iou": 0.382,
+   "size_ratio": 2.61,
+   "carton_right": false
+  },
+  {
+   "window": "W1",
+   "waybill": "CTX334048419302",
+   "camera": "CHK_UNLOAD",
+   "scan_point": "SP-IN-N",
+   "event": "arrived_facility",
+   "rule": "work_area",
+   "at": "2026-10-28T14:10:01.260000+08:00",
+   "media": "media_737eeeaec2f58f90b5fc",
+   "box": [
+    915.0,
+    236.0,
+    946.0,
+    284.0
+   ],
+   "outcome": "outlined",
+   "labelled": true,
+   "truth_px": [
+    942,
+    265
+   ],
+   "verdict": "right",
+   "identity_right": true,
+   "iou": 0.491,
+   "size_ratio": 0.77,
+   "carton_right": true
   }
  ]
 }

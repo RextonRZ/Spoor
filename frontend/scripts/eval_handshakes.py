@@ -28,8 +28,9 @@ TRUTH = ROOT / "assets" / "hub" / "build" / "truth"
 WINDOWS = {"S2": "flow_truth_S2.json", "W1": "flow_truth_W1.json", "W2": "flow_truth_W2.json"}
 MARGIN = 0.25  # of the box size, each side
 # rendered windows: the first render frame of each delivered clip (the Modal render ranges); S2's wide clips start at 1
-W1_FIRST = {"CHK_UNLOAD": 170, "CAM_02": 170, "CHK_TUNNEL": 585, "CAM_05": 585, "CAM_01": 685, "CHK_CHUTE": 945,
-            "CAM_11": 945}
+# W1 as re-rendered with the quiet unload door (2 Nov, start re-pinned 7.9 s earlier: every range +79 frames)
+W1_FIRST = {"CHK_UNLOAD": 255, "CAM_02": 255, "CHK_TUNNEL": 664, "CAM_05": 664, "CAM_01": 764, "CHK_CHUTE": 990,
+            "CAM_11": 1024}
 S2_FIRST = {"CHK_DOCK": 780, "CHK_STORE": 200}
 W2_FIRST = {"CHK_CHUTE": 30, "CHK_CAGE_W": 220}
 
@@ -85,7 +86,8 @@ def main():
     svc = Services.from_settings(Settings(data_dir=Path(a.data)))
     store = svc.store
     truths = {k: json.loads((TRUTH / f).read_text(encoding="utf-8")) for k, f in WINDOWS.items()}
-    hs = [h for h in store.find(ScanHandshake) if h.track_id or h.outcome == "cant_tell"]
+    gone = store.invalid_ids()  # purged clips (superseded renders): their rows are not the current evidence
+    hs = [h for h in store.find(ScanHandshake) if (h.track_id or h.outcome == "cant_tell") and h.media_id not in gone]
     out = []
     for h in hs:
         win, first = first_frame(store, h.media_id, h.camera_id.removeprefix("cam_"))
