@@ -1,20 +1,26 @@
-/* Live alerts on the Hub (LiveAlerts.tsx): a carton left a container area without a scan. */
+/* Live alerts on the Hub (LiveAlerts.tsx): a carton left a container area without a scan. One row: the moment on
+   camera (carrier and bays, the carton in a plain rectangle), what happened in one line, who it could be, one action. */
 .la { display: grid; gap: 10px; margin: 0 0 16px; }
-.la-row { display: grid; grid-template-columns: 132px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 12px 14px;
-  border: 1px solid rgba(248, 113, 113, 0.35); border-radius: 12px; background: rgba(248, 113, 113, 0.06);
+.la-row { display: grid; grid-template-columns: 168px minmax(0, 1fr) auto; column-gap: 18px; align-items: center; padding: 12px 16px 12px 12px;
+  border: 1px solid rgba(248, 113, 113, 0.3); border-radius: 12px; background: rgba(248, 113, 113, 0.05);
   transition: opacity 220ms cubic-bezier(0.23, 1, 0.32, 1), transform 220ms cubic-bezier(0.23, 1, 0.32, 1);
   @starting-style { opacity: 0; transform: translateY(8px); } }
 @media (prefers-reduced-motion: reduce) { .la-row { transition: opacity 160ms ease; @starting-style { transform: none; } } }
-.la-pic { position: relative; display: block; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 8px; background: #0b0d12; }
+.la-pic { position: relative; display: block; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 8px; background: #0b0d12; }
 .la-pic img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .la-wait { position: absolute; inset: 0; background: rgba(255, 255, 255, 0.04); }
-.la-body { display: grid; gap: 3px; min-width: 0; }
-.la-h { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 14.5px; font-weight: 650; color: var(--tb-ink); }
-.la-dot { width: 8px; height: 8px; border-radius: 50%; background: #f87171; box-shadow: 0 0 0 4px rgba(248, 113, 113, 0.18); flex: none; }
-.la-meta { margin: 0; font-size: 12.5px; color: var(--tb-ink-2); font-variant-numeric: tabular-nums; }
-.la-who { margin: 0; font-size: 13px; color: var(--tb-ink-2); }
+.la-body { display: grid; gap: 4px; min-width: 0; }
+.la-kick { margin: 0; white-space: nowrap; font-size: 12.5px; font-weight: 600; color: #fca5a5; font-variant-numeric: tabular-nums; }
+.la-dot { display: inline-block; vertical-align: 1px; margin-right: 7px; width: 7px; height: 7px; border-radius: 50%; background: #f87171; box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.18); flex: none; }
+.la-meta { font-weight: 450; color: var(--tb-mute); }
+.la-h { margin: 0; font-size: 15px; font-weight: 650; line-height: 1.3; color: var(--tb-ink); text-wrap: balance; }
+.la-who { margin: 0; font-size: 13px; line-height: 1.45; color: var(--tb-ink-2); text-wrap: pretty; }
 .la-who b { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--tb-ink); }
-@media (max-width: 700px) { .la-row { grid-template-columns: 96px minmax(0, 1fr); } .la-go { grid-column: 1 / -1; justify-self: start; } }
 .la-mark { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.la-mark rect { fill: none; stroke: #4ade80; stroke-width: 1.6; stroke-linejoin: round; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.9)); }
-.la-mark polygon { fill: none; stroke: #4ade80; stroke-width: 1.6; stroke-linejoin: round; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.9)); }
+.la-mark rect { fill: none; stroke: #4ade80; stroke-width: 1.5; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 1.5px rgba(0, 0, 0, 0.9)); }
+@media (max-width: 700px) {
+  .la-row { grid-template-columns: 1fr; row-gap: 12px; padding: 12px; }
+  .la-kick { white-space: normal; }
+  .la-go { justify-self: stretch; text-align: center; }
+}
+.la-nb { white-space: nowrap; }

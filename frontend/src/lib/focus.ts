@@ -31,8 +31,8 @@ export function useContours(media: string | null | undefined, track: string | nu
   return new Map(r.data?.contours ?? []);
 }
 
-/** the frame of a track to SHOW (not the frame an event was measured on): where its box is largest and wholly inside
- *  the picture, so the outline is not cut at the edge. Returns that frame, its box and how far (ms) it is from `at`. */
+/** the frame of a track to SHOW (not the frame an event was measured on): its box wholly inside the picture, at least
+ *  half the largest, and furthest from the edges, so the outline is neither cut nor pushed to the crop's side. Returns that frame, its box and how far (ms) it is from `at`. */
 export function useBestView(media: string | null | undefined, track: string | null | undefined, atFrame: number | null | undefined,
   wh: [number, number] = [1920, 1086]): { frame: number; box: number[]; dms: number } | null {
   const r = useResource<{ boxes: number[][] }>(media && track ? `/v1/media/${media}/tracks/${track}/boxes` : null);
@@ -40,7 +40,12 @@ export function useBestView(media: string | null | undefined, track: string | nu
   if (!boxes.length || atFrame == null) return null;
   const inside = boxes.filter((b) => b[2] > 4 && b[3] > 4 && b[4] < wh[0] - 4 && b[5] < wh[1] - 4);
   if (!inside.length) return null;
-  const best = inside.reduce((a, b) => ((b[4] - b[2]) * (b[5] - b[3]) > (a[4] - a[2]) * (a[5] - a[3]) ? b : a));
+  // big enough to read (at least half the largest), then the one furthest from the picture's edges: a crop round a
+  // carton at the very edge is clamped to the frame and showed the carrier's back with the outline cut at its side
+  const area = (b: number[]) => (b[4] - b[2]) * (b[5] - b[3]);
+  const big = Math.max(...inside.map(area));
+  const room = (b: number[]) => Math.min((b[2] + b[4]) / 2, wh[0] - (b[2] + b[4]) / 2, (b[3] + b[5]) / 2, wh[1] - (b[3] + b[5]) / 2);
+  const best = inside.filter((b) => area(b) >= big / 2).reduce((a, b) => (room(b) > room(a) ? b : a));
   const at = boxes.find((b) => b[0] === atFrame) ?? boxes[boxes.length - 1];
   return { frame: best[0], box: best.slice(2), dms: best[1] - at[1] };
 }

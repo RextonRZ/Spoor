@@ -7,7 +7,7 @@
  */
 import Link from "next/link";
 import { useResource } from "@/lib/api";
-import { inCrop, pointsIn, useBestView, useContours, useFocusCrop } from "@/lib/focus";
+import { inCrop, useBestView, useFocusCrop } from "@/lib/focus";
 import { hms } from "@/lib/words";
 import "./livealerts.css";
 
@@ -20,21 +20,25 @@ interface CaseRow { case: { case_id: string; target_description: string } }
 const cam = (c: string) => c.replace(/^cam_/, "").replaceAll("_", " ");
 const PLACE: Record<string, string> = { "SP-CAGE-W": "the west cage bays", "SP-CAGE-E": "the east cage bays" };
 
-/** the moment it left, cropped around SAM's outline of the carton (the full frame opens in the case) */
+/** the moment it left: the carrier and the bays it came from (a crop round the carton alone showed a back and a
+ *  blob), the carton marked with a plain rectangle round SAM's box (the full frame opens in the case) */
+const CONTEXT: [number, number] = [300, 170]; // frame pixels round the carton: enough to see who carries it and where
+
 function Shot({ a }: { a: Alert }) {
   // the carton as it is carried out, wholly in the picture (the alert's own frame is where it leaves the view)
   const view = useBestView(a.media_id, a.track_id, a.frame_index);
   const frame = view?.frame ?? a.frame_index, box = view?.box ?? a.box_px;
-  const got = useFocusCrop(a.media_id, frame, box);
-  const edge = useContours(a.media_id, a.track_id).get(frame);
+  const cx = box ? (box[0] + box[2]) / 2 : 0, cy = box ? (box[1] + box[3]) / 2 : 0;
+  const wide = box ? [cx - CONTEXT[0] / 2, cy - CONTEXT[1] / 2, cx + CONTEXT[0] / 2, cy + CONTEXT[1] / 2] : null;
+  const got = useFocusCrop(a.media_id, frame, wide);
   if (!got || !box) return <span className="la-wait" aria-hidden />;
   const b = inCrop(box, got.rect);
   return (
     <>
-      {/* eslint-disable-next-line @next/next/no-img-element -- a signed crop of the original frame around SAM's box */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- a signed crop of the original frame round SAM's box */}
       <img src={got.url} alt="" />
       <svg className="la-mark" viewBox={`0 0 ${b.vw} ${b.vh}`} preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-        {edge ? <polygon points={pointsIn(edge, got.rect)} /> : <rect x={b.x - 3} y={b.y - 3} width={b.w + 6} height={b.h + 6} rx="3" />}
+        <rect x={b.x - 8} y={b.y - 8} width={b.w + 16} height={b.h + 16} rx="6" />
       </svg>
     </>
   );
@@ -52,10 +56,10 @@ export function LiveAlerts({ siteId }: { siteId?: string }) {
         <article key={a.alert_id} className="la-row">
           <span className="la-pic"><Shot a={a} /></span>
           <div className="la-body">
-            <p className="la-h"><span className="la-dot" aria-hidden />A carton left {PLACE[a.scan_point_id] ?? "a container area"} without a scan</p>
-            <p className="la-meta"><time>{hms(a.at_utc)}</time> · {cam(a.camera_id)}</p>
+            <p className="la-kick"><span className="la-dot" aria-hidden />Left without a scan<span className="la-meta"> · <time>{hms(a.at_utc)}</time> · {cam(a.camera_id)}</span></p>
+            <p className="la-h">A carton was taken out of {PLACE[a.scan_point_id] ?? "a container area"}</p>
             {a.candidates.map((c) => (
-              <p key={c.waybill} className="la-who">Could be <b>{c.waybill}</b>: last scanned into {c.container ?? "a container"} here at {hms(c.scanned_in)}, no scan since.</p>
+              <p key={c.waybill} className="la-who">Could be <b>{c.waybill}</b>, scanned into <span className="la-nb">{c.container ?? "a container"}</span> at {hms(c.scanned_in)} and not since.</p>
             ))}
           </div>
           {a.candidates[0] && caseOf(a.candidates[0].waybill) && (
