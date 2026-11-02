@@ -13,6 +13,7 @@
  * a voice note is transcribed by Muse Voice Transcribe and only attached when the worker taps "Use this note".
  */
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { flushSync } from "react-dom";
 import { api, invalidate, signedUrl, useResource } from "@/lib/api";
 import type { Journey, MissingMoment, XY } from "@/lib/journey";
 import type { Reel } from "@/components/case/JourneyReel";
@@ -90,8 +91,17 @@ export function FloorApp({ caseId, waybill, waited, framed = true }: { caseId: s
   // a found parcel shows its done screen (also when it was found from another phone)
   const screen: Screen = view.data?.found && chosen !== "found" ? "done" : chosen;
 
-  const go = (s: Screen, d: "fwd" | "back" = "fwd") => { setDir(d); setErr(null); setScreen(s); };
+  const [scrolled, setScrolled] = useState(false);
+  const go = (s: Screen, d: "fwd" | "back" = "fwd") => {
+    const apply = () => { setDir(d); setErr(null); setScrolled(false); setScreen(s); };
+    // the place name on the task card becomes the task screen's title (a shared element), where the browser can
+    const vt = (document as Document & { startViewTransition?: (f: () => void) => unknown }).startViewTransition;
+    if (vt && (s === "task" && screen === "tasks" || s === "tasks" && screen === "task") && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      vt.call(document, () => flushSync(apply));
+    } else apply();
+  };
   const back = () => go(screen === "task" ? "tasks" : screen === "search" ? "task" : screen === "scan" ? "search" : "tasks", "back");
+  const swipe = useSwipeBack(screen !== "tasks" && screen !== "done" && screen !== "next" && screen !== "found", back);
 
   async function answer(outcome: "found" | "not_found", text?: string | null) {
     if (!task || !place) return;
@@ -128,12 +138,13 @@ export function FloorApp({ caseId, waybill, waited, framed = true }: { caseId: s
         {screen !== "tasks" && screen !== "done" && screen !== "next"
           ? <button type="button" className="fa-back" onClick={back} aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden><path d="M15 5l-7 7 7 7" /></svg></button>
           : <span className="fa-brand"><Mark />Spoor Floor</span>}
-        <span className="fa-bar-title">{screen !== "tasks" && screen !== "done" && screen !== "next" ? title : ""}</span>
+        <span className="fa-bar-title" data-shown={scrolled || screen === "scan" || screen === "found" ? "" : undefined}>{screen !== "tasks" && screen !== "done" && screen !== "next" ? title : ""}</span>
         {step ? <span className="fa-steps" aria-label={`Step ${step} of 4`}>{[1, 2, 3, 4].map((i) => <i key={i} data-on={i <= step ? "" : undefined} />)}</span> : <span />}
       </header>
       {offline && <p className="fa-offline" role="status">Offline. Your answer is saved and goes out when you are back online.</p>}
 
-      <div className="fa-stage">
+      <div className="fa-stage" onScrollCapture={(e) => { const y = (e.target as HTMLElement).scrollTop; if ((y > 34) !== scrolled) setScrolled(y > 34); }}
+        {...swipe}>
         <div key={screen} className="fa-screen" data-dir={dir}>
           {screen === "tasks" && (
             <div className="fa-pad">
@@ -142,7 +153,7 @@ export function FloorApp({ caseId, waybill, waited, framed = true }: { caseId: s
               {task && place ? (
                 <button type="button" className="fa-card fa-taskcard" onClick={() => { buzz(); go("task"); }}>
                   <span className="fa-chip" data-tone="urgent">{waited ? `Customer waiting ${waited}` : "Customer waiting"}</span>
-                  <span className="fa-card-place">{placeName(place)}</span>
+                  <span className="fa-card-place fa-vt-place">{placeName(place)}</span>
                   <span className="fa-card-why">{lastSeen && placeName(place).toLowerCase().split(" ").some((w) => lastSeen.title.toLowerCase().includes(w))
                     ? `${lastSeen.title} at ${hm(lastSeen.t)}, not seen coming out` : "Next most likely place, from the cameras"}</span>
                   <span className="fa-card-meta">
@@ -157,6 +168,7 @@ export function FloorApp({ caseId, waybill, waited, framed = true }: { caseId: s
 
           {screen === "task" && place && (
             <div className="fa-pad fa-scroll">
+              <div className="fa-large"><span className="fa-k">Find this parcel</span><h1 className="fa-large-t fa-vt-place">{placeName(place)}</h1></div>
               <figure className="fa-hero">
                 {lastSeen?.thumb_url
                   // eslint-disable-next-line @next/next/no-img-element -- a signed frame from the case's journey video
@@ -186,6 +198,7 @@ export function FloorApp({ caseId, waybill, waited, framed = true }: { caseId: s
 
           {screen === "search" && place && (
             <div className="fa-pad fa-scroll">
+              <div className="fa-large"><span className="fa-k">Step 2 of 4</span><h1 className="fa-large-t">Where to look</h1></div>
               <ol className="fa-places">
                 {places.map((p, i) => {
                   const state = done.has(p.area_id) ? "ruled" : p.area_id === place.area_id ? "now" : "next";
@@ -271,6 +284,40 @@ const YOU: XY = OFFICE ? centroid(OFFICE.polygons[0]) : [57, 3];
 function onlineSub(f: () => void) {
   window.addEventListener("online", f); window.addEventListener("offline", f);
   return () => { window.removeEventListener("online", f); window.removeEventListener("offline", f); };
+}
+
+/** Swipe from the left edge to go back: the screen follows the finger 1:1 and either finishes going back or springs home
+ *  (by distance or by the flick's speed), as on iOS. */
+function useSwipeBack(enabled: boolean, onBack: () => void) {
+  const ref = useRef<{ x: number; t: number; el: HTMLElement } | null>(null);
+  return {
+    onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => {
+      const r = e.currentTarget.getBoundingClientRect();
+      if (!enabled || e.clientX - r.left > 24) return;
+      const el = e.currentTarget.querySelector<HTMLElement>(".fa-screen");
+      if (!el) return;
+      e.currentTarget.setPointerCapture(e.pointerId);
+      ref.current = { x: e.clientX, t: performance.now(), el };
+      el.style.transition = "none"; el.style.animation = "none";
+    },
+    onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => {
+      const start = ref.current;
+      if (!start) return;
+      const dx = Math.max(0, e.clientX - start.x);
+      start.el.style.transform = `translateX(${dx}px)`;
+      start.el.style.boxShadow = "-12px 0 30px rgba(15,18,34,0.12)";
+    },
+    onPointerUp: (e: React.PointerEvent<HTMLDivElement>) => {
+      const start = ref.current;
+      if (!start) return;
+      const { el } = start, dx = e.clientX - start.x, v = dx / Math.max(1, performance.now() - start.t);
+      const w = e.currentTarget.getBoundingClientRect().width;
+      ref.current = null;
+      el.style.transition = "transform 320ms cubic-bezier(0.32, 0.72, 0, 1)";
+      if (dx > w * 0.35 || v > 0.5) { el.style.transform = `translateX(${w}px)`; window.setTimeout(onBack, 200); }
+      else { el.style.transform = ""; el.style.boxShadow = ""; }
+    },
+  };
 }
 
 function Mark() {

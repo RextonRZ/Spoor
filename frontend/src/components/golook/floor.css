@@ -250,3 +250,17 @@
 .fa-full > .fa { flex: 1; min-height: 100dvh; }
 .fa-full .fa-dock { position: fixed; padding-bottom: max(20px, env(safe-area-inset-bottom)); }
 .fa-full .fa-status { display: none; }
+
+/* iOS large title: big at the top of the screen, the bar's small title fades in once it scrolls under the bar */
+.fa-large { display: grid; gap: 2px; padding: 2px 0 2px; }
+.fa-large-t { margin: 0; font-size: 30px; line-height: 1.1; font-weight: 780; letter-spacing: -0.03em; }
+.fa-bar-title { opacity: 0; transform: translateY(4px); transition: opacity 180ms ease, transform 220ms var(--fa-out); }
+.fa-bar-title[data-shown] { opacity: 1; transform: none; }
+.fa-vt-place { view-transition-name: fa-place; }
+::view-transition-group(fa-place) { animation-duration: 380ms; animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1); }
+.fa-stage { touch-action: pan-y; }
+@media (prefers-reduced-motion: reduce) { .fa-bar-title { transition: none; } }
+/* an app, not a page: no text selection or image dragging while swiping (inputs still select) */
+.fa { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.fa img { -webkit-user-drag: none; }
+.fa textarea, .fa input { -webkit-user-select: text; user-select: text; }
