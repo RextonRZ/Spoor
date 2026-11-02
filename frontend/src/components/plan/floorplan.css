@@ -52,3 +52,10 @@
 .fp-legend .fp-k-belt { border-top: 4px solid #b4b9c6; }
 @media (prefers-reduced-motion: reduce) { .fp-you-halo { animation: none; opacity: 0.4; } }
 @media print { .fp svg { background: #fff; } .fp-you-halo { animation: none; } }
+
+/* dim: every zone but the one to reach goes quiet, so the route reads first */
+.fp[data-dim] .fp-zone { fill: #f4f5f8; stroke: #e1e3ea; }
+.fp[data-dim] .fp-bay, .fp[data-dim] .fp-bench { stroke: #dfe2e9; }
+.fp[data-dim] .fp-belt, .fp[data-dim] .fp-loop { stroke: #d5d8e1; }
+.fp[data-dim] .fp-solid { fill: #c9ccd6; }
+.fp[data-dim] .fp-label { fill: #3b3f4c; font-weight: 650; }

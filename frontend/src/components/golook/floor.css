@@ -264,3 +264,11 @@
 .fa { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .fa img { -webkit-user-drag: none; }
 .fa textarea, .fa input { -webkit-user-select: text; user-select: text; }
+
+/* reviewer 04:33: the voice note under the place being checked; disabled buttons readable; the label to point at */
+.fa-places li { grid-template-columns: 36px 1fr; }
+.fa-pv { grid-column: 1 / -1; }
+.fa-pv .fa-voice { padding: 10px 0 0; box-shadow: none; background: transparent; border-top: 1px solid var(--fa-line); border-radius: 0; }
+.fa .fa-primary:disabled { opacity: 1; background: #dcdee7; color: #464b5c; box-shadow: none; }
+.fa-vf-label { position: absolute; left: 50%; top: 47%; width: 46%; transform: translate(-50%, -50%) rotate(-4deg); border-radius: 10px; opacity: 0.92;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); }

@@ -28,6 +28,11 @@ interface Props {
   cameras?: FPCam[];
   you?: XY;
   labels?: "all" | "major" | "none";
+  /** these zones are named whatever `labels` says, at `labelSize` metres (a phone's small plan: 2-3 names it can read) */
+  labelIds?: string[];
+  labelSize?: number;
+  /** grey every zone but the highlighted one (the route is the subject) */
+  dim?: boolean;
   legend?: boolean;
   onStop?: (n: FPStop["n"]) => void;
 }
@@ -70,11 +75,12 @@ export default function FloorPlan(p: Props) {
   const L = hub.machines.loop;
   const loopD = `M${L.west_cx},${Y(L.south_y)} L${L.east_cx},${Y(L.south_y)} A${L.radius},${L.radius} 0 0 0 ${L.east_cx},${Y(L.north_y)} `
     + `L${L.west_cx},${Y(L.north_y)} A${L.radius},${L.radius} 0 0 0 ${L.west_cx},${Y(L.south_y)} Z`;
-  const showLabel = (id: string) => p.labels === "all" || ((p.labels ?? "major") === "major" && (MAJOR.has(id) || id === p.highlight));
-  const fs = 1.2 * k; // label size in metres of the drawing (≈ 10-11 px on screen)
+  const showLabel = (id: string) => p.labels === "all" || ((p.labels ?? "major") === "major" && (MAJOR.has(id) || id === p.highlight))
+    || !!p.labelIds?.includes(id);
+  const fs = (p.labelSize ?? 1.2) * k; // label size in metres of the drawing (1.2 ≈ 10-11 px on a desktop-width plan)
 
   return (
-    <figure className="fp" aria-label={p.label}>
+    <figure className="fp" aria-label={p.label} data-dim={p.dim ? "" : undefined}>
       <svg viewBox={`${box.x0} ${H - box.y1} ${vw} ${vh}`} role="img" aria-label={p.label} preserveAspectRatio="xMidYMid meet">
         <defs>
           <pattern id={`hatch${uid}`} width={1.2 * k} height={1.2 * k} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">

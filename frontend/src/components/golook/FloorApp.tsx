@@ -149,7 +149,7 @@ export function FloorApp({ caseId, waybill, waited, framed = true }: { caseId: s
           {screen === "tasks" && (
             <div className="fa-pad">
               <h1 className="fa-h1">{task && place ? "1 task for you" : view.data?.found ? "All done" : "No tasks right now"}</h1>
-              <p className="fa-lead">{task && place ? `From the hub supervisor at ${hm(task.created_at)}` : "New searches arrive here the moment the supervisor sends one."}</p>
+              <p className="fa-lead">{task && place ? "Sent by the hub supervisor" : "New searches arrive here the moment the supervisor sends one."}</p>
               {task && place ? (
                 <button type="button" className="fa-card fa-taskcard" onClick={() => { buzz(); go("task"); }}>
                   <span className="fa-chip" data-tone="urgent">{waited ? `Customer waiting ${waited}` : "Customer waiting"}</span>
@@ -191,7 +191,7 @@ export function FloorApp({ caseId, waybill, waited, framed = true }: { caseId: s
               <section className="fa-card fa-map" aria-label="Where to walk">
                 <div className="fa-map-head"><span className="fa-k">Walk to</span><span>{placeName(place)} · about {walkMin} min</span></div>
                 <FloorPlan label={`Walking route to the ${placeName(place)}`} fit={[you, target, ...route]} margin={4} highlight={zone?.id}
-                  route={route} you={you} labels="major" />
+                  route={route} you={you} labels="none" labelIds={["Z13", zone?.id ?? "", "Z05"]} labelSize={2.3} dim />
               </section>
             </div>
           )}
@@ -209,11 +209,11 @@ export function FloorApp({ caseId, waybill, waited, framed = true }: { caseId: s
                         <b>{placeName(p)}</b>
                         {state === "now" ? <Checklist kind={zoneOf(p)?.kind} /> : <small>{state === "ruled" ? "Checked, not here" : "Next, if not here"}</small>}
                       </span>
+                      {state === "now" && <span className="fa-pv"><VoiceHold caseId={caseId} taskId={task!.search_task_id} areaId={place.area_id} used={note} onUse={setNote} /></span>}
                     </li>
                   );
                 })}
               </ol>
-              <VoiceHold caseId={caseId} taskId={task!.search_task_id} areaId={place.area_id} used={note} onUse={setNote} />
             </div>
           )}
 
@@ -325,11 +325,16 @@ function Mark() {
 }
 
 function StatusBar() {
+  // the hub's clock, not this computer's: the scan log's latest time, ticking on from when the app opened
+  const sites = useResource<{ site_id: string }[]>("/v1/sites");
+  const log = useResource<{ as_of: string | null }>(sites.data?.[0] ? `/v1/sites/${sites.data[0].site_id}/exceptions?limit=50` : null);
   const [t, setT] = useState("");
   useEffect(() => {
-    const f = () => setT(new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }));
+    const base = log.data?.as_of ? Date.parse(log.data.as_of) : null, t0 = Date.now();
+    const f = () => setT(new Date(base !== null ? base + (Date.now() - t0) : Date.now()).toLocaleTimeString("en-GB",
+      { timeZone: "Asia/Kuala_Lumpur", hour: "2-digit", minute: "2-digit" }));
     f(); const i = window.setInterval(f, 15000); return () => window.clearInterval(i);
-  }, []);
+  }, [log.data?.as_of]);
   return (
     <div className="fa-status" aria-hidden>
       <span>{t}</span>
@@ -398,7 +403,11 @@ function Scanner({ waybill, onMatch }: { waybill: string; onMatch: () => void })
       <div className="fa-viewfinder" data-cam={cam}>
         <video ref={vid} muted playsInline />
         <span className="fa-frame" aria-hidden><i /><i /><i /><i /><span className="fa-laser" /></span>
-        <span className="fa-vf-hint">{cam === "none" ? "Camera not available here. Type the last 4 digits instead." : "Point at the barcode on the label"}</span>
+        {cam === "none" && (
+          // eslint-disable-next-line @next/next/no-img-element -- the parcel's own label, from the tunnel's photo: what to point at
+          <img className="fa-vf-label" src={`/scanner/${waybill}.jpg`} alt="" aria-hidden />
+        )}
+        <span className="fa-vf-hint">{cam === "none" ? "No camera on this device: type the last 4 digits below" : "Point at the barcode on the label"}</span>
       </div>
       {miss && <p className="fa-miss" role="status">That label is {miss}, another parcel. Keep looking for …{waybill.slice(-4)}.</p>}
       {typing || cam === "none" ? (

@@ -2,6 +2,29 @@
 
 Newest first. Each entry: what is done, where to look, what is still open.
 
+## For Rexton, Tue 3 Nov 08:30: what changed overnight (start here)
+
+- **Go look is a real worker app, "Spoor Floor"** (light, for the hall): Tasks -> Find this parcel (last-seen frame,
+  tunnel photo, size, number with the last 4 marked, walking route) -> Where to look (checklist, hold-to-talk voice
+  note in English or Malay, attached only on "Use this note") -> Scan the label (phone camera; type the last 4 if no
+  camera) -> Number matched / Not here (sheet with reasons) -> Spoor re-plans. iOS large titles, edge swipe back, the
+  place title flows from the card into the task. Full screen on a phone at `/floor/<case>`; the Go look page shows it in
+  a phone frame. Strip: `review/shots/tue/golook/flow.png`.
+- **Report = the case file**, six sections: summary + how sure, every step's frame + the reel, a clean vector route map,
+  records vs cameras, floor check, evidence with SHA-256 + models + cost. A4 print. "Draft the update to the customer"
+  opens a side sheet: chat / email, English / Malay, short / detailed, Spark writes it from verified facts only, each
+  fact links to its frame, "Approve and send" is an audited record (nothing leaves Spoor). `review/shots/tue/report/`.
+- **Agents page** (`/cases/<id>/investigate`, linked from the Answer and every case header): the run as a detective's
+  six questions and answers, every step as a dot per agent (one colour per model), the places as their real frames.
+- **Tags at steps 1 and 3:** tried your +0.5 s / +1.0 s retry (2 SAM calls each); neither passed the checks, so both
+  stay untagged. Every tag still shown is right (eval 13 of 13). The door step now plays 8 s (the carry is on screen).
+- **Decide:** the video script says "Two weeks now"; the case data says the customer waited **4 days** after the last
+  scan (28 Oct -> 1 Nov). The app shows 4 days everywhere. Change the script line to "Four days now", or tell me to
+  move the case date.
+- **Real-footage test:** blocked (no phone takes yet; no openly licensed parcel CCTV clip). Film the two takes from
+  `assets/realtest/FILMING.md` if you want it.
+- Spend overnight: Modal ~US$0.45, SAM ~US$0.25, Spark drafts a few cents.
+
 ## For Rexton, Tue 3 Nov 01:4x: the real-footage test (Task 2), ready to film
 
 - Print `assets/realtest/labels.pdf` at 100 % (three A6 labels, CONTOH Express, CTX900000000101 / 102 / 103).
