@@ -2,6 +2,15 @@
 
 Newest first. Each entry: what is done, where to look, what is still open.
 
+## For Rexton, Tue 3 Nov 01:4x: the real-footage test (Task 2), ready to film
+
+- Print `assets/realtest/labels.pdf` at 100 % (three A6 labels, CONTOH Express, CTX900000000101 / 102 / 103).
+- Follow `assets/realtest/FILMING.md`: phone fixed 1.8-2.2 m high looking down ~40 degrees, two A4 sheets 1.5-2 m apart
+  (S = scan spot, C = cage spot), B and C on sheet C, carry A from S to C, set it next to B, then out of frame. Say
+  "scan" when A sits on S. Hands and forearms only. Two takes, 60-90 s each, into `assets/realtest/raw/`.
+- Write Box A's size (W x L x H cm) into FILMING.md.
+- Last day to film: Tue 18:00 MYT, then the task is dropped.
+
 ## 2026-11-02 19:59 · Evening: red only where the records fail, crew storyline, customer note, backend health
 
 - **Red means something again (1707/1708).** Only two steps are red: "Carried into the Exception store · Not scanned

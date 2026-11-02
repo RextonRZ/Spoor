@@ -78,3 +78,7 @@ assets/brand/logo_concept_chatgpt.png
 
 # Places turntable frames (~190 MB): rebuilt by assets/hub/place_turn.py (or modal_turn.py) + place_export.py
 frontend/public/places/turn/
+
+# real-footage test: raw phone takes (a 720p copy goes in the repo)
+assets/realtest/raw/*.mp4
+assets/realtest/raw/*.MOV
