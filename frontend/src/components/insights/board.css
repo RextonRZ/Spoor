@@ -24,7 +24,7 @@
 .db-kpi-v small { font-size: 14px; font-weight: 600; letter-spacing: 0; color: var(--tb-ink-2); }
 .db-kpi[data-tone="warn"] .db-kpi-v { color: #fcd34d; }
 .db-kpi[data-tone="bad"] .db-kpi-v { color: #fca5a5; }
-.db-kpi-s { font-size: 12px; color: var(--tb-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.db-kpi-s { font-size: 12px; line-height: 1.35; color: var(--tb-mute); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; } /* two lines: the meaning was cut at one */
 .db-spark { display: block; width: 100%; height: 30px; margin-top: 4px; align-self: end; }
 
 /* throughput small multiples */
@@ -178,3 +178,6 @@
 .db-row-111 .db-loop { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 14px; }
 .db-row-111 .db-loop li:nth-child(3) { padding-left: 0; border-left: 0; }
 .db-dl dd { white-space: nowrap; }
+/* loop pass: an odd last tile takes the row instead of leaving half of it empty (3-up: the last two share it) */
+@media (max-width: 1200px) { .db-kpis > :last-child:nth-child(3n + 1) { grid-column: span 3; } .db-kpis > :last-child:nth-child(3n + 2) { grid-column: span 2; } }
+@media (max-width: 700px) { .db-kpis > :last-child { grid-column: auto; } .db-kpis > :last-child:nth-child(odd) { grid-column: span 2; } }
