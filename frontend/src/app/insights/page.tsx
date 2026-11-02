@@ -13,7 +13,7 @@ import { useResource } from "@/lib/api";
 import type { Site } from "@/lib/types";
 import type { Flow } from "@/components/insights/Charts";
 import type { Score } from "@/components/insights/Scorecard";
-import { Attention, Kpi, minuteLabels, Panel, Stages, type Action } from "@/components/insights/Board";
+import { Attention, Kpi, minuteLabels, Panel, Stages, WIN, type Action } from "@/components/insights/Board";
 import { Pipeline } from "@/components/insights/Pipeline";
 import { HistoryView, type History } from "@/components/insights/History";
 import "@/app/hub/hub.css";
@@ -91,7 +91,7 @@ function TodayBoard({ d, name }: { d: Insights; name: (id: string) => string }) 
   // same updates. Reduced motion: the latest minute at once. (README: the demo feed is the recorded shift played back.)
   const total = d.scorecard?.minutes ?? 0;
   const [at, setAt] = useState<number | null>(() =>
-    typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches ? null : Math.floor(total / 3));
+    typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches ? null : Math.min(WIN - 1, Math.max(0, total - 2)));
   useEffect(() => {
     if (at == null) return;
     const t = window.setTimeout(() => setAt((a) => (a == null || a >= total - 2 ? null : a + 1)), 2000);
@@ -105,17 +105,20 @@ function TodayBoard({ d, name }: { d: Insights; name: (id: string) => string }) 
   const ans = d.cost.answer_seconds;
   const open = d.loop.opened.length - d.loop.resolved.length - (d.loop.resolved_on_camera ?? []).length;
   const rate = tunnel?.read_rate ?? null;
-  const mins = sc ? minuteLabels(sc) : undefined;
+  const allMins = sc ? minuteLabels(sc) : undefined;
+  const last = at ?? (sc ? sc.minutes - 1 : 0), from = Math.max(0, last - WIN + 1);
+  const w = <T,>(v?: T[]) => v?.slice(from, last + 1);
+  const mins = w(allMins);
   const scans = (x: number) => `${Math.round(x)} scans`;
   const t = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { timeZone: "Asia/Kuala_Lumpur", hour: "2-digit", minute: "2-digit" });
   return (
     <div className="db">
       <div className="db-kpis">
-        <Kpi label="Parcels unloaded" value={String(unloaded)} sub={d.flow ? `${t(d.flow.window[0])} to ${at != null && mins ? mins[at] : t(d.flow.window[1])}` : ""}
-          spark={at != null ? unloads.slice(0, at + 1) : unloads} labels={mins} fmt={scans} />
+        <Kpi label="Parcels unloaded" value={String(unloaded)} sub={d.flow ? `${t(d.flow.window[0])} to ${at != null && allMins ? allMins[at] : t(d.flow.window[1])}` : ""}
+          spark={w(unloads)} labels={mins} fmt={scans} />
         <Kpi label="Tunnel read rate" value={rate != null ? (rate * 100).toFixed(1) : "100"} unit="%" tone={rate != null && rate < 0.98 ? "warn" : "ok"}
-          sub={<>target 98% · {tunnel?.no_reads ?? 0} not read</>} spark={tunnel?.per_minute} labels={mins} fmt={scans} />
-        <Kpi label="Reject chute" value={String(reject?.no_reads ?? 0)} unit=" cartons" tone={reject?.no_reads ? "warn" : "ok"} sub="unread, to match to their unload scans" spark={reject?.per_minute} labels={mins} fmt={(x) => `${Math.round(x / 2)} cartons`} />
+          sub={<>target 98% · {tunnel?.no_reads ?? 0} not read</>} spark={w(tunnel?.per_minute)} labels={mins} fmt={scans} />
+        <Kpi label="Reject chute" value={String(reject?.no_reads ?? 0)} unit=" cartons" tone={reject?.no_reads ? "warn" : "ok"} sub="unread, to match to their unload scans" spark={w(reject?.per_minute)} labels={mins} fmt={(x) => `${Math.round(x / 2)} cartons`} />
         <Kpi label="Open cases" value={String(Math.max(0, open))} tone={d.loop.customer_asked.length ? "bad" : "ok"}
           sub={`of ${d.loop.opened.length} opened, incl. ${(d.loop.resolved_on_camera ?? []).length} controls · ${d.loop.customer_asked.length} customer waiting`} />
         <Kpi label="Time to an answer" value={ans.length ? (ans[ans.length >> 1] / 60).toFixed(1) : "0"} unit=" min" sub={`median · ${d.cost.footage_hours} h of footage`} />
@@ -123,7 +126,7 @@ function TodayBoard({ d, name }: { d: Insights; name: (id: string) => string }) 
 
       <div className="db-row db-row-21">
         {sc && <Panel title="Throughput by stage" meta={
-          <span className="db-live"><i aria-hidden="true" />Live · <b>{mins ? mins[at ?? sc.minutes - 1] : ""}</b> · scans per minute, one scale</span>}>
+          <span className="db-live"><i aria-hidden="true" />Live · <b>{allMins ? allMins[last] : ""}</b> · scans per minute, one scale</span>}>
           <Stages s={d.scorecard!} upto={at} /></Panel>}
         <Panel title="Needs attention" meta={`${d.actions?.length ?? 0} open`}>
           {d.actions?.length ? <Attention items={d.actions} name={name} /> : <p className="db-empty">Nothing to fix in the records.</p>}
@@ -144,11 +147,13 @@ function TodayBoard({ d, name }: { d: Insights; name: (id: string) => string }) 
               <em>{d.loop.checked.length ? `${d.loop.confirmed.length} found where Spoor said` : `of ${Math.max(0, open)} still open: staff mark it on Go look`}</em></li>
           </ol>
         </Panel>
-        <Panel title="How Spoor learns" meta="the agent loop">
-          <ol className="db-learn">
-            <li><b>Not here</b> on Go look sends Muse Wonder back to plan where it went next, with the staff&apos;s check in its evidence, so nobody is sent to the same place twice.</li>
-            <li><b>Found here</b> joins the hub&apos;s memory: where earlier parcels turned up guides the order of the next plan. It is never evidence for a case.</li>
-          </ol>
+        <Panel title="How Spoor learns" meta="from floor checks">
+          <ul className="db-learn">
+            <li><span className="db-learn-in">Not here</span><span className="db-learn-ar" aria-hidden="true">→</span>
+              <span className="db-learn-out"><b>Re-plan</b><small>Muse Wonder</small></span><span className="db-learn-n">{d.loop.refuted.length}</span></li>
+            <li><span className="db-learn-in">Found</span><span className="db-learn-ar" aria-hidden="true">→</span>
+              <span className="db-learn-out"><b>Hub memory</b><small>guides the plan, never evidence</small></span><span className="db-learn-n">{d.loop.confirmed.length}</span></li>
+          </ul>
         </Panel>
         <Panel title="How far to trust it" meta={<Link href="/operator">ledger</Link>}>
           <dl className="db-dl">

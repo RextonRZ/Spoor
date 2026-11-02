@@ -310,7 +310,8 @@ class EvidenceStore:
         )
 
     def _write(self, c, record: BaseModel, *, check_refs: bool, known: set[str]) -> None:
-        self.writes += 1
+        if not isinstance(record, AuditEntry):  # (reading a case writes an audit entry: that is not new evidence)
+            self.writes += 1
         if isinstance(record, CalibrationInvalidation):
             raise StoreError("use invalidate_calibration()")
         spec = SPECS[type(record)]

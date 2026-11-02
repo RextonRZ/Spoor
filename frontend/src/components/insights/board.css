@@ -164,11 +164,17 @@
 
 /* bottom row: cases, how Spoor learns, how far to trust it */
 .db-row-111 { grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.9fr) minmax(0, 1fr); }
-.db-learn { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
-.db-learn li { position: relative; padding-left: 16px; font-size: 13px; line-height: 1.5; color: var(--tb-ink-2); text-wrap: pretty; }
-.db-learn li::before { content: ""; position: absolute; left: 0; top: 7px; width: 6px; height: 6px; border-radius: 50%; background: #818cf8; }
-.db-learn b { color: var(--tb-ink); font-weight: 600; }
+.db-learn { margin: 0; padding: 0; list-style: none; display: grid; }
+.db-learn li { display: grid; grid-template-columns: 76px 16px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 12px 0; border-top: 1px solid var(--tb-line); }
+.db-learn li:first-child { border-top: 0; padding-top: 2px; }
+.db-learn-in { justify-self: start; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; color: var(--tb-ink); box-shadow: inset 0 0 0 1px var(--tb-line-2); }
+.db-learn-ar { color: var(--tb-mute); text-align: center; }
+.db-learn-out { display: grid; gap: 1px; min-width: 0; }
+.db-learn-out b { font-size: 13.5px; font-weight: 600; color: var(--tb-ink); }
+.db-learn-out small { font-size: 11.5px; color: var(--tb-mute); }
+.db-learn-n { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--tb-ink); }
 @media (max-width: 1200px) { .db-row-111 { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .db-ph { flex-wrap: wrap; row-gap: 4px; } .db-pm { white-space: normal; } .db-key { flex-wrap: wrap; } }
 .db-row-111 .db-loop { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 14px; }
 .db-row-111 .db-loop li:nth-child(3) { padding-left: 0; border-left: 0; }
+.db-dl dd { white-space: nowrap; }

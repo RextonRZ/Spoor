@@ -69,6 +69,8 @@ export function Kpi({ label, value, unit, sub, tone, spark, labels, fmt }: { lab
   );
 }
 
+export const WIN = 15; // minutes on screen in a live view (a monitor's window, not the whole shift)
+
 /** throughput per stage, per minute, every row on the same scale (so the rows compare); one crosshair runs through every
  *  row and one tooltip lists every stage at that minute (Rexton: grouped, so a moment reads across the hub) */
 export function Stages({ s, upto }: { s: Score; upto?: number | null }) {
@@ -80,11 +82,14 @@ export function Stages({ s, upto }: { s: Score; upto?: number | null }) {
     return { name, total: rows.reduce((a, r) => a + r.reads + r.no_reads, 0), v: Array.from({ length: s.minutes }, (_, i) => rows.reduce((a, r) => a + (r.per_minute[i] ?? 0), 0)) };
   });
   const max = Math.max(1, ...series.flatMap((x) => x.v));
-  const W = 400, H = 44, n = s.minutes;
+  const all = minuteLabels(s);
+  const end = upto ?? s.minutes - 1; // the live feed's current minute
+  const first = Math.max(0, end - WIN + 1), n = end - first + 1; // a rolling window: always full, new minutes push it left
+  const W = 400, H = 44;
   const X = (i: number) => (i / Math.max(1, n - 1)) * W;
-  const labels = minuteLabels(s);
-  const end = upto ?? n - 1; // a replay draws the shift up to its current minute
-  const pts = (v: number[]) => v.slice(0, end + 1).map((y, i) => `${X(i).toFixed(1)},${(H - 2 - (y / max) * (H - 6)).toFixed(1)}`).join(" ");
+  const labels = all.slice(first, end + 1);
+  const win = (v: number[]) => v.slice(first, end + 1);
+  const pts = (v: number[]) => win(v).map((y, i) => `${X(i).toFixed(1)},${(H - 2 - (y / max) * (H - 6)).toFixed(1)}`).join(" ");
   return (
     <div className="db-stages" onMouseLeave={() => setHi(null)}>
       {series.map((x) => (
@@ -97,13 +102,13 @@ export function Stages({ s, upto }: { s: Score; upto?: number | null }) {
             <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-label={`${x.name}: ${x.total} scans`}>
               <line x1={0} x2={W} y1={H - 0.5} y2={H - 0.5} stroke="rgba(255,255,255,0.1)" vectorEffect="non-scaling-stroke" />
               <line x1={0} x2={W} y1={4} y2={4} stroke="rgba(255,255,255,0.05)" vectorEffect="non-scaling-stroke" />
-              <polygon points={`0,${H} ${pts(x.v)} ${X(end)},${H}`} fill={ACC} fillOpacity={0.12} />
+              <polygon points={`0,${H} ${pts(x.v)} ${W},${H}`} fill={ACC} fillOpacity={0.12} />
               <polyline points={pts(x.v)} fill="none" stroke={ACC} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
               {hi != null && <line x1={X(hi)} x2={X(hi)} y1={0} y2={H} stroke="#c9ccd3" strokeOpacity={0.5} vectorEffect="non-scaling-stroke" />}
             </svg>
-            {hi != null && <i className="db-spark-dot" style={{ left: `${(X(hi) / W) * 100}%`, top: `${((H - 2 - (x.v[hi] / max) * (H - 6)) / H) * 100}%`, background: ACC }} />}
+            {hi != null && <i className="db-spark-dot" style={{ left: `${(X(hi) / W) * 100}%`, top: `${((H - 2 - (win(x.v)[hi] / max) * (H - 6)) / H) * 100}%`, background: ACC }} />}
           </div>
-          <span className="db-stage-t">{hi != null ? x.v[hi] : upto != null ? x.v.slice(0, end + 1).reduce((a, y) => a + y, 0) : x.total}</span>
+          <span className="db-stage-t">{hi != null ? win(x.v)[hi] : upto != null ? x.v.slice(0, end + 1).reduce((a, y) => a + y, 0) : x.total}</span>
         </div>
       ))}
       <div className="db-stage db-stage-axis" aria-hidden="true"><span>each row 0 to {max} a min</span><span><i>{labels[0]}</i><i>{labels[n >> 1]}</i><i>{labels[n - 1]}</i></span>
@@ -111,7 +116,7 @@ export function Stages({ s, upto }: { s: Score; upto?: number | null }) {
       {hi != null && (
         <div className="db-stages-tip" role="status" style={{ left: `calc(108px + (100% - 176px) * ${hi / Math.max(1, n - 1)})` }}>
           <b>{labels[hi]}</b>
-          {series.map((x) => <span key={x.name}><em>{x.name}</em>{x.v[hi]}</span>)}
+          {series.map((x) => <span key={x.name}><em>{x.name}</em>{win(x.v)[hi]}</span>)}
         </div>
       )}
     </div>

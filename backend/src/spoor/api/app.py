@@ -931,7 +931,14 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
             _memo[key] = (time.monotonic(), val)
             return val
 
-    def warm() -> None:  # at start-up: every case's possible places, so the first screen to ask does not wait
+    def warm() -> None:  # at start-up: each site's insights and every case's possible places, so no first screen waits
+        from spoor.forensics.insights import hub_insights
+
+        for site in {c.site_id for c in svc.store.find(Case)}:
+            try:
+                memo("insights", site, "", lambda site=site: hub_insights(svc.store, site, now=now()))
+            except Exception:  # noqa: BLE001, S112 (computed on request instead)
+                continue
         for c in svc.store.find(Case):
             try:
                 memo("possible", c.case_id, "", lambda c=c: possible_locations(svc.store, c.case_id))
