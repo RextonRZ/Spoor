@@ -207,3 +207,12 @@
 .iv-place-name { font-size: 13.5px; }
 .iv-places li + li .iv-place { border-top-color: var(--tb-line, rgba(255, 255, 255, 0.06)); }
 .iv-story-btn { padding: 6px 8px; }
+
+/* "In short" as a detective's questions: the question muted on the left, the answer, who answered it */
+.iv-story-btn { grid-template-columns: 22px 184px minmax(0, 1fr) auto; align-items: baseline; }
+.iv-story-q { font-size: 13px; color: var(--tb-mute, #8b909b); }
+.iv-story-text { font-size: 14.5px; font-weight: 550; }
+@media (max-width: 760px) {
+  .iv-story-btn { grid-template-columns: 22px minmax(0, 1fr); }
+  .iv-story-q, .iv-story-text, .iv-story-meta { grid-column: 2; }
+}

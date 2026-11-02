@@ -42,7 +42,7 @@ const runTime = (t: number) => `+${Math.floor(t / 60)}:${String(Math.floor(t % 6
 
 const CLOSE: Record<string, string> = { UNLOAD: "Unload", TUNNEL: "Tunnel", CAGE_W: "Cage", CAGE_E: "Cage", STORE: "Store door", DOCK: "Dock", CHUTE: "Chute" };
 
-interface Beat { key: string; text: string; model: string; seq: number }
+interface Beat { key: string; q: string; text: string; model: string; seq: number }
 const first = (t: string) => t.split(/(?<=\.)\s/)[0].replace(/\.$/, "");
 const unparen = (t: string) => t.replace(/\s*\([^)]*\)/g, "").replace(/\.$/, "");
 
@@ -52,33 +52,34 @@ function storyline(steps: Step[], crew: RunView["crew"]): Beat[] {
   const model = (role: string) => crew.find((c) => c.role === role)?.model.replace(/\s*·.*$/, "") ?? "";
   const done = (tool: string) => steps.filter((s) => s.tool === tool && s.status === "done");
   const out: Beat[] = [];
-  const add = (key: string, s: Step | undefined, text: string, role = s?.role ?? "") => { if (s) out.push({ key, text, model: model(role), seq: s.seq }); };
+  const add = (key: string, s: Step | undefined, q: string, text: string, role = s?.role ?? "") => { if (s && text) out.push({ key, q, text, model: model(role), seq: s.seq }); };
+  // a detective's questions, each answered from the run's own steps and receipts (Rexton 3 Nov: a judge must follow it)
+  const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
   const read = done("read_scans")[0];
   const rm = read?.text.match(/^Read (\d+) scans\. Last: (.+?) at (\d\d:\d\d)/);
-  add("read", read, rm ? `Read ${rm[1]} scans · last: ${rm[2]}, ${rm[3]}` : read ? unparen(read.text) : "");
+  add("read", read, "Last scan?", rm ? `${cap(rm[2])} at ${rm[3]}` : read ? unparen(read.text) : "");
   const tri = done("triage_clips")[0];
   const share = (tri?.receipt?.output as { sent_share?: number } | undefined)?.sent_share;
-  add("triage", tri, share != null ? `Sent only ${Math.round(share * 100)}% of the footage to the cloud` : tri ? first(tri.text) : "");
+  add("triage", tri, "Which footage?", share != null ? `Only the ${Math.round(share * 100)}% where parcels are being handled` : tri ? first(tri.text) : "");
   const plan = done("plan")[0], pick = done("pick_cameras")[0];
-  const cams = pick?.text.match(/:\s*(.+?)\.?$/)?.[1].replace(/CHK (\w+)/g, (_, k: string) => `${(CLOSE[k] ?? k).toLowerCase()} close-up`);
-  add("plan", plan, cams ? `Watch first: ${cams}` : plan ? first(plan.text) : "");
-  const doors = done("door_crossings"), tracked = done("sam_track");
-  const door = doors.at(-1)?.text.match(/^(.+?)(?: \(Z\d+\))?: (.+?) at its door/);
-  add("track", tracked[0], door ? `${door[2][0].toUpperCase()}${door[2].slice(1)} at the ${door[1]} door` : tracked[0] ? unparen(tracked[0].text) : "", "tracker");
-  const carrier = done("carrier_check")[0], looked = done("observe_clip");
-  // Spark's own words on the clip, up to their first clause: never a paraphrase of what it did not say
-  const said = looked.map((x) => (x.receipt?.output as { said?: string | null } | undefined)?.said).find(Boolean);
-  const words = said ? said.split(/[;.]\s|\s+in this\s/)[0].replace(/\.$/, "") : "";
-  const cm = carrier?.text.match(/^(.+?): (\d+) likely carriers?/);
-  add("carrier", carrier ?? looked[0], [cm ? `${cm[2]} likely carrier on ${cm[1]}` : carrier ? unparen(carrier.text) : "", words ? `Spark: “${words}”` : ""]
-    .filter(Boolean).join(" · "), "analyst");
+  const cams = pick?.text.match(/:\s*(.+?)\.?$/)?.[1].replace(/CHK (\w+)/g, (_, k: string) => `the ${(CLOSE[k] ?? k).toLowerCase()} camera`)
+    .replace(/, ([^,]+)$/, " and $1");
+  add("plan", pick ?? plan, "Where to look?", cams ?? (plan ? first(plan.text) : ""));
+  // what the cameras showed: the verifier's own finding (in at, not seen out), else the door count
+  const found = steps.find((s) => s.role === "verifier" && s.text.startsWith("Verified"));
+  const fm = found?.text.match(/carried in at (\d\d:\d\d)(?::\d\d)?, not seen coming out/);
+  const door = done("door_crossings").at(-1)?.text.match(/^(.+?)(?: \(Z\d+\))?: (.+?) at its door/);
+  const where = found?.text.match(/door of the (.+?)(?: \(Z\d+\))? at/)?.[1] ?? door?.[1];
+  // (placed at the tracking that saw it, so the story reads cameras first; the words are the verifier's finding)
+  if (fm) add("seen", done("sam_track").at(-1) ?? found, "What did the cameras show?", `Carried into the ${where} at ${fm[1]}, not seen coming out`);
+  else add("seen", done("sam_track")[0], "What did the cameras show?", door ? `${cap(door[2])} at the ${door[1]} door` : "", "tracker");
   const ideas = done("propose");
   const tests = steps.filter((s) => s.role === "verifier" && s.seq > (ideas[0]?.seq ?? Infinity) && /^(Passed|Unproven|Rejected)/.test(s.text));
-  const passed = tests.filter((s) => s.text.startsWith("Passed")).length;
-  add("ideas", tests[0], `Tested ${tests.length} idea${tests.length === 1 ? "" : "s"}: ${passed} passed`, "verifier");
+  const held = tests.filter((s) => s.text.startsWith("Passed")).map((s) => s.text.match(/\(tested: ([^)]*)\)/)?.[1]).filter(Boolean);
+  add("ideas", tests[0], "Any other explanation?", tests.length ? `Tested ${tests.length}; ${held.length ? `only “it ${held[0]}” held` : "none held"}` : "", "verifier");
   const ask = done("ask_a_person")[0] ?? done("create_search_task")[0];
   const am = ask?.text.match(/^No camera sees inside (?:the )?(.+?)(?: \(Z\d+\))?, so a person is asked to look/);
-  add("ask", ask, am ? `No camera inside the ${am[1]}: a person goes to look` : ask ? unparen(ask.text) : "");
+  add("ask", ask, "What now?", am ? `No camera inside the ${am[1]}: a person goes to look` : ask ? unparen(ask.text) : "");
   return out.sort((x, y) => x.seq - y.seq);
 }
 
@@ -263,15 +264,14 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
               <ol className="iv-story" aria-label="The run in short">
                 {story.map((b, i) => {
                   const st = steps.find((x) => x.seq === b.seq);
-                  const at = st ? placesOf(st) : [];
                   return (
                     <li key={b.key} className="iv-story-row" data-now={!done && i === story.length - 1 ? "" : undefined}>
                       <button type="button" className="iv-story-btn" onClick={() => setPicked(b.seq)} aria-pressed={focus?.seq === b.seq}>
                         <span className="iv-story-n">{i + 1}</span>
+                        <span className="iv-story-q">{b.q}</span>
                         <span className="iv-story-text">{b.text}</span>
                         <span className="iv-story-meta">
                           {st && <span className="iv-chip" data-fam={fam(st.model)}>{st.who}</span>}
-                          {at.map((k) => <b key={k} className="iv-story-at" title={places.find((p) => p.key === k)?.label}>{nOf(k)}</b>)}
                         </span>
                       </button>
                     </li>
