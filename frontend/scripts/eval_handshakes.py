@@ -45,7 +45,8 @@ def first_frame(store, media_id, camera):
 
 
 def carton_fit(cal, xyz, dims, box):
-    """(IoU, SAM area / true area) of SAM's box against the true carton's projected box, best of the two yaws."""
+    """(IoU, SAM area / true area) of SAM's box against the true carton's projected box, best of the two yaws; the
+    true box is clipped to the picture (a carton cut by the frame edge is outlined only where it is seen)."""
     if xyz is None or not dims:
         return None, None
     L, W, H = dims
@@ -55,7 +56,10 @@ def carton_fit(cal, xyz, dims, box):
         uv, front = site_to_image(cal, corners)
         if not front.all():
             continue
-        tb = (uv[:, 0].min(), uv[:, 1].min(), uv[:, 0].max(), uv[:, 1].max())
+        w, h = cal.image_wh_px
+        tb = (max(0.0, uv[:, 0].min()), max(0.0, uv[:, 1].min()), min(w, uv[:, 0].max()), min(h, uv[:, 1].max()))
+        if tb[2] <= tb[0] or tb[3] <= tb[1]:
+            continue
         ix = max(0.0, min(tb[2], box[2]) - max(tb[0], box[0])) * max(0.0, min(tb[3], box[3]) - max(tb[1], box[1]))
         a_t, a_s = (tb[2] - tb[0]) * (tb[3] - tb[1]), (box[2] - box[0]) * (box[3] - box[1])
         iou = ix / (a_t + a_s - ix) if a_t + a_s - ix > 0 else 0.0

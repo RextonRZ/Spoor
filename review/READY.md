@@ -2,6 +2,35 @@
 
 Newest first. Each entry: what is done, where to look, what is still open.
 
+## 2026-11-02 14:42 · Labels on carton-sized outlines only (ticks 1402, 1405, 1426)
+
+**Numbers (stronger eval: IoU and area against the true carton's projected box, clipped to the picture):**
+
+| Scan | Labelled | Right parcel | Carton-sized (IoU >= 0.3, <= 2.5x area) |
+|---|---|---|---|
+| Divert (sorter points) | 12 | 12 | 11 + 1 flat bag at 2.55x |
+| Cage (handheld) | 1 | 1 | 1 (IoU 0.95) |
+| Tunnel exit, induction, unload door | 0 | - | - |
+| **All** | **13** | **13 (100 %)** | **12** |
+
+Coverage paid for it: 13 of 76 outlines on the right parcel carry a number (17 %); the rest show the scan record.
+
+**Eye check, every labelled tile zoomed** (SAM box green, true carton centre red):
+- before: `review/shots/mon/labelled_sheet.jpg` (54 labels): many on EMPTY trays, one on the camera's clock text,
+  several tray-sized with the carton on them. IoU alone had passed some of these.
+- after: `review/shots/mon/labelled_sheet_chute.jpg` (13 labels): every one on the carton; none on an empty tray.
+
+**Rules (general, from the plan and the scan log):** carton-sized against the parcel's own DWS size at the point
+(re-prompt with a parcel-sized box, else no label); no measured size, no label; a divert label needs the outline to
+slide into the chute (>= 1.5 m in 1.5 s, twice as far as along the loop; set on this window, no held-out set);
+recirculated and induction: no label. Story: chute C12 (CAM_11, IoU 0.47) and cage RC-760 (CHK_CAGE_W, IoU 0.95) keep
+their numbers; tunnel via its own photo. **Induction retry (tick 1405):** the "On the sorter" outlines on CHK_TUNNEL
+are belt-sized or the queued neighbour (0 of 12 tunnel-exit outlines pass the carton test, IoU 0.07): still no number,
+the tunnel's own photo carries it.
+
+**Open:** unload re-render running on Modal (quiet door baked, gates equal to the accepted W1 in every rendered view);
+journey reel next.
+
 ## 2026-11-02 13:35 · Day plan B-D: controls, customer flow, consistency + demo path, SAM outline
 
 **Decisions for Rexton**

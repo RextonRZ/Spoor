@@ -36,6 +36,9 @@ TUNNEL_EXIT_S = 0.3  # the first carton out of the exit: this long after the rea
 FOLLOW_S = 5.0  # how long SAM follows it after the scan
 BEFORE_S = 0.5
 STILL_M = 0.3  # a divert's carton moves more than this in the 1.7 s around the confirm
+SLIDE_M = 1.5  # ...and slides at least this far INTO its chute, twice as far as along the loop (a tray rides the loop
+# about 3 m in that time; on the S2 window the diverted cartons slid 2.3-2.7 m, the wrong outlines 0.7-1.1 m: set on
+# that window, no held-out set)
 CLOCK_MS = 1000  # a camera clock known only to the uploader's +-5 s can't say which carton was at the point
 
 

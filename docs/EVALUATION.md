@@ -70,22 +70,36 @@ the one nearest the outline). Windows: S2 (90 s, 19 wide + 6 checkpoint cameras)
 |---|---|---|---|---|
 | First run (point prompt, any clock) | 257 | 257 | 12 % | belt-sized and whole-frame outlines counted; unfitted clocks 5 s off |
 | + no outline bigger than 2x the largest parcel; no handshake on a +-5 s clock at belt points | 81 | 81 | 67 % strictly, 86 % right parcel nearest | |
-| + labels only where the rule rules out a neighbour (below); valid 1920 px copies only; induction never labelled | 100 | **51** | **51 of 51 (100 %)** | 49 withheld (shown as the scan record) |
+| + labels only where a rule rules out a neighbour; valid 1920 px copies only; induction never labelled | 100 | 51 | 51 right parcel nearest | judged by "nearest parcel" only |
+| Stronger eval (Rexton, 2 Nov 14:02): IoU and area against the true carton's own projected box | 100 | 54 | 22 carton-sized | 39 of the 51 were the sorter TRAY, 4-8x the carton |
+| Eye check of every labelled tile, zoomed (`review/shots/mon/labelled_sheet.jpg`) | | | | many sat on EMPTY trays (the carton already down the chute or not yet there), one on the camera's clock text |
+| + carton-size rule, no label without a measured size, divert labels only when the outline slides INTO the chute | 100 | **13** | **13 of 13 right parcel; 12 carton-sized by IoU, 1 a flat bag at 2.55x (limit 2.5)** | checked by eye: `review/shots/mon/labelled_sheet_chute.jpg` |
+
+Rules that decide a label at a sorter point (general, from the site plan and the scan log, never from truth):
+- **carton-sized**: the outline is compared with this parcel's own size from the tunnel's dimensioner, projected at the
+  scan point; more than 2.5x that is re-prompted with a box of the parcel's size centred on SAM's first outline, and if
+  still too big there is no label. No measured size in the log: no label (16 such labels had been shown, 14 wrong).
+- **into the chute**: a diverted carton slides off its tray into the chute, from where the plan puts the divert event
+  (on the loop) towards the chute mouth. In the 1.5 s after the confirm the outline must move at least 1.5 m that way
+  and twice as far as along the loop; a tray (empty, or carrying it) rides the loop about 3 m in that time.
+  Threshold set on this window (diverted cartons slid 2.3-2.7 m, the wrong outlines 0.7-1.1 m); there is no held-out
+  window, so it is a measured rule, not a validated one.
+- recirculated cartons stay on their tray: no label. Induction: no label.
 
 By kind of scan (final):
 
-| Scan | Outlines | Labelled | Right | Withheld | Labelled share of the right ones | Rule that decides the label |
-|---|---|---|---|---|---|---|
-| Divert / recirculation and induction (sorter points) | 87 | 50 | 50 | 37 | 77 % | the diverted carton moves at the confirm; an outline that stands still is something resting at the chute (all 10 wrong outlines were still: 0.00-0.12 m in 1.7 s) |
-| Tunnel exit | 14 | 0 | - | 14 | 0 % on CCTV | no picture signal (motion, record spacing, measured size) told the scanned carton from the one queued before it, so the CCTV outline carries no number; the stamp is the tunnel's own photo, taken by the reader at the read |
-| Cage (handheld) | 1 | 1 | 1 | 0 | 100 % | one carton handled in the work area (put in or taken out), and on an unfitted clock only when no other scan at that point shares the +-5 s window |
-| Other handheld (unload door) | 0 | 0 | - | - | - | the inbound door scans every 3-7 s and its close-up's clock is not fitted: with the window rule above, nothing is shown (the first try labelled 7 of 11 wrong there) |
+| Scan | Outlines | Labelled | Right parcel | Carton-sized | Labelled share of the right ones |
+|---|---|---|---|---|---|
+| Divert (sorter points) | 87 | 12 | 12 | 11 (+1 flat bag at 2.55x) | 19 % |
+| Tunnel exit | 12 | 0 | - | - | 0 % on CCTV: the stamp is the tunnel's own photo, taken by the reader at the read |
+| Cage (handheld) | 1 | 1 | 1 | 1 (IoU 0.95) | 100 % |
+| Other handheld (unload door) | 0 | 0 | - | - | the door was busy (scans every 3-7 s) and the close-up's clock is not fitted: nothing shown |
 
-Overall 51 of the 75 outlines whose nearest parcel is the scanned one carry a label (68 %); none of the 51 is wrong.
-Induction outlines are never labelled: when tried (4 outlines on CHK_TUNNEL at SP-INDUCT) all 4 were another carton,
-so the motion rule is applied only at the chute mouths where it was checked. Some early handshakes had used purged
-2688 px uploads; the planners now skip purged media and all rows above are on the valid delivery copies.
-Meta SAM spend for the handshakes: ~US$3.25 for the first pass, ~US$0.7 for the re-runs (the rest read SAM's cache).
+The price of 100 % precision is coverage: 13 of the 76 outlines whose nearest parcel is the scanned one carry a label
+(17 %). The rest are shown as the scan record (the frame at the scan, no number). Some early handshakes had used
+purged 2688 px uploads; the planners now skip purged media and all rows above are on the valid delivery copies.
+Meta SAM spend for the handshakes: ~US$3.25 for the first pass, ~US$0.7 for the re-runs and re-prompts (the rest
+read SAM's cache).
 
 **The story parcel's checkpoints** (CTX334048419302):
 

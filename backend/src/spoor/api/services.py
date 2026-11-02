@@ -197,7 +197,7 @@ class Services:
         camera; the carton it finds there is the scanned parcel. Stored as a ScanHandshake whatever the outcome."""
         from datetime import timedelta
 
-        from spoor.forensics.handshake import BEFORE_S, CLOCK_MS, FOLLOW_S, STILL_M
+        from spoor.forensics.handshake import BEFORE_S, CLOCK_MS, FOLLOW_S, SLIDE_M
         from spoor.spatial.homography import image_to_site
         from spoor.store import ScanHandshake
 
@@ -266,7 +266,11 @@ class Services:
             # carton-sized? a point at a chute mouth often outlines the whole tray: compare with this parcel's own
             # measured size at the point; if much bigger, prompt SAM again with a box of that size; else no label
             exp = self._expected_box(row, plan, cal)
-            if exp is not None and _area(box) > CARTON_X * _area(exp):
+            if exp is None:  # no measured size to check the outline against: no label (wrong 14 of 16 unchecked)
+                return self.store.put(ScanHandshake(**base, outcome="cant_tell", track_id=tid, frame_index=f_at,
+                                                    box_px=box, note="the parcel's measured size is not in the log, "
+                                                    "so the outline cannot be checked against it"))  # fmt: skip
+            if _area(box) > CARTON_X * _area(exp):
                 re = self._reprompt(row, start, end, at_iso, exp, f_at, box)
                 if re is None:
                     return self.store.put(ScanHandshake(**base, outcome="cant_tell", track_id=tid, frame_index=f_at,
@@ -275,18 +279,27 @@ class Services:
                 tid, obs, box, after, span = re
         if row.rule == "point" and row.scan.event_kind.value not in DIVERT_EVENTS:
             labelled = False  # the motion rule was checked at divert points only (an induction outline was wrong 4/4)
-        elif row.rule == "point":  # the diverted carton is moving at the confirm; a still outline is something resting
+        elif row.rule == "point":
+            # the diverted carton slides off its tray INTO the chute: from where the plan puts the event (on the loop)
+            # towards the chute mouth. A tray (empty, or carrying it) carries on along the loop; a still outline is
+            # something resting; a recirculated carton stays on its tray, so it can't be told from the tray
             rp = plan.read_point(row.scan_point_id) if plan else None
             moving = [o for o in obs if f_at - 2 <= o.source_frame.frame_index <= f_at + 15]
-            if rp is not None and cal is not None and len(moving) > 1:
+            kind = row.scan.event_kind.value
+            if kind == "divert_confirmed" and rp is not None and cal is not None and len(moving) > 1:
                 centres = [((o.bbox_xyxy_px[0] + o.bbox_xyxy_px[2]) / 2, (o.bbox_xyxy_px[1] + o.bbox_xyxy_px[3]) / 2)
                            for o in moving]  # fmt: skip
                 xy = image_to_site(cal, centres, rp.position_m[2])[:, :2]
-                labelled = float(np.linalg.norm(xy[-1] - xy[0])) > STILL_M
+                into = np.array(rp.position_m[:2]) - np.array(rp.position_for(kind))
+                if np.linalg.norm(into) > 0:
+                    into = into / np.linalg.norm(into)
+                    step = xy[-1] - xy[0]
+                    along, across = float(step @ into), abs(float(step @ np.array([-into[1], into[0]])))
+                    labelled = along >= SLIDE_M and along >= 2 * across
             if not labelled:
                 return self.store.put(ScanHandshake(**base, outcome="cant_tell", track_id=tid, frame_index=f_at,
-                                                    box_px=box, note="the outline at the point stood still; the "
-                                                    "diverted carton was moving: can't tell which carton"))  # fmt: skip
+                                                    box_px=box, note="the outline did not go into the chute (a tray "
+                                                    "carries on along the loop): can't tell it is the carton"))  # fmt: skip
         if row.rule == "tunnel_exit":
             note = "the tunnel's own photo identifies it; at the exit it can't be told from the carton queued before it"
         return self.store.put(ScanHandshake(**base, outcome="outlined", track_id=tid, frame_index=f_at, box_px=box,
@@ -415,7 +428,15 @@ class Services:
         if anchor is not None and anchor.kind == "point":
             if not at_iso:
                 raise ServiceError("a point anchor needs at_iso: the scan's time, when the parcel was at the point")
-            pt = (round((prompt_box[0] + prompt_box[2]) / 2), round((prompt_box[1] + prompt_box[3]) / 2)) if prompt_box                 else anchor.point_px  # a sized box prompt carries its own point: its centre
+            if prompt_box and original.probe:  # a sized box is kept inside the picture (a carton near the edge)
+                fw, fh = original.probe.display_wh_px
+                prompt_box = (max(0, prompt_box[0]), max(0, prompt_box[1]), min(fw, prompt_box[2]), min(fh, prompt_box[3]))
+                if prompt_box[2] - prompt_box[0] < 4 or prompt_box[3] - prompt_box[1] < 4:
+                    raise ServiceError("the parcel-sized box falls outside the picture")
+            # a sized box prompt carries its own point: its centre
+            pt = anchor.point_px
+            if prompt_box:
+                pt = (round((prompt_box[0] + prompt_box[2]) / 2), round((prompt_box[1] + prompt_box[3]) / 2))
             instance = InstancePrompt(frame_index=self.frame_at(media_id, at_iso), positive_points_px=[pt],
                                       box_ltrb_px=tuple(round(v) for v in prompt_box) if prompt_box else None)  # fmt: skip
             concept = None
