@@ -9,20 +9,23 @@ Rules by where the carton is at the scan instant (general, from the record and t
   just after the read (belts keep order): the prompt is at the exit a moment later;
 - a handheld scan: the carton is in the worker's hands in the work area at the scan instant (area prompt, keep the
   carton that leaves the area after it);
-- RFID (a cage's tag) and scan points no camera sees get a record saying so ("not on camera"), never a fake clip.
+- RFID (a cage's tag) and scan points no camera sees get a record saying so ("not on camera"), never a fake clip;
+- a camera whose clock is not fitted (only the uploader's declared start) gets "clock not fitted": belts pass a
+  carton a second, so its frame at the scan's second could show any of several.
 Nothing here reads the scenario truth."""
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from spoor.contracts import CameraCoverage, MediaAsset, ScanEvent, SitePlan
+from spoor.contracts import CameraCoverage, ClockSync, MediaAsset, ScanEvent, SitePlan
 from spoor.contracts.parcels import DeviceKind, ReadOutcome
 from spoor.store import EvidenceStore
-from spoor.store.parcels import timed
+from spoor.store.parcels import effective, timed
 
 TUNNEL_EXIT_S = 0.3  # the first carton out of the exit: this long after the read (the reader sits at the exit)
 FOLLOW_S = 5.0  # how long SAM follows it after the scan
 BEFORE_S = 0.5
+CLOCK_MS = 1000  # a camera clock known only to the uploader's +-5 s can't say which carton was at the point
 
 
 @dataclass
@@ -34,7 +37,7 @@ class Planned:
     media_id: str | None
     at: datetime
     rule: str  # point | tunnel_exit | work_area
-    reason: str  # "" when it can run; else why not (no_footage / not_on_camera)
+    reason: str  # "" when it can run; else why not (no_footage / not_on_camera / clock_not_fitted)
 
 
 def waybill_of(scan: ScanEvent) -> str | None:
@@ -48,7 +51,7 @@ def plan_handshakes(store: EvidenceStore, plan: SitePlan, scans: list[ScanEvent]
     out: list[Planned] = []
     media = [m for m in store.find(MediaAsset) if m.kind.value == "original"]
     covs = {m.media_id: store.find(CameraCoverage, media_id=m.media_id) for m in media}
-    for s in scans:
+    for s in effective(scans):
         if s.read_outcome != ReadOutcome.READ or not s.identifiers or s.device_kind == DeviceKind.RFID_PORTAL:
             continue
         ts = timed(store, s)
@@ -66,7 +69,10 @@ def plan_handshakes(store: EvidenceStore, plan: SitePlan, scans: list[ScanEvent]
             m = next((m for m in media if m.camera_id == cam and covs[m.media_id]
                       and covs[m.media_id][-1].start_utc <= at - timedelta(seconds=BEFORE_S)
                       and at + timedelta(seconds=1.0) <= covs[m.media_id][-1].end_utc), None)  # fmt: skip
-            out.append(Planned(s, waybill_of(s), sp, cam, m.media_id if m else None, at, rule, "" if m else "no_footage"))
+            why = "" if m else "no_footage"
+            if m and store.get(ClockSync, covs[m.media_id][-1].sync_id).uncertainty_ms > CLOCK_MS:
+                why = "clock_not_fitted"  # the scan's second could be any of several parcels on this picture
+            out.append(Planned(s, waybill_of(s), sp, cam, m.media_id if m else None, at, rule, why))
     return out
 
 

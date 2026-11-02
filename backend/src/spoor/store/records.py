@@ -102,7 +102,7 @@ class ScanHandshake(ImmutableRecord):
     media_id: str | None
     at_utc: AwareDatetime  # the moment on the shared clock where the carton is looked for
     rule: Literal["point", "tunnel_exit", "work_area"]
-    outcome: Literal["outlined", "not_found", "cant_tell", "no_footage", "not_on_camera", "failed"]
+    outcome: Literal["outlined", "not_found", "cant_tell", "no_footage", "not_on_camera", "clock_not_fitted", "failed"]
     track_id: str | None = None
     frame_index: int | None = None
     box_px: list[float] | None = None

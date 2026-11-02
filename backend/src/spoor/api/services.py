@@ -28,7 +28,7 @@ from spoor.forensics.journey import latest_plan
 from spoor.ingest import MediaStore, asset_path, load_result
 from spoor.ingest.clips import crop_window
 from spoor.perception import MetaSamBackend, PerceptionRequest, SamBackend, track_target
-from spoor.perception.anchor import AnchorError, anchor_for, inside, leaves
+from spoor.perception.anchor import AnchorError, anchor_for, inside, leaves, parcel_extent_px
 from spoor.perception.prompts import InstancePrompt
 from spoor.reasoning import (
     BasetenChatBackend,
@@ -203,6 +203,20 @@ class Services:
         if res.get("status") not in (None, "ok", "completed", "succeeded"):
             return self.store.put(ScanHandshake(**base, outcome="failed", note=f"{res.get('status')}: {res.get('message')}"[:300]))
         tracks = [t for t in res.get("tracks", []) if t["frames"][0] <= f_at + 10 and t["frames"][1] >= f_at - 2]
+        near_box = {}
+        for t in tracks:
+            obs = [o for o in self.store.find(RawObservation, track_id=t["track_id"]) if o.bbox_xyxy_px]
+            if obs:
+                near_box[t["track_id"]] = min(obs, key=lambda o: abs(o.source_frame.frame_index - f_at)).bbox_xyxy_px
+        plan = latest_plan(self.store, row.scan.site_id)
+        cal = self.valid_calibration(self.store.get(MediaAsset, row.media_id).camera_id)
+        if plan and cal and plan.read_point(row.scan_point_id):  # a belt, a cage or the frame is not a parcel
+            pw, ph = parcel_extent_px(plan.read_point(row.scan_point_id), cal)
+            big = {k for k, b in near_box.items() if b[2] - b[0] > 2 * pw or b[3] - b[1] > 2 * ph}
+            if big and len(big) == len(tracks):
+                return self.store.put(ScanHandshake(**base, outcome="not_found", frame_index=f_at,
+                                                    note="only outlines far bigger than a parcel at the point"))
+            tracks = [t for t in tracks if t["track_id"] not in big]
         if not tracks:
             return self.store.put(ScanHandshake(**base, outcome="not_found", frame_index=f_at,
                                                 note="nothing at the scan point at the scan's moment"))

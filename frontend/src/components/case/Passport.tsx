@@ -19,7 +19,8 @@ interface Stamp {
 }
 
 const WHY: Record<string, string> = { not_found: "Not seen at the point", cant_tell: "Two cartons, can't tell",
-  no_footage: "No footage of this moment", not_on_camera: "Scanned, not on camera", failed: "Camera check failed" };
+  no_footage: "No footage of this moment", not_on_camera: "Scanned, not on camera", failed: "Camera check failed",
+  clock_not_fitted: "Camera clock not fitted" };
 const cam = (c: string) => c.replace(/^cam_/, "").replace("_", " ");
 
 function Crop({ s }: { s: Stamp }) {

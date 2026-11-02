@@ -115,6 +115,14 @@ class ScanTimeline:
     unsynced: list[str] = field(default_factory=list)
 
 
+def effective(scans: list[ScanEvent]) -> list[ScanEvent]:
+    """A scan log as it stands after its corrections: a corrected scan is dropped, and an incorrect_data correction
+    stands in its place (did_not_occur only retracts). For planners that read a whole site's log at once."""
+    corrected = {s.corrects_scan_event_id for s in scans if s.corrects_scan_event_id}
+    return [s for s in scans if s.scan_event_id not in corrected
+            and (s.corrects_scan_event_id is None or s.correction_reason == "incorrect_data")]
+
+
 def scans_for(store: EvidenceStore, keys: set[str], *, site_id: str | None = None,
               dedupe_ms: float = DEFAULT_DEDUPE_MS, resolve: bool = True) -> ScanTimeline:  # fmt: skip
     keys = resolve_identity(store, keys) if resolve else set(keys)

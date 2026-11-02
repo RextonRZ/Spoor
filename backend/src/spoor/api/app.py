@@ -1231,7 +1231,8 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         summary = {"rows": len(rows), "runnable": sum(1 for r in rows if not r.reason), "sam_frames": frames,
                    "usd_estimate": round(frames * 0.20 / 1000, 3),
                    "not_on_camera": sum(1 for r in rows if r.reason == "not_on_camera"),
-                   "no_footage": sum(1 for r in rows if r.reason == "no_footage")}  # fmt: skip
+                   "no_footage": sum(1 for r in rows if r.reason == "no_footage"),
+                   "clock_not_fitted": sum(1 for r in rows if r.reason == "clock_not_fitted")}  # fmt: skip
         if body.dry_run:
             return summary
 

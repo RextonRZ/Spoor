@@ -11,12 +11,12 @@ cameras, keeping cartons that start inside the work area and leave it) is the se
 from dataclasses import dataclass
 from datetime import datetime
 
-from spoor.contracts import CameraCoverage, MediaAsset, ScanEvent, SitePlan
+from spoor.contracts import CameraCoverage, ClockSync, MediaAsset, ScanEvent, SitePlan
 from spoor.contracts.parcels import ContainerType, DeviceKind, ReadOutcome, ScanEventKind
 from spoor.store import EvidenceStore
-from spoor.store.parcels import timed
+from spoor.store.parcels import effective, timed
 
-from .handshake import waybill_of
+from .handshake import CLOCK_MS, waybill_of
 
 OPEN_CONTAINERS = frozenset({ContainerType.CAGE, ContainerType.PALLET, ContainerType.GAYLORD})  # cartons stay in view
 
@@ -35,7 +35,7 @@ def plan_watches(store: EvidenceStore, plan: SitePlan, scans: list[ScanEvent]) -
     """For every handheld open-container point: the parcels whose LAST scan put them into a container there, and the clips
     of the cameras watching it that start after those scans."""
     last: dict[str, tuple] = {}
-    for s in scans:
+    for s in effective(scans):
         w = waybill_of(s)
         if not w or s.read_outcome != ReadOutcome.READ:
             continue
@@ -57,6 +57,8 @@ def plan_watches(store: EvidenceStore, plan: SitePlan, scans: list[ScanEvent]) -
         first_in = min(p["scanned_in"] for p in parcels)
         for m in (m for m in media if m.camera_id in rp.visible_by):
             covs = store.find(CameraCoverage, media_id=m.media_id)
+            if covs and store.get(ClockSync, covs[-1].sync_id).uncertainty_ms > CLOCK_MS:
+                continue  # the moment a carton leaves can't be put against the scans on an unfitted clock
             if covs and covs[-1].end_utc > first_in:
                 inside = [p for p in parcels if p["scanned_in"] < covs[-1].end_utc]
                 out.append(Watch(sp, m.camera_id, m.media_id, max(covs[-1].start_utc, first_in), covs[-1].end_utc, inside))

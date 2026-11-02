@@ -91,3 +91,20 @@ def leaves(poly: list[tuple[float, float]], boxes: list[tuple[float, float, floa
         return False
     return any(not any(inside(poly, x, y) for x, y in ((b[0], b[1]), (b[2], b[1]), (b[0], b[3]), (b[2], b[3])))
                for b in boxes[1:])
+
+
+PARCEL_MAX_M = 0.9  # the largest parcel a hub conveys or a person carries, edge length
+
+
+def parcel_extent_px(rp: PlanReadPoint, cal: FloorCalibration) -> tuple[float, float]:
+    """Width and height in pixels of the largest parcel (a PARCEL_MAX_M cube) standing at the scan point, through the
+    camera's pose and lens. A SAM outline much bigger than this at that point is a belt, a cage or the frame, not a
+    parcel."""
+    x, y, z = (rp.device_parts_m or [rp.position_m])[0]
+    h = PARCEL_MAX_M / 2
+    corners = [(x + dx, y + dy, max(0.0, z - h) + dz) for dx in (-h, h) for dy in (-h, h) for dz in (0.0, PARCEL_MAX_M)]
+    uv, front = site_to_image(cal, corners)
+    uv = uv[front]
+    if not len(uv):
+        return float(cal.image_wh_px[0]), float(cal.image_wh_px[1])
+    return float(np.ptp(uv[:, 0])), float(np.ptp(uv[:, 1]))

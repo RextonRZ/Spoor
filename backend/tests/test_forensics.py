@@ -19,6 +19,7 @@ from spoor.contracts import (
     SitePlan,
     new_id,
 )
+from spoor.contracts.parcels import ContainerType
 from spoor.forensics import ConveyorNet, build_journey
 from spoor.forensics.missing import missing_moment
 from spoor.store import EvidenceStore
@@ -551,3 +552,43 @@ def test_left_alert_watches_open_containers_only(world, now):
     ws = plan_watches(w.store, plan, w.store.find(ScanEvent))
     assert [(x.scan_point_id, x.camera_id) for x in ws] == [("SP-CAGE", "cam_a")]
     assert [p["waybill"] for p in ws[0].parcels] == ["CTX100000000001"]
+
+
+def test_handshake_needs_a_fitted_clock(world, now):
+    """A camera whose clock is only the uploader's declared start (+-5 s) can't say which carton was at the point at
+    the scan's second: the row says so instead of outlining whichever carton is there."""
+    from spoor.forensics.handshake import plan_handshakes
+
+    w = world
+    w.camera("cam_a", sync_uncertainty_ms=5000)
+    w.clip("cam_a", 0, 20)
+    plan = SitePlan.model_validate(plan_for(w.site.site_id, now).model_dump() | {"read_points": [
+        {"scan_point_id": "SP-PLC", "device_kind": "sorter_plc", "position_m": (5, 3, 1.5), "visible_by": ["cam_a"]}]})
+    scan(w, "SP-PLC", "divert_confirmed", 6.0, "sorter_plc")
+    assert [r.reason for r in plan_handshakes(w.store, plan, w.store.find(ScanEvent))] == ["clock_not_fitted"]
+
+
+def test_planners_read_the_log_after_its_corrections(world, now):
+    """A container scan corrected as a bag (incorrect_data) stands in place of the original typed as a cage: the live
+    alert stops watching it, and the handshake plans one row for it, not two."""
+    from spoor.forensics.handshake import plan_handshakes
+    from spoor.forensics.left_alert import plan_watches
+
+    w = world
+    w.camera("cam_a")
+    w.clip("cam_a", 0, 30)
+    plan = SitePlan.model_validate(plan_for(w.site.site_id, now).model_dump() | {"read_points": [
+        {"scan_point_id": "SP-BAG", "device_kind": "handheld", "position_m": (4, 3, 1.0),
+         "work_area_m": [[(3.5, 2.5), (4.5, 2.5), (4.5, 3.5), (3.5, 3.5)]], "visible_by": ["cam_a"]}]})
+    first = ScanEvent(scan_event_id=new_id("scan_event"), site_id=w.site.site_id, source_type="scan_simulated",
+                      import_batch="t", identifiers=[WAYBILL], event_kind="container_add",
+                      device_time_utc=w.t0 + timedelta(seconds=4), clock_domain_id="clkd_wcs", device_id="SP-BAG",
+                      device_kind="handheld", station_id="SP-BAG", container_type="cage",
+                      container=ParcelIdentifier(scheme="container", value="BAG-1"))
+    w.store.put(first)
+    assert len(plan_watches(w.store, plan, w.store.find(ScanEvent))) == 1
+    w.store.put(first.model_copy(update={"scan_event_id": new_id("scan_event"), "container_type": ContainerType.BAG,
+                                         "corrects_scan_event_id": first.scan_event_id,
+                                         "correction_reason": "incorrect_data"}))
+    assert plan_watches(w.store, plan, w.store.find(ScanEvent)) == []
+    assert len(plan_handshakes(w.store, plan, w.store.find(ScanEvent))) == 1

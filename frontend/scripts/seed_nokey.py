@@ -219,10 +219,10 @@ def convert_scans(lines: list[str], domain_ids: dict[str, str], spec: dict) -> t
                    "container": {"scheme": "container", "value": r.get("container_id") or "LOC-Z11-EXCEPTION"},
                    "device_id": sp["id"], "device_kind": "handheld", "station_id": sp["id"],
                    "read_point_zone_id": f"zone_{sp['zone']}", "raw_description": "scanned into the exception store"}  # fmt: skip
-        elif ev == "container_add" and r.get("item_kind") == "parcel":  # a parcel put straight into a cage
+        elif ev == "container_add" and r.get("item_kind") == "parcel":  # a parcel into a bag at its chute, or into a cage
             sp = handheld_point(points, r, "SP-CAGE-")
             row = {**base, "event_kind": "container_add", "identifiers": ids, "container": {"scheme": "container", "value": r["container_id"]},
-                   "container_type": "cage", "device_id": sp["id"] if sp else r.get("device_id", "handheld"), "device_kind": "handheld",
+                   "container_type": "bag" if r["container_id"].startswith("BAG-") else "cage",  # the export's id scheme "device_id": sp["id"] if sp else r.get("device_id", "handheld"), "device_kind": "handheld",
                    "station_id": sp["id"] if sp else None, "read_point_zone_id": f"zone_{sp['zone']}" if sp else None,
                    "raw_description": f"parcel into {r['container_id']}"}  # fmt: skip
         elif ev == "rfid_read" and r.get("container_id") and r.get("scan_point", "").startswith("SP-RFID-"):
