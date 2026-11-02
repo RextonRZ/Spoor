@@ -64,7 +64,7 @@
 .iv-hero { position: relative; border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08); background: #000000; aspect-ratio: 16 / 9; }
 .iv-hero-none { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #101116; color: #8B909B; font-size: 13px;
   padding: 0 20px; text-align: center; }
-.iv-hero-tag { position: absolute; right: 10px; top: 10px; font-size: 12px; font-weight: 600; background: rgba(11,12,16,0.82); padding: 5px 9px; border-radius: 7px; }
+.iv-hero-tag { margin: -6px 2px 0; font-size: 12.5px; font-weight: 600; color: #C9CDD6; }
 .iv-crew { padding: 16px 18px; gap: 10px; }
 .iv-crew-row { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); }
 .iv-crew-row[data-active] { background: #181A21; border-color: rgba(129,140,248,0.45); }

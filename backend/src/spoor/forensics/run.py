@@ -84,10 +84,21 @@ def _cam(cid: str) -> str:
     return cid.removeprefix("cam_").replace("_", " ")
 
 
+def _sentence(text: str, limit: int = 220) -> str:
+    """An idea for the log, never cut mid-word: whole if short, else to its last sentence end, or a word end + ellipsis."""
+    text = " ".join(text.split())
+    if len(text) <= limit:
+        return text
+    cut = text[:limit]
+    end = max(cut.rfind(". "), cut.rfind("; "))
+    return cut[:end + 1] if end > limit // 2 else cut[:cut.rfind(" ")].rstrip(",;:") + "…"
+
+
 class _Run:
     def __init__(self, store: EvidenceStore, case_id: str, emit: Emit, now: datetime):
         self.store, self.case_id, self.emit_cb, self.now = store, case_id, emit, now
         self.t0, self.seq, self.cost, self.checked = time.perf_counter(), 0, 0.0, set()
+        self.reused: set = set()  # (role, camera) already reported as reusing stored results
         self.request_id = f"req_run{int(now.timestamp() * 1000):x}"
 
     def step(self, role: str, tool: str, status: str, text: str, *, node: dict | None = None, camera_id: str | None = None,
@@ -307,6 +318,11 @@ def _keyed(r: _Run, store: EvidenceStore, case_id: str, models: dict[str, Any], 
             r.step("evidence", "door_crossings", "done" if xs else "unavailable",
                    f"{plain(res.get('area') or a.get('area_id', 'the area'))}: {nin} went in and {nout} came out at its door ({_cam(cid or '')})."
                    if xs else f"{_cam(cid or '')}: nobody tracked at that door yet.", camera_id=cid if xs else None)  # fmt: skip
+            tids = {x.get("person_track_id") for x in xs if x.get("person_track_id")}
+            if tids and ("tracker", cid) not in r.reused:  # SAM is used, from its stored tracks of this footage
+                r.reused.add(("tracker", cid))
+                r.step("tracker", "sam_track", "done", f"{_cam(cid or '')}: used {len(tids)} SAM 3.1 track{'s' if len(tids) != 1 else ''} "
+                       "already made for this footage (no new cost).", camera_id=cid)  # fmt: skip
         elif tool == "carrier_check":
             likely = sum(x.get("verdict") == "likely carrier" for x in res.get("results") or [])
             r.step("evidence", "carrier_check", "done", f"{_cam(cid or '')}: {likely} likely carrier{'s' if likely != 1 else ''} by place and "
@@ -329,7 +345,7 @@ def _keyed(r: _Run, store: EvidenceStore, case_id: str, models: dict[str, Any], 
 
     # 3. the ideas and the verifier's verdicts (agents' words quoted, in plain names and local time)
     for o in res.hypotheses:
-        r.step("hypothesis", "propose", "done", f"Idea: \u201c{plain(o.claim)[:160]}\u201d")
+        r.step("hypothesis", "propose", "done", f"Idea: \u201c{_sentence(plain(o.claim))}\u201d")
         decided = next((t for t in o.tested if t["verdict"] == o.status.value), o.tested[0] if o.tested else None)
         on = f" (tested: {CHECK.get(decided['kind'], decided['kind'])})" if decided else " (nothing beyond where it was last seen)"
         if o.status.value == "contradicted":

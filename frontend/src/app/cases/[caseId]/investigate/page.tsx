@@ -30,6 +30,9 @@ const secs = (t: number) => (t < 10 ? t.toFixed(1) : String(Math.round(t)));
 const WHO_COLOR: Record<string, string> = { lead: "#A5B4FC", triage: "#A5B4FC", evidence: "#93C5FD", analyst: "#93C5FD", hypothesis: "#F9A8D4",
   verifier: "#FCD34D", tracker: "#86EFAC", reporter: "#C9CCD3" };
 
+/** the run's own elapsed time (+m:ss), so it is never read as the hub clock of the footage */
+const runTime = (t: number) => `+${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
+
 export default function InvestigatePage({ params }: { params: Promise<{ caseId: string }> }) {
   const { caseId } = use(params);
   const state = useResource<CaseState>(`/v1/cases/${caseId}/state`);
@@ -174,7 +177,7 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
             <h2>What the crew did</h2>
             {steps.map((s) => (
               <div key={s.seq} className="iv-log-row" data-status={s.status}>
-                <span className="iv-log-t">{s.clock ?? `+${s.t_s}s`}</span>
+                <span className="iv-log-t" title="Time since the run started">{runTime(s.t_s)}</span>
                 <span className="iv-log-who" style={{ color: WHO_COLOR[s.role] ?? "#C9CCD3" }}>{s.who.replace(/s$/, "")}</span>
                 <span className="iv-log-text">{s.text}</span>
               </div>
@@ -191,9 +194,9 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
         <aside className="iv-right">
           <div className="iv-hero">
             {/* no frame for this step: the plan, pinned at the camera being checked or where the parcel stopped (review F-046 #2) */}
-            {heroPin && <HubPlan label={`${tag}: on the floor plan`} focus={{ xy: heroPin, radius_m: 10, tone: "bad" }} legend={false} fit="contain" minHeight={0} />}
-            <span className="iv-hero-tag">{tag}</span>
+            {heroPin && <HubPlan label={`${tag}: on the floor plan`} focus={{ xy: heroPin, radius_m: 10, tone: "bad" }} legend={false} fit="contain" minHeight={0} quiet />}
           </div>
+          <p className="iv-hero-tag">{tag}</p>
 
           <div className="iv-card iv-crew">
             <h2>The investigation crew</h2>

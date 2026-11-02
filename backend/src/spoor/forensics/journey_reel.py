@@ -40,6 +40,26 @@ class Segment:
     sub: str = ""  # one plain line under the title (cards, and the reason for a no-scan step)
     image: Path | None = None  # a still to show instead of a clip (the tunnel's own photo)
     seconds: float = 2.4  # how long a card or a still is held
+    media_id: str = ""
+    track_id: str = ""  # the SAM track whose outline is drawn (for screens that show one frame of it)
+
+
+ZOOM_BELOW = 0.22  # an outline narrower than this share of the frame is shown on a crop around it (a far camera)
+
+
+def _focus(seg: Segment, w: int, h: int) -> tuple[int, int, int, int] | None:
+    """One steady 16:9 crop around everything SAM outlined in this chapter, when the outline is small in the frame."""
+    if not seg.boxes:
+        return None
+    bs = np.array(list(seg.boxes.values()), float)
+    x0, y0, x1, y1 = bs[:, 0].min(), bs[:, 1].min(), bs[:, 2].max(), bs[:, 3].max()
+    if x1 - x0 >= ZOOM_BELOW * w:
+        return None
+    cw = min(w, max(3.0 * (x1 - x0), 3.0 * (y1 - y0) * 16 / 9, 0.38 * w))
+    ch = cw * 9 / 16
+    cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+    left, top = min(max(0.0, cx - cw / 2), w - cw), min(max(0.0, cy - ch / 2), h - ch)
+    return round(left), round(top), round(left + cw), round(top + ch)
 
 
 def _txt(img, s, xy, scale=0.62, color=INK, thick=1):
@@ -68,9 +88,9 @@ def _burn(img, seg: Segment, when: datetime):
         _txt(img, seg.sub, (24, H - 72), 0.58, MUTE)
 
 
-def _outline(img, seg: Segment, f: int, k: float, dx: int, dy: int):
-    poly = seg.contours.get(f)
-    box = seg.boxes.get(f)
+def _outline(img, seg: Segment, f: int, k: float, dx: int, dy: int, ox: int = 0, oy: int = 0):
+    poly = seg.contours.get(f) and [[x - ox, y - oy] for x, y in seg.contours[f]]
+    box = seg.boxes.get(f) and [seg.boxes[f][0] - ox, seg.boxes[f][1] - oy, seg.boxes[f][2] - ox, seg.boxes[f][3] - oy]
     if poly:
         pts = np.array([[(x * k - dx), (y * k - dy)] for x, y in poly], np.int32)
         cv2.polylines(img, [pts], True, (0, 0, 0), 4, cv2.LINE_AA)
@@ -134,21 +154,26 @@ def build_journey_reel(segments: list[Segment], out_dir: Path, reel_id: str, tit
             else:
                 cap = cv2.VideoCapture(str(seg.media_path))
                 cap.set(cv2.CAP_PROP_POS_FRAMES, seg.f0)
+                crop = _focus(seg, int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
                 for f in range(seg.f0, seg.f1 + 1):
                     ok, frame = cap.read()
                     if not ok:
                         break
+                    if crop:  # a far camera: the stretch around SAM's outline, scaled up (pixels unchanged otherwise)
+                        frame = frame[crop[1]:crop[3], crop[0]:crop[2]]
                     img, k, dx, dy = _fit(frame)
-                    _outline(img, seg, f, k, dx, dy)
+                    _outline(img, seg, f, k, dx, dy, *(crop[:2] if crop else (0, 0)))
                     when = (seg.start_utc + timedelta(seconds=f / FPS)) if seg.start_utc else seg.t
                     _burn(img, seg, when)
                     vw.write(img)
                     n += 1
                 cap.release()
                 sources.append({"kind": "clip", "camera": seg.camera, "sha256": seg.sha256, "frames": [seg.f0, seg.f1],
-                                "outlined_frames": len(seg.contours) or len(seg.boxes), "title": seg.title})
+                                "outlined_frames": len(seg.contours) or len(seg.boxes), "title": seg.title,
+                                "zoomed_to": list(crop) if crop else None})
             chapters.append({"title": seg.title, "tone": seg.tone, "t": seg.t.isoformat(), "start_s": round(start, 2),
-                             "end_s": round(n / FPS, 2), "camera": seg.camera, "label": seg.label, "sub": seg.sub})
+                             "end_s": round(n / FPS, 2), "camera": seg.camera, "label": seg.label, "sub": seg.sub,
+                             "media_id": seg.media_id or None, "track_id": seg.track_id or None})
         vw.release()
         mp4 = out_dir / f"{reel_id}.mp4"
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(raw), "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
@@ -235,13 +260,13 @@ def journey_segments(svc, case, waybill: str, answer: dict | None) -> list[Segme
             moved = np.hypot((a[0] + a[2] - b[0] - b[2]) / 2, (a[1] + a[3] - b[1] - b[3]) / 2)
             if moved >= 2 * max(a[2] - a[0], 1) and (best is None or len(obs) > best[1]):
                 best = (tr.track_id, len(obs))
-        return track(mid, best[0]) if best else ({}, {})
+        return (best[0], track(mid, best[0])) if best else ("", ({}, {}))
 
     def clip(seg, mid, t, before=PAD, after=PAD):
         m = svc.store.get(MediaAsset, mid)
         f = svc.frame_at(mid, t.isoformat())
         seg.camera = (m.camera_id or "").removeprefix("cam_")
-        seg.media_path, seg.sha256 = asset_path(svc.media, m), m.sha256
+        seg.media_path, seg.sha256, seg.media_id = asset_path(svc.media, m), m.sha256, mid
         seg.start_utc = svc.store.find(CameraCoverage, media_id=mid)[-1].start_utc
         seg.f0, seg.f1 = max(0, f - before), min(len(load_result(svc.media, mid).original_frames.pts_ms) - 1, f + after)
         return seg
@@ -273,7 +298,7 @@ def journey_segments(svc, case, waybill: str, answer: dict | None) -> list[Segme
         elif h.outcome == "outlined" and h.labelled and h.track_id:
             clip(seg, h.media_id, ev.device_time_utc, after=max(PAD, h.frames_followed + 5))
             seg.contours, seg.boxes = track(h.media_id, h.track_id, upto=(h.frame_index or 0) + h.frames_followed)
-            seg.label = waybill
+            seg.label, seg.track_id = waybill, h.track_id
         else:
             clip(seg, h.media_id, ev.device_time_utc)
             seg.sub = WHY.get(h.outcome, "")
@@ -293,7 +318,7 @@ def journey_segments(svc, case, waybill: str, answer: dict | None) -> list[Segme
         seg = Segment(title=f"Taken out of {where}", tone="noscan", t=alert.at_utc,
                       sub=f"No scan. The only parcel in {where} with no scan since: could be {waybill}")
         clip(seg, alert.media_id, alert.at_utc, before=alert.frame_index - min(boxes, default=alert.frame_index) + 5)
-        seg.contours, seg.boxes = polys, boxes
+        seg.contours, seg.boxes, seg.track_id = polys, boxes, alert.track_id
         segs.append(seg)
     # the verified answer: carried to the store door on its track, into the store, out without it
     inside = next((o["inside"] for o in (answer or {}).get("objects", []) if o.get("inside")), None)
@@ -307,7 +332,7 @@ def journey_segments(svc, case, waybill: str, answer: dict | None) -> list[Segme
                   sub="No scan. SAM followed the carton in the carrier's hands")
     f_door = svc.frame_at(inside["media_id"], door_t.isoformat())
     clip(seg, inside["media_id"], door_t, before=f_door - min(boxes, default=f_door) + 5, after=5)
-    seg.contours, seg.boxes = polys, boxes
+    seg.contours, seg.boxes, seg.track_id = polys, boxes, o.track_id
     segs.append(seg)
     # the store door's own view (the case camera that sees the door closest, not the wide one that followed it)
     for key, title, sub in [("carried_in_at", f"Carried into the {place}", "Past the scan-in post: no scan"),
@@ -318,7 +343,7 @@ def journey_segments(svc, case, waybill: str, answer: dict | None) -> list[Segme
             if m is not None and m.media_id != inside["media_id"]:
                 seg = clip(Segment(title=title, tone="noscan", t=t, sub=sub), m.media_id, t, before=25, after=25)
                 if key == "carried_in_at":  # the carton in the carrier's hands; coming out there is none to outline
-                    seg.contours, seg.boxes = carried(m.media_id, seg.f0, seg.f1)
+                    seg.track_id, (seg.contours, seg.boxes) = carried(m.media_id, seg.f0, seg.f1)
                 segs.append(seg)
     # the record that says it left, made while the cameras show it still inside
     until = datetime.fromisoformat(inside["iso"]["until"])

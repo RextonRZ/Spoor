@@ -286,7 +286,12 @@ function Base({ S, heat, ext }: { S: number; heat?: Record<string, number>; ext:
             {S >= 8 && <text className="hp-t" x={t[0]} y={t[1] + 3} fontSize={fs(9)} fill={C.inkF} fontWeight={600} textAnchor="middle">{ch.id === "REJECT" ? "R" : ch.id.slice(1)}</text>}</g>;
         })}
         {walls}
-        {HUB.zones.filter((z) => LABEL_AT[z.id] && (heat ? !!heat[z.id] : S >= 8.5 || !SMALL_ZONES.has(z.id))).map((z) => {
+        {HUB.zones.filter((z) => LABEL_AT[z.id] && (heat ? !!heat[z.id] : S >= 8.5 || !SMALL_ZONES.has(z.id))).filter((z) => {
+          // on a zoomed view a name that would run past the edge is left out, never cut mid-word ("Cage stagi")
+          const [x, y] = P(LABEL_AT[z.id]);
+          const w = (ZONE_NAMES[z.id] ?? z.name).length * fs(11) * 0.58;
+          return x >= 0 && y >= fs(11) && x + w <= (ext.x1 - ext.x0) * S && y <= (ext.y1 - ext.y0) * S;
+        }).map((z) => {
           const [x, y] = P(LABEL_AT[z.id]);
           const n = heat?.[z.id];
           return <g key={z.id} className="hp-zl">

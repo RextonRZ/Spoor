@@ -18,7 +18,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, previewUrl, signedUrl, useResource } from "@/lib/api";
 import { camId } from "@/lib/hub";
-import { useBestView } from "@/lib/focus";
+import { pointsIn, useBestView, useContours } from "@/lib/focus";
 import type { MediaRow, Site } from "@/lib/types";
 import { HYPOTHESIS_WORDS, type InsideFacts, type InvestigationView } from "@/lib/answer";
 import type { JourneyObject, XY } from "@/lib/journey";
@@ -133,13 +133,21 @@ export function CaseStory({ caseId, inside, view, journey, truck, strip = true }
   const video = useRef<HTMLVideoElement>(null);
   const boxEl = useRef<SVGRectElement>(null);
   const [wh, track] = [inside.frame_wh_px, inside.track_px];
+  // a close-up moment SAM followed in the journey reel (the carried carton at the store door): loop where SAM saw the
+  // carton and draw its own outline, instead of a moment with nothing marked
+  const reel = useResource<{ chapters: { media_id: string | null; track_id: string | null }[] }>(`/v1/cases/${caseId}/journey-reel`);
+  const carry = cur.media !== inside.media_id ? reel.data?.chapters.find((c) => c.media_id === cur.media && c.track_id) : undefined;
+  const carryBoxes = useResource<{ boxes: number[][] }>(carry ? `/v1/media/${carry.media_id}/tracks/${carry.track_id}/boxes` : null).data?.boxes ?? [];
+  const carryEdges = useContours(carry?.media_id, carry?.track_id);
+  const polyEl = useRef<SVGPolygonElement>(null);
   const reduced = typeof window !== "undefined" && prefersReducedMotion();
 
   // play a short window around the chosen moment (the first sighting plays up to the door), resting on the moment
   useEffect(() => {
     const v = video.current;
     if (!v || !clip) return;
-    const at = vt(cur.iso), from = cur.from ? vt(cur.from) : at - 1.5, to = cur.key === "first" ? vt(inside.iso.door_at) : at + 2.5;
+    const cb = carryBoxes.length > 4 ? [carryBoxes[0][1] / 1000, carryBoxes[carryBoxes.length - 1][1] / 1000 + 0.6] : null;
+    const at = vt(cur.iso), from = cb ? cb[0] : cur.from ? vt(cur.from) : at - 1.5, to = cb ? cb[1] : cur.key === "first" ? vt(inside.iso.door_at) : at + 2.5;
     const start = () => {
       v.currentTime = reduced ? at : Math.max(0, from);
       if (!reduced) v.play().catch(() => {});
@@ -149,7 +157,7 @@ export function CaseStory({ caseId, inside, view, journey, truck, strip = true }
     v.addEventListener("timeupdate", loop);
     return () => { v.removeEventListener("timeupdate", loop); v.removeEventListener("loadedmetadata", start); };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- re-cut when the moment or the clip changes
-  }, [cur.key, clip, play?.start]);
+  }, [cur.key, clip, play?.start, carryBoxes.length]);
 
   // SAM's box follows the carton: the box it drew at this video time (within one frame), hidden otherwise
   useEffect(() => {
@@ -160,10 +168,18 @@ export function CaseStory({ caseId, inside, view, journey, truck, strip = true }
     const pickAt = cur.box && play ? (Date.parse(cur.iso) - play.start) : NaN;
     const draw = () => {
       const ms = v.currentTime * 1000;
+      const cnear = carryBoxes.length ? carryBoxes.reduce((a, b) => (Math.abs(b[1] - ms) < Math.abs(a[1] - ms) ? b : a)) : null;
       const near = own && track.length ? track.reduce((a, b) => (Math.abs(b[0] - ms) < Math.abs(a[0] - ms) ? b : a))
+        : cnear ? cnear.slice(1)
         : cur.box && Number.isFinite(pickAt) && Math.abs(ms - pickAt) < 400 ? [ms, ...cur.box] : null;
+      const edge = cnear && Math.abs(cnear[1] - ms) <= 70 ? carryEdges.get(cnear[0]) : undefined;
+      if (polyEl.current) {
+        polyEl.current.style.opacity = edge ? "1" : "0";
+        if (edge) polyEl.current.setAttribute("points", pointsIn(edge));
+      }
       const r = boxEl.current;
-      if (r) {
+      if (r && edge) r.style.opacity = "0";
+      else if (r) {
         const on = near && Math.abs(near[0] - ms) <= 70;
         r.style.opacity = on ? "1" : "0";
         if (on) {
@@ -176,7 +192,7 @@ export function CaseStory({ caseId, inside, view, journey, truck, strip = true }
     id = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- redrawn per clip and moment
-  }, [track, clip, cur.key]);
+  }, [track, clip, cur.key, carryBoxes, carryEdges]);
 
   // SAM's box on a moment's thumbnail: the alert's outline at the pick, the wide camera's track at its own moments
   const thumbBox = (m: Moment): number[] | null => {
@@ -205,11 +221,12 @@ export function CaseStory({ caseId, inside, view, journey, truck, strip = true }
           ) : <span className="an-skel cs-skel" aria-busy="true" />}
           <svg viewBox={`0 0 ${wh[0]} ${wh[1]}`} aria-hidden>
             <rect ref={boxEl} rx={4} className="cs-hero-mark" style={{ opacity: 0 }} />
+            <polygon ref={polyEl} className="cs-hero-edge" style={{ opacity: 0 }} />
           </svg>
           <figcaption data-tone={cur.tone}>
             <b>{camWords(cur.cam)}</b><span>{cur.text}</span>
           </figcaption>
-          {(cur.media === inside.media_id || cur.box) && <span className="cs-sam">Box: SAM 3.1 tracking</span>}
+          {(cur.media === inside.media_id || cur.box || carryBoxes.length > 0) && <span className="cs-sam">Outline: SAM 3.1 tracking</span>}
         </figure>
         <figure className="cs-plan">
           <HubPlan label={`The parcel's path; now: ${cur.text}`} journey={journey} quiet
