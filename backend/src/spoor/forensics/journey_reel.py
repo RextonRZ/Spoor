@@ -19,13 +19,11 @@ from types import SimpleNamespace
 import cv2
 import numpy as np
 
-W, H = 1280, 720
+from spoor.forensics import reel_style as RS
+
+W, H = RS.W, RS.H
 FPS = 10
 MYT = timezone(timedelta(hours=8))
-GREEN, RED, INK, MUTE, BG = (128, 222, 74), (113, 113, 248), (244, 242, 240), (170, 168, 165), (18, 15, 13)
-# red only where the records fail; a carton seen on camera without a scan is not a failure of the footage
-BADGES = {"scan": ("Scanned", GREEN), "seen": ("On camera", MUTE), "noscan": ("Not scanned in", RED),
-          "record": ("Records disagree", RED)}
 # how a "loaded" record is made (no person types it): the cage is read, and every parcel scanned into it counts as loaded
 LOAD_HOW = {"rfid_portal": "Automatic: the door's RFID reader read the cage's tag, so every parcel in it counts as "
                              "loaded. The cameras say this carton is still inside",
@@ -58,6 +56,10 @@ class Segment:
 
 
 ZOOM_BELOW = 0.22  # an outline narrower than this share of the frame is shown on a crop around it (a far camera)
+MIN_CROP = 0.6  # ...but never zoomed past 1/0.6 of the frame (a 0.38 crop blew a far carton up soft and squashed: Rexton)
+XFADE = 4  # frames (0.4 s) of crossfade into each chapter
+EASE = (0.4, 0.7, 1.0)  # the outline's first frames in a chapter
+PUSH = 0.06  # a slow push-in toward the carton over each clip (calm: evidence, not a trailer)
 
 
 def _focus(seg: Segment, w: int, h: int) -> tuple[int, int, int, int] | None:
@@ -68,16 +70,11 @@ def _focus(seg: Segment, w: int, h: int) -> tuple[int, int, int, int] | None:
     x0, y0, x1, y1 = bs[:, 0].min(), bs[:, 1].min(), bs[:, 2].max(), bs[:, 3].max()
     if x1 - x0 >= ZOOM_BELOW * w:
         return None
-    cw = min(w, max(3.0 * (x1 - x0), 3.0 * (y1 - y0) * 16 / 9, 0.38 * w))
+    cw = min(w, max(3.0 * (x1 - x0), 3.0 * (y1 - y0) * 16 / 9, MIN_CROP * w))
     ch = cw * 9 / 16
     cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
     left, top = min(max(0.0, cx - cw / 2), w - cw), min(max(0.0, cy - ch / 2), h - ch)
     return round(left), round(top), round(left + cw), round(top + ch)
-
-
-def _txt(img, s, xy, scale=0.62, color=INK, thick=1):
-    cv2.putText(img, s, xy, cv2.FONT_HERSHEY_SIMPLEX, scale, (0, 0, 0), thick + 3, cv2.LINE_AA)
-    cv2.putText(img, s, xy, cv2.FONT_HERSHEY_SIMPLEX, scale, color, thick, cv2.LINE_AA)
 
 
 def _fit(frame: np.ndarray) -> tuple[np.ndarray, float, int, int]:
@@ -89,114 +86,138 @@ def _fit(frame: np.ndarray) -> tuple[np.ndarray, float, int, int]:
     return img[dy:dy + H, dx:dx + W].copy(), k, dx, dy
 
 
-def _wrap(text: str, scale: float, width: int, thick: int = 1) -> list[str]:
-    """Words into lines no wider than `width` px (the player's frame; a long line ran off the picture)."""
-    lines: list[str] = []
-    for w in text.split():
-        cand = f"{lines[-1]} {w}" if lines else w
-        if lines and cv2.getTextSize(cand, cv2.FONT_HERSHEY_SIMPLEX, scale, thick)[0][0] <= width:
-            lines[-1] = cand
-        else:
-            lines.append(w)
-    return lines
+def _frame(seg: Segment | None, f: int) -> np.ndarray | None:
+    if seg is None or seg.media_path is None:
+        return None
+    cap = cv2.VideoCapture(str(seg.media_path))
+    cap.set(cv2.CAP_PROP_POS_FRAMES, f)
+    ok, frame = cap.read()
+    cap.release()
+    return frame if ok else None
 
 
-def _burn(img, seg: Segment, when: datetime):
-    """The caption band at the TOP of the picture (the player's own controls cover the bottom): camera, time and step on
-    the first line, the badge at its right, the plain line under it wrapped to the frame."""
-    badge, col = ("Last scan", GREEN) if seg.last_scan else BADGES.get(seg.tone, BADGES["seen"])
-    (tw, _), _ = cv2.getTextSize(badge, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
-    sub = _wrap(seg.sub, 0.54, W - 48)[:2] if seg.sub else []
-    band = 52 + 24 * len(sub)
-    shade = img[:band].astype(np.float32) * 0.1 + np.array((10, 10, 12), np.float32) * 0.9
-    img[:band] = shade.astype(np.uint8)
-    _txt(img, f"{seg.camera}   {when.astimezone(MYT):%H:%M:%S}   {seg.title}", (24, 34), 0.66)
-    cv2.rectangle(img, (W - tw - 46, 14), (W - 22, 44), col, -1)
-    cv2.putText(img, badge, (W - tw - 34, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (12, 12, 12), 2, cv2.LINE_AA)
-    for i, line in enumerate(sub):
-        _txt(img, line, (24, 66 + 24 * i), 0.54, MUTE)
+def _shape(seg: Segment, f: int, k: float, dx: int, dy: int, ox: int = 0, oy: int = 0):
+    c = seg.contours.get(f)
+    poly = [[(x - ox) * k - dx, (y - oy) * k - dy] for x, y in c] if c else None
+    b = seg.boxes.get(f)
+    box = [(b[0] - ox) * k - dx, (b[1] - oy) * k - dy, (b[2] - ox) * k - dx, (b[3] - oy) * k - dy] if b else None
+    return poly, box
 
 
-def _outline(img, seg: Segment, f: int, k: float, dx: int, dy: int, ox: int = 0, oy: int = 0):
-    poly = seg.contours.get(f) and [[x - ox, y - oy] for x, y in seg.contours[f]]
-    box = seg.boxes.get(f) and [seg.boxes[f][0] - ox, seg.boxes[f][1] - oy, seg.boxes[f][2] - ox, seg.boxes[f][3] - oy]
-    if poly:
-        pts = np.array([[(x * k - dx), (y * k - dy)] for x, y in poly], np.int32)
-        cv2.polylines(img, [pts], True, (0, 0, 0), 4, cv2.LINE_AA)
-        cv2.polylines(img, [pts], True, GREEN, 2, cv2.LINE_AA)
-        top = pts[pts[:, 1].argmin()]
-    elif box:
-        p1, p2 = (round(box[0] * k - dx), round(box[1] * k - dy)), (round(box[2] * k - dx), round(box[3] * k - dy))
-        cv2.rectangle(img, p1, p2, (0, 0, 0), 4, cv2.LINE_AA)
-        cv2.rectangle(img, p1, p2, GREEN, 2, cv2.LINE_AA)
-        top = np.array(p1)
-    else:
-        return
-    if seg.label:
-        x, y = int(top[0]), max(24, int(top[1]) - 12)
-        (tw, th), _ = cv2.getTextSize(seg.label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-        cv2.rectangle(img, (x - 4, y - th - 6), (x + tw + 4, y + 4), GREEN, -1)
-        cv2.putText(img, seg.label, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (8, 30, 12), 1, cv2.LINE_AA)
+def _chip_tone(seg: Segment) -> str | None:
+    return "last" if seg.last_scan else seg.tone if seg.tone in ("scan", "seen", "noscan", "record") else None
 
 
-def _card(seg: Segment) -> np.ndarray:
-    img = np.full((H, W, 3), BG, np.uint8)
-    _txt(img, seg.title, (64, H // 2 - 14), 1.1, INK, 2)
-    for i, line in enumerate(_wrap(seg.sub, 0.7, W - 128)[:3] if seg.sub else []):
-        _txt(img, line, (64, H // 2 + 30 + 32 * i), 0.7, MUTE)
-    _txt(img, f"{seg.t.astimezone(MYT):%H:%M:%S}", (64, H // 2 - 70), 0.7, RED if seg.tone in ("noscan", "record") else MUTE)
-    return img
+def _short(g: Segment) -> str:
+    """A checkpoint's name on the answer card's rail."""
+    if g.tone == "noscan":
+        return "Store door"
+    if g.tone == "record":
+        return "Truck " + g.title.split(" on ")[-1] if " on " in g.title else "Truck"
+    t = g.title
+    for a, b in (("Label read in the tunnel", "Tunnel"), ("Into chute ", "Chute "), ("Into cage ", "Cage ")):
+        t = t.replace(a, b)
+    return t
 
 
 def build_journey_reel(segments: list[Segment], out_dir: Path, reel_id: str, title: str) -> dict:
+    """The reel in Spoor's style (reel_style.py): an intro card, every chapter with one top bar and a progress rail,
+    crossfades between chapters, cards on their own camera frame, the answer card last."""
+    segs = sorted(segments, key=lambda s: s.t)
+    tones = [s.tone for s in segs]
     out_dir.mkdir(parents=True, exist_ok=True)
     chapters, sources = [], []
     with tempfile.TemporaryDirectory() as tmp:
         raw = Path(tmp) / "raw.avi"
         vw = cv2.VideoWriter(str(raw), cv2.VideoWriter_fourcc(*"MJPG"), FPS, (W, H))
         n = 0
+        last: list = [None]
 
-        def hold(img, seconds):
+        def put_seq(frames):
+            """A chapter's frames, its first XFADE frames cross-faded from the last frame shown."""
             nonlocal n
-            for _ in range(max(1, round(seconds * FPS))):
+            prev = last[0]
+            for i, img in enumerate(frames):
+                if prev is not None and i < XFADE:
+                    a = (i + 1) / (XFADE + 1)
+                    img = cv2.addWeighted(img, a, prev, 1 - a, 0)
                 vw.write(img)
+                last[0] = img
                 n += 1
 
-        intro = np.full((H, W, 3), BG, np.uint8)
-        _txt(intro, "The parcel's journey", (64, H // 2 - 20), 1.2, INK, 2)
-        _txt(intro, title.encode("ascii", "ignore").decode(), (64, H // 2 + 26), 0.72, MUTE)  # (cv2 draws ASCII only)
-        _txt(intro, "Every clip from the hub's own cameras, in time order. Outline: SAM 3.1, where it followed the carton.",
-             (64, H // 2 + 64), 0.55, MUTE)
-        hold(intro, 2.4)
-        for seg in sorted(segments, key=lambda s: s.t):
+        def hold_card(bg, lines, seconds, **kw):
+            steady = RS.card(bg, lines, **kw)
+            frames = [RS.card(bg, lines, rise=(i + 1) / 3, **kw) for i in range(2)]  # text fades up 8 px over 0.3 s
+            put_seq(frames + [steady] * max(1, round(seconds * FPS) - 2))
+
+        first_clip = next((g for g in segs if g.media_path is not None), None)
+        hold_card(RS.blurred(_frame(first_clip, first_clip.f0) if first_clip else None),
+                  [(f"Parcel {title}", 34, 600, RS.INK), ("Its journey through the hub, on camera", 20, 400, RS.MUTE)],
+                  2.0, logo=True)
+        for ci, seg in enumerate(segs):
             start = n / FPS
             if seg.media_path is None and seg.image is None:
-                hold(_card(seg), seg.seconds)
+                prev_clip = next((g for g in reversed(segs[:ci]) if g.media_path is not None), None)
+                if seg.tone == "card":  # the answer: the store door frame, SAM's outline frozen on the carton
+                    door = next((g for g in segs if g.tone == "noscan" and g.media_path is not None), prev_clip)
+                    bg = RS.blurred(None)
+                    if door is not None:
+                        keys = sorted(door.contours or door.boxes) or [door.f0]
+                        bg = RS.blurred(_frame(door, keys[len(keys) // 2]))
+                    dots = [(_short(g), g.tone if g.tone in ("noscan", "record") else "scan", g.tone == "noscan")
+                            for g in segs if g.tone in ("scan", "noscan", "record") and g.title != TITLES["inducted"]]
+                    hold_card(bg, [(f"{seg.t.astimezone(MYT):%H:%M:%S} · end of recording", 17, 400, RS.MUTE),
+                                   (seg.title, 36, 600, RS.INK), (seg.sub, 20, 400, RS.MUTE)], 3.0, dots=dots, footer=True)
+                else:
+                    bg = RS.blurred(_frame(prev_clip, prev_clip.f1) if prev_clip else None)
+                    hold_card(bg, [(f"{seg.t.astimezone(MYT):%H:%M:%S}", 22, 500, RS.MUTE), (seg.title, 34, 600, RS.INK),
+                                   (seg.sub, 20, 400, RS.MUTE)], seg.seconds)
             elif seg.image is not None:
-                still = cv2.imread(str(seg.image))
-                img, *_ = _fit(still)
-                _burn(img, seg, seg.t)
-                if seg.label:
-                    _txt(img, seg.label, (24, 120), 0.7, GREEN, 2)  # (under the caption band)
-                hold(img, seg.seconds)
+                img, top = RS.still_card(cv2.imread(str(seg.image)), seg.label, seg.sub)
+                img = RS.top_bar(img, time=f"{seg.t.astimezone(MYT):%H:%M:%S}", title=seg.title, tone=_chip_tone(seg),
+                                 tones=tones, cur=ci, note="Tunnel reader")
+                if seg.label and top:
+                    img = RS.tag(img, seg.label, top)
+                put_seq([img] * max(1, round(seg.seconds * FPS)))
                 sources.append({"kind": "still", "path": seg.image.name, "title": seg.title})
             else:
                 cap = cv2.VideoCapture(str(seg.media_path))
                 cap.set(cv2.CAP_PROP_POS_FRAMES, seg.f0)
                 crop = _focus(seg, int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+                frames, drawn = [], 0
+                fw, fh = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                bx0, by0, bx1, by1 = crop if crop else (0, 0, fw, fh)
+                if seg.boxes:  # push in toward where SAM had the carton
+                    bs = np.array(list(seg.boxes.values()), float)
+                    fx_, fy_ = (bs[:, 0].mean() + bs[:, 2].mean()) / 2, (bs[:, 1].mean() + bs[:, 3].mean()) / 2
+                else:
+                    fx_, fy_ = (bx0 + bx1) / 2, (by0 + by1) / 2
+                nfr = max(1, seg.f1 - seg.f0)
                 for f in range(seg.f0, seg.f1 + 1):
                     ok, frame = cap.read()
                     if not ok:
                         break
-                    if crop:  # a far camera: the stretch around SAM's outline, scaled up (pixels unchanged otherwise)
-                        frame = frame[crop[1]:crop[3], crop[0]:crop[2]]
+                    u = (f - seg.f0) / nfr
+                    z = 1 + PUSH * (3 * u * u - 2 * u ** 3)  # ease in-out
+                    cw, ch = (bx1 - bx0) / z, (by1 - by0) / z
+                    sx0 = min(max(bx0, fx_ - (fx_ - bx0) / z), bx1 - cw)
+                    sy0 = min(max(by0, fy_ - (fy_ - by0) / z), by1 - ch)
+                    sub = (round(sx0), round(sy0), round(sx0 + cw), round(sy0 + ch))
+                    frame = frame[sub[1]:sub[3], sub[0]:sub[2]]
                     img, k, dx, dy = _fit(frame)
-                    _outline(img, seg, f, k, dx, dy, *(crop[:2] if crop else (0, 0)))
+                    poly, box = _shape(seg, f, k, dx, dy, sub[0], sub[1])
+                    top = None
+                    if poly or box:
+                        img, top = RS.outline(img, poly, box, EASE[min(drawn, len(EASE) - 1)])
+                        drawn += 1
                     when = (seg.start_utc + timedelta(seconds=f / FPS)) if seg.start_utc else seg.t
-                    _burn(img, seg, when)
-                    vw.write(img)
-                    n += 1
+                    img = RS.top_bar(img, time=f"{when.astimezone(MYT):%H:%M:%S}", title=seg.title, tone=_chip_tone(seg),
+                                     sub=seg.sub, tones=tones, cur=ci, rise=(f - seg.f0 + 1) / 3)
+                    if seg.label and top:
+                        img = RS.tag(img, seg.label, top, min_y=104 if seg.sub else 76)
+                    frames.append(img)
                 cap.release()
+                put_seq(frames)
                 sources.append({"kind": "clip", "camera": seg.camera, "sha256": seg.sha256, "frames": [seg.f0, seg.f1],
                                 "outlined_frames": len(seg.contours) or len(seg.boxes), "title": seg.title,
                                 "zoomed_to": list(crop) if crop else None})
@@ -206,7 +227,7 @@ def build_journey_reel(segments: list[Segment], out_dir: Path, reel_id: str, tit
                              "xy": list(seg.xy) if seg.xy else None, "last_scan": seg.last_scan})
         vw.release()
         mp4 = out_dir / f"{reel_id}.mp4"
-        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(raw), "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(raw), "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
                         "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-metadata", "comment=synthetic footage of a fictional hub",
                         str(mp4)], check=True)  # fmt: skip
     manifest = {"reel_id": reel_id, "kind": "journey", "seconds": round(n / FPS, 1), "chapters": chapters,
@@ -221,7 +242,7 @@ TITLES = {"arrived_facility": "Unloaded", "tunnel_read": "Label read in the tunn
 WHY = {"cant_tell": "Several cartons handled here at once: no outline",
        "clock_not_fitted": "This camera's clock is not fitted closely enough to pick the carton",
        "not_found": "No outline: nothing stood out at the scan point at that instant",
-       "outlined": "Outlined, but it could not be told from the carton next to it"}  # fmt: skip
+       "outlined": "Too close to the next carton to label"}  # fmt: skip
 PAD = 15  # frames shown before and after a moment (1.5 s at 10 fps)
 
 
@@ -335,7 +356,8 @@ def journey_segments(svc, case, waybill: str, answer: dict | None) -> list[Segme
         rp_ = plan.read_point(ev.station_id or ev.device_id) if plan else None
         seg = Segment(title=title, tone="scan", t=ev.device_time_utc, xy=tuple(rp_.position_for(ev.event_kind.value)) if rp_ else None)
         if h.event_kind == "tunnel_read" and photo.exists():
-            seg.image, seg.label, seg.camera, seg.sub = photo, waybill, "Tunnel reader", "The reader's own photo at the read"
+            seg.image, seg.label, seg.camera = photo, waybill, "Tunnel reader"
+            seg.sub = "The tunnel reader's own photo" + (" · weight and size measured" if ev.dims_mm or ev.weight_g else "")
         elif not h.media_id or svc.store.get(MediaAsset, h.media_id).camera_id not in cams:
             continue
         elif h.outcome == "outlined" and h.labelled and h.track_id:
@@ -359,7 +381,7 @@ def journey_segments(svc, case, waybill: str, answer: dict | None) -> list[Segme
         mins = round((alert.at_utc - last.device_time_utc).total_seconds() / 60)
         segs.append(Segment(title=f"Waiting in {where} for {mins} min", tone="wait", xy=last_xy,
                             t=last.device_time_utc + timedelta(seconds=1),
-                            sub=f"{_hm(last.device_time_utc)} to {_hm(alert.at_utc)}: no camera saw it move"))
+                            sub=f"{_hm(last.device_time_utc)} to {_hm(alert.at_utc)} · no scan, and no camera saw it move"))
         polys, boxes = track(alert.media_id, alert.track_id)
         ap_ = plan.read_point(alert.scan_point_id) if plan else None
         seg = Segment(title=f"Taken out of {where}", tone="seen", t=alert.at_utc, xy=tuple(ap_.position_m[:2]) if ap_ else last_xy,
@@ -382,6 +404,7 @@ def journey_segments(svc, case, waybill: str, answer: dict | None) -> list[Segme
     clip(seg, inside["media_id"], door_t, before=f_door - min(boxes, default=f_door) + 5, after=5)
     seg.contours, seg.boxes, seg.track_id = polys, boxes, o.track_id
     segs.append(seg)
+    carry_end = seg.start_utc + timedelta(seconds=seg.f1 / FPS) if seg.start_utc else door_t  # the carry plays on to here
     # the store door's own view (the case camera that sees the door closest, not the wide one that followed it)
     for key, title, tone, sub in [("carried_in_at", f"Carried into the {place}", "noscan", "Past the scan-in post, not scanned in"),
                                   ("came_out_0", "Came out without it", "seen", "SAM tracked no carton with the person coming out")]:
@@ -389,7 +412,10 @@ def journey_segments(svc, case, waybill: str, answer: dict | None) -> list[Segme
             t = datetime.fromisoformat(inside["iso"][key])
             m = best_view(inside["door_xy"], 1.0, t)
             if m is not None and m.media_id != inside["media_id"]:
-                seg = clip(Segment(title=title, tone=tone, t=t, sub=sub, xy=door_xy), m.media_id, t, before=25, after=25)
+                # the carry into the store is ONE moment seen from two angles: the door camera picks up where the wide
+                # one stopped (Rexton 3 Nov: it replayed the last two seconds), so its clip starts at carry_end
+                before = max(5, round((t - carry_end).total_seconds() * FPS)) if key == "carried_in_at" else 25
+                seg = clip(Segment(title=title, tone=tone, t=t, sub=sub, xy=door_xy), m.media_id, t, before=before, after=25)
                 if key == "carried_in_at":  # the carton in the carrier's hands; coming out there is none to outline
                     seg.track_id, (seg.contours, seg.boxes) = carried(m.media_id, seg.f0, seg.f1, inside["door_xy"])
                 segs.append(seg)
@@ -406,5 +432,5 @@ def journey_segments(svc, case, waybill: str, answer: dict | None) -> list[Segme
                                  t=rec.device_time_utc, sub=LOAD_HOW.get(rec.device_kind, LOAD_HOW[None]), xy=tuple(rp.position_m[:2])),
                          m.media_id, rec.device_time_utc, before=30, after=30))  # fmt: skip
     segs.append(Segment(title=f"Most likely in the {inside['place']}", tone="card", t=until, xy=tuple(inside["area_xy"]),
-                        sub=f"Carried in at {inside['carried_in_at']}, not seen coming out", seconds=3.0))
+                        sub=f"Carried in at {inside['carried_in_at']} · not seen coming out", seconds=3.0))
     return segs

@@ -16,7 +16,7 @@ def test_chapters_in_time_order_with_their_place_in_the_video(tmp_path):
     man = build_journey_reel(segs, tmp_path, "reel_test", "CTX1")
     assert [c["title"] for c in man["chapters"]] == ["In RC-1, no scan for 11 min", "Most likely in the store"]
     first, second = man["chapters"]
-    assert first["start_s"] == 2.4 and first["end_s"] == pytest.approx(3.9)  # after the 2.4 s title card
-    assert second["start_s"] == first["end_s"] and man["seconds"] == pytest.approx(4.9)
+    assert first["start_s"] == 2.0 and first["end_s"] == pytest.approx(3.5)  # after the 2.0 s intro card
+    assert second["start_s"] == first["end_s"] and man["seconds"] == pytest.approx(6.5)  # the answer card holds 3.0 s
     assert (tmp_path / "reel_test.mp4").stat().st_size > 0
     assert json.loads((tmp_path / "reel_test.json").read_text(encoding="utf-8"))["chapters"] == man["chapters"]
