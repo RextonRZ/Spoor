@@ -86,8 +86,8 @@ export default function ReportPage({ params }: { params: Promise<{ caseId: strin
   const answered: Moment[] = inside ? [
     ...(cage ? [{ key: "cage", t: cage.t, text: low(momentLabel(cage.event_kind, cage.station_id)), who: "scan record", xy: null,
       cam: "CHK_CAGE_W", media: clipAt("CHK_CAGE_W", cage.t) }] : []),
-    { key: "in", t: inside.iso.carried_in_at, text: `carried into the ${inside.place.replace(/ \(Z\d+\)$/, "").toLowerCase()}, no scan-in`, who: "camera", xy: null,
-      cam: "CHK_STORE", media: clipAt("CHK_STORE", inside.iso.carried_in_at), tone: "ok" as const },
+    { key: "in", t: inside.iso.carried_in_at, text: `carried into the ${inside.place.replace(/ \(Z\d+\)$/, "").toLowerCase()}, not scanned in`, who: "camera", xy: null,
+      cam: "CHK_STORE", media: clipAt("CHK_STORE", inside.iso.carried_in_at), tone: "bad" as const },
     ...(inside.iso.came_out_0 ? [{ key: "out", t: inside.iso.came_out_0, text: "came out without it", who: "camera", xy: null, cam: "CHK_STORE",
       media: clipAt("CHK_STORE", inside.iso.came_out_0) }] : []),
     ...(truckRec ? [{ key: "truck", t: truckRec.t, text: `record says loaded on truck ${truckRec.station_id?.match(/D\d{2}/)?.[0] ?? ""}, it never left`.replace("  ", " "),
@@ -176,7 +176,7 @@ export default function ReportPage({ params }: { params: Promise<{ caseId: strin
                 ) : (
                   <span className="rp-fig-none" data-tone={m.tone}>{m.tone === "bad" ? "Records disagree" : m.tone === "ok" ? "Found" : "No picture"}</span>
                 )}
-                <figcaption><strong>{m.t ? hms(m.t) : "next"}</strong> · {m.text} · {m.cam ? `${m.cam.replaceAll("_", " ")} view` : m.who}</figcaption>
+                <figcaption data-tone={m.tone}><strong>{m.t ? hms(m.t) : "next"}</strong> · {m.text} · {m.cam ? `${m.cam.replaceAll("_", " ")} view` : m.who}</figcaption>
               </figure>
             ))}
           </div>}

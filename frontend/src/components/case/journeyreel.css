@@ -1,5 +1,6 @@
 /* The parcel's journey (JourneyReel.tsx): the video first, then a thin timeline in the brand mark's language: each step
-   sits under a round-capped ridge (solid = on camera, red = no scan, dotted = no camera saw it; indigo = playing).
+   sits under a round-capped ridge (solid = on camera, red = the records failed there, dotted = no camera saw it;
+   indigo = playing). Red is kept for the two real problems so it still means something.
    No cards: steps are text on one surface; the player is the only bordered object. */
 .jr { display: grid; gap: 14px; margin-top: 4px; }
 .jr-top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
@@ -20,8 +21,8 @@
 /* the ridge: one stroke weight, round caps, like the mark's ridges */
 .jr-step::before { content: ""; position: absolute; left: 2px; right: 2px; top: 10px; height: 3px; border-radius: 3px;
   background: color-mix(in srgb, var(--tb-ink-2) 38%, transparent); transition: background-color 200ms ease; }
-.jr-step[data-tone="noscan"]::before { background: color-mix(in srgb, #f87171 70%, transparent); }
-.jr-step[data-nocam]::before, .jr-step[data-tone="card"]::before { background: radial-gradient(circle, color-mix(in srgb, var(--tb-ink-2) 45%, transparent) 1.5px, transparent 1.7px) 0 50% / 8px 3px repeat-x; }
+.jr-step:is([data-tone="noscan"], [data-tone="record"])::before { background: color-mix(in srgb, #f87171 70%, transparent); }
+.jr-step[data-nocam]::before, .jr-step:is([data-tone="card"], [data-tone="wait"])::before { background: radial-gradient(circle, color-mix(in srgb, var(--tb-ink-2) 45%, transparent) 1.5px, transparent 1.7px) 0 50% / 8px 3px repeat-x; }
 .jr-step[data-on]::before, .jr-step[data-on][data-nocam]::before { background: var(--tb-accent); }
 .jr-gap { position: absolute; left: 4px; top: -4px; font-size: 10.5px; color: var(--tb-mute); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .jr-btn { all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 3px; align-content: start; padding: 6px 4px 8px; border-radius: 6px;
@@ -34,8 +35,8 @@
 .jr-step[data-on] .jr-title { color: var(--tb-ink); }
 .jr-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 550; color: #86efac; }
 .jr-badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.jr-step[data-tone="noscan"] .jr-badge { color: #fca5a5; }
-.jr-step[data-tone="card"] .jr-badge { color: var(--tb-ink-2); }
+.jr-step:is([data-tone="noscan"], [data-tone="record"]) .jr-badge { color: #fca5a5; }
+.jr-step:is([data-tone="seen"], [data-tone="wait"], [data-tone="card"]) .jr-badge { color: var(--tb-ink-2); }
 .jr-cam { font-size: 11.5px; color: var(--tb-mute); }
 .jr-num { font-size: 11.5px; color: var(--tb-ink-2); font-variant-numeric: tabular-nums; letter-spacing: 0.01em; }
 .jr-sub { margin: 0; font-size: 13px; color: var(--tb-ink-2); max-width: 70ch; }
@@ -44,7 +45,7 @@
   .jr-rail { grid-template-columns: 1fr; row-gap: 0; padding-left: 14px; }
   .jr-step { padding-top: 0; padding-left: 12px; }
   .jr-step::before { left: -12px; right: auto; top: 6px; bottom: 6px; width: 3px; height: auto; }
-  .jr-step[data-nocam]::before, .jr-step[data-tone="card"]::before { background: radial-gradient(circle, color-mix(in srgb, var(--tb-ink-2) 45%, transparent) 1.5px, transparent 1.7px) 50% 0 / 3px 8px repeat-y; }
+  .jr-step[data-nocam]::before, .jr-step:is([data-tone="card"], [data-tone="wait"])::before { background: radial-gradient(circle, color-mix(in srgb, var(--tb-ink-2) 45%, transparent) 1.5px, transparent 1.7px) 50% 0 / 3px 8px repeat-y; }
   .jr-gap { position: static; padding: 2px 4px 0; }
   .jr-btn { grid-template-columns: auto 1fr; column-gap: 10px; align-items: baseline; }
   .jr-title, .jr-badge, .jr-cam, .jr-num { grid-column: 2; }

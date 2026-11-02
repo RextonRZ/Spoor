@@ -25,6 +25,8 @@
 .rp-fig-none[data-tone="ok"] { color: #86efac; }
 .rp-fig figcaption { font-size: 12.5px; line-height: 1.4; color: #4a505b; }
 .rp-fig figcaption strong { color: #14161a; font-variant-numeric: tabular-nums; }
+/* red only on the two moments where the records failed (not scanned in; the truck record the cameras contradict) */
+.rp-fig figcaption[data-tone="bad"] strong { color: #b91c1c; }
 .rp-plan { width: 100%; margin-top: 6px; border-radius: 6px; overflow: hidden; background: #0e1014; padding: 4px; }
 .rp-plan .hp-box { min-height: 0 !important; }
 .rp-fine { margin-top: 6px; padding-top: 12px; width: 100%; border-top: 1px solid #dfe2e7; font-size: 12px; color: #6a717d; }

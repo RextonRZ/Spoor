@@ -11,7 +11,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api, signedUrl, useResource } from "@/lib/api";
 import "./journeyreel.css";
 
-interface Chapter { title: string; tone: "scan" | "noscan" | "card"; t: string; start_s: number; end_s: number; camera: string;
+// red only where the records fail (not scanned in at the store; a record the cameras contradict); seen on camera is grey
+type Tone = "scan" | "seen" | "noscan" | "record" | "wait" | "card";
+const BADGE: Record<Tone, string> = { scan: "Scanned here", seen: "On camera", noscan: "Not scanned in", record: "Records disagree",
+  wait: "No camera", card: "Answer" };
+interface Chapter { title: string; tone: Tone; t: string; start_s: number; end_s: number; camera: string;
   label: string | null; sub: string }
 interface Reel { reel_id: string; seconds: number; chapters: Chapter[]; url: string }
 
@@ -99,7 +103,7 @@ export function JourneyReel({ caseId }: { caseId: string }) {
               <button type="button" className="jr-btn" aria-pressed={i === on} onClick={() => play(i)}>
                 <span className="jr-time">{hms(c.t)}</span>
                 <span className="jr-title">{c.title}</span>
-                <span className="jr-badge">{c.tone === "scan" ? "Scanned here" : c.tone === "noscan" ? "No scan" : "Answer"}</span>
+                <span className="jr-badge">{BADGE[c.tone] ?? "On camera"}</span>
                 {c.camera && <span className="jr-cam">{camWords(c.camera)}</span>}
                 {c.label && <span className="jr-num">{c.label}</span>}
               </button>

@@ -108,12 +108,12 @@ export function CaseStory({ caseId, inside, view, journey, truck, strip = true }
     return { media: inside.media_id, cam: wide };
   };
   const moments: Moment[] = useMemo(() => [
-    ...(pick ? [{ key: "pick", iso: pickIso, at: pick.at_utc, text: "Taken out of its cage, no scan", xy: floorAt(firstIso), media: pick.media_id,
-      cam: camId.toHub(pick.camera_id), box: pickView?.box ?? pick.box_px, tone: "bad" as const }]
+    ...(pick ? [{ key: "pick", iso: pickIso, at: pick.at_utc, text: "Taken out of its cage", xy: floorAt(firstIso), media: pick.media_id,
+      cam: camId.toHub(pick.camera_id), box: pickView?.box ?? pick.box_px }]
       : inside.track_px.length > 1 ? [{ key: "first", iso: firstIso, text: `Seen on ${inside.camera}, carried toward the store`, xy: floorAt(firstIso),
         from: firstIso, media: inside.media_id, cam: wide }] : []),
     { key: "door", iso: inside.iso.door_at, text: "Last seen at the store door", xy: door, from: firstIso, media: inside.media_id, cam: wide },
-    { key: "in", iso: inside.iso.carried_in_at, at: clockIso(inside.carried_in_at), text: "Carried in, past the scan-in post", xy: area,
+    { key: "in", iso: inside.iso.carried_in_at, at: clockIso(inside.carried_in_at), text: "Carried in, not scanned in", xy: area, tone: "bad" as const,
       ...best(inside.iso.carried_in_at, ["CHK_STORE", wide]) },
     ...inside.came_out_empty.map((t, i) => ({ key: `out${i}`, iso: inside.iso[`came_out_${i}`], at: clockIso(t), text: "Someone came out without it",
       xy: area, ...best(inside.iso[`came_out_${i}`], ["CHK_STORE", wide]) })),
