@@ -117,7 +117,7 @@
 .db-stage-axis span:first-child { font-size: 11px; color: var(--tb-mute); }
 
 /* pipeline: nodes joined by arrows that carry the hop (usual time, overdue) */
-.pl { display: grid; grid-template-columns: minmax(0, 1fr) 64px minmax(0, 1fr) 64px minmax(0, 1fr) 64px minmax(0, 1fr) 64px minmax(0, 1fr) 40px minmax(0, 1fr);
+.pl { display: grid; grid-template-columns: minmax(0, 1fr) 46px minmax(0, 1fr) 40px minmax(0, 1fr) 40px minmax(0, 1fr) 46px minmax(0, 1fr) 24px minmax(0, 1fr);
   align-items: start; }
 .pl-col { display: grid; gap: 8px; min-width: 0; }
 .pl-branch { position: relative; padding-left: 14px; }
@@ -129,7 +129,7 @@
 .pl-node[data-tone="bad"] { box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.5); background: rgba(248, 113, 113, 0.05); }
 .pl-node[data-small] { padding: 8px 10px; }
 .pl-node-h { display: flex; align-items: center; gap: 7px; min-width: 0; font-size: 12.5px; font-weight: 600; color: var(--tb-ink); }
-.pl-node-h span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pl-node-h span { min-width: 0; overflow-wrap: anywhere; line-height: 1.25; }
 .pl-node-h em { margin-left: auto; font-style: normal; font-size: 11px; font-weight: 500; color: var(--tb-mute); }
 .pl-node-v { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--tb-ink); }
 .pl-node[data-small] .pl-node-v { font-size: 16px; }
@@ -138,12 +138,12 @@
 .pl-node-p { font-size: 11.5px; line-height: 1.4; color: var(--tb-ink-2); display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .pl-node[data-tone="bad"] .pl-node-p { color: #fecaca; }
 .pl-node-p a { color: #a5b4fc; text-decoration: none; }
-.pl-arrow { display: grid; justify-items: center; align-content: center; gap: 2px; min-height: 74px; padding: 0 4px; }
+.pl-arrow { display: grid; justify-items: center; align-content: center; gap: 2px; min-height: 74px; padding: 0 2px; min-width: 0; }
 .pl-arrow svg { width: 100%; height: 10px; overflow: visible; }
 .pl-arrow path { fill: none; stroke: var(--tb-ink-2); stroke-opacity: 0.5; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
 .pl-arrow[data-warn] path { stroke: #fbbf24; stroke-opacity: 0.9; }
 .pl-arrow-t { font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--tb-ink-2); white-space: nowrap; }
-.pl-arrow-b { min-height: 14px; font-size: 11px; font-weight: 600; color: #fcd34d; white-space: nowrap; }
+.pl-arrow-b { min-height: 14px; font-size: 10.5px; font-weight: 600; line-height: 1.2; color: #fcd34d; text-align: center; }
 @media (max-width: 1200px) {
   .pl { grid-template-columns: 1fr; }
   .pl-arrow { min-height: 0; grid-template-columns: auto 18px auto; justify-content: start; padding: 2px 0 2px 18px; }
@@ -154,3 +154,21 @@
 .db-loop em { font-style: normal; font-size: 11.5px; line-height: 1.4; color: var(--tb-mute); }
 .db-dl dt { display: grid; gap: 1px; }
 .db-dl dt small { font-size: 11.5px; color: var(--tb-mute); }
+
+/* live feed marker in the throughput header (the dot breathes slowly; still under reduced motion) */
+.db-live { display: inline-flex; align-items: center; gap: 6px; }
+.db-live i { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.15); animation: db-live 2.4s ease-in-out infinite; }
+.db-live b { font-weight: 600; color: var(--tb-ink); font-variant-numeric: tabular-nums; }
+@keyframes db-live { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .db-live i { animation: none; } }
+
+/* bottom row: cases, how Spoor learns, how far to trust it */
+.db-row-111 { grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.9fr) minmax(0, 1fr); }
+.db-learn { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.db-learn li { position: relative; padding-left: 16px; font-size: 13px; line-height: 1.5; color: var(--tb-ink-2); text-wrap: pretty; }
+.db-learn li::before { content: ""; position: absolute; left: 0; top: 7px; width: 6px; height: 6px; border-radius: 50%; background: #818cf8; }
+.db-learn b { color: var(--tb-ink); font-weight: 600; }
+@media (max-width: 1200px) { .db-row-111 { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .db-ph { flex-wrap: wrap; row-gap: 4px; } .db-pm { white-space: normal; } .db-key { flex-wrap: wrap; } }
+.db-row-111 .db-loop { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 14px; }
+.db-row-111 .db-loop li:nth-child(3) { padding-left: 0; border-left: 0; }

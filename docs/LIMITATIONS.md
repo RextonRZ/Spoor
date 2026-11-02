@@ -45,3 +45,13 @@ Current as of Mon 2 Nov 2026. The deadline is Thu 5 Nov, 10:00 MYT.
 
 Identity of any person, intent, guilt, theft, emotion or personal attributes; that a 3D view or a generated sentence is
 evidence; that hashes alone establish legal chain of custody; courtroom admissibility.
+
+## Hub insights: what is recorded and what is generated
+
+- **This shift** is the stored scan log and cases only. The board shows it as a live feed: the recorded shift's scan log
+  arrives a minute every 2 s from a third of the way in, then the board waits at the log's last minute. A real hub's
+  feed would push the same updates.
+- **Simulated history** (the 30-day view) is generated, not recorded: `backend/src/spoor/forensics/demo_history.py`
+  draws 29 earlier days with a fixed seed, calibrated on the one real shift (volume per place scaled to a 16 h day,
+  the tunnel's read rate, case outcomes), with three named events (a dirty tunnel camera, a store-door scanner offline,
+  the D07 reader counting whole cages). Today in that view is the real shift. It never enters a case or the evidence.

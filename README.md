@@ -46,7 +46,8 @@ the same place). A find is remembered by the hub as a prior: where parcels of ea
 order options the evidence leaves equal, never as evidence for a new case. **Hub insights** shows the loop from stored
 records only (cases opened, answered, checked on the floor, resolved), where the trail breaks and the fix in plain words,
 the records the cameras contradicted, and, over the whole scan log, which hops leave parcels overdue. With real hub data
-this ranks the places that lose parcels most. The demo's numbers are labelled "Demo hub data".
+this ranks the places that lose parcels most. The demo's numbers are labelled "Demo hub data"; its 30-day view is a
+seeded simulated history and its live feed is the recorded shift played back ([LIMITATIONS](docs/LIMITATIONS.md)).
 
 ## Measured (details and method in [EVALUATION](docs/EVALUATION.md))
 

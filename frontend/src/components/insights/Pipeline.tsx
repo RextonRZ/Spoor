@@ -6,7 +6,6 @@
  * column is where parcels leave the floor (cages, the exception store, the dock gates). Phones: the same nodes stacked.
  */
 import Link from "next/link";
-import { placeName } from "@/lib/places";
 import type { Score, ScoreRow } from "./Scorecard";
 
 interface Hop { from: string; to: string; median_s: number; overdue: number; recent: number }
@@ -25,7 +24,7 @@ function Node({ title, rows, name, small }: { title: string; rows: ScoreRow[]; s
   return (
     <div className="pl-node" data-tone={tone} data-small={small ? "" : undefined}>
       <span className="pl-node-h"><i className="db-dot" data-tone={tone} /><span>{title}</span>{rows.length > 2 && <em>{rows.length}</em>}</span>
-      <span className="pl-node-v">{through}<small>{reads === 0 ? " unread" : rate != null ? ` · ${(rate * 100).toFixed(1)}% read` : ""}</small></span>
+      <span className="pl-node-v">{through}<small>{reads === 0 && through > 0 ? " unread" : rate != null ? ` · ${(rate * 100).toFixed(1)}% read` : ""}</small></span>
       {(prob || cases[0]) && <span className="pl-node-p">{prob}{cases[0] && <> · <Link href={`/cases/${cases[0]}`}>{name(cases[0])}</Link></>}</span>}
     </div>
   );
@@ -48,7 +47,6 @@ export function Pipeline({ s, hops, name, unread = 0 }: { s: Score; hops: Hop[];
   unread?: number }) {
   const g = (...groups: string[]) => s.rows.filter((r) => groups.includes(r.group));
   const hop = (from: string) => hops.find((h) => h.from === from);
-  const single = (rows: ScoreRow[]) => (rows.length === 1 ? placeName(rows[0].id) : "");
   return (
     <div className="pl" role="group" aria-label="The hub's checkpoints, in the order a parcel meets them">
       <Node title="Unloading" rows={g("Unload")} s={s} name={name} />

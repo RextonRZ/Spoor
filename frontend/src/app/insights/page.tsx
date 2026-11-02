@@ -8,7 +8,7 @@
  * Operate surface: hairline sections, tabular numbers, no charts that would invent precision.
  */
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useResource } from "@/lib/api";
 import type { Site } from "@/lib/types";
 import type { Flow } from "@/components/insights/Charts";
@@ -58,7 +58,7 @@ export default function InsightsPage() {
         <div className="in-head-r">
           <div role="group" aria-label="Range" className="cm-seg in-range">
             <button type="button" aria-pressed={range === "today"} onClick={() => setRange("today")}>This shift</button>
-            <button type="button" aria-pressed={range === "month"} onClick={() => setRange("month")}>Last 30 days</button>
+            <button type="button" aria-pressed={range === "month"} onClick={() => setRange("month")}>Simulated history</button>
           </div>
           <span className="in-demo">Demo hub data</span>
         </div>
@@ -73,11 +73,35 @@ export default function InsightsPage() {
 
 /** this shift as an ops dashboard: KPI tiles, throughput by stage + needs attention, checkpoint health, hop charts,
  *  the loop and the self-checks (all from the stored records) */
+/** the shift up to minute `at` (a replay): each place's count in proportion to its scans so far, lines cut at `at` */
+function upTo(sc: Score, at: number | null): Score {
+  if (at == null) return sc;
+  return { ...sc, rows: sc.rows.map((r) => {
+    const all = r.per_minute.reduce((a, x) => a + x, 0) || 1, so = r.per_minute.slice(0, at + 1).reduce((a, x) => a + x, 0);
+    const no_reads = Math.round((r.no_reads * so) / all);
+    // the problem's own count follows the feed too ("19 labels not read" said 19 while the tile said 12)
+    return { ...r, reads: Math.round((r.reads * so) / all), no_reads, per_minute: r.per_minute.map((x, i) => (i <= at ? x : 0)),
+      problems: r.no_reads ? r.problems.map((p) => p.replace(new RegExp(`^${r.no_reads}\\b`), String(no_reads))) : r.problems };
+  }) };
+}
+
 function TodayBoard({ d, name }: { d: Insights; name: (id: string) => string }) {
-  const sc = d.scorecard;
+  // The board as a live feed (Rexton 3 Nov: the demo treats the hub as live): the shift's scan log arrives a minute
+  // every 2 s from a third of the way in, then the board waits at the log's last minute. A real feed would push the
+  // same updates. Reduced motion: the latest minute at once. (README: the demo feed is the recorded shift played back.)
+  const total = d.scorecard?.minutes ?? 0;
+  const [at, setAt] = useState<number | null>(() =>
+    typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches ? null : Math.floor(total / 3));
+  useEffect(() => {
+    if (at == null) return;
+    const t = window.setTimeout(() => setAt((a) => (a == null || a >= total - 2 ? null : a + 1)), 2000);
+    return () => window.clearTimeout(t);
+  }, [at, total]);
+  const sc = d.scorecard ? upTo(d.scorecard, at) : undefined;
   const tunnel = sc?.rows.find((r) => r.group === "Scan tunnel");
   const reject = sc?.rows.find((r) => r.group === "Reject chute");
-  const total = sc ? Array.from({ length: sc.minutes }, (_, i) => sc.rows.filter((r) => r.group === "Unload").reduce((a, r) => a + r.per_minute[i], 0)) : [];
+  const unloads = sc ? Array.from({ length: sc.minutes }, (_, i) => sc.rows.filter((r) => r.group === "Unload").reduce((a, r) => a + r.per_minute[i], 0)) : [];
+  const unloaded = at == null ? d.flow?.parcels ?? 0 : unloads.slice(0, at + 1).reduce((a, x) => a + x, 0);
   const ans = d.cost.answer_seconds;
   const open = d.loop.opened.length - d.loop.resolved.length - (d.loop.resolved_on_camera ?? []).length;
   const rate = tunnel?.read_rate ?? null;
@@ -87,16 +111,20 @@ function TodayBoard({ d, name }: { d: Insights; name: (id: string) => string }) 
   return (
     <div className="db">
       <div className="db-kpis">
-        <Kpi label="Parcels unloaded" value={String(d.flow?.parcels ?? 0)} sub={d.flow ? `${t(d.flow.window[0])} to ${t(d.flow.window[1])}` : ""} spark={total} labels={mins} fmt={scans} />
+        <Kpi label="Parcels unloaded" value={String(unloaded)} sub={d.flow ? `${t(d.flow.window[0])} to ${at != null && mins ? mins[at] : t(d.flow.window[1])}` : ""}
+          spark={at != null ? unloads.slice(0, at + 1) : unloads} labels={mins} fmt={scans} />
         <Kpi label="Tunnel read rate" value={rate != null ? (rate * 100).toFixed(1) : "100"} unit="%" tone={rate != null && rate < 0.98 ? "warn" : "ok"}
           sub={<>target 98% · {tunnel?.no_reads ?? 0} not read</>} spark={tunnel?.per_minute} labels={mins} fmt={scans} />
         <Kpi label="Reject chute" value={String(reject?.no_reads ?? 0)} unit=" cartons" tone={reject?.no_reads ? "warn" : "ok"} sub="unread, to match to their unload scans" spark={reject?.per_minute} labels={mins} fmt={(x) => `${Math.round(x / 2)} cartons`} />
-        <Kpi label="Open cases" value={String(Math.max(0, open))} tone={d.loop.customer_asked.length ? "bad" : "ok"} sub={`${d.loop.customer_asked.length} customer waiting · ${d.loop.answered.length} answered`} />
+        <Kpi label="Open cases" value={String(Math.max(0, open))} tone={d.loop.customer_asked.length ? "bad" : "ok"}
+          sub={`of ${d.loop.opened.length} opened, incl. ${(d.loop.resolved_on_camera ?? []).length} controls · ${d.loop.customer_asked.length} customer waiting`} />
         <Kpi label="Time to an answer" value={ans.length ? (ans[ans.length >> 1] / 60).toFixed(1) : "0"} unit=" min" sub={`median · ${d.cost.footage_hours} h of footage`} />
       </div>
 
       <div className="db-row db-row-21">
-        {sc && <Panel title="Throughput by stage" meta="scans per minute, one scale"><Stages s={sc} /></Panel>}
+        {sc && <Panel title="Throughput by stage" meta={
+          <span className="db-live"><i aria-hidden="true" />Live · <b>{mins ? mins[at ?? sc.minutes - 1] : ""}</b> · scans per minute, one scale</span>}>
+          <Stages s={d.scorecard!} upto={at} /></Panel>}
         <Panel title="Needs attention" meta={`${d.actions?.length ?? 0} open`}>
           {d.actions?.length ? <Attention items={d.actions} name={name} /> : <p className="db-empty">Nothing to fix in the records.</p>}
         </Panel>
@@ -106,13 +134,20 @@ function TodayBoard({ d, name }: { d: Insights; name: (id: string) => string }) 
         <Pipeline s={sc} hops={d.flow?.hops ?? []} name={name} unread={d.unread?.matched.length ?? 0} />
       </Panel>}
 
-      <div className="db-row db-row-11">
+      <div className="db-row db-row-111">
         <Panel title="Lost-parcel cases" meta="from opened to resolved">
           <ol className="db-loop">
-            <li><b>{d.loop.opened.length}</b><span>Opened</span><em>{d.loop.customer_asked.length} by a customer, {d.loop.alerts.length} by a live alert</em></li>
+            <li><b>{d.loop.opened.length}</b><span>Opened</span><em>incl. {(d.loop.resolved_on_camera ?? []).length} controls · {d.loop.customer_asked.length} by a customer</em></li>
             <li><b>{d.loop.answered.length}</b><span>Answered by Spoor</span><em>where it is, with the proof</em></li>
-            <li data-empty={d.loop.checked.length ? undefined : ""}><b>{d.loop.checked.length}</b><span>Checked on the floor</span><em>{d.loop.checked.length ? `${d.loop.confirmed.length} found where Spoor said` : "none yet: staff mark it on Go look"}</em></li>
-            <li><b>{d.loop.resolved.length + (d.loop.resolved_on_camera ?? []).length}</b><span>Resolved</span><em>{d.loop.resolved.length} found by staff, {(d.loop.resolved_on_camera ?? []).length} seen on camera</em></li>
+            <li><b>{(d.loop.resolved_on_camera ?? []).length + d.loop.resolved.length}</b><span>Resolved</span><em>{(d.loop.resolved_on_camera ?? []).length} controls seen on camera{d.loop.resolved.length ? `, ${d.loop.resolved.length} found by staff` : ""}</em></li>
+            <li data-empty={d.loop.checked.length ? undefined : ""}><b>{d.loop.checked.length}</b><span>Checked on the floor</span>
+              <em>{d.loop.checked.length ? `${d.loop.confirmed.length} found where Spoor said` : `of ${Math.max(0, open)} still open: staff mark it on Go look`}</em></li>
+          </ol>
+        </Panel>
+        <Panel title="How Spoor learns" meta="the agent loop">
+          <ol className="db-learn">
+            <li><b>Not here</b> on Go look sends Muse Wonder back to plan where it went next, with the staff&apos;s check in its evidence, so nobody is sent to the same place twice.</li>
+            <li><b>Found here</b> joins the hub&apos;s memory: where earlier parcels turned up guides the order of the next plan. It is never evidence for a case.</li>
           </ol>
         </Panel>
         <Panel title="How far to trust it" meta={<Link href="/operator">ledger</Link>}>
