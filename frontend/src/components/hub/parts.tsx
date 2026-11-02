@@ -84,6 +84,12 @@ export function Skeleton() {
   );
 }
 
+/** How long the customer has waited by the time they asked: from the parcel's last scan here to the case's opening. */
+export function waited(lastScan: string, opened: string): string | null {
+  const days = Math.floor((Date.parse(opened) - Date.parse(lastScan)) / 86_400_000);
+  return days >= 1 ? `${days} day${days === 1 ? "" : "s"}` : null;
+}
+
 export function useCase(caseId: string) {
   const j = useResource<Journey>(`/v1/cases/${caseId}/journey`);
   const cs = useResource<{ case: { complaint?: string | null; created_at: string } }>(`/v1/cases/${caseId}/state`);
@@ -118,7 +124,7 @@ function CaseRow({ a, open, onOpen, asOf }: { a: CaseItem; open: boolean; onOpen
       <span className="hb-ellipsis">{last || !j.loading ? where : <span className="hb-skel" style={{ width: 150 }} />}</span>
       <span className="hb-dim">{last ? hhmm(last.t) : ""}</span>
       <span className="hb-num">{since}</span>
-      <span className="hb-dim">{cs.data?.case.complaint ? "Says it never arrived" : ""}</span>
+      <span>{cs.data?.case.complaint ? <span className="hb-chip" data-tone="ask">Customer asked</span> : ""}</span>
       <span className="hb-chev" aria-hidden="true">›</span>
     </button>
   );
@@ -213,7 +219,7 @@ export function CaseDetail({ siteId, a, keyed }: { siteId: string; a: CaseItem; 
   const href = investigated ? `/cases/${a.c.case_id}` : `/cases/${a.c.case_id}/investigate`;
   const cps = scans.length ? buildCheckpoints({ scans, records: cf.data?.objects[0]?.records ?? [], barcode: waybill }) : null;
   const sub = [dims ? `${dims.map((d) => Math.round(d / 10)).join(" × ")} cm` : "",
-    cs.data?.case.complaint ? `customer says it never arrived · case opened ${ago(cs.data.case.created_at)}` : ""].filter(Boolean).join(" · ");
+    cs.data?.case.complaint ? `customer asked: says it never arrived${last && waited(last.t, cs.data.case.created_at) ? `, ${waited(last.t, cs.data.case.created_at)} after its last scan here` : ""} · case opened ${ago(cs.data.case.created_at)}` : ""].filter(Boolean).join(" · ");
   return (
     <>
       <h2 className="hb-d-h">{last ? `${lastScanSentence(last.event_kind, last.station_id, last.t)} ${missingNextSentence(last.event_kind)}` : "No scans of this parcel at this hub."}</h2>

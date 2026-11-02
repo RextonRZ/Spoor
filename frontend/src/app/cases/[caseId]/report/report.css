@@ -46,3 +46,12 @@
 @media (max-width: 960px) { .rp-body { grid-template-columns: 1fr; } .rp-dock { position: static; order: -1; } }
 @media (max-width: 700px) { .rp-body { padding: 16px 16px 40px; } }
 @media print { .rp-dock, .fl-casebar { display: none; } .rp-body { display: block; padding: 0; } .rp-sheet { box-shadow: none; } }
+
+/* the update for the customer who asked: the draft, its facts, approve + copy (nothing is sent) */
+.rp-cu { display: grid; gap: 10px; }
+.rp-cu-draft { margin: 0; padding: 14px 16px; border-radius: 10px; border: 1px solid var(--tb-line); background: var(--tb-surface);
+  font-size: 15px; line-height: 1.55; color: var(--tb-ink); max-width: 64ch; text-wrap: pretty; }
+.rp-cu-meta { margin: 0; font-size: 12.5px; color: var(--tb-ink-2); }
+.rp-cu-facts summary { cursor: pointer; font-size: 12.5px; color: var(--tb-ink-2); }
+.rp-cu-facts ul { margin: 6px 0 0; padding-left: 18px; font-size: 13px; color: var(--tb-ink-2); }
+.rp-cu-acts { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }

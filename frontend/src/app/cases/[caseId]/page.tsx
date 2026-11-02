@@ -22,10 +22,11 @@ import { NextCams, View } from "@/components/hub/parts";
 import { Identity } from "@/components/case/Identity";
 import { CaseStory } from "@/components/case/CaseStory";
 import { Passport } from "@/components/case/Passport";
+import { CustomerBox } from "@/components/case/CustomerBox";
 import { ZONE_NAMES } from "@/components/plan/HubPlan";
 import "./answer.css";
 
-interface CaseState { case: { case_id: string; target_description: string; complaint?: string | null }; answer?: InvestigationView | null }
+interface CaseState { case: { case_id: string; target_description: string; complaint?: string | null; created_at: string }; answer?: InvestigationView | null }
 interface Conflicts { objects: { conflicts: Conflict[]; records?: CaseRecord[] }[] }
 interface SearchView { found: { name: string; by: string; at: string } | null }
 
@@ -89,6 +90,7 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
               <p className="an-why">No camera sees inside. This assumes the door is the only way in.</p>
               <CaseStory caseId={caseId} inside={inside} view={view} journey={j} truck={truck} />
             </section>
+            {st.data?.case.complaint && <CustomerBox caseId={caseId} complaint={st.data.case.complaint} opened={st.data.case.created_at} lastScan={last?.t} />}
 
             <section className="an-card" aria-labelledby="an-scans">
               <h2 id="an-scans" className="an-h2">How the hub tracked it</h2>
@@ -139,6 +141,7 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
               )}
             </section>
           )}
+          {st.data?.case.complaint && <CustomerBox caseId={caseId} complaint={st.data.case.complaint} opened={st.data.case.created_at} lastScan={last?.t} />}
 
           <section className="an-card" aria-labelledby="an-scans">
             <h2 id="an-scans" className="an-h2">Where it was scanned</h2>

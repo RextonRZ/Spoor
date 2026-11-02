@@ -17,7 +17,9 @@ import HubPlan, { ZONE_NAMES } from "@/components/plan/HubPlan";
 import "@/app/hub/hub.css";
 import "./report.css";
 
-interface CaseState { case: { target_description: string; complaint?: string | null; created_at: string } }
+interface CaseState { case: { target_description: string; complaint?: string | null; created_at: string };
+  answer?: { objects: { inside: { place: string } | null }[] } | null }
+interface Draft { draft: string; facts: string[]; model: string; note: string; approved: boolean; sent: boolean; status?: string }
 interface Possible { objects: { places: { area_id: string; name: string; zone_id: string | null; possible_share: number; centroid_xy: XY }[] }[] }
 interface Conflicts { objects: { conflicts: Conflict[] }[] }
 interface SearchView { found: { area_id: string; name: string; by: string; at: string } | null }
@@ -35,6 +37,11 @@ export default function ReportPage({ params }: { params: Promise<{ caseId: strin
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [reel, setReel] = useState<string | null>(null);
+  const saved = useResource<Draft | null>(`/v1/cases/${caseId}/customer-update`);
+  const [drafted, setDrafted] = useState<Draft | null>(null);
+  const [copied, setCopied] = useState(false);
+  const upd = drafted ?? saved.data ?? null;
+  const inside = st.data?.answer?.objects.find((o) => o.inside)?.inside ?? null;
 
   const j = jr.data?.objects[0];
   const scans = j?.scans ?? [];
@@ -47,7 +54,7 @@ export default function ReportPage({ params }: { params: Promise<{ caseId: strin
   const ready = !!(j && mr.data && pr.data && cr.data && sr.data);
 
   const foundPlace = found ? shortPlace({ area_id: found.area_id, name: found.name, zone_id: `zone_${found.area_id}` }, ZONE_NAMES) : null;
-  const head = found ? `Found in the ${foundPlace}.` : last ? `Lost track after ${placeOf(last.event_kind, last.station_id)} at ${hms(last.t)}.` : "No scans of this parcel at this hub.";
+  const head = found ? `Found in the ${foundPlace}.` : inside ? `Most likely in the ${inside.place}.` : last ? `Lost track after ${placeOf(last.event_kind, last.station_id)} at ${hms(last.t)}.` : "No scans of this parcel at this hub.";
   const story = last ? [
     `The last scan was ${low(momentLabel(last.event_kind, last.station_id))} at ${hms(last.t)}.`,
     conflict ? conflictWords(conflict).headline : "",
@@ -81,6 +88,16 @@ export default function ReportPage({ params }: { params: Promise<{ caseId: strin
     try { const r = await api<{ url: string }>(`/v1/cases/${caseId}/reel`, { method: "POST" }); setReel(signedUrl(r.url)); }
     catch (e) { setNote(e instanceof Error ? e.message : String(e)); } finally { setBusy(null); }
   }
+  async function draftUpdate() {
+    setBusy("customer"); setNote(null); setCopied(false);
+    try { setDrafted(await api<Draft>(`/v1/cases/${caseId}/customer-update`, { method: "POST" })); }
+    catch (e) { setNote(e instanceof Error ? e.message : String(e)); } finally { setBusy(null); }
+  }
+  async function approveCopy() {
+    if (!upd?.draft) return;
+    await navigator.clipboard?.writeText(upd.draft).catch(() => {});
+    setCopied(true);
+  }
   async function share() {
     setBusy("share"); setNote(null);
     try {
@@ -105,7 +122,7 @@ export default function ReportPage({ params }: { params: Promise<{ caseId: strin
             <span className="rp-brand">Spoor · Case report</span>
             <span className="rp-ref">{waybill}</span>
           </header>
-          <span className="rp-pill" data-tone={found ? "ok" : "bad"}>{found ? `Found · ${hhmm(found.at)} by ${found.by}` : "Lost track"}</span>
+          <span className="rp-pill" data-tone={found || inside ? "ok" : "bad"}>{found ? `Found · ${hhmm(found.at)} by ${found.by}` : inside ? "Likely location found" : "Lost track"}</span>
           <h1 className="rp-h1">{ready ? head : "Checking the records"}</h1>
           {story && <p className="rp-p">{story}</p>}
 
@@ -135,8 +152,25 @@ export default function ReportPage({ params }: { params: Promise<{ caseId: strin
               <p className="rp-p">{conflictWords(conflict).body}{conflict.kind === "custody" ? " The scan records and the cameras disagree about where it was." : " Ask the sorter team to check this parcel\u2019s tracking between induction and the chute."}</p>
             </>
           )}
-          <h2 className="rp-h2">For the customer</h2>
-          <p className="rp-p">{found ? "The parcel is in the hub and goes out on the next run." : `We are checking ${places.length || "the"} places in the hub where it could be. We will update you as soon as it is found.`}</p>
+          <h2 className="rp-h2" id="customer">Update for the customer who asked</h2>
+          {upd?.draft ? (
+            <div className="rp-cu">
+              <p className="rp-cu-draft">{upd.draft}</p>
+              <p className="rp-cu-meta">Draft from the verified answer only{upd.model === "template" ? "" : `, worded by ${upd.model}`}. A person approves it; customer service sends it. Spoor sends nothing.{upd.note ? ` ${upd.note}.` : ""}</p>
+              <details className="rp-cu-facts"><summary>The facts it uses</summary><ul>{upd.facts.map((f) => <li key={f}>{f}</li>)}</ul></details>
+              <div className="rp-cu-acts">
+                <button type="button" className="hb-btn hb-btn-primary" onClick={approveCopy}>{copied ? "Approved and copied" : "Approve and copy"}</button>
+                <button type="button" className="hb-btn" onClick={draftUpdate} disabled={busy === "customer"}>{busy === "customer" ? "Drafting…" : "Draft again"}</button>
+              </div>
+            </div>
+          ) : upd?.status === "no_answer" || (!inside && !found) ? (
+            <p className="rp-p">No verified answer yet, so there is nothing to tell the customer. The update is drafted once the investigation places it.</p>
+          ) : (
+            <div className="rp-cu-acts">
+              <button type="button" className="hb-btn hb-btn-primary" onClick={draftUpdate} disabled={busy === "customer"}>{busy === "customer" ? "Drafting…" : "Draft the update to the customer"}</button>
+              <span className="rp-cu-meta">From the verified answer only. Nothing is sent.</span>
+            </div>
+          )}
 
           <div className="rp-plan"><HubPlan label="Floor plan with the parcel's route" journey={j} fit="width" legend={false} quiet /></div>
           <footer className="rp-fine">Decision support, not a forensic certificate. Every parcel leaves a trail. Spoor reads it.</footer>
