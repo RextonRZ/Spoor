@@ -114,7 +114,7 @@ export function JourneyReel({ caseId, onStep }: { caseId: string; onStep?: (i: n
       </div>
       <figure className="jr-stage">
         <video ref={video} src={signedUrl(reel.url)} muted playsInline preload="auto" controls
-          onLoadedMetadata={(e) => { if (steps[0] && e.currentTarget.currentTime === 0) e.currentTarget.currentTime = steps[0].start_s + 0.8; }}
+          onLoadedMetadata={(e) => { if (e.currentTarget.currentTime === 0) e.currentTarget.currentTime = 1.2; }}
           aria-label={cur ? `${hms(cur.t)}: ${cur.title}` : "The parcel's journey"} />
       </figure>
       <ol className="jr-rail" aria-label="The journey, step by step">
@@ -137,7 +137,7 @@ export function JourneyReel({ caseId, onStep }: { caseId: string; onStep?: (i: n
           );
         })}
       </ol>
-      {cur?.sub && <p className="jr-sub">{cur.sub}</p>}
+      {cur && <p className="jr-sub">Step {on + 1} of {steps.length}</p>}
     </div>
   );
 }
