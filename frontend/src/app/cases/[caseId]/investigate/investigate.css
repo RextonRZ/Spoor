@@ -221,3 +221,10 @@
    Spark (hosted) sky, SAM 3.1 pink, rules grey */
 .iv { --f-sparkopen: #a78bfa; --f-spark: #38bdf8; --f-sam: #f472b6; }
 .iv [data-fam="sparkopen"] { --f: var(--f-sparkopen); }
+/* one column (tablet, phone): the places sit with the steps, and the way on, "See the answer", comes last */
+@media (max-width: 1100px) {
+  .iv-main { flex-direction: column; flex-wrap: nowrap; }
+  .iv-left { display: contents; }
+  .iv-right { order: 5; width: 100%; flex: none; position: static; }
+  .iv-foot { order: 9; }
+}
