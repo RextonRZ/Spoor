@@ -544,3 +544,4 @@
 2026-11-03 05:06 · loop · Cameras on a phone: two across with a smaller overlay (one per row was ~10,600 px of scrolling; now ~3,300). Agents page on narrow screens: places at full width with the steps, 'See the answer' last.
 2026-11-03 05:07 · ack · ACK reviewer 05:06 (one number): '13 of 13' everywhere (README, EVALUATION current row, DEMO_SCRIPT, READY top); 51 of 51 retired (pre-stricter rules).
 2026-11-03 05:19 · video · Scene recordings (DEMO_SCRIPT order) from the production build: review/video/scenes/01..07 (git-ignored), checked frame by frame; found + fixed while doing it: the Report flashed 'No scans of this parcel at this hub.' while loading, the Hub panel could too (both now wait for the case and its scans). Demo data restored after.
+2026-11-03 05:20 · data · demo-ready snapshot retaken with an English holding draft as the latest customer update (the earlier snapshot opened the sheet in Malay from a test).
