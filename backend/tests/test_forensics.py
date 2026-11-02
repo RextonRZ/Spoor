@@ -518,3 +518,36 @@ def test_handshake_plan_rules_and_honest_gaps(world, now):
     assert rows[("SP-PLC", "")].rule == "point"
     assert ("SP-BENCH", "not_on_camera") in rows and ("SP-PLC", "no_footage") in rows
     assert sam_frames(list(rows.values())) == 2 * 56  # the two runnable ones, 5.5 s at 10 fps each
+
+
+def test_left_alert_watches_open_containers_only(world, now):
+    """A parcel whose last scan put it in a cage is watched on the cameras that see that point; one whose last scan put
+    it in a bag is not (a carton in a sack can't be seen leaving as a carton), and a later scan clears a parcel."""
+    from spoor.forensics.left_alert import plan_watches
+
+    w = world
+    w.camera("cam_a")
+    w.clip("cam_a", 0, 30)
+    plan = SitePlan.model_validate(plan_for(w.site.site_id, now).model_dump() | {"read_points": [
+        {"scan_point_id": "SP-CAGE", "device_kind": "handheld", "position_m": (2, 3, 1.0), "work_area_m": [[(1.5, 2.5), (2.5, 2.5), (2.5, 3.5), (1.5, 3.5)]],
+         "visible_by": ["cam_a"]},
+        {"scan_point_id": "SP-BAG", "device_kind": "handheld", "position_m": (4, 3, 1.0), "work_area_m": [[(3.5, 2.5), (4.5, 2.5), (4.5, 3.5), (3.5, 3.5)]],
+         "visible_by": ["cam_a"]}]})
+
+    def into(station, kind, t_s, wb, ctype, cid):
+        w.store.put(ScanEvent(scan_event_id=new_id("scan_event"), site_id=w.site.site_id, source_type="scan_simulated",
+                              import_batch="t", identifiers=[ParcelIdentifier(scheme="carrier_waybill", value=wb)],
+                              event_kind=kind, device_time_utc=w.t0 + timedelta(seconds=t_s), clock_domain_id="clkd_wcs",
+                              device_id=station, device_kind="handheld", station_id=station,
+                              container=ParcelIdentifier(scheme="container", value=cid), container_type=ctype))
+
+    into("SP-CAGE", "container_add", 2.0, "CTX100000000001", "cage", "RC-1")
+    into("SP-CAGE", "container_add", 3.0, "CTX100000000002", "cage", "RC-1")
+    into("SP-BAG", "container_add", 4.0, "CTX100000000003", "bag", "BG-1")
+    w.store.put(ScanEvent(scan_event_id=new_id("scan_event"), site_id=w.site.site_id, source_type="scan_simulated",
+                          import_batch="t", identifiers=[ParcelIdentifier(scheme="carrier_waybill", value="CTX100000000002")],
+                          event_kind="arrived_facility", device_time_utc=w.t0 + timedelta(seconds=9),
+                          clock_domain_id="clkd_wcs", device_id="SP-BENCH", device_kind="handheld", station_id="SP-BENCH"))
+    ws = plan_watches(w.store, plan, w.store.find(ScanEvent))
+    assert [(x.scan_point_id, x.camera_id) for x in ws] == [("SP-CAGE", "cam_a")]
+    assert [p["waybill"] for p in ws[0].parcels] == ["CTX100000000001"]

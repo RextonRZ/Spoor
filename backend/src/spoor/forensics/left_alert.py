@@ -1,5 +1,6 @@
-"""Live alert "left without a scan" (six checkpoints, addendum 4 #2): a carton scanned into a container (a cage, a
-bag) is seen leaving that container's work area on camera, and no scan of it follows. The alert is raised at that
+"""Live alert "left without a scan" (six checkpoints, addendum 4 #2): a carton scanned into an open container (a cage,
+a pallet) is seen leaving that container's work area on camera, and no scan of it follows. Bags are not watched: a
+carton inside a closed sack can't be seen leaving as a carton, and loose cartons cross a bagging area all the time. The alert is raised at that
 moment, before anyone complains. General: any container scan at any handheld point, any parcel; it never fires for a
 parcel scanned out again (any later scan of it), and a container leaving with its own RFID read is a scan of the
 container, not a carton taken out of it.
@@ -11,11 +12,13 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from spoor.contracts import CameraCoverage, MediaAsset, ScanEvent, SitePlan
-from spoor.contracts.parcels import DeviceKind, ReadOutcome, ScanEventKind
+from spoor.contracts.parcels import ContainerType, DeviceKind, ReadOutcome, ScanEventKind
 from spoor.store import EvidenceStore
 from spoor.store.parcels import timed
 
 from .handshake import waybill_of
+
+OPEN_CONTAINERS = frozenset({ContainerType.CAGE, ContainerType.PALLET, ContainerType.GAYLORD})  # cartons stay in view
 
 
 @dataclass
@@ -29,7 +32,7 @@ class Watch:
 
 
 def plan_watches(store: EvidenceStore, plan: SitePlan, scans: list[ScanEvent]) -> list[Watch]:
-    """For every handheld container point: the parcels whose LAST scan put them into a container there, and the clips
+    """For every handheld open-container point: the parcels whose LAST scan put them into a container there, and the clips
     of the cameras watching it that start after those scans."""
     last: dict[str, tuple] = {}
     for s in scans:
@@ -41,7 +44,8 @@ def plan_watches(store: EvidenceStore, plan: SitePlan, scans: list[ScanEvent]) -
             last[w] = (s, ts.t)
     by_point: dict[str, list[dict]] = {}
     for w, (s, t) in last.items():
-        if s.event_kind == ScanEventKind.CONTAINER_ADD and s.device_kind == DeviceKind.HANDHELD:
+        if (s.event_kind == ScanEventKind.CONTAINER_ADD and s.device_kind == DeviceKind.HANDHELD
+                and s.container_type in OPEN_CONTAINERS):
             by_point.setdefault(s.station_id or s.device_id, []).append(
                 {"waybill": w, "container": s.container.value if s.container else None, "scanned_in": t})
     media = [m for m in store.find(MediaAsset) if m.kind.value == "original" and not store.is_invalid(m.media_id)]

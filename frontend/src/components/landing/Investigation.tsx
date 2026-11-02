@@ -62,7 +62,7 @@ function PlanPanel({ story }: { story: Story | null }) {
         <span className="lp-show-label">Scan records</span>
         <p>{story?.lastScan ? story.lastScan.words : story?.opener ?? "The parcel's scans at this hub."}</p>
         <span className="lp-show-plan-sub">
-          {next.size ? `${next.size} of ${cams.length} cameras could see it next` : `${cams.length || 19} cameras on the floor plan`}
+          {next.size ? `${next.size} of ${cams.length} cameras could see it next` : `${cams.length || 19} wide cameras on the floor plan`}
         </span>
       </div>
       <ul className="lp-show-cams">

@@ -93,7 +93,7 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
     const end: End | null = evs.some((e) => e.type === "run_end") ? null : (() => {
       const last = [...evs].reverse().find((e) => e.type === "run_step") as Step | undefined;
       return last ? { type: "run_end", t_s: last.t_s, cost_usd: last.cost_usd, cameras_checked: last.cameras_checked,
-        text: `Took ${last.t_s} s and US$${last.cost_usd.toFixed(2)}. ${last.cameras_checked} cameras checked of 19.` } : null;
+        text: `Took ${last.t_s} s and US$${last.cost_usd.toFixed(2)}. 19 wide cameras on site, ${last.cameras_checked} examined closely.` } : null;
     })();
     const all = end ? [...evs, end] : evs;
     setEvents(all);
@@ -141,7 +141,7 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
         <div aria-label="Live meter" className="iv-meter">
           <span><strong>US${(end?.cost_usd ?? cur?.cost_usd ?? 0).toFixed(2)}</strong> <span>spent</span></span>
           {swept > 0 && <span><strong>{swept}</strong> <span>wide cameras swept</span></span>}
-          <span><strong>{end?.cameras_checked ?? cur?.cameras_checked ?? 0}</strong> <span>{swept > 0 ? "examined closely" : "of 19 cameras checked"}</span></span>
+          <span><strong>{end?.cameras_checked ?? cur?.cameras_checked ?? 0}</strong> <span>{swept > 0 ? "examined closely" : "of 19 wide cameras examined"}</span></span>
           <span><strong>{secs(end?.t_s ?? cur?.t_s ?? 0)} s</strong></span>
           <button type="button" onClick={() => (events.length && !live ? replay(events) : undefined)} disabled={live || !events.length}>Replay</button>
         </div>
