@@ -30,13 +30,20 @@
 .jr-btn:active { transform: scale(0.98); }
 .jr-btn:focus-visible { outline: 2px solid #818cf8; outline-offset: 2px; }
 @media (hover: hover) and (pointer: fine) { .jr-btn:hover { background: rgba(255, 255, 255, 0.03); } }
-.jr-time { font-size: 12px; color: var(--tb-mute); font-variant-numeric: tabular-nums; }
+.jr-time { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--tb-mute); font-variant-numeric: tabular-nums; }
+/* the step's number: the same number marks it on the Proof's plan */
+.jr-n { display: inline-grid; place-items: center; min-width: 17px; height: 17px; border-radius: 9px; font-size: 10.5px; font-weight: 700;
+  color: var(--tb-ink-2); box-shadow: inset 0 0 0 1.2px var(--tb-line-2); }
+.jr-step[data-on] .jr-n { background: var(--tb-accent); color: #fff; box-shadow: none; }
 .jr-title { font-size: 13.5px; font-weight: 600; color: var(--tb-ink-2); line-height: 1.3; text-wrap: balance; }
 .jr-step[data-on] .jr-title { color: var(--tb-ink); }
 .jr-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 550; color: #86efac; }
 .jr-badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .jr-step:is([data-tone="noscan"], [data-tone="record"]) .jr-badge { color: #fca5a5; }
 .jr-step:is([data-tone="seen"], [data-tone="wait"], [data-tone="card"]) .jr-badge { color: var(--tb-ink-2); }
+/* the last scan the records have (after it, only cameras): marked so the hand-over from records to cameras is seen */
+.jr-badge[data-last] { justify-self: start; padding: 1px 8px 1px 7px; border-radius: 999px; box-shadow: inset 0 0 0 1px rgba(134, 239, 172, 0.5);
+  background: rgba(74, 222, 128, 0.08); }
 .jr-cam { font-size: 11.5px; color: var(--tb-mute); }
 .jr-num { font-size: 11.5px; color: var(--tb-ink-2); font-variant-numeric: tabular-nums; letter-spacing: 0.01em; }
 .jr-sub { margin: 0; font-size: 13px; color: var(--tb-ink-2); max-width: 70ch; }

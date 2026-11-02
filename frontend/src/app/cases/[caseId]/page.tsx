@@ -7,7 +7,6 @@
  * Everything comes from the case's read models (journey, missing moment, possible places, conflicts, floor search);
  * without model keys it says what is really known. The same words as the Hub and the landing page (lib/answer).
  */
-import { JourneyReel, PLAY_JOURNEY } from "@/components/case/JourneyReel";
 import Link from "next/link";
 import { use } from "react";
 import { useResource } from "@/lib/api";
@@ -26,6 +25,9 @@ import { CustomerBox } from "@/components/case/CustomerBox";
 import { ZONE_NAMES } from "@/components/plan/HubPlan";
 import "./answer.css";
 
+/** "14:21" on the hub clock */
+const hm = (iso: string) => hms(iso).slice(0, 5);
+
 interface CaseState { case: { case_id: string; target_description: string; complaint?: string | null; created_at: string }; answer?: InvestigationView | null }
 interface Conflicts { objects: { conflicts: Conflict[]; records?: CaseRecord[] }[] }
 interface SearchView { found: { name: string; by: string; at: string } | null }
@@ -39,6 +41,7 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
   const pr = useResource<Possible>(`/v1/cases/${caseId}/possible-locations`);
   const cr = useResource<Conflicts>(`/v1/cases/${caseId}/conflicts`);
   const sr = useResource<SearchView>(`/v1/cases/${caseId}/search-tasks`);
+  const reel = useResource<{ seconds: number }>(`/v1/cases/${caseId}/journey-reel`);
   const j = jr.data?.objects[0];
   const mm = mr.data?.objects[0];
   const scans = j?.scans ?? [];
@@ -73,40 +76,37 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
   ].sort((a, b) => a.t.localeCompare(b.t));
 
   if (inside && view) {
+    // three facts, one line each, in the records' and cameras' own terms (the step-by-step is the Proof's)
+    const caged = [...records].reverse().find((r) => r.event_kind === "container_add" && Date.parse(r.t) <= Date.parse(inside.iso.carried_in_at));
+    const lastT = caged?.t ?? last?.t;
+    const facts: { text: string; bad?: boolean }[] = [
+      ...(lastT ? [{ text: `Last scan: ${caged?.container ? `put into cage ${caged.container}` : momentLabel(last!.event_kind, last!.station_id).toLowerCase()} at ${hm(lastT)}.` }] : []),
+      { text: `${hm(inside.iso.carried_in_at)}: carried into the ${inside.place.replace(/ \(Z\d+\)$/, "")}, not scanned in.`, bad: true },
+      ...(truck && insideAtTruck ? [{ text: `${hm(truck.t)}: the truck record says loaded on ${truck.door ?? "a truck"}. The cameras show it never left.`, bad: true }] : []),
+    ];
     return (
       <div className="an">
         <CaseSteps caseId={caseId} waybill={waybill} said={st.data?.case.complaint ? "customer says it never arrived" : null} here={0} />
         <div className="an-body" data-answered="">
           <div className="an-main">
-            <section className="an-verdict" aria-labelledby="an-h" data-level="medium">
-              <div className="an-verdict-top">
-                <span className="an-chip" data-tone="ok">Likely location found</span>
-                <div className="an-acts">
-                  <button type="button" className="hb-btn" onClick={() => window.dispatchEvent(new Event(PLAY_JOURNEY))}>Watch the proof</button>
-                  <Link className="hb-btn hb-btn-primary" href={`/cases/${caseId}/search`}>Send someone to look</Link>
-                </div>
-              </div>
+            <section className="an-verdict an-one" aria-labelledby="an-h" data-level="medium">
+              <span className="an-chip" data-tone="ok">Likely location found</span>
               <h1 id="an-h" className="an-h1">Most likely in the {inside.place}.</h1>
               <p className="an-why">No camera sees inside. This assumes the door is the only way in.</p>
-              <CaseStory caseId={caseId} inside={inside} view={view} journey={j} truck={truck} strip={false} />
+              <div className="an-one-grid">
+                <CaseStory caseId={caseId} inside={inside} view={view} journey={j} truck={truck} strip={false} plan={false} />
+                <div className="an-one-side">
+                  <ol className="an-facts" aria-label="What the records and cameras show">
+                    {facts.map((f) => <li key={f.text} data-bad={f.bad ? "" : undefined}>{f.text}</li>)}
+                  </ol>
+                  <div className="an-one-acts">
+                    <Link className="hb-btn hb-btn-primary" href={`/cases/${caseId}/search`}>Send someone to look</Link>
+                    <Link className="hb-btn" href={`/cases/${caseId}/proof`}>Watch the proof{reel.data ? ` (${Math.round(reel.data.seconds)} s)` : ""}</Link>
+                  </div>
+                </div>
+              </div>
             </section>
             {st.data?.case.complaint && <CustomerBox caseId={caseId} complaint={st.data.case.complaint} opened={st.data.case.created_at} lastScan={last?.t} />}
-
-            <section className="an-card" aria-labelledby="an-scans">
-              <h2 id="an-scans" className="an-h2">The parcel&apos;s journey</h2>
-              <JourneyReel caseId={caseId} />
-              {tunnel?.screen && (
-                <details className="an-more">
-                  <summary>Scan tunnel screen for this parcel</summary>
-                  <div className="an-dws"><ScannerScreen s={tunnel.screen} at={tunnel.t} /></div>
-                </details>
-              )}
-            </section>
-
-            <details className="an-card an-fold">
-              <summary className="an-h2">How we know it&apos;s this parcel</summary>
-              <Identity siteId={siteId} waybill={waybill} />
-            </details>
           </div>
         </div>
       </div>

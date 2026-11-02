@@ -13,14 +13,19 @@ import "./journeyreel.css";
 
 // red only where the records fail (not scanned in at the store; a record the cameras contradict); seen on camera is grey
 type Tone = "scan" | "seen" | "noscan" | "record" | "wait" | "card";
-const BADGE: Record<Tone, string> = { scan: "Scanned here", seen: "On camera", noscan: "Not scanned in", record: "Records disagree",
+const BADGE: Record<Tone, string> = { scan: "Scanned", seen: "On camera", noscan: "Not scanned in", record: "Records disagree",
   wait: "No camera", card: "Answer" };
-interface Chapter { title: string; tone: Tone; t: string; start_s: number; end_s: number; camera: string;
-  label: string | null; sub: string }
-interface Reel { reel_id: string; seconds: number; chapters: Chapter[]; url: string }
+export interface Chapter { title: string; tone: Tone; t: string; start_s: number; end_s: number; camera: string;
+  label: string | null; sub: string; xy?: [number, number] | null; last_scan?: boolean }
+export interface Reel { reel_id: string; seconds: number; chapters: Chapter[]; url: string }
 
 const hms = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { timeZone: "Asia/Kuala_Lumpur", hour12: false });
-const camWords = (c: string) => c.replace("CHK_", "close-up ").replace("_", " ").replace("close-up CAGE W", "close-up cage W");
+// who saw it, in plain words ("Seen on CAM 11", "Seen on the cage close-up camera"); the tunnel step is its reader's photo
+const CLOSE: Record<string, string> = { UNLOAD: "unload", TUNNEL: "tunnel", CAGE_W: "cage", CAGE_E: "cage", STORE: "store door",
+  DOCK: "dock", CHUTE: "chute" };
+const seenOn = (c: string) => c === "Tunnel reader" ? "The tunnel reader's own photo"
+  : c.startsWith("CHK_") ? `Seen on the ${CLOSE[c.slice(4)] ?? c.slice(4).toLowerCase().replace("_", " ")} close-up camera`
+  : `Seen on ${c.replace("_", " ")}`;
 
 function gapWords(ms: number): string {
   const s = Math.round(ms / 1000);
@@ -32,7 +37,10 @@ function gapWords(ms: number): string {
 /** "Watch the proof" on the answer plays this reel in place (it was a second, frame-by-frame player of the same clips) */
 export const PLAY_JOURNEY = "spoor:play-journey";
 
-export function JourneyReel({ caseId }: { caseId: string }) {
+/** a map stop (Proof) seeks the reel to its chapter: detail = the chapter's index */
+export const SEEK_JOURNEY = "spoor:seek-journey";
+
+export function JourneyReel({ caseId, onStep }: { caseId: string; onStep?: (i: number) => void }) {
   const r = useResource<Reel>(`/v1/cases/${caseId}/journey-reel`);
   const [made, setMade] = useState<Reel | null>(null);
   const [failed, setFailed] = useState(false);
@@ -82,9 +90,12 @@ export function JourneyReel({ caseId }: { caseId: string }) {
       box.current?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
       playRef.current(null);
     };
+    const seek = (e: Event) => playRef.current((e as CustomEvent<number>).detail);
     window.addEventListener(PLAY_JOURNEY, go);
-    return () => window.removeEventListener(PLAY_JOURNEY, go);
+    window.addEventListener(SEEK_JOURNEY, seek);
+    return () => { window.removeEventListener(PLAY_JOURNEY, go); window.removeEventListener(SEEK_JOURNEY, seek); };
   }, []);
+  useEffect(() => { onStep?.(on); }, [on, onStep]);
 
   if (!reel) {
     return (
@@ -116,11 +127,11 @@ export function JourneyReel({ caseId }: { caseId: string }) {
               data-after={firstGap >= 0 && i >= firstGap ? "" : undefined}>
               {prev && gap >= 2000 && c.camera && prev.camera && <span className="jr-gap" aria-label={`${gapWords(gap)} later`}>{gapWords(gap)}</span>}
               <button type="button" className="jr-btn" aria-pressed={i === on} onClick={() => play(i)}>
-                <span className="jr-time">{hms(c.t)}</span>
+                <span className="jr-time"><span className="jr-n" aria-hidden>{i + 1}</span>{hms(c.t)}</span>
                 <span className="jr-title">{c.title}</span>
-                <span className="jr-badge">{BADGE[c.tone] ?? "On camera"}</span>
-                {c.camera && <span className="jr-cam">{camWords(c.camera)}</span>}
-                {c.label && <span className="jr-num">{c.label}</span>}
+                <span className="jr-badge" data-last={c.last_scan ? "" : undefined}>{c.last_scan ? "Last scan" : BADGE[c.tone] ?? "On camera"}</span>
+                {c.camera && <span className="jr-cam">{seenOn(c.camera)}</span>}
+                {c.label && <span className="jr-num">{c.camera === "Tunnel reader" ? "Number read by the tunnel" : "Number confirmed on camera"}</span>}
               </button>
             </li>
           );

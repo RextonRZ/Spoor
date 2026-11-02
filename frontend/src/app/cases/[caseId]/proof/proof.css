@@ -74,3 +74,24 @@
 
 @media (max-width: 1100px) { .pf-main { grid-template-columns: 1fr; } .pf-right { position: static; } }
 @media (max-width: 700px) { .pf-main { padding: 16px 16px 40px; } .pf-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pf-time { min-width: 0; } }
+
+/* Proof = step by step (Rexton 2 Nov): the reel and its rail beside the numbered plan, then how we know, then how sure */
+.pf-wrap { display: grid; gap: 40px; max-width: 1440px; padding: 24px 28px 56px; box-sizing: border-box; }
+.pf-sec { display: grid; gap: 14px; min-width: 0; }
+.pf-sec + .pf-sec { padding-top: 28px; border-top: 1px solid var(--tb-line); }
+.pf-head { display: grid; gap: 4px; }
+.pf-h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.015em; }
+.pf-head p { margin: 0; font-size: 13.5px; color: var(--tb-ink-2); max-width: 70ch; }
+.pf-h2 { margin: 0; font-size: 17px; font-weight: 650; letter-spacing: -0.01em; }
+.pf-grid { display: grid; grid-template-columns: minmax(0, 1fr) clamp(320px, 28vw, 420px); gap: 24px; align-items: start; }
+.pf-reel { min-width: 0; }
+.pf-side { position: sticky; top: 76px; display: grid; gap: 10px; min-width: 0; }
+.pf-plan-note { margin: 0; font-size: 12px; color: var(--tb-mute); }
+.pf-know { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); gap: 24px; align-items: start; }
+.pf-dws { min-width: 0; }
+.pf-sure { list-style: none; margin: 0; padding: 0; display: grid; max-width: 78ch; }
+.pf-sure li { padding: 12px 0; border-top: 1px solid var(--tb-line); font-size: 14px; line-height: 1.55; color: var(--tb-ink-2); text-wrap: pretty; }
+.pf-sure li:last-child { border-bottom: 1px solid var(--tb-line); }
+.pf-sure b { color: var(--tb-ink); font-weight: 650; }
+@media (max-width: 1100px) { .pf-grid, .pf-know { grid-template-columns: 1fr; } .pf-side { position: static; } }
+@media (max-width: 700px) { .pf-wrap { padding: 16px 16px 40px; gap: 32px; } .pf-go { justify-content: center; } }

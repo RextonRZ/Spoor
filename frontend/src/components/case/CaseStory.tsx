@@ -72,8 +72,10 @@ function useClipFor(siteId: string | undefined) {
     && !m.purged && m.coverage.some((c) => Date.parse(c.start_utc) <= Date.parse(iso) && Date.parse(iso) <= Date.parse(c.end_utc)))?.media.media_id;
 }
 
-export function CaseStory({ caseId, inside, view, journey, truck, strip = true }: {
+export function CaseStory({ caseId, inside, view, journey, truck, strip = true, plan = true }: {
   caseId: string; inside: InsideFacts; view: InvestigationView; journey?: JourneyObject; strip?: boolean;
+  /** the plan beside the clip (the Answer shows the clip alone: the route is the Proof's) */
+  plan?: boolean;
   /** the records' "loaded on truck" (the cage's gate read), if any */
   truck?: { t: string; door: string | null } | null;
 }) {
@@ -211,7 +213,7 @@ export function CaseStory({ caseId, inside, view, journey, truck, strip = true }
   const toPlan = cur.key === "in" || cur.key.startsWith("out") || cur.key === "truck" || cur.key === "end";
   return (
     <div className="cs">
-      <div className="cs-stage">
+      <div className="cs-stage" data-solo={plan ? undefined : ""}>
         <figure className="cs-video" style={{ aspectRatio: `${wh[0]} / ${wh[1]}` }}>
           {clip ? (
             <video ref={video} src={clip} poster={stills[cur.key]} muted playsInline preload="auto" aria-label={`${camWords(cur.cam)} at ${hms(cur.iso)}: ${cur.text}`} />
@@ -228,13 +230,13 @@ export function CaseStory({ caseId, inside, view, journey, truck, strip = true }
           </figcaption>
           {(cur.media === inside.media_id || cur.box || carryBoxes.length > 0) && <span className="cs-sam">Outline: SAM 3.1 tracking</span>}
         </figure>
-        <figure className="cs-plan">
+        {plan && <figure className="cs-plan">
           <HubPlan label={`The parcel's path; now: ${cur.text}`} journey={journey} quiet
             story={{ area: inside.area_polygon as XY[], from: door, to: area }}
             marker={{ xy: toPlan ? area : cur.xy, kind: cur.tone ? "unknown" : "observed", label: hms(cur.iso) }}
             litCameras={[cur.cam]} legend={false} fit="contain" minHeight={0} />
           <figcaption>{inside.place}</figcaption>
-        </figure>
+        </figure>}
       </div>
 
       {strip && <ol className="lp-mo cs-mo" aria-label="The moments, in order">

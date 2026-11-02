@@ -2,7 +2,7 @@
 order, SAM's own outline (its mask edge) on the carton on every frame where SAM followed it, and a short card where
 nothing can be seen (in a cage with no footage, inside the store). Built from stored evidence only.
 
-Each segment burns in its camera, the shared clock, the checkpoint and one badge: green "Scanned here", grey "On camera"
+Each segment burns in its camera, the shared clock, the checkpoint and one badge: green "Scanned" ("Last scan" on the last one), grey "On camera"
 (seen with no scan, which is the good news), and red only where the records fail: "Not scanned in" at the one place a
 scan should have happened, and "Records disagree" on a record the cameras contradict. The tracking number shows only when that handshake carries it (labelled). The outline is drawn only on frames SAM followed
 the carton (a handshake's frames up to the scan, the live alert's track, the verified doorway track); never on a
@@ -24,7 +24,7 @@ FPS = 10
 MYT = timezone(timedelta(hours=8))
 GREEN, RED, INK, MUTE, BG = (128, 222, 74), (113, 113, 248), (244, 242, 240), (170, 168, 165), (18, 15, 13)
 # red only where the records fail; a carton seen on camera without a scan is not a failure of the footage
-BADGES = {"scan": ("Scanned here", GREEN), "seen": ("On camera", MUTE), "noscan": ("Not scanned in", RED),
+BADGES = {"scan": ("Scanned", GREEN), "seen": ("On camera", MUTE), "noscan": ("Not scanned in", RED),
           "record": ("Records disagree", RED)}
 # how a "loaded" record is made (no person types it): the cage is read, and every parcel scanned into it counts as loaded
 LOAD_HOW = {"rfid_portal": "Automatic: the door's RFID reader read the cage's tag, so every parcel in it counts as "
@@ -53,6 +53,8 @@ class Segment:
     seconds: float = 2.4  # how long a card or a still is held
     media_id: str = ""
     track_id: str = ""  # the SAM track whose outline is drawn (for screens that show one frame of it)
+    xy: tuple[float, float] | None = None  # where on the plan (its scan point, the store door, the truck's read point)
+    last_scan: bool = False  # the last scan the records have: everything after it comes from cameras only
 
 
 ZOOM_BELOW = 0.22  # an outline narrower than this share of the frame is shown on a crop around it (a far camera)
@@ -90,7 +92,7 @@ def _fit(frame: np.ndarray) -> tuple[np.ndarray, float, int, int]:
 def _burn(img, seg: Segment, when: datetime):
     cv2.rectangle(img, (0, H - 58), (W, H), (10, 10, 12), -1)
     _txt(img, f"{seg.camera}   {when.astimezone(MYT):%H:%M:%S}   {seg.title}", (24, H - 22), 0.66)
-    badge, col = BADGES.get(seg.tone, BADGES["seen"])
+    badge, col = ("Last scan", GREEN) if seg.last_scan else BADGES.get(seg.tone, BADGES["seen"])
     (tw, _), _ = cv2.getTextSize(badge, cv2.FONT_HERSHEY_SIMPLEX, 0.62, 2)
     cv2.rectangle(img, (W - tw - 46, H - 46), (W - 22, H - 14), col, -1)
     cv2.putText(img, badge, (W - tw - 34, H - 23), cv2.FONT_HERSHEY_SIMPLEX, 0.62, (12, 12, 12), 2, cv2.LINE_AA)
@@ -183,7 +185,8 @@ def build_journey_reel(segments: list[Segment], out_dir: Path, reel_id: str, tit
                                 "zoomed_to": list(crop) if crop else None})
             chapters.append({"title": seg.title, "tone": seg.tone, "t": seg.t.isoformat(), "start_s": round(start, 2),
                              "end_s": round(n / FPS, 2), "camera": seg.camera, "label": seg.label, "sub": seg.sub,
-                             "media_id": seg.media_id or None, "track_id": seg.track_id or None})
+                             "media_id": seg.media_id or None, "track_id": seg.track_id or None,
+                             "xy": list(seg.xy) if seg.xy else None, "last_scan": seg.last_scan})
         vw.release()
         mp4 = out_dir / f"{reel_id}.mp4"
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(raw), "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
@@ -304,6 +307,7 @@ def journey_segments(svc, case, waybill: str, answer: dict | None) -> list[Segme
             (0 if h.camera_id.startswith("cam_CHK_") else 1)  # fmt: skip
 
     last = None
+    plan = latest_plan(svc.store, case.site_id)
     photo = svc.settings.data_dir / "scanner" / f"{waybill}.jpg"
     for hs in by.values():
         h = min(hs, key=rank)
@@ -311,7 +315,8 @@ def journey_segments(svc, case, waybill: str, answer: dict | None) -> list[Segme
         last = ev if last is None or ev.device_time_utc > last.device_time_utc else last
         title = TITLES.get(h.event_kind, h.event_kind.replace("_", " ").capitalize()).format(
             chute=(h.scan_point_id or "").rsplit("-", 1)[-1], cage=ev.container.value if ev.container else "")
-        seg = Segment(title=title, tone="scan", t=ev.device_time_utc)
+        rp_ = plan.read_point(ev.station_id or ev.device_id) if plan else None
+        seg = Segment(title=title, tone="scan", t=ev.device_time_utc, xy=tuple(rp_.position_m[:2]) if rp_ else None)
         if h.event_kind == "tunnel_read" and photo.exists():
             seg.image, seg.label, seg.camera, seg.sub = photo, waybill, "Tunnel reader", "The reader's own photo at the read"
         elif not h.media_id or svc.store.get(MediaAsset, h.media_id).camera_id not in cams:
@@ -326,17 +331,21 @@ def journey_segments(svc, case, waybill: str, answer: dict | None) -> list[Segme
         segs.append(seg)
     if last is None:
         return segs
+    for seg in segs:
+        seg.last_scan = seg.t == last.device_time_utc
+    last_xy = next((g.xy for g in segs if g.last_scan), None)
     # after the last scan: the live alert that named only this parcel (taken out, no scan)
     where = last.container.value if last.container else "its last place"
     alert = next((a for a in sorted(svc.store.find(LiveAlert), key=lambda a: a.at_utc)
                   if len(a.candidates) == 1 and a.candidates[0]["waybill"] == waybill), None)  # fmt: skip
     if alert is not None:
         mins = round((alert.at_utc - last.device_time_utc).total_seconds() / 60)
-        segs.append(Segment(title=f"Waiting in {where} for {mins} min", tone="wait",
+        segs.append(Segment(title=f"Waiting in {where} for {mins} min", tone="wait", xy=last_xy,
                             t=last.device_time_utc + timedelta(seconds=1),
                             sub=f"{_hm(last.device_time_utc)} to {_hm(alert.at_utc)}: no camera saw it move"))
         polys, boxes = track(alert.media_id, alert.track_id)
-        seg = Segment(title=f"Taken out of {where}", tone="seen", t=alert.at_utc,
+        ap_ = plan.read_point(alert.scan_point_id) if plan else None
+        seg = Segment(title=f"Taken out of {where}", tone="seen", t=alert.at_utc, xy=tuple(ap_.position_m[:2]) if ap_ else last_xy,
                       sub=f"The one parcel caged in {where} and not scanned since: could be {waybill}")
         clip(seg, alert.media_id, alert.at_utc, before=alert.frame_index - min(boxes, default=alert.frame_index) + 5)
         seg.contours, seg.boxes, seg.track_id = polys, boxes, alert.track_id
@@ -349,7 +358,8 @@ def journey_segments(svc, case, waybill: str, answer: dict | None) -> list[Segme
     o = svc.store.get(RawObservation, inside["observation_id"])
     polys, boxes = track(inside["media_id"], o.track_id)
     door_t = datetime.fromisoformat(inside["iso"]["door_at"])
-    seg = Segment(title=f"Carried to the door of the {place}", tone="seen", t=door_t,
+    door_xy = tuple(inside["door_xy"])
+    seg = Segment(title=f"Carried to the door of the {place}", tone="seen", t=door_t, xy=door_xy,
                   sub="SAM followed the carton in the carrier's hands")
     f_door = svc.frame_at(inside["media_id"], door_t.isoformat())
     clip(seg, inside["media_id"], door_t, before=f_door - min(boxes, default=f_door) + 5, after=5)
@@ -357,12 +367,12 @@ def journey_segments(svc, case, waybill: str, answer: dict | None) -> list[Segme
     segs.append(seg)
     # the store door's own view (the case camera that sees the door closest, not the wide one that followed it)
     for key, title, tone, sub in [("carried_in_at", f"Carried into the {place}", "noscan", "Past the scan-in post, not scanned in"),
-                                  ("came_out_0", "Came out without it", "seen", "The carrier leaves empty-handed")]:
+                                  ("came_out_0", "Came out without it", "seen", "SAM tracked no carton with the person coming out")]:
         if key in inside["iso"]:
             t = datetime.fromisoformat(inside["iso"][key])
             m = best_view(inside["door_xy"], 1.0, t)
             if m is not None and m.media_id != inside["media_id"]:
-                seg = clip(Segment(title=title, tone=tone, t=t, sub=sub), m.media_id, t, before=25, after=25)
+                seg = clip(Segment(title=title, tone=tone, t=t, sub=sub, xy=door_xy), m.media_id, t, before=25, after=25)
                 if key == "carried_in_at":  # the carton in the carrier's hands; coming out there is none to outline
                     seg.track_id, (seg.contours, seg.boxes) = carried(m.media_id, seg.f0, seg.f1, inside["door_xy"])
                 segs.append(seg)
@@ -371,14 +381,13 @@ def journey_segments(svc, case, waybill: str, answer: dict | None) -> list[Segme
     rec = next((s for s in sorted(svc.store.find(ScanEvent, event_kind="container_loaded"), key=lambda s: s.device_time_utc)
                 if any(i.value == where for i in [*s.identifiers, *([s.container] if s.container else [])])
                 and door_t < s.device_time_utc < until), None)  # fmt: skip
-    plan = latest_plan(svc.store, case.site_id)
     rp = plan.read_point(rec.station_id or rec.device_id) if rec is not None and plan else None
     m = best_view(rp.position_m[:2], 1.0, rec.device_time_utc) if rp is not None else None
     if rec is not None and m is not None:
         door = next((p for p in (rec.station_id or "").split("-") if p.startswith("D")), "")
         segs.append(clip(Segment(title=f"Record says {where} loaded on {door}".strip(), tone="record",
-                                 t=rec.device_time_utc, sub=LOAD_HOW.get(rec.device_kind, LOAD_HOW[None])),
+                                 t=rec.device_time_utc, sub=LOAD_HOW.get(rec.device_kind, LOAD_HOW[None]), xy=tuple(rp.position_m[:2])),
                          m.media_id, rec.device_time_utc, before=30, after=30))  # fmt: skip
-    segs.append(Segment(title=f"Most likely in the {inside['place']}", tone="card", t=until,
+    segs.append(Segment(title=f"Most likely in the {inside['place']}", tone="card", t=until, xy=tuple(inside["area_xy"]),
                         sub=f"Carried in at {inside['carried_in_at']}, not seen coming out", seconds=3.0))
     return segs
