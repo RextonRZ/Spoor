@@ -2,6 +2,42 @@
 
 Newest first. Each entry: what is done, where to look, what is still open.
 
+## 2026-11-02 09:55 · Six checkpoints step 6: handshake, passport, live alert (and the rest of the render)
+
+**Render of the rest (tick 0535) done, frames checked, ingested:** S2 `CHK_STORE` (200-480), W1 `CHK_CHUTE` + `CAM_11`
+(945-990), W2 `CHK_CHUTE` (30-100) + `CHK_CAGE_W` (220-320); W2 `CAM_13` not rendered. Modal GPU ~US$0.32 + encodes
+(total Modal ~US$1.1 of US$12). Meta SAM for handshakes ~US$3.25 (FOR_REXTON.md has both totals).
+
+**Handshake checked against the render truth (evaluation only, `frontend/scripts/eval_handshakes.py`,
+`docs/open_weights_proof/handshake_eval.json`).** The first run looked fine in counts (253 "outlined") and was wrong:
+12% of outlines were the scanned parcel. Two general causes, two general rules:
+- SAM sometimes outlines the belt, a cage or the whole frame: an outline more than twice the largest parcel (0.9 m
+  cube projected at that point) is not a parcel -> "not found".
+- A camera clock known only to the uploader's +-5 s can't say which carton was at the point (a belt passes one a
+  second) -> "clock not fitted", no SAM call.
+After: **67% strictly right, 86% right parcel nearest** (65 of 76 judged; fitted cameras CAM_09/10/11/13, CHK_TUNNEL).
+Wrong ones left: CAM_11 6, CAM_13 4 (neighbouring cartons on the sorter), W1 CAM_05 1 (the passport shows CHK_TUNNEL's
+right one for that scan).
+
+**Passport (answer page) for the story parcel:** tunnel 14:10:40 met on CHK_TUNNEL, divert into C12 14:11:16 met on
+CAM_11; unload, chute and cage "camera clock not fitted" (CHK_UNLOAD, CHK_CHUTE, CHK_CAGE_W have no sorter events to
+fit from); induction "not seen" (only belt-sized outlines). Said, never faked.
+
+**Live alert "left without a scan" (Hub):** fires once: **CHK_CAGE_W 14:32:13.8, "could be CTX334048419302"** (the
+pick from RC-760, before the cage's RFID load at D07). Not on CAM_13, not on W2's set-down, not on the east cage (RC-696
+/ D08 control: that cage holds bags only, so it is not watched). Rules, all general: open containers only (cage, pallet,
+gaylord); candidates are parcels; a container's own read accounts for its parcels only from that read on; on an
+unfitted clock only parcels caged more than its +-5 s before the exit count, and the alert says so; a close-up whose
+view the work area fills counts a carton carried out of view.
+
+**Found on the way:** the importer typed parcel-into-bag scans as "cage" (361). Fixed in seed_nokey.py; this store gets
+append-only `incorrect_data` corrections (`frontend/scripts/correct_bag_types.py`), and the planners read the log after
+its corrections.
+
+**Story tunnel photo retaken** from W1 at the real read (`scanner_photos.py --replay`): no more "from recorded history".
+
+Open: step 7 (keyed S2 re-run + controls), step 8 (Proof as one timeline of the checkpoint clips, landing).
+
 ## 2026-11-02 04:30 · Render (approved part) done; three previews waiting for the next tick
 
 Rendered on Modal (tick 0403 APPROVED partial), full resolution, ~US$0.8 actual (estimate US$2.12):
