@@ -58,7 +58,8 @@ REFIT = set(filter(None, __import__("os").environ.get("SPOOR_REFIT", "").split("
 OVERLAP = [("cam_CAM_13", "cam_CAM_11"), ("cam_CAM_19", "cam_CAM_13"),
            ("cam_CHK_CAGE_W", "cam_CAM_13"), ("cam_CHK_DOCK", "cam_CAM_19")]  # checkpoint cameras (six checkpoints)
 CAMERAS = ("cam_CAM_04", "cam_CAM_05", "cam_CAM_09", "cam_CAM_10", "cam_CAM_11", "cam_CAM_13",  # S2's trail + sorter
-           "cam_CAM_01", "cam_CHK_TUNNEL")  # + the W1 tunnel / carrier cameras (six checkpoints)
+           "cam_CAM_01", "cam_CHK_TUNNEL",  # + the W1 tunnel / carrier cameras (six checkpoints)
+           "cam_CAM_06", "cam_CAM_07", "cam_CAM_08", "cam_CAM_12")  # + the other chute-bank cameras (handshake coverage)
 
 env = {k.strip(): v.strip() for k, v in (line.split("=", 1) for line in (FRONT / ".env.local").read_text(encoding="utf-8")
                                          .splitlines() if "=" in line and not line.startswith("#"))}
