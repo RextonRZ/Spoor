@@ -197,3 +197,13 @@
   .iv-focus-pic { grid-column: 1; grid-row: auto; width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { .iv-focus-pic { animation: none; } .iv-dot { transition: none; } }
+
+/* quieter (Rexton 3 Nov: too wordy): ideas on one line until picked, places as name + time + agent pips */
+.iv-idea q { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
+.iv-idea[aria-expanded="true"] q { -webkit-line-clamp: unset; }
+.iv-place-who { display: flex; gap: 5px; margin-top: 4px; }
+.iv-pip { width: 8px; height: 8px; border-radius: 50%; background: var(--f); }
+.iv-place { padding: 8px; }
+.iv-place-name { font-size: 13.5px; }
+.iv-places li + li .iv-place { border-top-color: var(--tb-line, rgba(255, 255, 255, 0.06)); }
+.iv-story-btn { padding: 6px 8px; }

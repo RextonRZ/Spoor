@@ -41,6 +41,8 @@ const secs = (t: number) => (t < 10 ? t.toFixed(1) : String(Math.round(t)));
 /** the run's own elapsed time (+m:ss), so it is never read as the hub clock of the footage */
 const runTime = (t: number) => `+${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 
+const CLOSE: Record<string, string> = { UNLOAD: "Unload", TUNNEL: "Tunnel", CAGE_W: "Cage", CAGE_E: "Cage", STORE: "Store door", DOCK: "Dock", CHUTE: "Chute" };
+
 interface Beat { key: string; text: string; model: string; seq: number }
 const first = (t: string) => t.split(/(?<=\.)\s/)[0].replace(/\.$/, "");
 const unparen = (t: string) => t.replace(/\s*\([^)]*\)/g, "").replace(/\.$/, "");
@@ -53,28 +55,31 @@ function storyline(steps: Step[], crew: RunView["crew"]): Beat[] {
   const out: Beat[] = [];
   const add = (key: string, s: Step | undefined, text: string, role = s?.role ?? "") => { if (s) out.push({ key, text, model: model(role), seq: s.seq }); };
   const read = done("read_scans")[0];
-  add("read", read, read ? unparen(read.text).replace(/\. Last: (.*)$/, " (last: $1)").replace(/^Read /, "Read the ") : "");
+  const rm = read?.text.match(/^Read (\d+) scans\. Last: (.+?) at (\d\d:\d\d)/);
+  add("read", read, rm ? `Read ${rm[1]} scans · last: ${rm[2]}, ${rm[3]}` : read ? unparen(read.text) : "");
   const tri = done("triage_clips")[0];
   const share = (tri?.receipt?.output as { sent_share?: number } | undefined)?.sent_share;
-  add("triage", tri, share != null ? `Skipped ${Math.round((1 - share) * 100)}% of the footage; only moments with parcel handling went to the cloud` : tri ? first(tri.text) : "");
+  add("triage", tri, share != null ? `Sent only ${Math.round(share * 100)}% of the footage to the cloud` : tri ? first(tri.text) : "");
   const plan = done("plan")[0], pick = done("pick_cameras")[0];
-  add("plan", plan, plan ? `${plan.text.split(":")[0]}${pick ? `. ${unparen(pick.text)}` : ""}` : "");
+  const cams = pick?.text.match(/:\s*(.+?)\.?$/)?.[1].replace(/CHK (\w+)/g, (_, k: string) => `${(CLOSE[k] ?? k).toLowerCase()} close-up`);
+  add("plan", plan, cams ? `Watch first: ${cams}` : plan ? first(plan.text) : "");
   const doors = done("door_crossings"), tracked = done("sam_track");
-  const door = doors.at(-1)?.text.match(/^(.+?): (.+?) at its door/);
-  add("track", tracked[0], door ? `Tracked who went in and out: ${door[2]} at the ${door[1]} door` : tracked[0] ? unparen(tracked[0].text) : "", "tracker");
+  const door = doors.at(-1)?.text.match(/^(.+?)(?: \(Z\d+\))?: (.+?) at its door/);
+  add("track", tracked[0], door ? `${door[2][0].toUpperCase()}${door[2].slice(1)} at the ${door[1]} door` : tracked[0] ? unparen(tracked[0].text) : "", "tracker");
   const carrier = done("carrier_check")[0], looked = done("observe_clip");
-  // Spark's own words on the clip (kept on the step), first clause only: never a paraphrase of what it did not say
+  // Spark's own words on the clip, up to their first clause: never a paraphrase of what it did not say
   const said = looked.map((x) => (x.receipt?.output as { said?: string | null } | undefined)?.said).find(Boolean);
-  const quote = said ? ` Spark on the clip: “${said.split(/[;.]\s/)[0].replace(/\.$/, "")}”` : "";
-  add("carrier", carrier ?? looked[0], carrier ? `${unparen(carrier.text)}.${quote || (looked.length ? ` ${looked.length === 1 ? "A clip" : `${looked.length} clips`} checked` : "")}`
-    : looked[0] ? `${unparen(looked[0].text).replace(/Muse \w+ /, "")}.${quote}` : "", "analyst");
+  const words = said ? said.split(/[;.]\s|\s+in this\s/)[0].replace(/\.$/, "") : "";
+  const cm = carrier?.text.match(/^(.+?): (\d+) likely carriers?/);
+  add("carrier", carrier ?? looked[0], [cm ? `${cm[2]} likely carrier on ${cm[1]}` : carrier ? unparen(carrier.text) : "", words ? `Spark: “${words}”` : ""]
+    .filter(Boolean).join(" · "), "analyst");
   const ideas = done("propose");
   const tests = steps.filter((s) => s.role === "verifier" && s.seq > (ideas[0]?.seq ?? Infinity) && /^(Passed|Unproven|Rejected)/.test(s.text));
   const passed = tests.filter((s) => s.text.startsWith("Passed")).length;
-  const why = tests.find((s) => !s.text.startsWith("Passed"))?.text.match(/\(([^)]*)\)/)?.[1];
-  add("ideas", tests[0], `Tested ${tests.length} idea${tests.length === 1 ? "" : "s"}: ${passed} passed, ${tests.length - passed} not proven${why ? ` (${why})` : ""}`, "verifier");
+  add("ideas", tests[0], `Tested ${tests.length} idea${tests.length === 1 ? "" : "s"}: ${passed} passed`, "verifier");
   const ask = done("ask_a_person")[0] ?? done("create_search_task")[0];
-  add("ask", ask, ask ? unparen(ask.text) : "");
+  const am = ask?.text.match(/^No camera sees inside (?:the )?(.+?)(?: \(Z\d+\))?, so a person is asked to look/);
+  add("ask", ask, am ? `No camera inside the ${am[1]}: a person goes to look` : ask ? unparen(ask.text) : "");
   return out.sort((x, y) => x.seq - y.seq);
 }
 
@@ -190,7 +195,7 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
   const places: Place[] = [];
   const addPlace = (key: string) => {
     if (places.some((p) => p.key === key)) return;
-    if (key === "last" && lastXy) places.push({ key, xy: lastXy, label: `Last scan: ${(lastScanStep?.node?.name ?? "scan point").toLowerCase()} at ${lastScanStep?.node?.place.replace("scan ", "").slice(0, 5) ?? ""}`, tone: "scan" });
+    if (key === "last" && lastXy) places.push({ key, xy: lastXy, label: `Last scan: ${(lastScanStep?.node?.name ?? "scan point").toLowerCase()}`, tone: "scan" });
     else if (key === "zone" && zoneXy) places.push({ key, xy: zoneXy, label: zoneName, tone: "bad" });
     else if (key.startsWith("cam:")) {
       const c = HUB.cameras.find((x) => x.id === key.slice(4));
@@ -244,7 +249,7 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
           <h1 className="iv-title">{title}</h1>
         </div>
         <div aria-label="Live meter" className="iv-meter">
-          <span><strong>US${(end?.cost_usd ?? cur?.cost_usd ?? 0).toFixed(2)}</strong> <span>spent</span></span>
+          <span title={end?.text}><strong>US${(end?.cost_usd ?? cur?.cost_usd ?? 0).toFixed(2)}</strong> <span>spent</span></span>
           {swept > 0 && <span><strong>{swept}</strong> <span>wide cameras swept</span></span>}
           <span><strong>{end?.cameras_checked ?? cur?.cameras_checked ?? 0}</strong> <span>{swept > 0 ? "examined closely" : "of 19 wide cameras examined"}</span></span>
           <span><strong>{secs(end?.t_s ?? cur?.t_s ?? 0)} s</strong></span>
@@ -281,7 +286,7 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
           <div className="iv-card iv-relay-card">
             <div className="iv-card-head">
               <h2>Every step, by agent</h2>
-              <span>One dot per step, in the order they ran. Numbers match the lines above. Pick a dot to see where.</span>
+              <span>Pick a dot</span>
             </div>
             {steps.length > 0 ? (
               <div className="iv-relay" onMouseLeave={() => setPeek(null)}>
@@ -347,14 +352,15 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
 
           {ideas.length > 0 && (
             <div className="iv-card iv-ideas">
-              <div className="iv-card-head"><h2>Ideas they tested</h2><span>Ideas guide where to look. They are never evidence.</span></div>
+              <div className="iv-card-head"><h2>Ideas they tested</h2><span>Not evidence</span></div>
               <ol className="iv-idea-list">
                 {ideas.map((d) => (
                   <li key={d.seq}>
-                    <button type="button" className="iv-idea" onClick={() => setPicked(d.seq)} aria-pressed={focus?.seq === d.seq}>
+                    <button type="button" className="iv-idea" onClick={() => setPicked((p) => (p === d.seq ? null : d.seq))} aria-pressed={picked === d.seq}
+                      aria-expanded={picked === d.seq}>
                       <span className="iv-verdict" data-ok={d.passed ? "" : undefined}>{d.verdict}</span>
                       <q>{d.quote}</q>
-                      {d.why && <small>{d.tested ? "Tested" : "Why"}: {d.why}</small>}
+                      {d.why && picked === d.seq && <small>{d.tested ? "Tested" : "Why"}: {d.why}</small>}
                     </button>
                   </li>
                 ))}
@@ -364,7 +370,7 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
 
           <div className="iv-foot">
             {done && <Link className="iv-btn-primary" href={`/cases/${caseId}`}>See the answer</Link>}
-            <span>{done ? end!.text : "No one needs to click anything until the answer is ready."}</span>
+            {!done && <span>No one needs to click anything until the answer is ready.</span>}
           </div>
         </section>
 
@@ -391,9 +397,9 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
                       </span>
                       <span className="iv-place-body">
                         <span className="iv-place-name">{p.label}</span>
-                        {fr && <span className="iv-place-fr">{hm(fr.t)} · {fr.title}</span>}
-                        <span className="iv-place-who">
-                          {who.map((c) => <span key={c.role} className="iv-chip" data-fam={fam(c.model)}>{c.who}</span>)}
+                        {fr && <span className="iv-place-fr" title={fr.title}>{hm(fr.t)}</span>}
+                        <span className="iv-place-who" aria-label={`Worked here: ${who.map((c) => c.who).join(", ")}`}>
+                          {who.map((c) => <span key={c.role} className="iv-pip" data-fam={fam(c.model)} title={`${c.who} · ${c.model}`} />)}
                         </span>
                       </span>
                     </button>
@@ -415,5 +421,4 @@ function fam(model: string): string {
   return /Wonder/.test(model) ? "wonder" : /Glimmer/.test(model) ? "glimmer" : /Spark/.test(model) ? "spark" : /SAM/.test(model) ? "sam" : "rules";
 }
 
-const CLOSE: Record<string, string> = { UNLOAD: "Unload", TUNNEL: "Tunnel", CAGE_W: "Cage", CAGE_E: "Cage", STORE: "Store door", DOCK: "Dock", CHUTE: "Chute" };
 const camWords = (id: string) => id.startsWith("CHK_") ? `${CLOSE[id.slice(4)] ?? id.slice(4)} close-up camera` : id.replace("_", " ");
