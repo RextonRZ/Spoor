@@ -241,6 +241,7 @@ export function JourneyReel({ caseId, onStep }: { caseId: string; onStep?: (i: n
             ))}
             {hv && hover && (
               <span className="jr-peek" style={{ left: hover.x }} aria-hidden>
+                {/* eslint-disable-next-line @next/next/no-img-element -- a signed frame of the step, from the API */}
                 {hv.thumb_url ? <img src={signedUrl(hv.thumb_url)} alt="" /> : <span className="jr-peek-none" />}
                 <span className="jr-peek-t"><b>{hover.i + 1}</b>{hv.title}</span>
               </span>
@@ -269,6 +270,7 @@ export function JourneyReel({ caseId, onStep }: { caseId: string; onStep?: (i: n
               <button type="button" className="jr-btn" aria-pressed={i === on} onClick={() => play(i)}
                 title={[c.camera ? camLong(c.camera) : "", number].filter(Boolean).join(" · ") || undefined}>
                 <span className="jr-thumb">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- a signed frame of the step, from the API */}
                   {c.thumb_url ? <img src={signedUrl(c.thumb_url)} alt="" decoding="async" /> : <span className="jr-thumb-none" />}
                   <span className="jr-n" aria-hidden>{i + 1}</span>
                   <span className="jr-time">{hms(c.t)}</span>

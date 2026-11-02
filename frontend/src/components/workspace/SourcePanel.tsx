@@ -14,7 +14,7 @@ import { camId, hubCamera, scanPoint } from "@/lib/hub";
 import { frameAtMediaTime, frameUtcMs, prerollStart, seekTimeFor, type Playback } from "@/lib/playback";
 import { fmtDuration, fmtTime, fmtUncertainty, toMs, TZ_LABEL } from "@/lib/time";
 import type { CameraRow, EvidenceView, FrameAt, MediaRow, ParcelScan, ScanRow } from "@/lib/types";
-import { Empty, ErrorState, Loading, ModeChip, SimulatedChip, Unavailable } from "@/components/ui";
+import { Empty, ErrorState, Loading, ModeChip, Unavailable } from "@/components/ui";
 import { useWorkspace } from "./context";
 
 export default function SourcePanel() {
