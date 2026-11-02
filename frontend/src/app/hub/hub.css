@@ -260,3 +260,17 @@ button.hb-tr:focus-visible { outline: 2px solid #818cf8; outline-offset: -2px; }
 /* the records contradict the cameras (a truck record made while the parcel is still inside) */
 .hb-d-lie { margin: 6px 0 0; padding: 8px 10px; border-radius: 8px; font-size: 13px; font-weight: 600; color: #fca5a5; background: rgba(248, 113, 113, 0.1); }
 .hb-d-lie[data-tone="plain"] { font-weight: 500; color: var(--tb-ink-2); background: rgba(255, 255, 255, 0.04); }
+
+/* loop pass (3 Nov, emil + rexton-ui): on a phone the four counts sit in one compact row (three zeros took half a
+   screen), and the tab row shows it scrolls (an edge fade) instead of cutting a tab in half */
+@media (max-width: 700px) {
+  .hb-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .hb-kpis > div:nth-child(3) { border-left: 1px solid var(--tb-line); }
+  .hb-kpis > div:nth-child(n + 3) { border-top: 0; }
+  .hb-kpi { padding: 10px 10px 12px; gap: 4px; }
+  .hb-kpi dt { font-size: 11px; line-height: 1.25; align-items: flex-start; }
+  .hb-kpi dt i { margin-top: 3px; flex: none; }
+  .hb-kpi dd { font-size: 22px !important; }
+  .hb-tabs { -webkit-mask-image: linear-gradient(to right, #000 82%, transparent); mask-image: linear-gradient(to right, #000 82%, transparent); scrollbar-width: none; }
+  .hb-tabs::-webkit-scrollbar { display: none; }
+}

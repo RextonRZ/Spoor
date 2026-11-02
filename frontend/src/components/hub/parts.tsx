@@ -121,7 +121,7 @@ function CaseRow({ a, open, onOpen, asOf }: { a: CaseItem; open: boolean; onOpen
   const inside = cs.data?.answer?.objects[0]?.inside;
   const waybill = a.c.target.split(" ").at(-1) ?? a.c.target;
   const since = last && asOf ? minutes(Math.max(0, (Date.parse(asOf) - Date.parse(last.t)) / 1000)) : "";
-  const where = inside ? `Carried into the ${inside.place.replace(/ \(Z\d+\)$/, "").toLowerCase()}`
+  const where = inside ? `In the ${inside.place.replace(/ \(Z\d+\)$/, "").toLowerCase()}`
     : last ? lastScanSentence(last.event_kind, last.station_id, last.t).replace(/ at \d\d:\d\d\.$/, "") : "No scans yet";
   return (
     <button type="button" className="hb-tr hb-cols-case" aria-pressed={open} onClick={(e) => onOpen(a.key, e.currentTarget)}>
@@ -231,9 +231,9 @@ export function CaseDetail({ siteId, a, keyed }: { siteId: string; a: CaseItem; 
   // (what the records and cameras say), the details line (size · who asked · when opened), the actions, the picture,
   // where it was scanned
   const sub = [dims ? `${dims.map((d) => Math.round(d / 10)).join(" × ")} cm` : "",
-    cs.data?.case.complaint ? `customer asked: says it never arrived${last && waited(last.t, cs.data.case.created_at) ? `, ${waited(last.t, cs.data.case.created_at)} after its last scan here` : ""}`
+    cs.data?.case.complaint ? (last && waited(last.t, cs.data.case.created_at) ? `customer waiting ${waited(last.t, cs.data.case.created_at)}` : "customer asked")
       : cs.data ? "no customer query" : "",
-    cs.data ? `case opened ${ago(cs.data.case.created_at)}` : ""].filter(Boolean).join(" · ");
+    cs.data ? `opened ${ago(cs.data.case.created_at)}` : ""].filter(Boolean).join(" · ");
   const ans = cs.data?.answer?.objects[0];
   const inside = ans?.inside ?? null;
   const ls = !inside ? ans?.last_scan ?? null : null;
@@ -261,7 +261,7 @@ export function CaseDetail({ siteId, a, keyed }: { siteId: string; a: CaseItem; 
         <Link className="hb-btn hb-btn-primary" href={href}>{investigated ? "Open case" : "Investigate"}</Link>
         <Link className="hb-btn" href={`/cases/${a.c.case_id}/search`}>Send someone to look</Link>
       </div>
-      <p className="hb-d-note">{keyed ? "Investigate: about 1 min, ~US$0.30." : "Shows what the scan log knows."}</p>
+      {!investigated && <p className="hb-d-note">{keyed ? "Investigate: about 4 min, ~US$0.30." : "Shows what the scan log knows."}</p>}
       {!cs.data ? <span className="hb-skel" style={{ width: "100%", aspectRatio: "16 / 9", display: "block", borderRadius: 10 }} aria-busy="true" />
         : inside ? <View siteId={siteId} point="SP-STORE-IN" at={inside.iso.carried_in_at} tone="ok" place={`the ${inside.place.replace(/ \(Z\d+\)$/, "").toLowerCase()} door`} />
         : <View siteId={siteId} point={ls?.scan_point_id ?? last?.station_id ?? last?.device_id} at={ls?.at ?? last?.t} tone={a.tone} place={placeWords(ls?.event_kind ?? last?.event_kind, ls?.scan_point_id ?? last?.station_id)} />}
