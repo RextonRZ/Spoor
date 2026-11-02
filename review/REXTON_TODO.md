@@ -35,3 +35,12 @@
 - [x] Proof: "How sure" removed (Answer keeps the one limit; the numbers stay in LIMITATIONS / EVALUATION)
 - [x] Customer asked box removed (it repeated the header chip; its button only opened a template). Header chip now: "customer says it never arrived · 4 days after its last scan", their words on hover. The full customer update stays on the Report
 - [x] Investigate page (Rexton: which agent did what, where): "Who did what" lanes (one per agent + model colour, a dot per step in order, baton line); picking a dot shows who / model / what / where; "Where they looked" plan zoomed to the numbered places, each listing the agents that worked there. Old search-map columns, thumbnail and crew card removed
+
+## Overnight 3-4 Nov (agent)
+- [x] Tag retry +0.5/+1.0 s: ran, steps 1 and 3 did not pass the checks -> untagged; eval 13/13 shown labels right
+- [x] Door step in the reel no longer cut off (8 s, the carry is on screen)
+- [x] Go look: Spoor Floor worker app (light, phone frame on desktop, full screen at /floor/<case>), flow strip review/shots/tue/golook/flow.png
+- [x] Report: six-section case file, vector route map, customer update side sheet (English/Malay, approve and send = audited record)
+- [ ] Real-footage test: BLOCKED. No phone takes in assets/realtest/raw. No usable open clip found quickly. Options:
+      (a) film the 2 takes (FILMING.md, ~15 min) and I run it; (b) MEVA CC BY 4.0 person-carries-object clip (faces
+      blurred, not parcels: weaker); (c) drop it (LIMITATIONS says synthetic only)
