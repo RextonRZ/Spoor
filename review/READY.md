@@ -2,6 +2,52 @@
 
 Newest first. Each entry: what is done, where to look, what is still open.
 
+## 2026-11-02 16:51 · TODAY (Mon 2 Nov), for Rexton: done / dropped / open / decisions
+
+**Done**
+- **Every story step has its evidence on camera, with the number where it can be trusted.** Unloaded (CHK_UNLOAD),
+  Label read (the tunnel's own photo), Into chute C12 (CAM_11) and Into cage RC-760 (CHK_CAGE_W) carry the tracking
+  number on SAM's outline; Taken out of the cage, Carried to the store, Carried in (CHK_STORE) are outlined, in red,
+  with no number (no scan there).
+- **Labels you can trust: 14 shown, 14 on the right parcel** (render truth); 12 pass the strict carton-size test, 2 sit
+  just over it (2.55x, 2.61x: a flat bag, and the story's C12 carton with some of its tray in SAM's box; the screen draws
+  SAM's tighter mask edge). Checked by eye, zoomed: `review/shots/mon/labelled_sheet_final.jpg`. Cost: coverage fell to
+  ~17 % of right outlines (a number only where a rule rules out the tray, the neighbour and the queue).
+- **Unload door re-staged on your call:** W1 re-baked with a quiet door (nothing else handled within 10.5 s), start
+  re-pinned (logged scan = set-down, 0.0 s), 7 W1 clips re-rendered on Modal, 5 synthetic history lines re-timed by
+  audited corrections (LIMITATIONS says so).
+- **The parcel's journey** on the case page: one player + a step rail, playing a 60 s evidence video built only from
+  stored evidence (`POST /v1/cases/{id}/journey-reel`, downloadable MP4, manifest with every source hash).
+  Recording: `review/video/journey/play_whole_journey.mp4` (git-ignored; stills `rec_sheet.jpg`).
+- **Design pass from the brand** (tick 1611/1545): flat sections, status dots, plain verbs, monochrome log, indigo used
+  rarely, Google Sans Flex, ridge-style journey rail. Before/after: `review/shots/mon/design/`.
+- **Investigating** shows elapsed run time, SAM 3.1 visibly used (reused + fresh tracks), whole sentences.
+- Demo path walked at 1440 + 390 (`review/shots/mon/demo_path3/`): nothing flagged, no overflow.
+- Keyed answer still **"Exception store (Z11)"** (269 s, Wonder US$0.25). Tests 295 pass.
+
+**Dropped**
+- CHK_CHUTE close-up for the C12 step: its clock cannot be fitted (one sorter event in its view, since only the story
+  parcel's records describe the story windows). The reel zooms far CAM_11 on SAM's outline instead.
+- A number on "On the sorter": induction outlines were wrong 4/4 when tried, and the new one is not on the carton; the
+  tunnel photo carries the number one step earlier.
+- Optional MEVA (day plan H).
+
+**Open**
+- The backend slowed to ~20 s per case call after hours of heavy jobs (48 threads; 0.07 s after a restart). Before any
+  demo: restart the backend. Thread growth not yet diagnosed.
+- Divert-label thresholds were set on the S2 window; there is no held-out window.
+
+**Decisions for you**
+1. The re-staged door: the second unloader stands idle ~35 s around the story carton. Acceptable, or re-stage with a
+   shorter quiet (the label then needs a fitted door clock instead)?
+2. Coverage vs precision: keep "17 % labelled, 100 % right", or show more numbers with a softer rule?
+
+**Spend today (from the cost ledger, uncached calls only):** Modal ~US$1.9 of US$12 (W1 re-renders US$0.39 + US$0.40
+GPU + encodes). Meta SAM 3.1: 37,222 frames since midnight MYT, ~US$7.4 at US$0.20 per 1,000 (overnight runs and
+the morning's first S2 handshake pass ~US$6.6; since noon, the re-runs, re-prompts, new W1 clips, store door and clock
+fit 4,362 frames ~US$0.87, inside the US$5 re-run budget). Muse Wonder: 7 calls, 133k tokens (keyed runs US$0.17 +
+US$0.25 shown on the run); Spark: 4 calls, 31k tokens.
+
 ## 2026-11-02 15:15 · The parcel's journey: one player, one video (ticks 1406, 1410, 1505)
 
 **Where to look:** case page (answered) -> "The parcel's journey"; `review/shots/mon/journey/` (1440, 390),

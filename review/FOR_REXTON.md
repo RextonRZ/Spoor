@@ -222,3 +222,8 @@ My recommendation: **A** (fastest, keeps the laptop for the remaining stations' 
 C: keeps dropping under the 15 GB floor. Since this morning AppData\Local\Claude-Data (the Claude desktop app's own
 data) grew ~8.5 GB in 5 h; I don't touch it. I've removed only my own regenerable files (old test blends, frame dumps
 already in MP4s): now 17 GB free. If it keeps growing, you may want to look at Claude-Data.
+
+- 2026-11-02 16:55 · **Spend, from the cost ledger (uncached calls):** Modal ~US$1.9 of US$12 total (two W1 re-renders:
+  GPU US$0.39 + US$0.40, + encodes). Meta SAM 3.1 since midnight MYT: 37,222 frames ~US$7.4 (overnight + the morning's
+  first S2 handshake pass ~US$6.6; since noon the re-runs and re-prompts ~US$0.87, inside the US$5 re-run budget).
+  Earlier "~US$0.25 new SAM" in READY was an estimate and wrong; corrected.
