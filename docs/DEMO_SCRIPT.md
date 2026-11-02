@@ -31,6 +31,11 @@ the submission: Thu 5 Nov 2026, 10:00 MYT.
 
 ## If something fails on the day
 
+- Rehearsing Go look: "Done, it's found" and "Send, check the next place" really record the outcome (the Hub, the
+  Report and the customer update change, and "Not here" starts a paid re-plan). Rehearse up to "Number matched", or
+  restore after: stop the backend, copy `frontend/.local/backend-data-s2r18c/spoor.demo-ready.db` over `spoor.db`
+  (delete `spoor.db-wal` and `spoor.db-shm`), start it again. "Approve and send" on the customer update is the same.
+
 - The investigation is slow or fails: the Investigating screen replays the last stored run (press Replay).
 - A frame is slow to load: it is a preview of the original frame; wait a second, do not narrate a blank tile.
 - Never show the Hub's Resolved tab or the control parcels on camera; they are for EVALUATION.md.
