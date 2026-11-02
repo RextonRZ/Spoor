@@ -28,6 +28,11 @@ Newest first. Each entry: what is done, where to look, what is still open.
 - **Real-footage test:** blocked (no phone takes yet; no openly licensed parcel CCTV clip). Film the two takes from
   `assets/realtest/FILMING.md` if you want it.
 - Spend overnight: Modal ~US$0.45, SAM ~US$0.25, Spark drafts a few cents.
+- **Screen recordings for the video edit** (production build, 1920x1080, no dev overlay, git-ignored):
+  `review/video/scenes/01_landing.mp4` ... `07_report.mp4` in DEMO_SCRIPT order, plus the worker phone flow
+  `review/video/spoor_floor_flow.mp4`. Re-record any scene: `node frontend/.local/scenes.mjs 05` (needs :3001 running).
+- **Rehearsing changes the case** (Done it's found, Not here, Approve and send): restore with the demo-ready snapshot,
+  steps in docs/DEMO_SCRIPT.md. The data is in the demo-ready state now.
 
 ## For Rexton, Tue 3 Nov 01:4x: the real-footage test (Task 2), ready to film
 
