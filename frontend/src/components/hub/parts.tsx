@@ -240,7 +240,7 @@ export function CaseDetail({ siteId, a, keyed }: { siteId: string; a: CaseItem; 
     : last ? `${lastScanSentence(last.event_kind, last.station_id, last.t)} ${missingNextSentence(last.event_kind)}` : "No scans of this parcel at this hub.";
   return (
     <>
-      <h2 className="hb-d-h">{head}</h2>
+      {cs.data ? <h2 className="hb-d-h">{head}</h2> : <span className="hb-skel" style={{ width: "70%", height: 22, display: "block" }} aria-busy="true" />}
       {truckLie && truck && <p className="hb-d-lie">Records say loaded on {truck.station_id?.match(/D\d{2}/)?.[0] ?? "a truck"} at {hhmm(truck.t)}. Cameras say it never left.</p>}
       {sub && <p className="hb-d-sub">{sub}</p>}
       <div className="hb-d-acts">

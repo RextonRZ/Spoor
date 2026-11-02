@@ -154,12 +154,12 @@ export default function ReportPage({ params }: { params: Promise<{ caseId: strin
             <span className="rp-brand">Spoor · Case report</span>
             <span className="rp-ref">{waybill}</span>
           </header>
-          <span className="rp-pill" data-tone={found || inside ? "ok" : "bad"}>{found ? `Found · ${hhmm(found.at)} by ${found.by}` : inside ? "Likely location found" : "Lost track"}</span>
+          <span className="rp-pill" data-tone={found || inside ? "ok" : ready ? "bad" : undefined}>{found ? `Found · ${hhmm(found.at)} by ${found.by}` : inside ? "Likely location found" : ready ? "Lost track" : "Checking"}</span>
           <h1 className="rp-h1">{ready || inside ? head : "Checking the records"}</h1>
           {story && <p className="rp-p">{story}</p>}
 
-          <h2 className="rp-h2">Key moments</h2>
-          <div className="rp-frames">
+          {(ready || answered.length > 0) && <h2 className="rp-h2">Key moments</h2>}
+          {(ready || answered.length > 0) && <div className="rp-frames">
             {moments.map((m) => (
               <figure key={m.key} className="rp-fig">
                 {m.media && m.t ? <MomentFrame media={m.media} t={m.t} alt={m.text} /> : m.frame ? (
@@ -176,7 +176,7 @@ export default function ReportPage({ params }: { params: Promise<{ caseId: strin
                 <figcaption><strong>{m.t ? hms(m.t) : "next"}</strong> · {m.text} · {m.cam ? `${m.cam.replaceAll("_", " ")} view` : m.who}</figcaption>
               </figure>
             ))}
-          </div>
+          </div>}
 
           {conflict && (
             <>

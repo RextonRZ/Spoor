@@ -33,7 +33,7 @@ export interface Answer {
 export function caseAnswer({ ready, last, next, places, conflicts, found, zoneNames, lastScan }: AnswerInputs): Answer {
   const withFootage = next.filter((r) => r.result !== "no_footage");
   const seen = next.filter((r) => r.result === "seen");
-  let pill: [string, string] = ["Lost track", "bad"];
+  let pill: [string, string] = ready ? ["Lost track", "bad"] : ["Checking", "plain"]; // never a verdict before the data
   let head = "Checking the records";
   let why = "";
   if (ready && found) {
