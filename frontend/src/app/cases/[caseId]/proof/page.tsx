@@ -244,9 +244,9 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
 function TileThumb({ tile, media }: { tile: Tile; media?: MediaRow }) {
   const url = useFrame(media?.media.media_id, tile.t);
   const [still, setStill] = useState(true);
-  if (tile.tone === "bad") return <span className="pf-tile-none pf-tile-bad">Records disagree</span>;
   // eslint-disable-next-line @next/next/no-img-element
-  if (url) return <img src={signedUrl(url)} alt="" className="pf-tile-img" />;
+  if (url) return <img src={signedUrl(url)} alt="" className={`pf-tile-img${tile.tone === "bad" ? " pf-tile-img-bad" : ""}`} />;
+  if (tile.tone === "bad") return <span className="pf-tile-none pf-tile-bad">Records disagree</span>;
   // eslint-disable-next-line @next/next/no-img-element
   if (tile.cam && still) return <img src={`/cameras/${tile.cam}.jpg`} alt="" className="pf-tile-img pf-tile-still" loading="lazy" onError={() => setStill(false)} />;
   return <span className="pf-tile-none">No camera</span>;
