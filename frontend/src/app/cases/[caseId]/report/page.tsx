@@ -73,7 +73,9 @@ export default function ReportPage({ params }: { params: Promise<{ caseId: strin
   const sent = saved.data?.sent ? saved.data : null;
   const place = inside?.place.replace(/\s*\(Z\d+\)$/, "") ?? null;
 
-  const head = found ? `Found in the ${found.name.replace(/\s*\(Z\d+\)$/, "")}.` : inside ? `Most likely in the ${place}.`
+  // nothing is claimed until the case, its scans and the floor search have loaded (it flashed "No scans" first)
+  const loaded = !!(st.data && jr.data && sr.data);
+  const head = !loaded ? "" : found ? `Found in the ${found.name.replace(/\s*\(Z\d+\)$/, "")}.` : inside ? `Most likely in the ${place}.`
     : last ? "Lost track after the last scan." : "No scans of this parcel at this hub.";
   const summary = [
     last ? `${waybill} was last scanned at ${hhmm(last.t)} on ${day(last.t)}, ${(steps.find((c) => c.last_scan)?.title ?? "at the hub").replace(/^\w/, (x) => x.toLowerCase())}.` : "",
@@ -139,8 +141,8 @@ export default function ReportPage({ params }: { params: Promise<{ caseId: strin
                 </button>
               </div>
             </div>
-            <span className="rp-status" data-tone={found ? "ok" : inside ? "open" : "bad"}>{found ? "Found" : inside ? "Open · likely location" : "Open · lost track"}</span>
-            <h1 className="rp-h1">{head}</h1>
+            <span className="rp-status" data-tone={found ? "ok" : inside ? "open" : "bad"} hidden={!loaded}>{found ? "Found" : inside ? "Open · likely location" : "Open · lost track"}</span>
+            {loaded ? <h1 className="rp-h1">{head}</h1> : <span className="rp-skel rp-skel-h" aria-busy="true" />}
             <dl className="rp-meta">
               <div><dt>Parcel</dt><dd className="rp-mono">{waybill}</dd></div>
               <div><dt>Case</dt><dd className="rp-mono">{caseId.replace(/^case_/, "").slice(0, 10)}</dd></div>
@@ -153,7 +155,7 @@ export default function ReportPage({ params }: { params: Promise<{ caseId: strin
 
           <section className="rp-sec" aria-labelledby="rp-1">
             <h2 id="rp-1" className="rp-h2"><span>1</span>Summary</h2>
-            <p className="rp-summary">{summary.join(" ")}</p>
+            {loaded ? <p className="rp-summary">{summary.join(" ")}</p> : <span className="rp-skel" style={{ height: 72 }} aria-busy="true" />}
             <p className="rp-sure"><b>How sure.</b> {sure}</p>
           </section>
 

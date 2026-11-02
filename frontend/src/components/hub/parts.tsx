@@ -222,7 +222,7 @@ export function View({ siteId, point, at, tone, place }: { siteId: string; point
 
 export function CaseDetail({ siteId, a, keyed }: { siteId: string; a: CaseItem; keyed: boolean }) {
   const logEnd = useResource<{ as_of: string | null }>(`/v1/sites/${siteId}/exceptions?limit=50`); // (the Hub's own inbox: shared)
-  const { cs, cf, run, scans, last } = useCase(a.c.case_id);
+  const { cs, cf, run, scans, last, j } = useCase(a.c.case_id);
   const waybill = a.c.target.split(" ").at(-1) ?? a.c.target;
   const dims = scans.find((s) => s.dims_mm)?.dims_mm;
   const investigated = (run.data?.steps.length ?? 0) > 0;
@@ -254,7 +254,7 @@ export function CaseDetail({ siteId, a, keyed }: { siteId: string; a: CaseItem; 
   if (onItsWay && last && call) call.text = `${lastScanSentence(last.event_kind, last.station_id, last.t)} The scan log ends ${Math.round((Date.parse(logEnd.data!.as_of!) - Date.parse(last.t)) / 1000)} s later, before its next scan was due: it is on its way, not missing.`;
   return (
     <>
-      {cs.data ? <h2 className="hb-d-h">{head}</h2> : <span className="hb-skel" style={{ width: "70%", height: 22, display: "block" }} aria-busy="true" />}
+      {cs.data && j.data ? <h2 className="hb-d-h">{head}</h2> : <span className="hb-skel" style={{ width: "70%", height: 22, display: "block" }} aria-busy="true" />}
       {call && <p className="hb-d-lie" data-tone={call.tone}>{call.text}</p>}
       {sub && <p className="hb-d-sub">{sub}</p>}
       <div className="hb-d-acts">

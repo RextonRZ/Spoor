@@ -193,3 +193,6 @@
   .rp-paper, .rp-sec, .rp-head { display: block !important; }
   .rp-sec > * + *, .rp-head > * + * { margin-top: 12px; }
 }
+.rp-skel { display: block; border-radius: 8px; background: linear-gradient(90deg, #eceef2 0%, #f6f7f9 50%, #eceef2 100%); background-size: 200% 100%; animation: cs-shine 1.2s linear infinite; }
+.rp-skel-h { width: 62%; height: 38px; margin: 4px 0; }
+@media (prefers-reduced-motion: reduce) { .rp-skel { animation: none; } }
