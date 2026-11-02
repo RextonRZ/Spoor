@@ -146,7 +146,7 @@ export function CaseStory({ caseId, inside, view, journey, truck, strip = true }
   useEffect(() => {
     const v = video.current;
     if (!v || !clip) return;
-    const cb = carryBoxes.length > 4 ? [carryBoxes[0][1] / 1000, carryBoxes[carryBoxes.length - 1][1] / 1000 + 0.6] : null;
+    const cb = carryBoxes.length > 4 ? [carryBoxes[Math.floor(carryBoxes.length / 4)][1] / 1000, carryBoxes[carryBoxes.length - 1][1] / 1000 + 0.6] : null;
     const at = vt(cur.iso), from = cb ? cb[0] : cur.from ? vt(cur.from) : at - 1.5, to = cb ? cb[1] : cur.key === "first" ? vt(inside.iso.door_at) : at + 2.5;
     const start = () => {
       v.currentTime = reduced ? at : Math.max(0, from);

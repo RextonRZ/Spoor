@@ -93,7 +93,7 @@ export function JourneyReel({ caseId }: { caseId: string }) {
           // the time between two filmed steps (a card names its own stretch, so no connector beside it)
           const gap = prev ? Date.parse(c.t) - Date.parse(prev.t) : 0;
           return (
-            <li key={`${c.t}-${i}`} className="jr-step" data-tone={c.tone} data-on={i === on ? "" : undefined}
+            <li key={`${c.t}-${i}`} className="jr-step" data-tone={c.tone} data-on={i === on ? "" : undefined} data-nocam={c.camera ? undefined : ""}
               data-after={firstGap >= 0 && i >= firstGap ? "" : undefined}>
               {prev && gap >= 2000 && c.camera && prev.camera && <span className="jr-gap" aria-label={`${gapWords(gap)} later`}>{gapWords(gap)}</span>}
               <button type="button" className="jr-btn" aria-pressed={i === on} onClick={() => play(i)}>

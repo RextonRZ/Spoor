@@ -151,7 +151,10 @@ export default function ReportPage({ params }: { params: Promise<{ caseId: strin
       <div className="rp-body">
         <article className="rp-sheet" aria-label="Case report">
           <header className="rp-sheet-head">
-            <span className="rp-brand">Spoor · Case report</span>
+            <span className="rp-brand">
+              {/* eslint-disable-next-line @next/next/no-img-element -- the brand's own logo file (light, for the paper) */}
+              <img src="/brand/spoor-logo-light.png" alt="Spoor" width={78} height={25} /><span>Case report</span>
+            </span>
             <span className="rp-ref">{waybill}</span>
           </header>
           <span className="rp-pill" data-tone={found || inside ? "ok" : ready ? "bad" : undefined}>{found ? `Found · ${hhmm(found.at)} by ${found.by}` : inside ? "Likely location found" : ready ? "Lost track" : "Checking"}</span>

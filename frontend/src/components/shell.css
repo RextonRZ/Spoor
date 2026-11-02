@@ -1,15 +1,17 @@
 /* App chrome, ops-console style. Prefixes tb- (shared tokens + search + account) and sb- (sidebar layout).
    Neutral greys, one indigo accent, 6-8px corners, hairlines, no glows. */
 .tb-app {
-  --tb-bg: #0a0b0e; --tb-side: #0e1014; --tb-surface: #121419; --tb-raise: #181b21; --tb-line: rgba(255, 255, 255, 0.07);
-  --tb-line-2: rgba(255, 255, 255, 0.11); --tb-ink: #eceef2; --tb-ink-2: #c3c7cf; --tb-mute: #868b96; --tb-accent: #5558ee; --tb-accent-2: #a5b4fc;
+  /* the brand's near-black (#0E1116) with its cool bias; brand indigo #6366F1 is the ONE accent (primary action,
+     active step, focus), never an evidence colour; evidence keeps green / amber / red / grey / scan blue */
+  --tb-bg: #0b0d12; --tb-side: #0e1116; --tb-surface: #12151c; --tb-raise: #181c25; --tb-line: rgba(196, 206, 255, 0.075);
+  --tb-line-2: rgba(196, 206, 255, 0.12); --tb-ink: #eceef4; --tb-ink-2: #c3c8d4; --tb-mute: #878da0; --tb-accent: #6366f1; --tb-accent-2: #a5b4fc;
   --tb-ease-out: cubic-bezier(0.23, 1, 0.32, 1); --tb-ease-io: cubic-bezier(0.77, 0, 0.175, 1); --tb-drawer: cubic-bezier(0.32, 0.72, 0, 1);
   --tb-r: 8px; --tb-r-sm: 6px;
   min-height: 100vh; background: var(--tb-bg); color: var(--tb-ink);
-  font-family: var(--font-inter), Inter, "Google Sans Flex", system-ui, sans-serif; font-feature-settings: "tnum" 1; font-size: 14px;
+  font-family: "Google Sans Flex Variable", "Google Sans Flex", var(--font-inter), system-ui, sans-serif; font-feature-settings: "tnum" 1; font-size: 14px;
 }
-.tb-app a { color: var(--tb-accent-2); text-decoration: none; }
-.tb-app a:hover { color: #c7d2fe; }
+.tb-app a { color: var(--tb-ink-2); text-decoration: underline; text-decoration-color: var(--tb-line-2); text-underline-offset: 3px; }
+.tb-app a:hover { color: var(--tb-ink); text-decoration-color: currentColor; }
 
 /* the frame: sidebar + main */
 .sb-app { display: grid; grid-template-columns: 240px minmax(0, 1fr); transition: grid-template-columns 220ms var(--tb-ease-io); }
@@ -182,7 +184,7 @@
 .tb-sugg li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: baseline; gap: 12px; padding: 8px 10px; border-radius: var(--tb-r-sm);
   cursor: pointer; font-size: 13px; color: var(--tb-ink-2); }
 .tb-sugg li[aria-selected="true"] { background: rgba(85, 88, 238, 0.14); color: var(--tb-ink); }
-.tb-sugg-id { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; color: var(--tb-ink); }
+.tb-sugg-id { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--tb-ink); }
 .tb-sugg-id mark { background: none; color: var(--tb-accent-2); font-weight: 700; }
 .tb-sugg-meta { color: var(--tb-mute); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tb-sugg-case { font-style: normal; font-size: 11px; font-weight: 600; color: #fca5a5; background: rgba(248, 113, 113, 0.12); padding: 1px 6px; border-radius: 4px; }

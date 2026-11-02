@@ -103,17 +103,20 @@ button.hb-tr:focus-visible { outline: 2px solid #818cf8; outline-offset: -2px; }
 .hb-tr-quiet { color: var(--tb-ink-2); }
 .hb-num { text-align: right; font-variant-numeric: tabular-nums; }
 .hb-dim { color: var(--tb-mute); }
-.hb-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+.hb-mono { font-variant-numeric: tabular-nums; letter-spacing: 0.01em; font-size: 13px; }  /* ids: tabular sans; monospace is for camera labels only */
 .hb-ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hb-chev { color: var(--tb-mute); font-size: 16px; text-align: right; }
 .hb-place { display: flex; align-items: center; gap: 10px; font-weight: 560; }
 .hb-place i { width: 7px; height: 7px; border-radius: 50%; background: #3a3e48; flex: none; }
 .hb-place i[data-tone="warn"] { background: #fbbf24; }
 .hb-warn { color: #fcd34d; font-weight: 650; }
-.hb-chip { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 5px; font-size: 12px; font-weight: 600; color: #fcd34d; background: rgba(251, 191, 36, 0.12); white-space: nowrap; }
-.hb-chip[data-tone="bad"] { color: #fca5a5; background: rgba(248, 113, 113, 0.13); }
-.hb-chip[data-tone="ok"] { color: #86efac; background: rgba(74, 222, 128, 0.12); }
-.hb-chip[data-tone="ask"] { color: var(--tb-accent-2); background: rgba(85, 88, 238, 0.16); } /* a customer is waiting on it */
+/* status as a dot and plain words (design pass 1611: no pill on every row) */
+.hb-chip { display: inline-flex; align-items: center; gap: 7px; height: 20px; padding: 0; font-size: 12.5px; font-weight: 600; color: #fcd34d; background: none; white-space: nowrap; }
+.hb-chip::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.hb-chip[data-tone="bad"] { color: #fca5a5; background: none; }
+.hb-chip[data-tone="ok"] { color: #86efac; background: none; }
+.hb-chip[data-tone="ask"] { color: var(--tb-ink); background: none; }
+.hb-chip[data-tone="ask"]::before { background: none; box-shadow: inset 0 0 0 1.5px currentColor; } /* a customer is waiting on it */
 .hb-foot { margin: 0; padding: 10px 16px; font-size: 12.5px; color: var(--tb-mute); border-top: 1px solid var(--tb-line); }
 .hb-empty { margin: 0; padding: 28px 16px; font-size: 13.5px; color: var(--tb-ink-2); }
 .hb-note { margin: 0; font-size: 12.5px; color: var(--tb-mute); }
@@ -229,7 +232,7 @@ button.hb-tr:focus-visible { outline: 2px solid #818cf8; outline-offset: -2px; }
 .hb-vtog button[aria-checked="true"] { background: var(--tb-raise); color: var(--tb-ink); box-shadow: inset 0 0 0 1px var(--tb-line-2); }
 .hb-vtog button:active { scale: 0.97; }
 .hb-vtog button:focus-visible { outline: 2px solid #818cf8; outline-offset: 1px; }
-.hb-chip[data-tone="step"] { color: var(--tb-accent-2); background: rgba(85, 88, 238, 0.16); }
+.hb-chip[data-tone="step"] { color: var(--tb-ink-2); background: none; }
 @media (prefers-reduced-motion: reduce) { .hb-vtog button { transition: none; } }
 
 /* Parcels tab (owner 1 Nov) */

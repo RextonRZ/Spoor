@@ -1,54 +1,53 @@
-/* The parcel's journey (JourneyReel.tsx): one player, a step rail, gaps as connectors, the no-scan part in red. */
-.jr { display: grid; gap: 12px; margin-top: 12px; }
-.jr-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+/* The parcel's journey (JourneyReel.tsx): the video first, then a thin timeline in the brand mark's language: each step
+   sits under a round-capped ridge (solid = on camera, red = no scan, dotted = no camera saw it; indigo = playing).
+   No cards: steps are text on one surface; the player is the only bordered object. */
+.jr { display: grid; gap: 14px; margin-top: 4px; }
+.jr-top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .jr-all:active { transform: scale(0.97); }
 .jr-meta { font-size: 12.5px; color: var(--tb-mute); font-variant-numeric: tabular-nums; }
-.jr-dl { margin-left: auto; font-size: 12.5px; color: var(--tb-ink-2); text-decoration: underline; text-underline-offset: 3px; }
+.tb-app a.jr-dl { margin-left: auto; font-size: 12.5px; }
 .jr-dl:focus-visible { outline: 2px solid #818cf8; outline-offset: 2px; border-radius: 4px; }
-.jr-stage { margin: 0; position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 12px; background: #0b0d12;
+.jr-stage { margin: 0; position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 10px; background: #07080b;
   border: 1px solid var(--tb-line); }
-.jr-stage video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #0b0d12; }
+.jr-stage video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #07080b; }
 .jr-wait { display: grid; place-items: center; }
 .jr-wait span { font-size: 13px; color: var(--tb-mute); }
 
-/* the rail: steps in time order; on a wide screen a horizontal strip, on a phone a list under the player */
-.jr-rail { list-style: none; margin: 0; padding: 2px 2px 6px; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(150px, 1fr);
-  gap: 0; overflow-x: auto; scroll-snap-type: x proximity; }
-.jr-step { position: relative; display: grid; scroll-snap-align: start; padding-left: 26px; }
-.jr-step:first-child { padding-left: 0; }
-.jr-gap { position: absolute; left: 0; top: 10px; width: 26px; text-align: center; font-size: 10.5px; color: var(--tb-mute);
-  font-variant-numeric: tabular-nums; white-space: nowrap; transform: translateX(-2px); }
-.jr-gap::after { content: ""; position: absolute; left: 3px; right: 3px; top: 16px; height: 1px; background: var(--tb-line); }
-.jr-step[data-after] .jr-gap::after { background: rgba(248, 113, 113, 0.5); }
-.jr-btn { all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 3px; align-content: start; min-height: 96px; padding: 10px 11px;
-  border-radius: 10px; border: 1px solid var(--tb-line); background: rgba(255, 255, 255, 0.02);
-  transition: border-color 160ms ease, background-color 160ms ease, transform 160ms cubic-bezier(0.23, 1, 0.32, 1); }
-.jr-btn:hover { background: rgba(255, 255, 255, 0.045); }
+/* every step in view: the timeline wraps into rows instead of scrolling past the edge */
+.jr-rail { list-style: none; margin: 0; padding: 0 0 6px; display: grid; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
+  column-gap: 6px; row-gap: 10px; }
+.jr-step { position: relative; display: grid; padding-top: 18px; }
+/* the ridge: one stroke weight, round caps, like the mark's ridges */
+.jr-step::before { content: ""; position: absolute; left: 2px; right: 2px; top: 10px; height: 3px; border-radius: 3px;
+  background: color-mix(in srgb, var(--tb-ink-2) 38%, transparent); transition: background-color 200ms ease; }
+.jr-step[data-tone="noscan"]::before { background: color-mix(in srgb, #f87171 70%, transparent); }
+.jr-step[data-nocam]::before, .jr-step[data-tone="card"]::before { background: radial-gradient(circle, color-mix(in srgb, var(--tb-ink-2) 45%, transparent) 1.5px, transparent 1.7px) 0 50% / 8px 3px repeat-x; }
+.jr-step[data-on]::before, .jr-step[data-on][data-nocam]::before { background: var(--tb-accent); }
+.jr-gap { position: absolute; left: 4px; top: -4px; font-size: 10.5px; color: var(--tb-mute); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.jr-btn { all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 3px; align-content: start; padding: 6px 4px 8px; border-radius: 6px;
+  transition: background-color 160ms ease, transform 160ms cubic-bezier(0.23, 1, 0.32, 1); }
 .jr-btn:active { transform: scale(0.98); }
 .jr-btn:focus-visible { outline: 2px solid #818cf8; outline-offset: 2px; }
-.jr-step[data-on] .jr-btn { border-color: #4ade80; background: rgba(74, 222, 128, 0.06); }
-.jr-step[data-tone="noscan"][data-on] .jr-btn { border-color: #f87171; background: rgba(248, 113, 113, 0.07); }
-.jr-time { font-size: 12px; color: var(--tb-ink-2); font-variant-numeric: tabular-nums; }
-.jr-title { font-size: 13.5px; font-weight: 620; color: var(--tb-ink); line-height: 1.3; text-wrap: balance; }
-.jr-badge { justify-self: start; margin-top: 2px; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 600; color: #86efac;
-  background: rgba(74, 222, 128, 0.12); }
-.jr-step[data-tone="noscan"] .jr-badge { color: #fca5a5; background: rgba(248, 113, 113, 0.12); }
-.jr-step[data-tone="card"] .jr-badge { color: var(--tb-ink-2); background: rgba(255, 255, 255, 0.07); }
+@media (hover: hover) and (pointer: fine) { .jr-btn:hover { background: rgba(255, 255, 255, 0.03); } }
+.jr-time { font-size: 12px; color: var(--tb-mute); font-variant-numeric: tabular-nums; }
+.jr-title { font-size: 13.5px; font-weight: 600; color: var(--tb-ink-2); line-height: 1.3; text-wrap: balance; }
+.jr-step[data-on] .jr-title { color: var(--tb-ink); }
+.jr-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 550; color: #86efac; }
+.jr-badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.jr-step[data-tone="noscan"] .jr-badge { color: #fca5a5; }
+.jr-step[data-tone="card"] .jr-badge { color: var(--tb-ink-2); }
 .jr-cam { font-size: 11.5px; color: var(--tb-mute); }
-.jr-num { justify-self: start; padding: 0 5px; border-radius: 4px; font: 600 10.5px ui-monospace, SFMono-Regular, Menlo, monospace;
-  color: #052e16; background: #4ade80; }
+.jr-num { font-size: 11.5px; color: var(--tb-ink-2); font-variant-numeric: tabular-nums; letter-spacing: 0.01em; }
 .jr-sub { margin: 0; font-size: 13px; color: var(--tb-ink-2); max-width: 70ch; }
 
 @media (max-width: 640px) {
-  .jr-rail { grid-auto-flow: row; grid-auto-columns: auto; overflow: visible; gap: 0; }
-  .jr-step { padding-left: 0; padding-top: 22px; }
-  .jr-step:first-child { padding-top: 0; }
-  .jr-gap { top: 3px; left: 12px; width: auto; transform: none; }
-  .jr-gap::after { display: none; }
-  .jr-btn { min-height: 0; grid-template-columns: auto 1fr auto; column-gap: 10px; align-items: baseline; }
-  .jr-title { grid-column: 2; }
-  .jr-badge { grid-column: 3; grid-row: 1; margin: 0; }
-  .jr-cam, .jr-num { grid-column: 2; }
-  .jr-dl { margin-left: 0; }
+  .jr-rail { grid-template-columns: 1fr; row-gap: 0; padding-left: 14px; }
+  .jr-step { padding-top: 0; padding-left: 12px; }
+  .jr-step::before { left: -12px; right: auto; top: 6px; bottom: 6px; width: 3px; height: auto; }
+  .jr-step[data-nocam]::before, .jr-step[data-tone="card"]::before { background: radial-gradient(circle, color-mix(in srgb, var(--tb-ink-2) 45%, transparent) 1.5px, transparent 1.7px) 50% 0 / 3px 8px repeat-y; }
+  .jr-gap { position: static; padding: 2px 4px 0; }
+  .jr-btn { grid-template-columns: auto 1fr; column-gap: 10px; align-items: baseline; }
+  .jr-title, .jr-badge, .jr-cam, .jr-num { grid-column: 2; }
+  .tb-app a.jr-dl { margin-left: 0; }
 }
-@media (prefers-reduced-motion: reduce) { .jr-btn { transition: none; } .jr-btn:active { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .jr-btn, .jr-step::before { transition: none; } .jr-btn:active { transform: none; } }

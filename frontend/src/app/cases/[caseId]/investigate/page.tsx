@@ -26,9 +26,13 @@ const TAG: Record<string, string> = { read_scans: "Scan records", triage_clips: 
   re_plan: "Re-planning", sam_track: "Tracking the box", verify: "Verified", reject: "Rejected", create_search_task: "Search task",
   ask_a_person: "Asking a person", draft_report: "Report", scan_history: "Reading the scans", footage_for: "Finding footage",
   door_crossings: "Watching the door", carrier_check: "Who carried it", propose: "Ideas", verify_claim: "Testing an idea" };
+/** what each tool did, in plain verbs (the tool ids stay in the receipts, not on screen) */
+const TOOL_WORDS: Record<string, string> = { read_scans: "Read the scans", plan: "Planned the search", pick_cameras: "Picked cameras",
+  re_plan: "Re-planned", triage_clips: "Triaged the footage", scan_history: "Read the scan history", footage_for: "Found the footage",
+  door_crossings: "Checked the door", carrier_check: "Checked who carried it", observe_clip: "Watched a clip",
+  sam_track: "Tracked with SAM 3.1", propose: "Proposed ideas", verify_claim: "Tested ideas", verify: "Verified", reject: "Rejected",
+  create_search_task: "Set a search task", ask_a_person: "Asked a person", draft_report: "Drafted the report" };
 const secs = (t: number) => (t < 10 ? t.toFixed(1) : String(Math.round(t)));
-const WHO_COLOR: Record<string, string> = { lead: "#A5B4FC", triage: "#A5B4FC", evidence: "#93C5FD", analyst: "#93C5FD", hypothesis: "#F9A8D4",
-  verifier: "#FCD34D", tracker: "#86EFAC", reporter: "#C9CCD3" };
 
 /** the run's own elapsed time (+m:ss), so it is never read as the hub clock of the footage */
 const runTime = (t: number) => `+${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
@@ -178,7 +182,7 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
             {steps.map((s) => (
               <div key={s.seq} className="iv-log-row" data-status={s.status}>
                 <span className="iv-log-t" title="Time since the run started">{runTime(s.t_s)}</span>
-                <span className="iv-log-who" style={{ color: WHO_COLOR[s.role] ?? "#C9CCD3" }}>{s.who.replace(/s$/, "")}</span>
+                <span className="iv-log-who">{s.who.replace(/s$/, "")}</span>
                 <span className="iv-log-text">{s.text}</span>
               </div>
             ))}
@@ -214,7 +218,7 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
                       const n = ran.filter((s) => s.status === "done").length;
                       return (
                         <span key={t} className="iv-tool" data-state={st} title={st === "off" ? ran.find((s) => s.status === "unavailable")?.text : undefined}>
-                          {st === "done" ? "✓ " : ""}{t}{n > 1 ? ` ×${n}` : ""}
+                          {TOOL_WORDS[t] ?? t.replace(/_/g, " ")}{n > 1 ? ` ×${n}` : ""}
                         </span>
                       );
                     })}
@@ -222,7 +226,7 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
                 </div>
               );
             })}
-            <p className="iv-crew-note">Dashed steps only run when needed.</p>
+            <p className="iv-crew-note">Steps in grey only run when needed.</p>
           </div>
         </aside>
       </div>
