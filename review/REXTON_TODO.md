@@ -1,13 +1,16 @@
 # Rexton's open asks (kept current; newest at the bottom of each list)
 
 ## Video fixes (Rexton 3 Nov ~01:20) - one W1 re-bake + one Modal render
-- [ ] Unload door: no zombie carry (front carry, fixed in code) + the mate works during the scan (staging, gate attempt 6 running)
-- [ ] Chute C12: the parcel no longer vanishes into a full bag (lands and stays on top; fixed in code, in bake 6)
+- [x] Unload door: no zombie carry + the mate works during the scan (bake 6 rendered, frame-reviewed). BUT the door lost its number: SAM's box pass follows the carton in the hands then snaps back to the wall (the picker stands in front of the pick spot); strict rule kept -> no label. Rexton to choose: keep / old clip / re-stage
+- [x] Chute C12: lands on the bag and stays visible (rendered, frame-reviewed); C12 labelled on CAM 11
 - [x] Chute C12 "box looks kemek": far cameras zoomed less in the reel (min crop 0.6)
 - [ ] Checkpoint 3 "On the sorter" gets its outline + number: the induct is reported where the parcel boards the loop
       (plan event_positions), not at the induction belt; SAM now aims there at the deck height, cameras chosen by
       calibration (CAM 06 sees it), label only if it rides off along the loop. Needs a CAM 06 clip (Modal, with the door)
-      + handshakes re-run
+      + handshakes re-run. DONE: CAM 06 rendered (765-865, after a wrong first range); SAM's point landed on the empty
+      carrier the parcel was about to board and the rides-along rule passed it (a wrong label). New general rule: an
+      outline already riding the loop before the scan is a carrier, not a carton boarding -> can't tell. Step 3 has
+      no number (honest); the reel still shows it from the tunnel exit
 - [x] Map: stop 3 showed before 2: reel/map use the event's own spot (checked on Proof: 1 -> 2 -> 3)
 - [x] Chapters 8 and 9: one continuous carry (9 starts where 8 stopped)
 

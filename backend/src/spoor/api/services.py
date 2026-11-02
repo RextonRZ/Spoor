@@ -344,14 +344,27 @@ class Services:
         a, b = min(segs, key=lambda s_: dist(*s_))
         d = np.array(b) - np.array(a)
         d = d / max(1e-9, np.linalg.norm(d))
-        moving = [o for o in obs if f_at <= o.source_frame.frame_index <= f_at + 15]
-        if len(moving) < 2:
+        def travel(lo, hi):
+            seen = [o for o in obs if lo <= o.source_frame.frame_index <= hi]
+            if len(seen) < 2:
+                return None
+            c = [((o.bbox_xyxy_px[0] + o.bbox_xyxy_px[2]) / 2, (o.bbox_xyxy_px[1] + o.bbox_xyxy_px[3]) / 2) for o in seen]
+            xy = image_to_site(cal, c, deck)[:, :2]
+            step = xy[-1] - xy[0]
+            frames = seen[-1].source_frame.frame_index - seen[0].source_frame.frame_index
+            return float(step @ d), abs(float(step @ np.array([-d[1], d[0]]))), max(1, frames)
+
+        after = travel(f_at, f_at + 15)
+        if after is None:
             return False
-        c = [((o.bbox_xyxy_px[0] + o.bbox_xyxy_px[2]) / 2, (o.bbox_xyxy_px[1] + o.bbox_xyxy_px[3]) / 2) for o in moving]
-        xy = image_to_site(cal, c, deck)[:, :2]
-        step = xy[-1] - xy[0]
-        along, across = float(step @ d), abs(float(step @ np.array([-d[1], d[0]])))
-        return along >= RIDE_M and along >= 2 * across
+        along, across, n = after
+        if not (along >= RIDE_M and along >= 2 * across):
+            return False
+        # it must not have been riding the loop already: an empty carrier passing the boarding spot rides along at the
+        # loop's speed before the scan too (W1: SAM's point landed on the tray the parcel was about to board); a
+        # carton boarding comes off the induction belt, so before the scan it was not yet moving along with the loop
+        before = travel(f_at - 6, f_at)
+        return before is None or before[0] / before[2] < 0.5 * along / n
 
     def _expected_box(self, row, plan, cal):
         """This parcel's own measured size (its tunnel read's dims) projected at the scan point, or None."""
