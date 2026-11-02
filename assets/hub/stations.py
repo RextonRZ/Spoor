@@ -180,7 +180,8 @@ def fill_mesh(name, boxes, coll):
     return len(boxes)
 
 
-QUIET_S = 4.5  # nothing else set down at the replay dock this long after the replayed carton (its close-up's clip)
+QUIET_S = 10.5  # nothing else set down at the replay dock this long before or after the replayed carton: the door
+# close-up's clock is not fitted (+-5 s), so another scan at the door inside twice that can't be told apart on camera
 
 
 class Pick:
@@ -363,6 +364,10 @@ class Docks:
                 if t < w.free_at or not w.slots or t > getattr(self, 'T_STOP', self.T_END) + 1.0:
                     continue
                 rw = self.replay_worker
+                if w is rw and w.slots[0] is self.replay_box and (
+                        t < self.lock[bn] - 0.25 + QUIET_S
+                        or any(o.cur is not None for o in self.workers if o.dock is w.dock and o is not w)):
+                    continue  # the replayed carton waits for a quiet door: nothing in hand, the last set-down QUIET_S ago
                 if rw is not None and rw.dock is w.dock and w.slots[0] is not self.replay_box:
                     pending = self.replay_box in rw.slots[:1] or (rw.cur is not None and rw.cur.box is self.replay_box)
                     if (w is not rw and pending) or (self.quiet_until is not None and t < self.quiet_until):

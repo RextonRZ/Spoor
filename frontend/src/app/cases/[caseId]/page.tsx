@@ -7,6 +7,7 @@
  * Everything comes from the case's read models (journey, missing moment, possible places, conflicts, floor search);
  * without model keys it says what is really known. The same words as the Hub and the landing page (lib/answer).
  */
+import { JourneyReel } from "@/components/case/JourneyReel";
 import Link from "next/link";
 import { use } from "react";
 import { useResource } from "@/lib/api";
@@ -15,13 +16,12 @@ import { caseAnswer, type InvestigationView } from "@/lib/answer";
 import { conflictWords, type Conflict } from "@/lib/conflict";
 import { buildCheckpoints, CHECKPOINT_LINE, type CaseRecord } from "@/lib/checkpoints";
 import { hms, momentLabel, placeOf, shortPlace } from "@/lib/words";
-import type { MediaRow, Site } from "@/lib/types";
+import type { Site } from "@/lib/types";
 import { CaseSteps } from "@/components/flow/CaseSteps";
 import { CheckpointStrip, ScannerScreen } from "@/components/checkpoints/Checkpoints";
 import { NextCams, View } from "@/components/hub/parts";
 import { Identity } from "@/components/case/Identity";
 import { CaseStory } from "@/components/case/CaseStory";
-import { Passport } from "@/components/case/Passport";
 import { CustomerBox } from "@/components/case/CustomerBox";
 import { ZONE_NAMES } from "@/components/plan/HubPlan";
 import "./answer.css";
@@ -50,10 +50,6 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
   const waybill = st.data?.case.target_description.split(" ").at(-1) ?? "";
   const ready = !!(j && mm && pr.data);
   const siteId = sites.data?.[0]?.site_id;
-  const media = useResource<MediaRow[]>(siteId ? `/v1/sites/${siteId}/media` : null);
-  // a checkpoint camera's clip that has this moment (for the passport's closing stamps)
-  const clipAt = (hub: string, iso: string) => (media.data ?? []).find((m) => m.media.camera_id === `cam_${hub}`
-    && !m.purged && m.coverage.some((c) => Date.parse(c.start_utc) <= Date.parse(iso) && Date.parse(iso) <= Date.parse(c.end_utc)))?.media.media_id;
 
   const view = st.data?.answer;
   // the investigation's verified answer leads when there is one (a floor find still wins); otherwise the read models
@@ -92,20 +88,13 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
               </div>
               <h1 id="an-h" className="an-h1">Most likely in the {inside.place}.</h1>
               <p className="an-why">No camera sees inside. This assumes the door is the only way in.</p>
-              <CaseStory caseId={caseId} inside={inside} view={view} journey={j} truck={truck} />
+              <CaseStory caseId={caseId} inside={inside} view={view} journey={j} truck={truck} strip={false} />
             </section>
             {st.data?.case.complaint && <CustomerBox caseId={caseId} complaint={st.data.case.complaint} opened={st.data.case.created_at} lastScan={last?.t} />}
 
             <section className="an-card" aria-labelledby="an-scans">
-              <h2 id="an-scans" className="an-h2">How the hub tracked it</h2>
-              {cps ? <CheckpointStrip cps={cps} compact gaps where /> : <div className="an-skel an-skel-row" aria-busy="true" />}
-              <p className="an-line">{CHECKPOINT_LINE}</p>
-              <Passport waybill={waybill} after={[
-                ...(clipAt("CHK_STORE", inside.iso.carried_in_at) ? [{ key: "store", what: `Into the ${inside.place.replace(/ \(Z\d+\)$/, "").toLowerCase()}`,
-                  media: clipAt("CHK_STORE", inside.iso.carried_in_at)!, cam: "CHK_STORE", iso: inside.iso.carried_in_at, tag: "Carried in, no scan-in" }] : []),
-                ...(truck && insideAtTruck && clipAt("CHK_DOCK", truck.t) ? [{ key: "dock", what: `Its cage at dock ${truck.door ?? ""}`.trim(),
-                  media: clipAt("CHK_DOCK", truck.t)!, cam: "CHK_DOCK", iso: truck.t, tag: "Cage leaves without it" }] : []),
-              ]} />
+              <h2 id="an-scans" className="an-h2">The parcel&apos;s journey</h2>
+              <JourneyReel caseId={caseId} />
               {tunnel?.screen && (
                 <details className="an-more">
                   <summary>Scan tunnel screen for this parcel</summary>

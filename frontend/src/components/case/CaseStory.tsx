@@ -72,8 +72,8 @@ function useClipFor(siteId: string | undefined) {
     && !m.purged && m.coverage.some((c) => Date.parse(c.start_utc) <= Date.parse(iso) && Date.parse(iso) <= Date.parse(c.end_utc)))?.media.media_id;
 }
 
-export function CaseStory({ caseId, inside, view, journey, truck }: {
-  caseId: string; inside: InsideFacts; view: InvestigationView; journey?: JourneyObject;
+export function CaseStory({ caseId, inside, view, journey, truck, strip = true }: {
+  caseId: string; inside: InsideFacts; view: InvestigationView; journey?: JourneyObject; strip?: boolean;
   /** the records' "loaded on truck" (the cage's gate read), if any */
   truck?: { t: string; door: string | null } | null;
 }) {
@@ -220,7 +220,7 @@ export function CaseStory({ caseId, inside, view, journey, truck }: {
         </figure>
       </div>
 
-      <ol className="lp-mo cs-mo" aria-label="The moments, in order">
+      {strip && <ol className="lp-mo cs-mo" aria-label="The moments, in order">
         {moments.map((m, i) => {
           const nx = moments[i + 1];
           const when = (x: Moment) => x.at ?? x.iso;
@@ -250,7 +250,7 @@ export function CaseStory({ caseId, inside, view, journey, truck }: {
             </li>
           );
         })}
-      </ol>
+      </ol>}
 
       {view.hypotheses.length > 0 && (
         <details className="an-more ia-ideas">

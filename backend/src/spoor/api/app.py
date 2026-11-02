@@ -1067,6 +1067,38 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         audit(p, "make_reel", case_id, reel_id=reel_id, cards=man["cards"])
         return {**man, "url": f"/v1/signed/reels/{reel_id}?exp={exp}&sig={sig}"}
 
+    def journey_reel_out(case_id: str, man: dict) -> dict:
+        exp, sig = svc.signer.sign(f"reel/{man['reel_id']}")
+        return {**man, "case_id": case_id, "url": f"/v1/signed/reels/{man['reel_id']}?exp={exp}&sig={sig}"}
+
+    @app.post("/v1/cases/{case_id}/journey-reel", status_code=201)
+    def make_journey_reel(case_id: str, p: User) -> dict:
+        """The parcel's whole journey as ONE video (Rexton, 2 Nov): every checkpoint's clip in time order, SAM's own
+        outline on the carton where it followed it, cards where nothing can be seen. Stored evidence only."""
+        from spoor.forensics.journey_reel import build_journey_reel, journey_segments
+
+        case = case_for(p, case_id)
+        waybill = case.target_description.split(" ")[-1]
+        segs = journey_segments(svc, case, waybill, latest_answer(svc.store, case_id))
+        if not segs:
+            raise HTTPException(409, "no scans or footage of this parcel yet")
+        reel_id = new_id("reel")
+        out = Path(svc.settings.data_dir) / "reels"
+        man = build_journey_reel(segs, out, reel_id, f"{waybill} · {case.question}")
+        (out / f"journey_{case_id}.json").write_text(json.dumps({"reel_id": reel_id}), encoding="utf-8")
+        audit(p, "make_journey_reel", case_id, reel_id=reel_id, chapters=len(man["chapters"]))
+        return journey_reel_out(case_id, man)
+
+    @app.get("/v1/cases/{case_id}/journey-reel")
+    def journey_reel(case_id: str, p: User) -> dict:
+        case_for(p, case_id)
+        out = Path(svc.settings.data_dir) / "reels"
+        ptr = out / f"journey_{case_id}.json"
+        if not ptr.exists():
+            raise HTTPException(404, "no journey reel for this case yet")
+        reel_id = json.loads(ptr.read_text(encoding="utf-8"))["reel_id"]
+        return journey_reel_out(case_id, json.loads((out / f"{reel_id}.json").read_text(encoding="utf-8")))
+
     @app.get("/v1/signed/reels/{reel_id}")
     def signed_reel(reel_id: str, exp: int, sig: str) -> FileResponse:
         svc.signer.check(f"reel/{reel_id}", exp, sig)
