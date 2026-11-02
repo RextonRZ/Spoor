@@ -98,7 +98,7 @@ export function JourneyReel({ caseId }: { caseId: string }) {
     <div className="jr" ref={box}>
       <div className="jr-top">
         <button type="button" className="hb-btn hb-btn-primary jr-all" onClick={() => play(null)}>Play the whole journey</button>
-        <span className="jr-meta">{steps.length} steps · {Math.round(reel.seconds)} s · outline: SAM 3.1, where it followed the carton</span>
+        <span className="jr-meta">{steps.length} steps · {Math.round(reel.seconds)} s · synthetic footage · outline: SAM 3.1, where it followed the carton</span>
         <a className="jr-dl" href={signedUrl(reel.url)} download={`${reel.reel_id}.mp4`}>Download MP4</a>
       </div>
       <figure className="jr-stage">

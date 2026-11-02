@@ -47,6 +47,12 @@ interface Tile { key: string; cam: string | null; place: string; t: string; stat
   seen?: ObservedSegment["points"] }
 
 const camName = (hub: string) => hub.replaceAll("_", " ");
+const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
+/** a tile's status in a few words: the time is on the line above, the parcel is the case's own */
+const tileStatus = (st: string, waybill: string) => {
+  const x = cap(st.replace(`${waybill} · `, "").replace(/ \d{2}:\d{2}(:\d{2})?,?/, ""));
+  return x === "Seen" ? "Followed by SAM 3.1" : x;
+};
 const within = (t: string, c: { start_utc: string; end_utc: string }) => Date.parse(c.start_utc) <= Date.parse(t) && Date.parse(t) <= Date.parse(c.end_utc);
 const FRAME_WH: [number, number] = [1920, 1086]; // the delivered frame size the boxes are measured in
 
@@ -151,7 +157,7 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
       const door = (media.data ?? []).find((m) => m.media.camera_id && camId.toHub(m.media.camera_id).startsWith("CHK_STORE")
         && !m.purged && m.coverage.some((c) => within(inside.iso.carried_in_at, c)));
       const cam = door ? camId.toHub(door.media.camera_id!) : wide;
-      out.push({ key: "in", cam, place: `into the ${inside.place.replace(/ \(Z\d+\)$/, "").toLowerCase()}`, t: inside.iso.carried_in_at, tone: "seen", xy: inside.door_xy,
+      out.push({ key: "in", cam, place: `into the ${inside.place.replace(/ \(Z\d+\)$/, "")}`, t: inside.iso.carried_in_at, tone: "seen", xy: inside.door_xy,
         status: `Carried in ${inside.carried_in_at}`, headline: `Carried into the ${inside.place} at ${inside.carried_in_at}.`,
         body: `${door ? `${camName(cam)} over the door and ${inside.camera}` : inside.camera} show it carried in, past the scan-in post. No scan-in was recorded, and no camera sees inside.` });
       inside.came_out_empty.forEach((t, i) => out.push({ key: `out${i}`, cam, place: "out of the store", t: inside.iso[`came_out_${i}`], tone: "notseen", xy: inside.door_xy,
@@ -217,11 +223,14 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
           <div className="pf-strip">
             {tiles.map((t, i) => (
               <button key={t.key} type="button" aria-pressed={t.key === sel?.key} onClick={() => setPick(t.key)} className="pf-tile" data-tone={t.tone}>
-                <TileThumb tile={t} media={t.cam ? coverage(t.cam, t.t) : undefined} />
+                <span className="pf-tile-pic">
+                  <TileThumb tile={t} media={t.cam ? coverage(t.cam, t.t) : undefined} />
+                  <span className="pf-tile-n" aria-hidden>{i + 1}</span>
+                </span>
                 <span className="pf-tile-text">
-                  <span className="pf-tile-cam"><span className="pf-tile-n" aria-hidden>{i + 1}</span>{t.cam ? camName(t.cam) : "Records"}</span>
-                  <span className="pf-tile-place">{t.place}</span>
-                  <span className="pf-tile-status">{t.status}</span>
+                  <span className="pf-tile-place">{cap(t.place)}</span>
+                  <span className="pf-tile-cam">{t.cam ? camName(t.cam) : "Records"} · {hms(t.t)}</span>
+                  <span className="pf-tile-status">{tileStatus(t.status, waybill)}</span>
                 </span>
               </button>
             ))}

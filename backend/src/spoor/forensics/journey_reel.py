@@ -94,7 +94,6 @@ def _burn(img, seg: Segment, when: datetime):
     (tw, _), _ = cv2.getTextSize(badge, cv2.FONT_HERSHEY_SIMPLEX, 0.62, 2)
     cv2.rectangle(img, (W - tw - 46, H - 46), (W - 22, H - 14), col, -1)
     cv2.putText(img, badge, (W - tw - 34, H - 23), cv2.FONT_HERSHEY_SIMPLEX, 0.62, (12, 12, 12), 2, cv2.LINE_AA)
-    _txt(img, "SYNTHETIC - fictional hub", (W - 250, 30), 0.5, MUTE)
     if seg.sub:
         _txt(img, seg.sub, (24, H - 72), 0.58, MUTE)
 
@@ -188,7 +187,8 @@ def build_journey_reel(segments: list[Segment], out_dir: Path, reel_id: str, tit
         vw.release()
         mp4 = out_dir / f"{reel_id}.mp4"
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(raw), "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
-                        "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(mp4)], check=True)  # fmt: skip
+                        "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-metadata", "comment=synthetic footage of a fictional hub",
+                        str(mp4)], check=True)  # fmt: skip
     manifest = {"reel_id": reel_id, "kind": "journey", "seconds": round(n / FPS, 1), "chapters": chapters,
                 "sources": sources, "label": "built from stored evidence; synthetic footage; outline = SAM 3.1"}
     (out_dir / f"{reel_id}.json").write_text(json.dumps(manifest, indent=1), encoding="utf-8")

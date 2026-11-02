@@ -311,7 +311,8 @@ def _keyed(r: _Run, store: EvidenceStore, case_id: str, models: dict[str, Any], 
         elif tool == "ask_spark":
             r.step("analyst", "observe_clip", "done" if ok and not err else "unavailable",
                    f"{_cam(cid or '')}: Muse Spark checked a short clip ({a.get('template', 'question')})." if ok and not err
-                   else f"{_cam(cid or '')}: Muse Spark could not check the clip.", camera_id=cid if ok and not err else None)  # fmt: skip
+                   else f"{_cam(cid or '')}: Muse Spark could not check the clip.", camera_id=cid if ok and not err else None,
+                   receipt=spark_receipt(a, res) if ok and not err else None)  # fmt: skip
         elif tool == "door_crossings":
             xs = res.get("crossings") or []
             nin, nout = sum(x["kind"] == "went in" for x in xs), sum(x["kind"] == "came out" for x in xs)
@@ -386,9 +387,40 @@ def _end(r: _Run, *, places: int, last: dict | None = None) -> dict:
 
 
 def latest_run(store: EvidenceStore, case_id: str) -> list[dict]:
-    """The latest run's steps in order (for the frozen map on the Answer screen)."""
-    steps = [s for s in store.find(AgentStep, case_id=case_id) if s.role.startswith("run:")]
+    """The latest run's steps in order (for the frozen map on the Answer screen). A clip check made before its answer
+    was kept on the step gets it back from the agent's own stored tool result (the call and its reply, read-only)."""
+    every = store.find(AgentStep, case_id=case_id)
+    steps = [s for s in every if s.role.startswith("run:")]
     if not steps:
         return []
     rid = max(steps, key=lambda s: s.at).request_id
-    return [s.content for s in sorted((s for s in steps if s.request_id == rid), key=lambda s: s.seq)]
+    mine = sorted((s for s in steps if s.request_id == rid), key=lambda s: s.seq)
+    t0 = mine[0].at
+    calls = {(c.request_id, c.idempotency_key): c for c in every if c.kind == "tool_call" and c.content.get("tool") == "ask_spark"}
+    replies = sorted((r_ for r_ in every if r_.kind == "tool_result" and (r_.request_id, r_.idempotency_key) in calls
+                      and t0 <= r_.at), key=lambda r_: r_.at)  # fmt: skip
+    out = []
+    for s in mine:
+        c = s.content
+        if c.get("tool") == "observe_clip" and c.get("status") == "done" and not c.get("receipt"):
+            done_at = t0 + timedelta(seconds=float(c.get("t_s") or 0) + 2)  # (a step's `at` is its run's start)
+            r_ = next((r_ for r_ in reversed(replies) if r_.at <= done_at), None)
+            if r_ is not None:
+                c = {**c, "receipt": spark_receipt(calls[(r_.request_id, r_.idempotency_key)].content.get("args") or {}, r_.content)}
+        out.append(c)
+    return out
+
+
+def spark_receipt(args: dict, res: dict) -> dict:
+    """What Muse Spark was asked and what it answered, in its own words (facts it proposed; its reason when it could
+    not tell). `answer` sorts a carrying question into carrying / hands empty / can't see, from those words only."""
+    facts = list(dict.fromkeys(f["statement"] for f in res.get("facts") or [] if f.get("statement")))
+    words = " ".join([res.get("abstain_reason") or "", *facts]).lower()
+    answer = ("can't see" if res.get("status") == "not_observable" or "cannot be seen" in words else
+              "hands empty" if any(k in words for k in ("hands empty", "empty-handed", "no object is visible", "hands appear at sides"))
+              else "carrying" if "carrying" in words or "holding" in words else "unclear")  # fmt: skip
+    return {"input": {"media": args.get("media_id"), "template": args.get("template"),
+                      "window_s": [args.get("start_s"), args.get("end_s")], "track": args.get("track_id")},
+            "output": {"status": res.get("status"), "answer": answer if args.get("template") == "carrying_v1" else None,
+                       "said": res.get("abstain_reason") or (facts[0] if facts else None), "facts": facts[:4],
+                       "grounded": sum(f.get("grounding") == "grounded" for f in res.get("facts") or [])}}  # fmt: skip

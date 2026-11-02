@@ -43,16 +43,19 @@
 .pf-tile-none { display: flex; align-items: center; justify-content: center; background: #111217; color: var(--tb-mute); font-size: 12px; font-weight: 600; }
 .pf-tile-bad { color: #fca5a5; }
 .pf-tile-img-bad { outline: 2px solid rgba(248, 113, 113, 0.75); outline-offset: -2px; }
-.pf-tile-text { display: flex; flex-direction: column; gap: 1px; padding: 8px 10px 10px; }
-.pf-tile-cam { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; }
-/* the checkpoint's number: the same number marks its place on the plan */
-.pf-tile-n { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; flex: none; font-size: 10.5px;
-  font-weight: 700; font-variant-numeric: tabular-nums; color: var(--tb-ink); box-shadow: inset 0 0 0 1.5px var(--tb-ink-2); }
-.pf-tile[aria-pressed="true"] .pf-tile-n { background: var(--tb-accent); color: #fff; box-shadow: none; }
-.pf-tile-place { font-size: 12px; color: var(--tb-mute); }
-.pf-tile-status { font-size: 12px; font-weight: 600; color: var(--tb-mute); }
+.pf-tile { display: grid; grid-template-rows: auto 1fr; }
+.pf-tile-pic { position: relative; display: block; }
+.pf-tile-text { display: grid; align-content: start; gap: 2px; padding: 9px 11px 11px; }
+.pf-tile-place { font-size: 13.5px; font-weight: 600; line-height: 1.3; color: var(--tb-ink); text-wrap: balance; }
+.pf-tile-cam { font-size: 12px; color: var(--tb-mute); font-variant-numeric: tabular-nums; }
+.pf-tile-status { margin-top: 3px; font-size: 12px; font-weight: 600; color: var(--tb-mute); }
 .pf-tile[data-tone="seen"] .pf-tile-status { color: #86efac; }
 .pf-tile[data-tone="notseen"] .pf-tile-status, .pf-tile[data-tone="bad"] .pf-tile-status { color: #fca5a5; }
+/* the checkpoint's number, on the picture's corner: the same number marks its stop on the plan */
+.pf-tile-n { position: absolute; left: 7px; top: 7px; display: grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px;
+  border-radius: 10px; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; color: #f4f5f7;
+  background: rgba(10, 11, 14, 0.78); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18); }
+.pf-tile[aria-pressed="true"] .pf-tile-n { background: var(--tb-accent); box-shadow: none; }
 
 /* the docked card */
 .pf-card { display: grid; gap: 10px; justify-items: start; padding: 18px 20px; border: 1px solid var(--tb-line); border-radius: var(--tb-r); background: var(--tb-surface); }
