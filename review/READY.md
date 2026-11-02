@@ -4,6 +4,10 @@ Newest first. Each entry: what is done, where to look, what is still open.
 
 ## For Rexton, Tue 3 Nov 08:30: what changed overnight (start here)
 
+- **One number for the video: "13 of 13".** Every tracking number Spoor drew on a carton, across all 98 outlines on
+  every rendered window, was on the right parcel (checked against the 3-D truth, evaluation only). It shows a number
+  only when no other carton could be the one scanned, so most outlines carry none. README, EVALUATION, the demo
+  script say the same; the older "51 of 51" was before the stricter rules and is retired.
 - **Go look is a real worker app, "Spoor Floor"** (light, for the hall): Tasks -> Find this parcel (last-seen frame,
   tunnel photo, size, number with the last 4 marked, walking route) -> Where to look (checklist, hold-to-talk voice
   note in English or Malay, attached only on "Use this note") -> Scan the label (phone camera; type the last 4 if no

@@ -542,3 +542,4 @@
 2026-11-03 05:04 · build · Production rebuilt with tonight's later fixes and :3001 restarted on it (old server pid 42252 stopped); 9 pages: 200, console only CSS/logo preload warnings, no errors. Demo data restored to the demo-ready snapshot (not found, holding draft unsent).
 2026-11-03 05:06 · reviewer-night · check: loop going well (report print fixed, found + not-here paths walked, Wonder re-plan live ~US$0.25). Asked for one label number (51/51 vs 13/13) across docs; video doc updated to 'Four days'.
 2026-11-03 05:06 · loop · Cameras on a phone: two across with a smaller overlay (one per row was ~10,600 px of scrolling; now ~3,300). Agents page on narrow screens: places at full width with the steps, 'See the answer' last.
+2026-11-03 05:07 · ack · ACK reviewer 05:06 (one number): '13 of 13' everywhere (README, EVALUATION current row, DEMO_SCRIPT, READY top); 51 of 51 retired (pre-stricter rules).

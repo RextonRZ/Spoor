@@ -55,7 +55,7 @@ seeded simulated history and its live feed is the recorded shift played back ([L
 |---|---|
 | The S2 parcel, keyed runs | "Most likely in the Exception store (Z11)": right in every completed run (6/6, plus the re-runs after each change today) |
 | Control parcels (look-alike, belt parcel, unload only) | 0 false locations; 2 confirmed on camera at their chute, 1 located by scan |
-| Handshake labels on screen, checked against the render truth | 51 of 51 right (100 %); 63 % of the right outlines carry a number (77 % at the diverts), the rest are shown as scan records |
+| Handshake labels on screen, checked against the render truth | 13 of 13 right (100 %) across all 98 outlines on every rendered window; a number is shown only where no other carton could be the one scanned, so most outlines (85 of 98) carry none |
 | Live alert "left without a scan" | fires once, at the real pick; on no control |
 | On-site triage (Muse Glimmer, Modal A100) | 17 % of the footage sent on (83 % less), the key pick moment kept; US$0.62 |
 | Cost of one investigation | Muse Wonder US$0.12 to 0.38, 54k to 129k Spark Open tokens, 2 to 5 minutes |
