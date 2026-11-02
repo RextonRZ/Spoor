@@ -79,7 +79,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4" width="14" height="12" rx="2" /><path d="M8 4v12" />{collapsed ? <path d="m11.5 8 2 2-2 2" /> : <path d="m13.5 8-2 2 2 2" />}</svg>
           <span>Collapse</span>
         </button>
-        <Account caps={caps.data} />
+        <Account />
       </aside>
       <div className="sb-main">
         <header className="sb-top">
@@ -209,8 +209,8 @@ function Find({ siteId }: { siteId: string | undefined }) {
   );
 }
 
-/** The account, at the foot of the sidebar: the one demo user, Settings and the model status (the menu opens upward). */
-function Account({ caps }: { caps: Capabilities | undefined }) {
+/** The account, at the foot of the sidebar: the one demo user, their hub and Settings (the menu opens upward). */
+function Account() {
   const me = useResource<Me>("/v1/me");
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
@@ -223,14 +223,13 @@ function Account({ caps }: { caps: Capabilities | undefined }) {
     return () => { document.removeEventListener("pointerdown", away); document.removeEventListener("keydown", esc); };
   }, [open]);
   const offline = !!me.error;
-  const keyed = !!(caps?.sam || caps?.spark);
   return (
     <div className="tb-account sb-account" ref={box}>
       <button type="button" className="tb-me" aria-label="Account menu" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
         <span className="tb-avatar" aria-hidden="true">SV</span>
         <span className="tb-me-text">
           <span className="tb-me-name">Hub supervisor</span>
-          <span className="tb-me-role"><span className="tb-menu-dot" data-on={!offline && keyed ? "" : undefined} />{offline ? "Backend offline" : keyed ? "Models on" : "Models off"}</span>
+          <span className="tb-me-role">{offline ? <><span className="tb-menu-dot" />Backend offline</> : "Klang Valley hub"}</span>
         </span>
         <svg className="tb-chev" viewBox="0 0 12 12" aria-hidden="true"><path d="m3 7.5 3-3 3 3" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
       </button>
@@ -239,12 +238,6 @@ function Account({ caps }: { caps: Capabilities | undefined }) {
           <p className="tb-menu-head">Hub supervisor</p>
           <p className="tb-menu-sub">{offline ? "Backend offline" : "Can open cases, send staff and close them"}</p>
           <Link href="/operator" className="tb-menu-row" role="menuitem" onClick={() => setOpen(false)}>Settings &amp; data</Link>
-          {caps && (
-            <p className="tb-menu-note">
-              <span className="tb-menu-dot" data-on={keyed ? "" : undefined} aria-hidden="true" />
-              {keyed ? "Model keys connected" : "No model keys: model steps are off"}
-            </p>
-          )}
         </div>
       )}
     </div>
