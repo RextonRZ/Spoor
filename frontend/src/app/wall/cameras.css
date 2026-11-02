@@ -82,3 +82,7 @@
 .cv-pill { position: absolute; left: 12px; bottom: 12px; z-index: 3; padding: 4px 9px; border-radius: 6px; font-size: 12px; font-weight: 600; color: #c9ccd3; background: rgba(11, 12, 16, 0.8); border: 1px solid var(--tb-line-2); pointer-events: none; }
 .cv-pill[data-tone="seen"] { color: #052e12; background: #4ade80; border-color: transparent; }
 .cv-pill[data-tone="notseen"] { color: #1a0606; background: rgba(248, 113, 113, 0.92); border-color: transparent; }
+/* an outline on the frame (Viewer mark): SAM's box at a checkpoint, with the tracking number only when the label is sure */
+.cv-mark { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.cv-mark rect { fill: none; stroke: #4ade80; stroke-width: 4; vector-effect: non-scaling-stroke; }
+.cv-mark text { fill: #4ade80; font: 600 26px ui-monospace, SFMono-Regular, Menlo, monospace; paint-order: stroke; stroke: rgba(0, 0, 0, 0.75); stroke-width: 6px; }

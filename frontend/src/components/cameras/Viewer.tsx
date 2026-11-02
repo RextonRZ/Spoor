@@ -12,8 +12,10 @@ type View = { s: number; x: number; y: number };
 
 /** `image`: show this exact picture (a frame from a recording) instead of the camera's feed; `at`: a fixed time for the on-screen
  *  display (evidence of one moment) instead of the running live clock; `pill`: a status over the picture. */
-export function Viewer({ id, label, src, baseMs = 0, image, at, pill }: {
+export function Viewer({ id, label, src, baseMs = 0, image, at, pill, mark }: {
   id: string; label: string; src?: string; baseMs?: number; image?: string; at?: string; pill?: { text: string; tone: string };
+  /** an outline on the frame, in the frame's own pixels (wh); text is shown only when given (a label that is sure) */
+  mark?: { box: number[]; wh: [number, number]; text?: string };
 }) {
   const stage = useRef<HTMLDivElement>(null);
   const [v, setV] = useState<View>({ s: 1, x: 0, y: 0 });
@@ -95,11 +97,18 @@ export function Viewer({ id, label, src, baseMs = 0, image, at, pill }: {
         <div className="cv-pic" style={{ transform: `translate(${v.x}px, ${v.y}px) scale(${v.s})` }}>
           {image ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img className="cf-media" src={image} alt={`${id.replace("_", " ")} at ${at ? at.slice(11, 19) : ""}`} draggable={false} />
+            <img className="cf-media" src={image} alt={`${id.replaceAll("_", " ")} at ${at ? at.slice(11, 19) : ""}`} draggable={false} />
           ) : <Feed id={id} src={src} eager />}
+          {image && mark && (
+            <svg className="cv-mark" viewBox={`0 0 ${mark.wh[0]} ${mark.wh[1]}`} preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+              <rect x={mark.box[0] - 6} y={mark.box[1] - 6} width={mark.box[2] - mark.box[0] + 12} height={mark.box[3] - mark.box[1] + 12} rx="6" />
+              {mark.text && <text x={Math.min(Math.max(12, mark.box[0] - 6), mark.wh[0] - 16 * mark.text.length - 12)}
+                y={mark.box[1] > 60 ? mark.box[1] - 16 : mark.box[3] + 36}>{mark.text}</text>}
+            </svg>
+          )}
         </div>
         <div className="cf-osd" aria-hidden="true">
-          <span className="cf-name">{id.replace("_", " ")}<em>{label}</em></span>
+          <span className="cf-name">{id.replaceAll("_", " ")}<em>{label}</em></span>
           {at ? <span className="cf-meta"><time className="cf-clock">{at}</time></span>
             : <span className="cf-meta"><i className="cf-rec" />REC<Clock baseMs={baseMs} /></span>}
         </div>
