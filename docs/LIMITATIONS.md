@@ -21,7 +21,7 @@ Current as of Mon 2 Nov 2026. The deadline is Thu 5 Nov, 10:00 MYT.
 ## Design limits
 
 - **A number goes on an outline only when the rule rules out a neighbour, and the outline is carton-sized.** Against
-  the render truth all 13 numbers shown are on the right parcel (12 carton-sized, 1 a flat bag at 2.55x), but only
+  the render truth all 14 numbers shown are on the right parcel (12 carton-sized; a flat bag at 2.55x and chute C12 at 2.61x, where SAM's box takes in part of its tray), but only
   17 % of the right outlines carry one: divert outlines must slide into the chute (a tray rides the loop), tunnel exits
   are never labelled on CCTV (the tunnel's own photo identifies the parcel instead), and busy handheld points and
   cameras whose clocks are not fitted are shown as scan records. The chute-slide threshold was set on the S2 window;

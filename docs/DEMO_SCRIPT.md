@@ -6,8 +6,11 @@ the submission: Thu 5 Nov 2026, 10:00 MYT.
 
 ## Before recording (not on camera)
 
-1. `cd frontend && npm run backend:keys` (keys in `backend/.env`: Meta Model API, Baseten) and `npm run dev`.
-2. No background jobs running (handshakes, watches): they slow the API. The investigation in step 3 is the only job.
+1. Restart the backend fresh, even if it is already up: `cd frontend && npm run backend:keys` (keys in `backend/.env`:
+   Meta Model API, Baseten) and `npm run dev`. After a long day of jobs the case page once took ~20 s per call (0.07 s
+   after a restart); the cause was not reproduced (page traffic and reel builds stay at ~0.1 s), so restart anyway.
+2. Check it: `curl -s localhost:8000/healthz` must say `"status": "ok"` with `store_read_ms` well under 1000 and
+   `"jobs_busy": 0`. No background jobs running (handshakes, watches): the investigation in step 3 is the only job.
 3. Open the Hub once so the frames are cached.
 
 ## The script

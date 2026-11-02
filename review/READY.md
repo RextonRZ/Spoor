@@ -2,6 +2,29 @@
 
 Newest first. Each entry: what is done, where to look, what is still open.
 
+## 2026-11-02 19:59 · Evening: red only where the records fail, crew storyline, customer note, backend health
+
+- **Red means something again (1707/1708).** Only two steps are red: "Carried into the Exception store · Not scanned
+  in" and "Record says RC-760 loaded on D07 · Records disagree". Taken out of RC-760, carried to the door and came out
+  without it read "On camera" (grey); the 11 min in the cage reads "No camera" (dotted). Same words on the rail, the
+  reel's burned badges, the case hero and the Report captions; the Hub panel already flagged only those two. Shots:
+  `review/shots/mon/red/`, reel frames `review/shots/mon/journey/reel_tones_sheet.jpg`.
+- **Found and fixed on the eye check:** the reel's store close-up was outlining the carrier (SAM's mask grew onto the
+  person). Tracks bigger than the largest parcel at that spot are now skipped; the carton in his hands is outlined
+  (`review/shots/mon/journey/store_in_frames.jpg`).
+- **What the crew did (1658):** a 7-line storyline by default, each line built from the run's own steps (read the
+  scans, Glimmer skipped 83 % of the footage, Wonder planned, SAM tracked who went in and out, the carrier check, 3
+  ideas tested with 1 passed, a person asked), the model small on each. The full timestamped log is behind "Show every
+  step". Crew panel unchanged on the right. Note: the storyline can't say "hands empty coming out" because the
+  analyst's step only records that it checked a clip; I did not invent it.
+- **Customer note** has room: a label line, the customer's words as a quote, "Draft the update to the customer" as a
+  real button. Shots: `review/shots/mon/crew/`.
+- **Backend slowdown: not reproduced.** Replaying the UI's own requests (325 GETs x6), 4 reel builds and page calls
+  during a build all stayed at ~0.1 s; threads plateau (OpenCV's pool), no leak found. Paid jobs not re-run to test.
+  Added: `/healthz` reports read speed, threads, busy jobs ("slow" over 1 s); finished jobs capped at 200 in memory;
+  DEMO_SCRIPT says restart + check health before recording.
+- Open, yours: the idle unloader (~35 s) at the re-staged door; about 17 % labelled vs more numbers under a softer rule.
+
 ## 2026-11-02 16:51 · TODAY (Mon 2 Nov), for Rexton: done / dropped / open / decisions
 
 **Done**

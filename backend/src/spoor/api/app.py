@@ -4,6 +4,8 @@ import asyncio
 import json
 import shutil
 import tempfile
+import threading
+import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Literal
@@ -148,10 +150,20 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
 
     # --- health ----------------------------------------------------------------------------------------
 
+    started = time.monotonic()
+
     @app.get("/healthz")
     def healthz() -> dict:
-        return {"status": "ok", "version": __version__, "sam": svc.sam is not None, "spark": svc.spark is not None,
-                "agents": svc.agent is not None and svc.settings.agent_backend}
+        """Up, which models are on, and whether it is still quick: one timed read of the case list, the Python threads,
+        and the jobs running or waiting. "slow" before a demo means restart the backend (docs/DEMO_SCRIPT.md)."""
+        t0 = time.perf_counter()
+        svc.store.find(Case)
+        read_ms = round((time.perf_counter() - t0) * 1000, 1)
+        busy = [j for j in svc.jobs.jobs.values() if j.status in ("queued", "running")]
+        return {"status": "slow" if read_ms > 1000 else "ok", "version": __version__, "sam": svc.sam is not None,
+                "spark": svc.spark is not None, "agents": svc.agent is not None and svc.settings.agent_backend,
+                "uptime_s": round(time.monotonic() - started), "store_read_ms": read_ms,
+                "threads": threading.active_count(), "jobs_busy": len(busy), "jobs_kept": len(svc.jobs.jobs)}
 
     # --- sites, cameras, calibration -------------------------------------------------------------------
 

@@ -27,12 +27,20 @@ class Job:
         self.events.append({"at": datetime.now(UTC).isoformat(), "message": message, **data})
 
 
+KEEP_FINISHED = 200  # finished jobs (their events and results) kept for GET /v1/jobs; older ones are dropped
+
+
 class JobRunner:
-    def __init__(self, workers: int = 2):
+    def __init__(self, workers: int = 2, keep: int = KEEP_FINISHED):
         self.pool = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="spoor-job")
         self.jobs: dict[str, Job] = {}
+        self.keep = keep
 
     def submit(self, kind: str, owner: str, fn: Callable[[Job], Any]) -> Job:
+        # a long session ran hundreds of jobs and kept every result in memory; keep only the newest finished ones
+        finished = [k for k, j in self.jobs.items() if j.done.is_set()]
+        for k in finished[: max(0, len(finished) - self.keep + 1)]:
+            del self.jobs[k]
         job = Job(new_id("job"), kind, owner)
         self.jobs[job.job_id] = job
 
