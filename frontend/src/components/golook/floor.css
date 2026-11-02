@@ -272,3 +272,14 @@
 .fa .fa-primary:disabled { opacity: 1; background: #dcdee7; color: #464b5c; box-shadow: none; }
 .fa-vf-label { position: absolute; left: 50%; top: 47%; width: 46%; transform: translate(-50%, -50%) rotate(-4deg); border-radius: 10px; opacity: 0.92;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); }
+
+/* entering a screen: its first blocks rise in one after another (35 ms apart, six at most), after the push lands */
+.fa-screen > .fa-pad > *, .fa-places > li { animation: fa-rise 300ms var(--fa-out) both; }
+.fa-screen > .fa-pad > :nth-child(1), .fa-places > li:nth-child(1) { animation-delay: 60ms; }
+.fa-screen > .fa-pad > :nth-child(2), .fa-places > li:nth-child(2) { animation-delay: 95ms; }
+.fa-screen > .fa-pad > :nth-child(3), .fa-places > li:nth-child(3) { animation-delay: 130ms; }
+.fa-screen > .fa-pad > :nth-child(4), .fa-places > li:nth-child(4) { animation-delay: 165ms; }
+.fa-screen > .fa-pad > :nth-child(5), .fa-places > li:nth-child(5) { animation-delay: 200ms; }
+.fa-screen > .fa-pad > :nth-child(n + 6), .fa-places > li:nth-child(n + 6) { animation-delay: 235ms; }
+.fa-screen > .fa-pad.fa-center > * { animation-name: fa-pop; }
+@media (prefers-reduced-motion: reduce) { .fa-screen > .fa-pad > *, .fa-places > li { animation: none; } }
