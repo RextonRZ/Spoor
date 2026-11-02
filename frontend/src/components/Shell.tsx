@@ -47,8 +47,7 @@ export function Shell({ children }: { children: ReactNode }) {
     { href: "/wall", label: "Cameras", icon: "cams", on: path.startsWith("/wall") },
     { href: "/insights", label: "Insights", icon: "insights", on: path.startsWith("/insights") },
   ];
-  const settings = { href: "/operator", label: "Settings", icon: "settings", on: path.startsWith("/operator") };
-  const page = [...nav, settings].find((n) => n.on)?.label ?? "Spoor";
+  const page = nav.find((n) => n.on)?.label ?? "Spoor";
   const collapsed = useSyncExternalStore(onCollapsedChange, readCollapsed, () => false);
   const toggle = () => {
     try { localStorage.setItem(SB_KEY, collapsed ? "full" : "rail"); } catch { /* storage blocked */ }
@@ -72,10 +71,6 @@ export function Shell({ children }: { children: ReactNode }) {
               <Icon name={n.icon} /><span>{n.label}</span>
             </Link>
           ))}
-          <span className="sb-rule" aria-hidden="true" />
-          <Link href={settings.href} className="sb-link" aria-current={settings.on ? "page" : undefined} title={collapsed ? settings.label : undefined}>
-            <Icon name={settings.icon} /><span>{settings.label}</span>
-          </Link>
         </nav>
         <button type="button" className="sb-toggle" onClick={toggle} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand" : "Collapse"}>
           <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="4" width="14" height="12" rx="2" /><path d="M8 4v12" />{collapsed ? <path d="m11.5 8 2 2-2 2" /> : <path d="m13.5 8-2 2 2 2" />}</svg>
@@ -211,37 +206,19 @@ function Find({ siteId }: { siteId: string | undefined }) {
   );
 }
 
-/** The account, at the foot of the sidebar: the one demo user, their hub and Settings (the menu opens upward). */
+/** The account, at the foot of the sidebar: the one demo user and their hub. */
 function Account() {
   const me = useResource<Me>("/v1/me");
-  const [open, setOpen] = useState(false);
-  const box = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const away = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
-    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("pointerdown", away);
-    document.addEventListener("keydown", esc);
-    return () => { document.removeEventListener("pointerdown", away); document.removeEventListener("keydown", esc); };
-  }, [open]);
   const offline = !!me.error;
   return (
-    <div className="tb-account sb-account" ref={box}>
-      <button type="button" className="tb-me" aria-label="Account menu" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+    <div className="tb-account sb-account">
+      <div className="tb-me" title="Can open cases, send staff and close them">
         <span className="tb-avatar" aria-hidden="true">SV</span>
         <span className="tb-me-text">
           <span className="tb-me-name">Hub supervisor</span>
           <span className="tb-me-role">{offline ? <><span className="tb-menu-dot" />Backend offline</> : "Klang Valley hub"}</span>
         </span>
-        <svg className="tb-chev" viewBox="0 0 12 12" aria-hidden="true"><path d="m3 7.5 3-3 3 3" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-      </button>
-      {open && (
-        <div className="tb-menu" role="menu" aria-label="Account">
-          <p className="tb-menu-head">Hub supervisor</p>
-          <p className="tb-menu-sub">{offline ? "Backend offline" : "Can open cases, send staff and close them"}</p>
-          <Link href="/operator" className="tb-menu-row" role="menuitem" onClick={() => setOpen(false)}>Settings &amp; data</Link>
-        </div>
-      )}
+      </div>
     </div>
   );
 }

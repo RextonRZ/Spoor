@@ -7,7 +7,6 @@
  * yet it says so; a Go look "Found here" or "Not here" changes it on the next visit. Labelled "Demo hub data".
  * Operate surface: hairline sections, tabular numbers, no charts that would invent precision.
  */
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useResource } from "@/lib/api";
 import type { Site } from "@/lib/types";
@@ -155,7 +154,7 @@ function TodayBoard({ d, name }: { d: Insights; name: (id: string) => string }) 
               <span className="db-learn-out"><b>Hub memory</b><small>guides the plan, never evidence</small></span><span className="db-learn-n">{d.loop.confirmed.length}</span></li>
           </ul>
         </Panel>
-        <Panel title="How far to trust it" meta={<Link href="/operator">ledger</Link>}>
+        <Panel title="How far to trust it">
           <dl className="db-dl">
             <div><dt>Camera clocks checked<small>against the sorter&apos;s own events, so times line up</small></dt><dd>{d.health.cameras_fitted} of {d.health.cameras}</dd></div>
             <div><dt>Scan points no camera sees<small>a gap where a parcel could go unseen</small></dt><dd>{d.health.scan_points_unseen.length} of {d.health.scan_points}</dd></div>
