@@ -132,7 +132,7 @@ function TodayBoard({ d, name }: { d: Insights; name: (id: string) => string }) 
         </Panel>
       </div>
 
-      {sc && <Panel title="Checkpoint pipeline" meta={<span className="db-key"><i className="db-dot" data-tone="bad" />Problem <i className="db-dot" data-tone="warn" />Watch <i className="db-dot" data-tone="ok" />Fine · arrows: usual time between scans</span>}>
+      {sc && <Panel title="Checkpoint pipeline" meta={<span className="db-key"><span><i className="db-dot" data-tone="bad" />Problem</span> <span><i className="db-dot" data-tone="warn" />Watch</span> <span><i className="db-dot" data-tone="ok" />Fine</span> <span>· arrows: usual time between scans</span></span>}>
         <Pipeline s={sc} hops={d.flow?.hops ?? []} name={name} unread={d.unread?.matched.length ?? 0} />
       </Panel>}
 
@@ -158,7 +158,7 @@ function TodayBoard({ d, name }: { d: Insights; name: (id: string) => string }) 
           <dl className="db-dl">
             <div><dt>Camera clocks checked<small>against the sorter&apos;s own events, so times line up</small></dt><dd>{d.health.cameras_fitted} of {d.health.cameras}</dd></div>
             <div><dt>Scan points no camera sees<small>a gap where a parcel could go unseen</small></dt><dd>{d.health.scan_points_unseen.length} of {d.health.scan_points}</dd></div>
-            <div><dt>Numbers shown on cartons<small>only where no other carton could be the one scanned</small></dt><dd>{d.health.numbers_by_camera.reduce((a, c) => a + c.labelled, 0)} of {d.health.numbers_by_camera.reduce((a, c) => a + c.outlined, 0)}</dd></div>
+            <div><dt>Outlines carrying a number<small>a number only where no other carton could be the one scanned</small></dt><dd>{d.health.numbers_by_camera.reduce((a, c) => a + c.labelled, 0)} of {d.health.numbers_by_camera.reduce((a, c) => a + c.outlined, 0)}</dd></div>
             {d.health.footage_skipped && <div><dt>Footage never sent to the cloud<small>no parcel handling in it</small></dt><dd>{Math.round(d.health.footage_skipped.share * 100)}%</dd></div>}
             <div><dt>Model spend<small>every recorded call, all cases</small></dt><dd>US${d.cost.usd.toFixed(2)}</dd></div>
           </dl>
