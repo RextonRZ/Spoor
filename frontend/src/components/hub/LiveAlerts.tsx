@@ -7,7 +7,7 @@
  */
 import Link from "next/link";
 import { useResource } from "@/lib/api";
-import { inCrop, pointsIn, useContours, useFocusCrop } from "@/lib/focus";
+import { inCrop, pointsIn, useBestView, useContours, useFocusCrop } from "@/lib/focus";
 import { hms } from "@/lib/words";
 import "./livealerts.css";
 
@@ -22,10 +22,13 @@ const PLACE: Record<string, string> = { "SP-CAGE-W": "the west cage bays", "SP-C
 
 /** the moment it left, cropped around SAM's outline of the carton (the full frame opens in the case) */
 function Shot({ a }: { a: Alert }) {
-  const got = useFocusCrop(a.media_id, a.frame_index, a.box_px);
-  const edge = useContours(a.media_id, a.track_id).get(a.frame_index);
-  if (!got || !a.box_px) return <span className="la-wait" aria-hidden />;
-  const b = inCrop(a.box_px, got.rect);
+  // the carton as it is carried out, wholly in the picture (the alert's own frame is where it leaves the view)
+  const view = useBestView(a.media_id, a.track_id, a.frame_index);
+  const frame = view?.frame ?? a.frame_index, box = view?.box ?? a.box_px;
+  const got = useFocusCrop(a.media_id, frame, box);
+  const edge = useContours(a.media_id, a.track_id).get(frame);
+  if (!got || !box) return <span className="la-wait" aria-hidden />;
+  const b = inCrop(box, got.rect);
   return (
     <>
       {/* eslint-disable-next-line @next/next/no-img-element -- a signed crop of the original frame around SAM's box */}

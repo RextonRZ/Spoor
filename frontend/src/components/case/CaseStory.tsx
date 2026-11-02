@@ -18,6 +18,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, previewUrl, signedUrl, useResource } from "@/lib/api";
 import { camId } from "@/lib/hub";
+import { useBestView } from "@/lib/focus";
 import type { MediaRow, Site } from "@/lib/types";
 import { HYPOTHESIS_WORDS, type InsideFacts, type InvestigationView } from "@/lib/answer";
 import type { JourneyObject, XY } from "@/lib/journey";
@@ -33,7 +34,7 @@ const CHECK_WORDS: Record<string, string> = { stayed_in_area: "stayed inside", e
 interface Moment { key: string; iso: string; text: string; xy: XY; tone?: "bad"; from?: string; /** the measured time, when the frame shown is a moment off it */ at?: string;
   /** the clip that shows it and its camera; box: an outline at this moment (frame pixels) */
   media: string; cam: string; box?: number[] | null }
-interface Alert { at_utc: string; camera_id: string; media_id: string; box_px: number[] | null; candidates: { waybill: string }[] }
+interface Alert { at_utc: string; camera_id: string; media_id: string; frame_index: number; track_id: string; box_px: number[] | null; candidates: { waybill: string }[] }
 
 const camWords = (c: string) => c.replace(/^cam_/, "").replaceAll("_", " ");
 
@@ -85,6 +86,9 @@ export function CaseStory({ caseId, inside, view, journey, truck }: {
   const alerts = useResource<Alert[]>(siteId ? `/v1/sites/${siteId}/alerts` : null);
   const waybill = view.objects[0]?.label?.split(" ").at(-1) ?? "";
   const pick = (alerts.data ?? []).find((a) => a.candidates.length === 1 && a.candidates[0].waybill === waybill);
+  // show the pick where the carton is wholly in the picture (the alert's frame is where it leaves the view)
+  const pickView = useBestView(pick?.media_id, pick?.track_id, pick?.frame_index);
+  const pickIso = pick ? new Date(Date.parse(pick.at_utc) + (pickView?.dms ?? 0)).toISOString() : "";
   const area = inside.area_xy as XY;
   const door = inside.door_xy as XY;
   // where the tracked carton stood on the floor (the journey's observed points), nearest a time
@@ -104,8 +108,8 @@ export function CaseStory({ caseId, inside, view, journey, truck }: {
     return { media: inside.media_id, cam: wide };
   };
   const moments: Moment[] = useMemo(() => [
-    ...(pick ? [{ key: "pick", iso: pick.at_utc, text: "Taken out of its cage, no scan", xy: floorAt(firstIso), media: pick.media_id,
-      cam: camId.toHub(pick.camera_id), box: pick.box_px, tone: "bad" as const }]
+    ...(pick ? [{ key: "pick", iso: pickIso, at: pick.at_utc, text: "Taken out of its cage, no scan", xy: floorAt(firstIso), media: pick.media_id,
+      cam: camId.toHub(pick.camera_id), box: pickView?.box ?? pick.box_px, tone: "bad" as const }]
       : inside.track_px.length > 1 ? [{ key: "first", iso: firstIso, text: `Seen on ${inside.camera}, carried toward the store`, xy: floorAt(firstIso),
         from: firstIso, media: inside.media_id, cam: wide }] : []),
     { key: "door", iso: inside.iso.door_at, text: "Last seen at the store door", xy: door, from: firstIso, media: inside.media_id, cam: wide },
@@ -118,7 +122,7 @@ export function CaseStory({ caseId, inside, view, journey, truck }: {
         tone: "bad" as const, ...best(truck!.t, ["CHK_DOCK", wide]) }
       : { key: "end", iso: inside.iso.until, text: "Recording ends, not seen coming out", xy: area, media: inside.media_id, cam: wide },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- fixed by the facts and the clips on site
-  ], [inside, truck, pick, clipFor]);
+  ], [inside, truck, pick, pickIso, pickView, clipFor]);
   const [sel, setSel] = useState("in");
   const cur = moments.find((m) => m.key === sel) ?? moments[0];
   const stills = useStills(moments);

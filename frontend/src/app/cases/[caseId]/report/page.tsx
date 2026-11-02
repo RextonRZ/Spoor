@@ -195,7 +195,7 @@ export default function ReportPage({ params }: { params: Promise<{ caseId: strin
                 <button type="button" className="hb-btn" onClick={draftUpdate} disabled={busy === "customer"}>{busy === "customer" ? "Drafting…" : "Draft again"}</button>
               </div>
             </div>
-          ) : upd?.status === "no_answer" || (!inside && !found) ? (
+          ) : upd?.status === "no_answer" || (st.data && !inside && !found) ? (
             <p className="rp-p">No verified answer yet, so there is nothing to tell the customer. The update is drafted once the investigation places it.</p>
           ) : (
             <div className="rp-cu-acts">

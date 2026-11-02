@@ -1365,6 +1365,8 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
                 "boxes": [[o.source_frame.frame_index, o.source_frame.pts_ms, *o.bbox_xyxy_px] for o in obs],
                 "label": "SAM 3.1's box on each frame of the track (boxes, not masks)"}  # fmt: skip
 
+    _contours: dict[tuple[str, str, int], dict] = {}
+
     @app.get("/v1/media/{media_id}/tracks/{track_id}/contours")
     def track_contours(media_id: str, track_id: str, p: User) -> dict:
         """SAM 3.1's own mask edge on each frame of a track: the masks SAM returned (kept in its cached raw output),
@@ -1378,9 +1380,12 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
                      key=lambda o: o.source_frame.frame_index)  # fmt: skip
         if not obs:
             raise HTTPException(404, "no boxes for this track on this clip")
-        sha = load_result(svc.media, media_id).proxy.sha256[:16]
-        found = contours_for([(o.source_frame.frame_index, tuple(o.bbox_xyxy_px)) for o in obs],
-                             sorted((svc.settings.data_dir / "inference_cache").glob(f"sam_{sha}_*.json")))
+        key = (media_id, track_id, len(obs))
+        if key not in _contours:  # SAM's cached outputs only grow; a track's contours are fixed once traced
+            sha = load_result(svc.media, media_id).proxy.sha256[:16]
+            _contours[key] = contours_for([(o.source_frame.frame_index, tuple(o.bbox_xyxy_px)) for o in obs],
+                                          sorted((svc.settings.data_dir / "inference_cache").glob(f"sam_{sha}_*.json")))
+        found = _contours[key]
         return {"media_id": media_id, "track_id": track_id,
                 "contours": [[f, poly] for f, poly in found.items()],
                 "label": "SAM 3.1's mask edge (its own segmentation), traced; frames without a mask are left out"}  # fmt: skip

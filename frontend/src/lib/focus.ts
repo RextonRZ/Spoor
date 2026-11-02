@@ -31,6 +31,20 @@ export function useContours(media: string | null | undefined, track: string | nu
   return new Map(r.data?.contours ?? []);
 }
 
+/** the frame of a track to SHOW (not the frame an event was measured on): where its box is largest and wholly inside
+ *  the picture, so the outline is not cut at the edge. Returns that frame, its box and how far (ms) it is from `at`. */
+export function useBestView(media: string | null | undefined, track: string | null | undefined, atFrame: number | null | undefined,
+  wh: [number, number] = [1920, 1086]): { frame: number; box: number[]; dms: number } | null {
+  const r = useResource<{ boxes: number[][] }>(media && track ? `/v1/media/${media}/tracks/${track}/boxes` : null);
+  const boxes = r.data?.boxes ?? [];
+  if (!boxes.length || atFrame == null) return null;
+  const inside = boxes.filter((b) => b[2] > 4 && b[3] > 4 && b[4] < wh[0] - 4 && b[5] < wh[1] - 4);
+  if (!inside.length) return null;
+  const best = inside.reduce((a, b) => ((b[4] - b[2]) * (b[5] - b[3]) > (a[4] - a[2]) * (a[5] - a[3]) ? b : a));
+  const at = boxes.find((b) => b[0] === atFrame) ?? boxes[boxes.length - 1];
+  return { frame: best[0], box: best.slice(2), dms: best[1] - at[1] };
+}
+
 /** a polygon as SVG points, shifted into a crop's own pixels */
 export const pointsIn = (poly: number[][], rect: [number, number, number, number] | null = null) =>
   poly.map(([x, y]) => `${(x - (rect?.[0] ?? 0)).toFixed(1)},${(y - (rect?.[1] ?? 0)).toFixed(1)}`).join(" ");

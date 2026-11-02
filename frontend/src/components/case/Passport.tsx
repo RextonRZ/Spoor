@@ -83,7 +83,16 @@ function Follow({ s, label, onDone }: { s: Stamp; label: string; onDone: () => v
         r.setAttribute("x", String(near[2] - 6)); r.setAttribute("y", String(near[3] - 6));
         r.setAttribute("width", String(near[4] - near[2] + 12)); r.setAttribute("height", String(near[5] - near[3] + 12));
       }
-      if (!reduced && v.currentTime >= to) { v.pause(); onDone(); return; }
+      if (!reduced && v.currentTime >= to) {  // rest on the scan's own frame, outline on, then hand over
+        v.pause();
+        v.currentTime = (play.data?.pts_ms[f0] ?? v.currentTime * 1000) / 1000;
+        const last = boxes.find((b) => b[0] === f0) ?? boxes[boxes.length - 1];
+        const e = edges.get(last[0]);
+        if (poly.current && e) { poly.current.setAttribute("points", pointsIn(e)); poly.current.style.opacity = "1"; }
+        else if (rect.current) rect.current.style.opacity = "1";
+        window.setTimeout(onDone, 1800);
+        return;
+      }
       id = requestAnimationFrame(draw);
     };
     id = requestAnimationFrame(draw);
