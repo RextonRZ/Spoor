@@ -6,6 +6,7 @@
  * text tokens; hover shows the day. Never evidence, never mixed into a case.
  */
 import { useState } from "react";
+import { Spark } from "./Board";
 
 interface SimCase { where: string; what: string; answered: boolean; checked: boolean; confirmed: boolean; replanned: boolean;
   found_after_replan: boolean; answer_s: number | null }
@@ -28,23 +29,11 @@ const FIX: Record<string, string> = {
 };
 const day = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 
-function Line({ v, today, w = 220, h = 44, color = ACC }: { v: (number | null)[]; today?: boolean; w?: number; h?: number; color?: string }) {
-  const xs = v.map((x, i) => [i, x] as const).filter((p): p is readonly [number, number] => p[1] != null);
-  const lo = Math.min(...xs.map((p) => p[1])), hi = Math.max(...xs.map((p) => p[1]));
-  const X = (i: number) => (i / Math.max(1, v.length - 1)) * (w - 6) + 3, Y = (y: number) => h - 4 - ((y - lo) / Math.max(1e-9, hi - lo)) * (h - 8);
-  const last = xs.at(-1);
-  return (
-    <svg className="hi-line" viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
-      <polyline points={xs.map(([i, y]) => `${X(i)},${Y(y)}`).join(" ")} fill="none" stroke={color} strokeWidth={1.75} strokeLinejoin="round" strokeLinecap="round" />
-      {today && last && <circle cx={X(last[0])} cy={Y(last[1])} r={3.5} fill={color} stroke={SURF} strokeWidth={2} />}
-    </svg>
-  );
-}
-
 export function HistoryView({ h }: { h: History }) {
   const t = h.totals;
   const sim = h.days.filter((d) => d.simulated);
   const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
+  const days = h.days.map((d, i) => (i === h.days.length - 1 ? "Today" : day(d.date)));
   return (
     <div className="hi">
 
@@ -52,13 +41,13 @@ export function HistoryView({ h }: { h: History }) {
         <h2 id="hi-glance" className="in-h2">The month at a glance</h2>
         <dl className="hi-tiles">
           <div><dt>Parcels a day</dt><dd>{Math.round(sim.reduce((a, d) => a + (d.parcels ?? 0), 0) / sim.length).toLocaleString("en-GB")}</dd>
-            <Line v={h.days.map((d) => d.parcels)} /></div>
+            <Spark v={h.days.map((d) => d.parcels)} h={44} labels={days} fmt={(x) => `${Math.round(x).toLocaleString("en-GB")} parcels`} /></div>
           <div data-tone="warn"><dt>Tunnel read rate</dt><dd>{(t.today_read_rate * 100).toFixed(1)}% <small>today · usual {(t.usual_read_rate * 100).toFixed(1)}%</small></dd>
-            <Line v={h.days.map((d) => d.tunnel_read_rate)} today /></div>
+            <Spark v={h.days.map((d) => d.tunnel_read_rate)} h={44} tone="warn" labels={days} fmt={(x) => `${(x * 100).toFixed(1)}% read`} /></div>
           <div><dt>Lost-parcel cases</dt><dd>{t.cases} <small>about {(t.cases / sim.length).toFixed(1)} a day</small></dd>
-            <Line v={h.days.map((d) => d.cases.length)} /></div>
+            <Spark v={h.days.map((d) => d.cases.length)} h={44} labels={days} fmt={(x) => `${x} case${x === 1 ? "" : "s"}`} /></div>
           <div><dt>Time to Spoor&apos;s answer</dt><dd>{t.median_answer_s ? `${(t.median_answer_s / 60).toFixed(1)} min` : ""} <small>median</small></dd>
-            <Line v={h.days.map((d) => { const a = d.cases.map((c) => c.answer_s).filter((x): x is number => x != null).sort((p, q) => p - q); return a.length ? a[a.length >> 1] : null; })} /></div>
+            <Spark v={h.days.map((d) => { const a = d.cases.map((c) => c.answer_s).filter((x): x is number => x != null).sort((p, q) => p - q); return a.length ? a[a.length >> 1] : null; })} h={44} labels={days} fmt={(x) => `${(x / 60).toFixed(1)} min`} /></div>
         </dl>
       </section>
 
@@ -74,7 +63,7 @@ export function HistoryView({ h }: { h: History }) {
 
       <section className="in-sec" aria-labelledby="hi-where">
         <h2 id="hi-where" className="in-h2">Where parcels went missing</h2>
-        <WhereBars rows={h.where} />
+        <WhereBars rows={h.where} days={h.days} />
       </section>
 
       <section className="in-sec" aria-labelledby="hi-read">
@@ -85,18 +74,38 @@ export function HistoryView({ h }: { h: History }) {
   );
 }
 
-function WhereBars({ rows }: { rows: History["where"] }) {
-  const max = Math.max(1, ...rows.map((r) => r.cases));
+/** where parcels went missing: per place, WHEN (a 30-day strip, one cell a day, darker = more cases, hover for the day),
+ *  the last 7 days against the 7 before, and the fix (a bar beside the count only repeated the count: Rexton 3 Nov) */
+function WhereBars({ rows, days }: { rows: History["where"]; days: Day[] }) {
+  const [tip, setTip] = useState<{ row: string; i: number } | null>(null);
+  const per = (where: string) => days.map((d) => d.cases.filter((c) => c.where === where).length);
+  const top = Math.max(1, ...rows.flatMap((r) => per(r.where)));
   return (
     <ol className="hi-where">
-      {rows.map((r) => (
-        <li key={r.where + r.what}>
-          <span className="hi-where-n">{r.cases}</span>
-          <span className="hi-where-t"><b>{r.where}</b>{r.what}</span>
-          <span className="hi-where-bar" aria-hidden="true"><i style={{ width: `${(r.cases / max) * 100}%` }} /></span>
-          <span className="hi-where-fix">{FIX[r.where] ?? ""}</span>
-        </li>
-      ))}
+      {rows.map((r) => {
+        const v = per(r.where);
+        const last7 = v.slice(-7).reduce((a, x) => a + x, 0), prev7 = v.slice(-14, -7).reduce((a, x) => a + x, 0);
+        const trend = last7 > prev7 ? "up" : last7 < prev7 ? "down" : "flat";
+        return (
+          <li key={r.where + r.what}>
+            <span className="hi-where-n">{r.cases}</span>
+            <span className="hi-where-t"><b>{r.where}</b>{r.what}</span>
+            <span className="hi-strip" onMouseLeave={() => setTip(null)}>
+              {v.map((x, i) => (
+                <i key={i} data-on={x ? "" : undefined} style={{ opacity: x ? 0.35 + 0.65 * (x / top) : undefined }}
+                  onMouseEnter={() => setTip({ row: r.where, i })} />
+              ))}
+              {tip?.row === r.where && (
+                <span className="db-tip" role="status" style={{ left: `${((tip.i + 0.5) / v.length) * 100}%` }}>
+                  {tip.i === days.length - 1 ? "Today" : day(days[tip.i].date)}: {v[tip.i]} case{v[tip.i] === 1 ? "" : "s"}{days[tip.i].events[0] ? ` · ${days[tip.i].events[0]}` : ""}
+                </span>
+              )}
+            </span>
+            <span className="hi-trend" data-trend={trend}>{trend === "up" ? "▲" : trend === "down" ? "▼" : "="} {last7} <small>last 7 days, {prev7} the week before</small></span>
+            <span className="hi-where-fix">{FIX[r.where] ?? ""}</span>
+          </li>
+        );
+      })}
     </ol>
   );
 }

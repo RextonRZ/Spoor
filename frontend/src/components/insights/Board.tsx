@@ -25,35 +25,54 @@ export function Panel({ title, meta, children, className = "" }: { title: string
   );
 }
 
-export function Spark({ v, h = 30, tone = "acc" }: { v: (number | null)[]; h?: number; tone?: "acc" | "warn" | "bad" }) {
+/** a small trend with a hover crosshair and its value (every small chart on the board uses it) */
+export function Spark({ v, h = 30, tone = "acc", labels, fmt = (x) => String(Math.round(x)) }: { v: (number | null)[]; h?: number;
+  tone?: "acc" | "warn" | "bad"; labels?: string[]; fmt?: (x: number) => string }) {
+  const [hi, setHi] = useState<number | null>(null);
   const W = 200;
   const xs = v.map((y, i) => [i, y] as const).filter((p): p is readonly [number, number] => p[1] != null);
   if (xs.length < 2) return <svg className="db-spark" viewBox={`0 0 ${W} ${h}`} aria-hidden="true" />;
-  const lo = Math.min(...xs.map((p) => p[1])), hi = Math.max(...xs.map((p) => p[1]));
-  const X = (i: number) => (i / Math.max(1, v.length - 1)) * (W - 4) + 2, Y = (y: number) => h - 3 - ((y - lo) / Math.max(1e-9, hi - lo)) * (h - 6);
+  const lo = Math.min(...xs.map((p) => p[1])), top = Math.max(...xs.map((p) => p[1]));
+  const X = (i: number) => (i / Math.max(1, v.length - 1)) * (W - 4) + 2, Y = (y: number) => h - 3 - ((y - lo) / Math.max(1e-9, top - lo)) * (h - 6);
   const col = tone === "warn" ? "#fbbf24" : tone === "bad" ? "#f87171" : ACC;
   const line = xs.map(([i, y]) => `${X(i).toFixed(1)},${Y(y).toFixed(1)}`).join(" ");
+  const cur = hi != null ? v[hi] ?? null : null;
   return (
-    <svg className="db-spark" viewBox={`0 0 ${W} ${h}`} preserveAspectRatio="none" aria-hidden="true">
-      <polygon points={`${X(xs[0][0])},${h} ${line} ${X(xs.at(-1)![0])},${h}`} fill={col} fillOpacity={0.1} />
-      <polyline points={line} fill="none" stroke={col} strokeWidth={1.6} vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
-    </svg>
+    <div className="db-sparkw" onMouseLeave={() => setHi(null)} onMouseMove={(e) => {
+      const r = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+      setHi(Math.min(v.length - 1, Math.max(0, Math.round(((e.clientX - r.left) / r.width) * (v.length - 1)))));
+    }}>
+      <svg className="db-spark" viewBox={`0 0 ${W} ${h}`} preserveAspectRatio="none" aria-hidden="true">
+        <polygon points={`${X(xs[0][0])},${h} ${line} ${X(xs.at(-1)![0])},${h}`} fill={col} fillOpacity={0.1} />
+        <polyline points={line} fill="none" stroke={col} strokeWidth={1.6} vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
+        {hi != null && cur != null && <line x1={X(hi)} x2={X(hi)} y1={0} y2={h} stroke="#c9ccd3" strokeOpacity={0.45} vectorEffect="non-scaling-stroke" />}
+      </svg>
+      {hi != null && cur != null && (
+        <>
+          <i className="db-spark-dot" style={{ left: `${(X(hi) / W) * 100}%`, top: `${(Y(cur) / h) * 100}%`, background: col }} />
+          <span className="db-tip" role="status" style={{ left: `${Math.min(85, Math.max(15, (X(hi) / W) * 100))}%` }}>{labels?.[hi] ? `${labels[hi]}: ` : ""}{fmt(cur)}</span>
+        </>
+      )}
+    </div>
   );
 }
 
-export function Kpi({ label, value, unit, sub, tone, spark }: { label: string; value: string; unit?: string; sub: React.ReactNode; tone?: Tone; spark?: (number | null)[] }) {
+export function Kpi({ label, value, unit, sub, tone, spark, labels, fmt }: { label: string; value: string; unit?: string; sub: React.ReactNode; tone?: Tone;
+  spark?: (number | null)[]; labels?: string[]; fmt?: (x: number) => string }) {
   return (
     <div className="db-kpi" data-tone={tone}>
       <span className="db-kpi-l">{tone && tone !== "ok" && <i className="db-dot" data-tone={tone} />}{label}</span>
       <span className="db-kpi-v">{value}{unit && <small>{unit}</small>}</span>
       <span className="db-kpi-s">{sub}</span>
-      {spark && <Spark v={spark} tone={tone === "warn" ? "warn" : tone === "bad" ? "bad" : "acc"} />}
+      {spark && <Spark v={spark} labels={labels} fmt={fmt} tone={tone === "warn" ? "warn" : tone === "bad" ? "bad" : "acc"} />}
     </div>
   );
 }
 
-/** throughput per stage, per minute, every row on the same scale (so the rows compare) */
+/** throughput per stage, per minute, every row on the same scale (so the rows compare); one crosshair runs through every
+ *  row and one tooltip lists every stage at that minute (Rexton: grouped, so a moment reads across the hub) */
 export function Stages({ s }: { s: Score }) {
+  const [hi, setHi] = useState<number | null>(null);
   const stages = [["Unload", ["Unload"]], ["Scan tunnel", ["Scan tunnel"]], ["Sorter", ["Sorter"]], ["Chutes", ["Chutes", "Reject chute"]],
     ["Bagging", ["Bagging"]]] as const;
   const series = stages.map(([name, groups]) => {
@@ -61,28 +80,49 @@ export function Stages({ s }: { s: Score }) {
     return { name, total: rows.reduce((a, r) => a + r.reads + r.no_reads, 0), v: Array.from({ length: s.minutes }, (_, i) => rows.reduce((a, r) => a + (r.per_minute[i] ?? 0), 0)) };
   });
   const max = Math.max(1, ...series.flatMap((x) => x.v));
-  const W = 400, H = 34;
-  const t = (m: number) => new Date(Date.parse(s.start) + m * 60000).toLocaleTimeString("en-GB", { timeZone: "Asia/Kuala_Lumpur", hour: "2-digit", minute: "2-digit" });
+  const W = 400, H = 44, n = s.minutes;
+  const X = (i: number) => (i / Math.max(1, n - 1)) * W;
+  const labels = minuteLabels(s);
+  const pts = (v: number[]) => v.map((y, i) => `${X(i).toFixed(1)},${(H - 2 - (y / max) * (H - 6)).toFixed(1)}`).join(" ");
   return (
-    <div className="db-stages">
+    <div className="db-stages" onMouseLeave={() => setHi(null)}>
       {series.map((x) => (
         <div key={x.name} className="db-stage">
           <span className="db-stage-n">{x.name}</span>
-          <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-label={`${x.name}: ${x.total} scans`}>
-            <line x1={0} x2={W} y1={H - 0.5} y2={H - 0.5} stroke="rgba(255,255,255,0.08)" />
-            <polygon points={`0,${H} ${x.v.map((y, i) => `${(i / (x.v.length - 1)) * W},${H - 2 - (y / max) * (H - 4)}`).join(" ")} ${W},${H}`} fill={ACC} fillOpacity={0.12} />
-            <polyline points={x.v.map((y, i) => `${(i / (x.v.length - 1)) * W},${H - 2 - (y / max) * (H - 4)}`).join(" ")} fill="none" stroke={ACC} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
-          </svg>
-          <span className="db-stage-t">{x.total}</span>
+          <div className="db-stage-plot" onMouseMove={(e) => {
+            const r = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+            setHi(Math.min(n - 1, Math.max(0, Math.round(((e.clientX - r.left) / r.width) * (n - 1)))));
+          }}>
+            <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-label={`${x.name}: ${x.total} scans`}>
+              <line x1={0} x2={W} y1={H - 0.5} y2={H - 0.5} stroke="rgba(255,255,255,0.1)" vectorEffect="non-scaling-stroke" />
+              <line x1={0} x2={W} y1={4} y2={4} stroke="rgba(255,255,255,0.05)" vectorEffect="non-scaling-stroke" />
+              <polygon points={`0,${H} ${pts(x.v)} ${W},${H}`} fill={ACC} fillOpacity={0.12} />
+              <polyline points={pts(x.v)} fill="none" stroke={ACC} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />
+              {hi != null && <line x1={X(hi)} x2={X(hi)} y1={0} y2={H} stroke="#c9ccd3" strokeOpacity={0.5} vectorEffect="non-scaling-stroke" />}
+            </svg>
+            {hi != null && <i className="db-spark-dot" style={{ left: `${(X(hi) / W) * 100}%`, top: `${((H - 2 - (x.v[hi] / max) * (H - 6)) / H) * 100}%`, background: ACC }} />}
+          </div>
+          <span className="db-stage-t">{hi != null ? x.v[hi] : x.total}</span>
         </div>
       ))}
-      <div className="db-stage db-stage-axis" aria-hidden="true"><span /><span><i>{t(0)}</i><i>{t(Math.round(s.minutes / 2))}</i><i>{t(s.minutes)}</i></span><span>scans</span></div>
+      <div className="db-stage db-stage-axis" aria-hidden="true"><span>each row 0 to {max} a min</span><span><i>{labels[0]}</i><i>{labels[n >> 1]}</i><i>{labels[n - 1]}</i></span>
+        <span>{hi != null ? `at ${labels[hi]}` : "total"}</span></div>
+      {hi != null && (
+        <div className="db-stages-tip" role="status" style={{ left: `calc(108px + (100% - 176px) * ${hi / Math.max(1, n - 1)})` }}>
+          <b>{labels[hi]}</b>
+          {series.map((x) => <span key={x.name}><em>{x.name}</em>{x.v[hi]}</span>)}
+        </div>
+      )}
     </div>
   );
 }
 
 /** one tile per place (like places as one tile), status first */
+export const minuteLabels = (s: Score) => Array.from({ length: s.minutes }, (_, i) =>
+  new Date(Date.parse(s.start) + i * 60000).toLocaleTimeString("en-GB", { timeZone: "Asia/Kuala_Lumpur", hour: "2-digit", minute: "2-digit" }));
+
 export function Health({ s, name }: { s: Score; name: (id: string) => string }) {
+  const mins = minuteLabels(s);
   const groups: { g: string; rows: ScoreRow[] }[] = [];
   s.rows.forEach((r) => { const last = groups.at(-1); if (last && last.g === r.group) last.rows.push(r); else groups.push({ g: r.group, rows: [r] }); });
   const tiles = groups.flatMap(({ g, rows }) => rows.length < 3 ? rows.map((r) => ({ key: r.id, title: placeName(r.id), rows: [r] })) : [{ key: g, title: `${g} · ${rows.length} places`, rows }]);
@@ -99,7 +139,8 @@ export function Health({ s, name }: { s: Score; name: (id: string) => string }) 
           <li key={t.key} className="db-ht" data-tone={tone}>
             <span className="db-ht-h"><i className="db-dot" data-tone={tone} title={STATUS[tone]} /><span>{t.title}</span></span>
             <span className="db-ht-v">{through}<small>{reads === 0 ? " unread" : rate != null ? ` · ${(rate * 100).toFixed(1)}% read` : " · all read"}</small></span>
-            <Spark v={t.rows[0].per_minute.map((_, i) => t.rows.reduce((a, r) => a + r.per_minute[i], 0))} h={22} tone={tone === "ok" ? "acc" : tone} />
+            <Spark v={t.rows[0].per_minute.map((_, i) => t.rows.reduce((a, r) => a + r.per_minute[i], 0))} h={22} tone={tone === "ok" ? "acc" : tone}
+              labels={mins} fmt={(x) => `${Math.round(x)} scans`} />
             <span className="db-ht-p">{prob ?? "No problems"}{cases[0] && <> · <Link href={`/cases/${cases[0]}`}>{name(cases[0])}</Link></>}</span>
           </li>
         );

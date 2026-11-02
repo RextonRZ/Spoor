@@ -11,9 +11,10 @@ import Link from "next/link";
 import { useState } from "react";
 import { useResource } from "@/lib/api";
 import type { Site } from "@/lib/types";
-import { HopTimes, MissingByHop, type Flow } from "@/components/insights/Charts";
+import type { Flow } from "@/components/insights/Charts";
 import type { Score } from "@/components/insights/Scorecard";
-import { Attention, Health, Kpi, Panel, Stages, type Action } from "@/components/insights/Board";
+import { Attention, Kpi, minuteLabels, Panel, Stages, type Action } from "@/components/insights/Board";
+import { Pipeline } from "@/components/insights/Pipeline";
 import { HistoryView, type History } from "@/components/insights/History";
 import "@/app/hub/hub.css";
 import "@/app/wall/cameras.css";
@@ -29,6 +30,7 @@ interface Insights {
     cameras_fitted: number; cameras: number; numbers_by_camera: { camera_id: string; outlined: number; labelled: number }[];
     footage_skipped: { share: number; case_id: string } | null };
   flow?: Flow;
+  unread?: { matched: { waybill: string }[] } | null;
   actions?: Action[];
   scorecard?: Score;
   history?: History;
@@ -79,14 +81,16 @@ function TodayBoard({ d, name }: { d: Insights; name: (id: string) => string }) 
   const ans = d.cost.answer_seconds;
   const open = d.loop.opened.length - d.loop.resolved.length - (d.loop.resolved_on_camera ?? []).length;
   const rate = tunnel?.read_rate ?? null;
+  const mins = sc ? minuteLabels(sc) : undefined;
+  const scans = (x: number) => `${Math.round(x)} scans`;
   const t = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { timeZone: "Asia/Kuala_Lumpur", hour: "2-digit", minute: "2-digit" });
   return (
     <div className="db">
       <div className="db-kpis">
-        <Kpi label="Parcels unloaded" value={String(d.flow?.parcels ?? 0)} sub={d.flow ? `${t(d.flow.window[0])} to ${t(d.flow.window[1])}` : ""} spark={total} />
+        <Kpi label="Parcels unloaded" value={String(d.flow?.parcels ?? 0)} sub={d.flow ? `${t(d.flow.window[0])} to ${t(d.flow.window[1])}` : ""} spark={total} labels={mins} fmt={scans} />
         <Kpi label="Tunnel read rate" value={rate != null ? (rate * 100).toFixed(1) : "100"} unit="%" tone={rate != null && rate < 0.98 ? "warn" : "ok"}
-          sub={<>target 98% · {tunnel?.no_reads ?? 0} not read</>} spark={tunnel?.per_minute} />
-        <Kpi label="Reject chute" value={String(reject?.no_reads ?? 0)} unit=" cartons" tone={reject?.no_reads ? "warn" : "ok"} sub="unread, to match to their unload scans" spark={reject?.per_minute} />
+          sub={<>target 98% · {tunnel?.no_reads ?? 0} not read</>} spark={tunnel?.per_minute} labels={mins} fmt={scans} />
+        <Kpi label="Reject chute" value={String(reject?.no_reads ?? 0)} unit=" cartons" tone={reject?.no_reads ? "warn" : "ok"} sub="unread, to match to their unload scans" spark={reject?.per_minute} labels={mins} fmt={(x) => `${Math.round(x / 2)} cartons`} />
         <Kpi label="Open cases" value={String(Math.max(0, open))} tone={d.loop.customer_asked.length ? "bad" : "ok"} sub={`${d.loop.customer_asked.length} customer waiting · ${d.loop.answered.length} answered`} />
         <Kpi label="Time to an answer" value={ans.length ? (ans[ans.length >> 1] / 60).toFixed(1) : "0"} unit=" min" sub={`median · ${d.cost.footage_hours} h of footage`} />
       </div>
@@ -98,35 +102,26 @@ function TodayBoard({ d, name }: { d: Insights; name: (id: string) => string }) 
         </Panel>
       </div>
 
-      {sc && <Panel title="Checkpoint health" meta={<span className="db-key"><i className="db-dot" data-tone="bad" />Problem <i className="db-dot" data-tone="warn" />Watch <i className="db-dot" data-tone="ok" />Fine</span>}>
-        <Health s={sc} name={name} />
+      {sc && <Panel title="Checkpoint pipeline" meta={<span className="db-key"><i className="db-dot" data-tone="bad" />Problem <i className="db-dot" data-tone="warn" />Watch <i className="db-dot" data-tone="ok" />Fine · arrows: usual time between scans</span>}>
+        <Pipeline s={sc} hops={d.flow?.hops ?? []} name={name} unread={d.unread?.matched.length ?? 0} />
       </Panel>}
 
-      {d.flow?.hops?.length ? (
-        <div className="db-row db-row-11">
-          <Panel title="No next scan, per hop" meta="overdue vs still on their way"><MissingByHop hops={d.flow.hops} /></Panel>
-          <Panel title="Time per hop" meta="dot: usual · bar: 8 in 10"><HopTimes hops={d.flow.hops} /></Panel>
-        </div>
-      ) : null}
-
       <div className="db-row db-row-11">
-        <Panel title="The loop" meta="cases to confirmed outcomes">
+        <Panel title="Lost-parcel cases" meta="from opened to resolved">
           <ol className="db-loop">
-            <li><b>{d.loop.opened.length}</b><span>Opened</span></li>
-            <li><b>{d.loop.answered.length}</b><span>Answered</span></li>
-            <li data-empty={d.loop.checked.length ? undefined : ""}><b>{d.loop.checked.length}</b><span>Checked on the floor</span></li>
-            <li><b>{d.loop.resolved.length + (d.loop.resolved_on_camera ?? []).length}</b><span>Resolved</span></li>
+            <li><b>{d.loop.opened.length}</b><span>Opened</span><em>{d.loop.customer_asked.length} by a customer, {d.loop.alerts.length} by a live alert</em></li>
+            <li><b>{d.loop.answered.length}</b><span>Answered by Spoor</span><em>where it is, with the proof</em></li>
+            <li data-empty={d.loop.checked.length ? undefined : ""}><b>{d.loop.checked.length}</b><span>Checked on the floor</span><em>{d.loop.checked.length ? `${d.loop.confirmed.length} found where Spoor said` : "none yet: staff mark it on Go look"}</em></li>
+            <li><b>{d.loop.resolved.length + (d.loop.resolved_on_camera ?? []).length}</b><span>Resolved</span><em>{d.loop.resolved.length} found by staff, {(d.loop.resolved_on_camera ?? []).length} seen on camera</em></li>
           </ol>
-          <p className="db-note">{d.loop.checked.length ? `Found where Spoor said: ${d.loop.confirmed.length} of ${d.loop.checked.length}.`
-            : "No floor checks yet: a Found or Not here on Go look counts here, and a miss sends the agents back to plan."}</p>
         </Panel>
-        <Panel title="Self-checks and cost" meta={<Link href="/operator">ledger</Link>}>
+        <Panel title="How far to trust it" meta={<Link href="/operator">ledger</Link>}>
           <dl className="db-dl">
-            <div><dt>Cameras matched to the sorter clock</dt><dd>{d.health.cameras_fitted} / {d.health.cameras}</dd></div>
-            <div><dt>Scan points no camera sees</dt><dd>{d.health.scan_points_unseen.length} / {d.health.scan_points}</dd></div>
-            <div><dt>Numbers shown on cartons</dt><dd>{d.health.numbers_by_camera.reduce((a, c) => a + c.labelled, 0)} / {d.health.numbers_by_camera.reduce((a, c) => a + c.outlined, 0)}</dd></div>
-            {d.health.footage_skipped && <div><dt>Footage skipped before the cloud</dt><dd>{Math.round(d.health.footage_skipped.share * 100)}%</dd></div>}
-            <div><dt>Model spend, all cases</dt><dd>US${d.cost.usd.toFixed(2)}</dd></div>
+            <div><dt>Camera clocks checked<small>against the sorter&apos;s own events, so times line up</small></dt><dd>{d.health.cameras_fitted} of {d.health.cameras}</dd></div>
+            <div><dt>Scan points no camera sees<small>a gap where a parcel could go unseen</small></dt><dd>{d.health.scan_points_unseen.length} of {d.health.scan_points}</dd></div>
+            <div><dt>Numbers shown on cartons<small>only where no other carton could be the one scanned</small></dt><dd>{d.health.numbers_by_camera.reduce((a, c) => a + c.labelled, 0)} of {d.health.numbers_by_camera.reduce((a, c) => a + c.outlined, 0)}</dd></div>
+            {d.health.footage_skipped && <div><dt>Footage never sent to the cloud<small>no parcel handling in it</small></dt><dd>{Math.round(d.health.footage_skipped.share * 100)}%</dd></div>}
+            <div><dt>Model spend<small>every recorded call, all cases</small></dt><dd>US${d.cost.usd.toFixed(2)}</dd></div>
           </dl>
         </Panel>
       </div>

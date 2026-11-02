@@ -98,3 +98,59 @@
   .db-loop li:nth-child(3) { padding-left: 0; border-left: 0; }
 }
 @media (prefers-reduced-motion: reduce) { .db-att-l { transition: none; } .db-att-a a:active, .db-att-a button:active { transform: none; } }
+
+/* hover on every small trend: crosshair, dot and a one-line tooltip */
+.db-sparkw { position: relative; align-self: end; }
+.db-spark-dot { position: absolute; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%; box-shadow: 0 0 0 2px var(--tb-surface); pointer-events: none; }
+.db-tip { position: absolute; bottom: calc(100% + 2px); transform: translateX(-50%); z-index: 5; pointer-events: none; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--tb-ink); background: #1b1d24; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12), 0 6px 18px rgba(0, 0, 0, 0.45); }
+
+/* throughput: roomier rows, one crosshair and one grouped tooltip for every stage at that minute */
+.db-stages { position: relative; gap: 12px; }
+.db-stage-plot { position: relative; cursor: crosshair; }
+.db-stage svg { height: 44px; }
+.db-stages-tip { position: absolute; top: -6px; transform: translateX(-50%); z-index: 6; pointer-events: none; display: grid; gap: 2px; min-width: 148px;
+  padding: 8px 10px; border-radius: 8px; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--tb-ink); background: #1b1d24;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12), 0 8px 24px rgba(0, 0, 0, 0.45); }
+.db-stages-tip b { font-weight: 600; margin-bottom: 2px; }
+.db-stages-tip span { display: flex; justify-content: space-between; gap: 14px; }
+.db-stages-tip em { font-style: normal; color: var(--tb-ink-2); }
+.db-stage-axis span:first-child { font-size: 11px; color: var(--tb-mute); }
+
+/* pipeline: nodes joined by arrows that carry the hop (usual time, overdue) */
+.pl { display: grid; grid-template-columns: minmax(0, 1fr) 64px minmax(0, 1fr) 64px minmax(0, 1fr) 64px minmax(0, 1fr) 64px minmax(0, 1fr) 40px minmax(0, 1fr);
+  align-items: start; }
+.pl-col { display: grid; gap: 8px; min-width: 0; }
+.pl-branch { position: relative; padding-left: 14px; }
+.pl-branch::before { content: ""; position: absolute; left: 4px; top: -8px; bottom: 50%; width: 8px; border-left: 1.5px solid var(--tb-line-2);
+  border-bottom: 1.5px solid var(--tb-line-2); border-bottom-left-radius: 6px; }
+.pl-node { display: grid; gap: 3px; min-width: 0; padding: 11px 12px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.025);
+  box-shadow: inset 0 0 0 1px var(--tb-line); }
+.pl-node[data-tone="warn"] { box-shadow: inset 0 0 0 1px rgba(251, 191, 36, 0.38); }
+.pl-node[data-tone="bad"] { box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.5); background: rgba(248, 113, 113, 0.05); }
+.pl-node[data-small] { padding: 8px 10px; }
+.pl-node-h { display: flex; align-items: center; gap: 7px; min-width: 0; font-size: 12.5px; font-weight: 600; color: var(--tb-ink); }
+.pl-node-h span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pl-node-h em { margin-left: auto; font-style: normal; font-size: 11px; font-weight: 500; color: var(--tb-mute); }
+.pl-node-v { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--tb-ink); }
+.pl-node[data-small] .pl-node-v { font-size: 16px; }
+.pl-node-v small { font-size: 11.5px; font-weight: 500; color: var(--tb-mute); }
+.pl-node .db-sparkw .db-spark { height: 20px; margin-top: 2px; }
+.pl-node-p { font-size: 11.5px; line-height: 1.4; color: var(--tb-ink-2); display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.pl-node[data-tone="bad"] .pl-node-p { color: #fecaca; }
+.pl-node-p a { color: #a5b4fc; text-decoration: none; }
+.pl-arrow { display: grid; justify-items: center; align-content: center; gap: 2px; min-height: 74px; padding: 0 4px; }
+.pl-arrow svg { width: 100%; height: 10px; overflow: visible; }
+.pl-arrow path { fill: none; stroke: var(--tb-ink-2); stroke-opacity: 0.5; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.pl-arrow[data-warn] path { stroke: #fbbf24; stroke-opacity: 0.9; }
+.pl-arrow-t { font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--tb-ink-2); white-space: nowrap; }
+.pl-arrow-b { min-height: 14px; font-size: 11px; font-weight: 600; color: #fcd34d; white-space: nowrap; }
+@media (max-width: 1200px) {
+  .pl { grid-template-columns: 1fr; }
+  .pl-arrow { min-height: 0; grid-template-columns: auto 18px auto; justify-content: start; padding: 2px 0 2px 18px; }
+  .pl-arrow svg { width: 18px; height: 18px; transform: rotate(90deg); }
+}
+
+/* lost-parcel cases and how far to trust it */
+.db-loop em { font-style: normal; font-size: 11.5px; line-height: 1.4; color: var(--tb-mute); }
+.db-dl dt { display: grid; gap: 1px; }
+.db-dl dt small { font-size: 11.5px; color: var(--tb-mute); }

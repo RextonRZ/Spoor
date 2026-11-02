@@ -173,3 +173,16 @@ tr[data-sub] th { padding-left: 18px; font-weight: 450; color: var(--tb-ink-2); 
   .hi-where li { grid-template-columns: 32px minmax(0, 1fr); }
   .hi-where-bar, .hi-where-fix { grid-column: 2; }
 }
+
+/* where parcels went missing: a day strip per place, the week trend, the fix */
+.hi-where li { grid-template-columns: 36px minmax(0, 1fr) minmax(200px, 1.3fr) 150px minmax(0, 1fr) !important; }
+.hi-strip { position: relative; display: grid; grid-template-columns: repeat(30, minmax(0, 1fr)); gap: 2px; height: 22px; }
+.hi-strip i { border-radius: 2px; background: rgba(255, 255, 255, 0.05); transition: outline-color 120ms ease; outline: 1px solid transparent; }
+.hi-strip i[data-on] { background: #818cf8; }
+.hi-strip i:hover { outline-color: #c7d2fe; }
+.hi-strip .db-tip { bottom: calc(100% + 6px); }
+.hi-trend { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--tb-ink); }
+.hi-trend small { display: block; font-size: 11px; font-weight: 500; color: var(--tb-mute); }
+.hi-trend[data-trend="up"] { color: #fca5a5; }
+.hi-trend[data-trend="down"] { color: #86efac; }
+@media (max-width: 1100px) { .hi-where li { grid-template-columns: 32px minmax(0, 1fr) !important; } .hi-strip, .hi-trend, .hi-where-fix { grid-column: 2; } }
