@@ -117,6 +117,21 @@ def handled(poly: list[tuple[float, float]], boxes: list[tuple[float, float, flo
     return max(abs(x - centre[0][0]) + abs(y - centre[0][1]) for x, y in centre) > size / 2
 
 
+def expected_carton_px(rp: PlanReadPoint, cal: FloorCalibration, dims_m: tuple[float, float, float],
+                       ) -> tuple[float, float, float, float] | None:  # fmt: skip
+    """Where THIS parcel (its own measured size, from the tunnel's dimensioner) would sit in the picture at the scan
+    point: the projected box of that cuboid (both orientations, since its yaw is unknown), in frame pixels. Used to
+    prompt SAM with a box of the parcel's size when a point alone outlined something bigger (the sorter's tray)."""
+    x, y, z = (rp.device_parts_m or [rp.position_m])[0]
+    L, W, H = sorted(dims_m, reverse=True)
+    pts = [(x + dx, y + dy, max(0.0, z - H / 2) + dz) for lx, wy in ((L, W), (W, L))
+           for dx in (-lx / 2, lx / 2) for dy in (-wy / 2, wy / 2) for dz in (0.0, H)]  # fmt: skip
+    uv, front = site_to_image(cal, pts)
+    if not front.all():
+        return None
+    return float(uv[:, 0].min()), float(uv[:, 1].min()), float(uv[:, 0].max()), float(uv[:, 1].max())
+
+
 PARCEL_MAX_M = 0.9  # the largest parcel a hub conveys or a person carries, edge length
 
 

@@ -180,6 +180,9 @@ def fill_mesh(name, boxes, coll):
     return len(boxes)
 
 
+QUIET_S = 4.5  # nothing else set down at the replay dock this long after the replayed carton (its close-up's clip)
+
+
 class Pick:
     def __init__(self, box, worker):
         self.box, self.worker = box, worker
@@ -254,6 +257,12 @@ class Docks:
             w.slots = self._slots(w)
             w.state, w.cur, w.start = "idle", None, -self.rnd.uniform(0.4, 2.3)  # mid-cycle at frame 1
             w.free_at = w.start
+        # a quiet door around the replayed carton (Rexton 2 Nov): its unload scan must be the only carton handled at
+        # the door within the close-up's view of that moment, so the mate starts no carton while it is next in line,
+        # and neither starts one until QUIET_S after it is set down (the logged scan itself is not moved: W1's start
+        # is re-pinned to it, two passes)
+        self.replay_worker = next((w for w in self.workers if self.replay_box is not None and self.replay_box in w.slots), None)
+        self.quiet_until = None
         self.start_t = min(w.start for w in self.workers)
         # the lorry's side walls (1.1 m each side of the dock's centre line): a carton turned out of the north column
         # swept 5-8 cm into the wall, run 11
@@ -353,6 +362,11 @@ class Docks:
             if w.state == "idle":
                 if t < w.free_at or not w.slots or t > getattr(self, 'T_STOP', self.T_END) + 1.0:
                     continue
+                rw = self.replay_worker
+                if rw is not None and rw.dock is w.dock and w.slots[0] is not self.replay_box:
+                    pending = self.replay_box in rw.slots[:1] or (rw.cur is not None and rw.cur.box is self.replay_box)
+                    if (w is not rw and pending) or (self.quiet_until is not None and t < self.quiet_until):
+                        continue
                 box = w.slots.pop(0)
                 pk = Pick(box, w)
                 w_, d_, h_ = box.dims
@@ -409,6 +423,8 @@ class Docks:
                 pk.t.update(turn=ts, place=ts + pk.T_turn, release=rel, end=rel + pk.T_ret)
                 pk.t_rel, pk.f_rel = rel, f_rel
                 self.lock[bn] = rel + 0.25
+                if pk.box is self.replay_box:
+                    self.quiet_until = rel + QUIET_S
                 w.state = "turn"
             if (w.state == "turn" and pk.t["place"] - self.DT - 1e-6 <= t < pk.t["release"] - 1e-6
                     and not self._nose_clear(bn, pk.s, pk.half)):

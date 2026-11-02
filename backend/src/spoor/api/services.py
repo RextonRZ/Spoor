@@ -31,7 +31,15 @@ from spoor.forensics.journey import latest_plan
 from spoor.ingest import MediaStore, asset_path, load_result
 from spoor.ingest.clips import crop_window
 from spoor.perception import MetaSamBackend, PerceptionRequest, SamBackend, track_target
-from spoor.perception.anchor import AnchorError, anchor_for, handled, inside, leaves, parcel_extent_px
+from spoor.perception.anchor import (
+    AnchorError,
+    anchor_for,
+    expected_carton_px,
+    handled,
+    inside,
+    leaves,
+    parcel_extent_px,
+)
 from spoor.perception.prompts import InstancePrompt
 from spoor.reasoning import (
     BasetenChatBackend,
@@ -54,7 +62,12 @@ class ServiceError(ValueError):
 
 
 GRANT_REASON = "scope: cameras granted"
-DIVERT_EVENTS = {"divert_confirmed", "recirculated"}  # sorter events at a chute mouth, where the motion rule holds
+DIVERT_EVENTS = {"divert_confirmed", "recirculated"}
+CARTON_X = 2.5  # an outline more than this many times the parcel's own projected area is not that parcel
+
+
+def _area(b) -> float:
+    return max(0.0, (b[2] - b[0]) * (b[3] - b[1]))  # sorter events at a chute mouth, where the motion rule holds
 
 
 @dataclass
@@ -249,6 +262,17 @@ class Services:
         after = [o for o in obs if o.source_frame.frame_index >= f_at]
         span = (after[-1].source_frame.pts_ms - after[0].source_frame.pts_ms) / 1000 if len(after) > 1 else 0.0
         labelled, note = row.rule == "work_area", ""
+        if row.rule == "point" and row.scan.event_kind.value in DIVERT_EVENTS and box and plan and cal:
+            # carton-sized? a point at a chute mouth often outlines the whole tray: compare with this parcel's own
+            # measured size at the point; if much bigger, prompt SAM again with a box of that size; else no label
+            exp = self._expected_box(row, plan, cal)
+            if exp is not None and _area(box) > CARTON_X * _area(exp):
+                re = self._reprompt(row, start, end, at_iso, exp, f_at, box)
+                if re is None:
+                    return self.store.put(ScanHandshake(**base, outcome="cant_tell", track_id=tid, frame_index=f_at,
+                                                        box_px=box, note="SAM outlined more than the parcel (its "
+                                                        "tray); a box of the parcel's size found nothing tighter"))  # fmt: skip
+                tid, obs, box, after, span = re
         if row.rule == "point" and row.scan.event_kind.value not in DIVERT_EVENTS:
             labelled = False  # the motion rule was checked at divert points only (an induction outline was wrong 4/4)
         elif row.rule == "point":  # the diverted carton is moving at the confirm; a still outline is something resting
@@ -268,6 +292,39 @@ class Services:
         return self.store.put(ScanHandshake(**base, outcome="outlined", track_id=tid, frame_index=f_at, box_px=box,
                                             labelled=labelled, frames_followed=len(after), followed_s=round(span, 2),
                                             note=note))
+
+    def _expected_box(self, row, plan, cal):
+        """This parcel's own measured size (its tunnel read's dims) projected at the scan point, or None."""
+        from spoor.contracts import ScanEvent
+
+        dims = next((s.dims_mm for s in self.store.find(ScanEvent, event_kind="tunnel_read")
+                     if s.dims_mm and any(i.value == row.waybill for i in s.identifiers)), None)  # fmt: skip
+        rp = plan.read_point(row.scan_point_id)
+        return expected_carton_px(rp, cal, tuple(v / 1000 for v in dims)) if dims and rp else None
+
+    def _reprompt(self, row, start, end, at_iso, exp, f_at, first):
+        """SAM again with a box of the parcel's own size, centred on what SAM first outlined (the parcel sits on that
+        tray; the scan point itself is the chute's edge); its track if carton-sized, else None."""
+        cx, cy = (first[0] + first[2]) / 2, (first[1] + first[3]) / 2
+        hw, hh = (exp[2] - exp[0]) * 0.6, (exp[3] - exp[1]) * 0.6
+        try:
+            res = self.anchored_sam(None, row.media_id, concept=None, start_iso=start, end_iso=end,
+                                    scan_point_id=row.scan_point_id, at_iso=at_iso,
+                                    prompt_box=(cx - hw, cy - hh, cx + hw, cy + hh))  # fmt: skip
+        except (ServiceError, AnchorError):
+            return None
+        tracks = [t for t in res.get("tracks", []) if t["frames"][0] <= f_at + 10 and t["frames"][1] >= f_at - 2]
+        for t in tracks:
+            obs = sorted((o for o in self.store.find(RawObservation, track_id=t["track_id"]) if o.bbox_xyxy_px),
+                         key=lambda o: o.source_frame.frame_index)  # fmt: skip
+            if not obs:
+                continue
+            near = min(obs, key=lambda o: abs(o.source_frame.frame_index - f_at))
+            if _area(near.bbox_xyxy_px) <= CARTON_X * _area(exp):
+                after = [o for o in obs if o.source_frame.frame_index >= f_at]
+                span = (after[-1].source_frame.pts_ms - after[0].source_frame.pts_ms) / 1000 if len(after) > 1 else 0.0
+                return t["track_id"], obs, list(near.bbox_xyxy_px), after, span
+        return None
 
     def watch_container_area(self, w, *, now) -> list:
         """One planned watch (left_alert.py): SAM on the clip after the container scans, keeping cartons that start in
@@ -330,7 +387,7 @@ class Services:
 
     def anchored_sam(self, case: Case | None, media_id: str, *, concept: str | None, start_iso: str | None,
                      end_iso: str | None, scan_point_id: str | None, at_iso: str | None,
-                     out_of_view: bool = False, keep: str = "leaves") -> dict:
+                     out_of_view: bool = False, keep: str = "leaves", prompt_box: tuple | None = None) -> dict:
         """SAM on a window of one clip, aimed by a scan point (anchor.py): a device/sorter point is a point prompt on
         the scan's frame; a handheld point's work area keeps only tracks that start inside it and leave it."""
         original = self.store.get(MediaAsset, media_id)
@@ -358,7 +415,9 @@ class Services:
         if anchor is not None and anchor.kind == "point":
             if not at_iso:
                 raise ServiceError("a point anchor needs at_iso: the scan's time, when the parcel was at the point")
-            instance = InstancePrompt(frame_index=self.frame_at(media_id, at_iso), positive_points_px=[anchor.point_px])
+            pt = (round((prompt_box[0] + prompt_box[2]) / 2), round((prompt_box[1] + prompt_box[3]) / 2)) if prompt_box                 else anchor.point_px  # a sized box prompt carries its own point: its centre
+            instance = InstancePrompt(frame_index=self.frame_at(media_id, at_iso), positive_points_px=[pt],
+                                      box_ltrb_px=tuple(round(v) for v in prompt_box) if prompt_box else None)  # fmt: skip
             concept = None
         elif not concept:
             concept = "box"

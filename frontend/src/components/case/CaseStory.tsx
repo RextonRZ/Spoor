@@ -204,7 +204,7 @@ export function CaseStory({ caseId, inside, view, journey, truck }: {
             <img src={stills[cur.key]} alt={`${camWords(cur.cam)} at ${hms(cur.iso)}: ${cur.text}`} />
           ) : <span className="an-skel cs-skel" aria-busy="true" />}
           <svg viewBox={`0 0 ${wh[0]} ${wh[1]}`} aria-hidden>
-            <rect ref={boxEl} rx={4} fill="none" stroke="#4ade80" strokeWidth={2.5} vectorEffect="non-scaling-stroke" style={{ opacity: 0 }} />
+            <rect ref={boxEl} rx={4} className="cs-hero-mark" style={{ opacity: 0 }} />
           </svg>
           <figcaption data-tone={cur.tone}>
             <b>{camWords(cur.cam)}</b><span>{cur.text}</span>

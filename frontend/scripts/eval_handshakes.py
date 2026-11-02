@@ -44,6 +44,26 @@ def first_frame(store, media_id, camera):
     return "S2", S2_FIRST.get(camera, 1)
 
 
+def carton_fit(cal, xyz, dims, box):
+    """(IoU, SAM area / true area) of SAM's box against the true carton's projected box, best of the two yaws."""
+    if xyz is None or not dims:
+        return None, None
+    L, W, H = dims
+    best = (0.0, 99.0)
+    for lx, wy in ((L, W), (W, L)):
+        corners = [(xyz[0] + dx, xyz[1] + dy, xyz[2] + dz) for dx in (-lx / 2, lx / 2) for dy in (-wy / 2, wy / 2) for dz in (0.0, H)]
+        uv, front = site_to_image(cal, corners)
+        if not front.all():
+            continue
+        tb = (uv[:, 0].min(), uv[:, 1].min(), uv[:, 0].max(), uv[:, 1].max())
+        ix = max(0.0, min(tb[2], box[2]) - max(tb[0], box[0])) * max(0.0, min(tb[3], box[3]) - max(tb[1], box[1]))
+        a_t, a_s = (tb[2] - tb[0]) * (tb[3] - tb[1]), (box[2] - box[0]) * (box[3] - box[1])
+        iou = ix / (a_t + a_s - ix) if a_t + a_s - ix > 0 else 0.0
+        if iou > best[0]:
+            best = (round(float(iou), 3), round(float(a_s / a_t), 2) if a_t > 0 else 99.0)
+    return best
+
+
 def judge(box, own, pts, waybill):
     if own is None:
         return "not_in_truth_view"
@@ -71,16 +91,21 @@ def main():
         t = truths[win]
         frame = str(first + h.frame_index)  # the TRUE moment of the frame the box is on (not the logged scan time)
         ids, xyz = zip(*[(p["parcel_id"], p["track"][frame]) for p in t["parcels"] if frame in p["track"]], strict=True)
+        dims = {p["parcel_id"]: p.get("dims_m") for p in t["parcels"]}
         uv, front = site_to_image(cal, list(xyz))
         w, hh = cal.image_wh_px
         pts = {i: (float(u), float(v)) for i, (u, v), f in zip(ids, uv, front, strict=True) if f and 0 <= u < w and 0 <= v < hh}
         before = judge(h.box_px, pts.get(h.waybill), pts, h.waybill)
+        # carton-sized? the true carton's projected box (both orientations; yaw is not in the truth) vs SAM's box
+        iou, ratio = carton_fit(cal, xyz[ids.index(h.waybill)] if h.waybill in ids else None, dims.get(h.waybill), h.box_px)
         out.append({"window": win, "waybill": h.waybill, "camera": h.camera_id.removeprefix("cam_"),
                     "scan_point": h.scan_point_id, "event": h.event_kind, "rule": h.rule, "at": h.at_utc.isoformat(),
                     "media": h.media_id, "box": h.box_px, "outcome": h.outcome, "labelled": h.labelled,
                     "truth_px": (o := pts.get(h.waybill)) and [round(o[0]), round(o[1])], "verdict": before,
                     # the scanned parcel is the one nearest the outline: a label with its number on it is right
-                    "identity_right": before in ("right", "near_miss")})
+                    "identity_right": before in ("right", "near_miss"), "iou": iou, "size_ratio": ratio,
+                    # a label is right only on the scanned parcel AND carton-sized (not its tray, bag or carrier)
+                    "carton_right": before in ("right", "near_miss") and iou is not None and iou >= 0.3 and ratio <= 2.5})
 
     def kind(o):
         return ("cage" if o["scan_point"].startswith("SP-CAGE") else "handheld") if o["rule"] == "work_area" else             {"point": "divert", "tunnel_exit": "tunnel exit"}[o["rule"]]
@@ -88,17 +113,19 @@ def main():
     def summ(rows):
         shown = [o for o in rows if o["outcome"] == "outlined" and o["labelled"]]
         wrong = [o for o in shown if not o["identity_right"]]
+        tray = [o for o in shown if o["identity_right"] and not o["carton_right"]]
         return {"outlines": len(rows), "labelled": len(shown), "withheld": len(rows) - len(shown),
                 "labelled_right": len(shown) - len(wrong),
                 "label_precision": round((len(shown) - len(wrong)) / len(shown), 3) if shown else None,
                 "strict_right": sum(o["verdict"] == "right" for o in shown),
                 "coverage_of_right": round(len(shown) / max(1, sum(o["identity_right"] for o in rows)), 3),
-                "wrong_labels": [f"{o['waybill']} {o['camera']} {o['at'][11:19]}" for o in wrong]}
+                "wrong_labels": [f"{o['waybill']} {o['camera']} {o['at'][11:19]}" for o in wrong],
+                "not_carton_sized": [f"{o['waybill']} {o['camera']} {o['at'][11:19]} iou {o['iou']} x{o['size_ratio']}" for o in tray]}
 
     story = json.loads((TRUTH / "scenario_S2.json").read_text(encoding="utf-8"))["story_parcel"]
     summary = {"all": summ(out), "by_type": {k: summ([o for o in out if kind(o) == k]) for k in sorted({kind(o) for o in out})},
                "story": [{"at": o["at"][11:22], "event": o["event"], "camera": o["camera"], "outcome": o["outcome"],
-                          "labelled": o["labelled"], "verdict": o["verdict"]} for o in sorted(out, key=lambda o: o["at"])
+                          "labelled": o["labelled"], "verdict": o["verdict"], "iou": o["iou"], "x": o["size_ratio"]} for o in sorted(out, key=lambda o: o["at"])
                          if o["waybill"] == story]}
     dest = ROOT / "docs" / "open_weights_proof" / "handshake_eval.json"
     dest.write_text(json.dumps({"summary": summary, "rows": out}, indent=1), encoding="utf-8")
