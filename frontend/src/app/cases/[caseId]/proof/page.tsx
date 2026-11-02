@@ -18,7 +18,7 @@ import type { Journey, MissingMoment, ObservedSegment } from "@/lib/journey";
 import type { MediaRow, Site } from "@/lib/types";
 import { hms, momentLabel, placeOf, shortPlace } from "@/lib/words";
 import { CaseSteps } from "@/components/flow/CaseSteps";
-import HubPlan, { ZONE_NAMES } from "@/components/plan/HubPlan";
+import HubPlan, { ZONE_NAMES, type Stop } from "@/components/plan/HubPlan";
 import { WorkspaceProvider } from "@/components/workspace/context";
 import { Viewer } from "@/components/cameras/Viewer";
 import "@/app/hub/hub.css";
@@ -35,10 +35,12 @@ interface Possible { objects: { places: { area_id: string; name: string; zone_id
 interface Conflicts { objects: { conflicts: Conflict[]; records?: { t: string; event_kind?: string | null; station_id?: string | null }[] }[] }
 interface Stamp { scan_event_id: string; camera_id: string; media_id: string | null; at_utc: string; rule: string; outcome: string;
   frame_index: number | null; box_px: number[] | null; labelled: boolean; note: string }
-interface Alert { at_utc: string; camera_id: string; media_id: string; frame_index: number; box_px: number[] | null;
+interface Alert { scan_point_id: string; at_utc: string; camera_id: string; media_id: string; frame_index: number; box_px: number[] | null;
   candidates: { waybill: string; container: string | null; scanned_in: string }[] }
 interface Tile { key: string; cam: string | null; place: string; t: string; status: string; tone: "seen" | "notseen" | "none" | "wait" | "bad";
   headline: string; body: string; conflict?: string;
+  /** where on the plan (its scan point, the camera's expected spot, the store door) */
+  xy?: [number, number];
   /** an outline on the frame at this moment (frame pixels); its text only when the label is sure */
   mark?: { box: number[]; text?: string }; media_id?: string | null; frame?: number | null; photo?: string;
   /** a camera sighting: SAM's outlined frames along the track (the player shows the one nearest its time) */
@@ -90,7 +92,7 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
       if (!best || !best.media_id) {
         const cam = best?.camera_id ? camId.toHub(best.camera_id) : scanPoint(s.station_id ?? s.device_id)?.visible_by[0] ?? null;
         if (!cam) continue; // nothing to show for a scan no camera sees: the passport says so
-        out.push({ key: s.scan_event_id, cam, place: label, t: s.t, tone: "none", status: "Scan record only", headline: `${label} at ${hms(s.t)}.`,
+        out.push({ key: s.scan_event_id, cam, place: label, t: s.t, tone: "none", status: "Scan record only", xy: s.xy ?? undefined, headline: `${label} at ${hms(s.t)}.`,
           body: `The scanner recorded this. ${camName(cam)} watches ${where}, but there is no recording of this moment.` });
         continue;
       }
@@ -99,7 +101,7 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
       const tone = best.labelled || tunnel ? "seen" : "wait";
       // a scan no number can go on is shown as the scan record: the camera's frame at that moment, no carton named
       const status = best.labelled ? `${waybillOf} · scanned here` : tunnel ? "The tunnel's own photo" : "Scan record";
-      out.push({ key: s.scan_event_id, cam, place: label, t: best.at_utc, tone, status, media_id: best.media_id, frame: best.frame_index,
+      out.push({ key: s.scan_event_id, cam, place: label, t: best.at_utc, tone, status, media_id: best.media_id, frame: best.frame_index, xy: s.xy ?? undefined,
         mark: best.labelled && best.box_px ? { box: best.box_px, text: waybillOf } : undefined,
         photo: tunnel ? `/scanner/${waybillOf}.jpg` : undefined,
         headline: best.labelled ? `${label} at ${hms(s.t)}: this carton.` : `${label} at ${hms(s.t)}.`,
@@ -112,7 +114,8 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
     for (const a of (alerts.data ?? []).filter((x) => x.candidates.some((c) => c.waybill === waybillOf))) {
       const cam = camId.toHub(a.camera_id);
       const only = a.candidates.length === 1;
-      out.push({ key: `alert${a.at_utc}`, cam, place: "taken out of the cage", t: a.at_utc, tone: "notseen", status: "Left without a scan",
+      const sp = scanPoint(a.scan_point_id)?.position_m;
+      out.push({ key: `alert${a.at_utc}`, cam, place: "taken out of the cage", t: a.at_utc, tone: "notseen", status: "Left without a scan", xy: sp ? [sp[0], sp[1]] : undefined,
         media_id: a.media_id, frame: a.frame_index, mark: a.box_px ? { box: a.box_px, text: only ? `could be ${waybillOf}` : undefined } : undefined,
         headline: `A carton was taken out of the cage at ${hms(a.at_utc)}, with no scan.`,
         body: `${camName(cam)} saw a carton carried out of the cage bays. ${only ? `It could only be ${waybillOf}: the one parcel scanned into a cage there with no scan since.` : `${a.candidates.length} parcels scanned into a cage there have no scan since.`} The live alert was raised at this moment.` });
@@ -127,7 +130,7 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
       const tone = r.result === "seen" ? "seen" : r.result === "not_seen" ? "notseen" : checked ? "notseen" : "wait";
       const status = r.result === "seen" ? `Seen ${hms(r.predicted_t)}` : r.result === "not_seen" ? "Expected, not seen"
         : checked ? "Checked by the agents" : "Not checked yet";
-      out.push({ key: r.camera_id, cam, place: r.camera_name.replace(/^CAM_\d+\s*/, "").toLowerCase(), t: r.window.start, tone, status,
+      out.push({ key: r.camera_id, cam, place: r.camera_name.replace(/^CAM_\d+\s*/, "").toLowerCase(), t: r.window.start, tone, status, xy: r.expected_xy,
         headline: r.result === "not_seen" ? `Should have appeared on ${camName(cam)} by ${hms(r.window.end)}. It didn't.` : `Should appear on ${camName(cam)} at about ${hms(r.predicted_t)}.`,
         body: `${r.how.charAt(0).toUpperCase()}${r.how.slice(1)}.` });
     }
@@ -138,6 +141,7 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
       const secs = Math.max(1, Math.round((Date.parse(g.end) - Date.parse(g.start)) / 1000));
       // opens mid-sighting: at the start the parcel is only just entering the frame
       out.push({ key: g.track_id, cam, place: "seen on camera", t: g.points[g.points.length >> 1]?.t ?? g.start, tone: "seen", status: `Seen ${hms(g.start)}`, seen: g.points,
+        xy: g.points.filter((p) => p.xy)[g.points.filter((p) => p.xy).length >> 1]?.xy ?? undefined,
         headline: `On ${camName(cam)} from ${hms(g.start)} to ${hms(g.end)}.`,
         body: `SAM 3.1 followed this parcel frame by frame for ${secs} s, from the box drawn on it, until it left the camera's view.` });
     }
@@ -147,10 +151,10 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
       const door = (media.data ?? []).find((m) => m.media.camera_id && camId.toHub(m.media.camera_id).startsWith("CHK_STORE")
         && !m.purged && m.coverage.some((c) => within(inside.iso.carried_in_at, c)));
       const cam = door ? camId.toHub(door.media.camera_id!) : wide;
-      out.push({ key: "in", cam, place: `into the ${inside.place.replace(/ \(Z\d+\)$/, "").toLowerCase()}`, t: inside.iso.carried_in_at, tone: "seen",
+      out.push({ key: "in", cam, place: `into the ${inside.place.replace(/ \(Z\d+\)$/, "").toLowerCase()}`, t: inside.iso.carried_in_at, tone: "seen", xy: inside.door_xy,
         status: `Carried in ${inside.carried_in_at}`, headline: `Carried into the ${inside.place} at ${inside.carried_in_at}.`,
         body: `${door ? `${camName(cam)} over the door and ${inside.camera}` : inside.camera} show it carried in, past the scan-in post. No scan-in was recorded, and no camera sees inside.` });
-      inside.came_out_empty.forEach((t, i) => out.push({ key: `out${i}`, cam, place: "out of the store", t: inside.iso[`came_out_${i}`], tone: "notseen",
+      inside.came_out_empty.forEach((t, i) => out.push({ key: `out${i}`, cam, place: "out of the store", t: inside.iso[`came_out_${i}`], tone: "notseen", xy: inside.door_xy,
         status: `Came out ${t}, without it`, headline: `Someone came out at ${t} without it.`,
         body: `${inside.camera} shows the person who went in come out empty-handed. Nobody is seen carrying it out until the recording ends at ${inside.until}.` }));
       const truck = records.find((r) => r.event_kind === "container_loaded" || r.event_kind === "departed_facility");
@@ -158,7 +162,8 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
         const d = truck.station_id?.match(/D\d{2}/)?.[0] ?? "";
         const dock = (media.data ?? []).find((m) => m.media.camera_id && camId.toHub(m.media.camera_id) === "CHK_DOCK"
           && !m.purged && m.coverage.some((c) => within(truck.t, c)));
-        out.push({ key: "truck", cam: dock ? "CHK_DOCK" : cam, place: "truck record", t: truck.t, tone: "bad", status: "Records vs cameras",
+        const tp = scanPoint(truck.station_id)?.position_m;
+        out.push({ key: "truck", cam: dock ? "CHK_DOCK" : cam, place: "truck record", t: truck.t, tone: "bad", status: "Records vs cameras", xy: tp ? [tp[0], tp[1]] : undefined,
           headline: `Record says loaded on truck ${d}. Cameras show it never left.`.replace("  ", " "),
           body: `Its cage's tag was read at the dock gate at ${hms(truck.t)}, but at that moment it was inside the ${inside.place}: carried in at ${inside.carried_in_at}, not seen coming out until ${inside.until}.` });
       }
@@ -178,6 +183,14 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
   const sel = tiles.find((t) => t.key === (pick ?? lastKey)) ?? tiles[0];
   const selMedia = sel?.media_id ? (media.data ?? []).find((m) => m.media.media_id === sel.media_id) : sel?.cam ? coverage(sel.cam, sel.t) : undefined;
   const waybill = waybillOf;
+  // the route on the plan: every checkpoint with a place, numbered as in the strip; the picked one shows its still
+  const selStillMedia = sel?.media_id ?? (sel?.cam ? coverage(sel.cam, sel.t)?.media.media_id : undefined);
+  const selFrame = useFrame(selStillMedia, sel?.t);
+  const selStill = sel?.photo ?? (selFrame ? previewUrl(selFrame, 320) : null);
+  const STOP_TONE: Record<Tile["tone"], Stop["tone"]> = { seen: "seen", notseen: "bad", bad: "bad", none: "none", wait: "scan" };
+  const stops: Stop[] = tiles.flatMap((t, i) => t.xy ? [{ key: t.key, xy: t.xy, n: i + 1, tone: STOP_TONE[t.tone], on: t.key === sel?.key,
+    still: t.key === sel?.key ? selStill : null,
+    label: `${t.cam ? camName(t.cam) : "Records"}, ${t.place}, ${hms(t.t)}` }] : []);
 
   return (
     <div className="pf">
@@ -202,11 +215,11 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
             <span>Pick one to open it above</span>
           </div>
           <div className="pf-strip">
-            {tiles.map((t) => (
+            {tiles.map((t, i) => (
               <button key={t.key} type="button" aria-pressed={t.key === sel?.key} onClick={() => setPick(t.key)} className="pf-tile" data-tone={t.tone}>
                 <TileThumb tile={t} media={t.cam ? coverage(t.cam, t.t) : undefined} />
                 <span className="pf-tile-text">
-                  <span className="pf-tile-cam">{t.cam ? camName(t.cam) : "Records"}</span>
+                  <span className="pf-tile-cam"><span className="pf-tile-n" aria-hidden>{i + 1}</span>{t.cam ? camName(t.cam) : "Records"}</span>
                   <span className="pf-tile-place">{t.place}</span>
                   <span className="pf-tile-status">{t.status}</span>
                 </span>
@@ -225,6 +238,7 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
           )}
           <div className="pf-plan">
             <HubPlan label="Floor plan with the parcel's route" journey={j} missing={mm} fit="width" legend={false} quiet
+              stops={stops} onStop={setPick}
               litCameras={sel?.cam ? [sel.cam] : []} />
           </div>
           <Link className="hb-btn hb-btn-primary pf-go" href={`/cases/${caseId}/search`}>{inside ? `Go look: ${inside.place}` : top ? `Go look: ${shortPlace(top, ZONE_NAMES)}` : "Start a floor search"}</Link>

@@ -47,6 +47,7 @@ function frame(props: PlanProps, w: number): Ext {
   props.journey.scans.forEach((s) => s.xy && pts.push(s.xy));
   props.journey.segments.forEach((s) => s.kind === "inferred_along_conveyor" && pts.push(...s.path_m));
   if (props.journey.last_confirmed?.xy) pts.push(props.journey.last_confirmed.xy);
+  props.stops?.forEach((x) => pts.push(x.xy));
   (props.missing?.expected_next ?? []).forEach((r) => r.result !== "no_footage" && pts.push(r.expected_xy));
   // cameras in play stay in frame, with room for their label
   HUB.cameras.forEach((c) => props.litCameras?.includes(c.id) && pts.push([c.position_m[0], c.position_m[1]]));
@@ -87,6 +88,10 @@ export interface PlanProps {
   quiet?: boolean;
   /** frame a small box around one point and pin it (Hub row thumbnails); hides the scale bar */
   focus?: { xy: XY; radius_m?: number; tone?: "warn" | "bad" };
+  /** the whole route as numbered stops in order (the proof's checkpoints): joined by a thin line where nothing above
+   *  draws the way (a carry, a gap), the picked one larger with its camera still beside it. Replaces scan diamonds and chips. */
+  stops?: Stop[];
+  onStop?: (key: string) => void;
   /** "went in here": an area outlined, the point it was last seen, an arrow into the area (verified answer) */
   story?: { area: XY[]; from: XY; to: XY };
   label: string;
@@ -94,6 +99,9 @@ export interface PlanProps {
   /** "width": the plan takes the card's full width and its own height (summary, hub); default fits the box. */
   fit?: "width" | "contain";
 }
+
+export interface Stop { key: string; xy: XY; n: number; tone: "scan" | "seen" | "bad" | "none"; on?: boolean; still?: string | null; label: string }
+const STOP_COL: Record<Stop["tone"], string> = { scan: C.scan, seen: C.obs, bad: C.con, none: C.inkM };
 
 function useBox() {
   const ref = useRef<HTMLDivElement>(null);
@@ -375,7 +383,7 @@ function Story({ S, ext, area, from, to }: { S: number; ext: Ext; area: XY[]; fr
   );
 }
 
-function Overlay({ S, ext, journey: j, missing, marker, cloud, litCameras = [], selectedScanId, activeScanId, onScan, onObservation, quiet }: PlanProps & { S: number; ext: Ext }) {
+function Overlay({ S, ext, journey: j, missing, marker, cloud, litCameras = [], selectedScanId, activeScanId, onScan, onObservation, quiet, stops, onStop }: PlanProps & { S: number; ext: Ext }) {
   const { P, pts } = mk(S, ext);
   const W = (ext.x1 - ext.x0) * S, H = (ext.y1 - ext.y0) * S;
   const lit = new Set(litCameras);
@@ -388,7 +396,7 @@ function Overlay({ S, ext, journey: j, missing, marker, cloud, litCameras = [], 
   });
   // small plans keep only the chips that carry the story (last confirmed + expected); others stay in bead tooltips
   const compact = S < 12;
-  const chips = j && !quiet ? placeChips([
+  const chips = j && !quiet && !stops ? placeChips([
     ...j.scans.filter((s) => s.xy && (!compact || last?.evidence_id === s.scan_event_id || s.scan_event_id === activeScanId)).map((s) => {
       const isLast = last?.evidence_id === s.scan_event_id;
       return { at: P(s.xy!), t: clock(s.t, true).replace(" MYT", ""), sub: `${isLast ? "Last confirmed · " : ""}${short(describeScan(s).title)}`, dot: C.scan,
@@ -452,7 +460,8 @@ function Overlay({ S, ext, journey: j, missing, marker, cloud, litCameras = [], 
           <circle cx={x} cy={y} r={10} fill="none" stroke={seen ? C.obs : C.scan} strokeWidth={1.5} strokeOpacity={0.85} />
         </g>;
       })()}
-      {j?.scans.filter((s) => s.xy).map((s) => {
+      {stops && <Stops stops={stops} P={P} W={W} H={H} onStop={onStop} />}
+      {!stops && j?.scans.filter((s) => s.xy).map((s) => {
         const [x, y] = P(s.xy!);
         const sel = selectedScanId === s.scan_event_id;
         const label = `${describeScan(s).title} at ${clock(s.t, true)}`;
@@ -481,6 +490,60 @@ function Overlay({ S, ext, journey: j, missing, marker, cloud, litCameras = [], 
           <circle cx={x} cy={y} r={12} fill={col} opacity={0.22} />
           <circle cx={x} cy={y} r={5.5} fill={C.inkS} stroke={col} strokeWidth={2.5} /><title>{marker.label}</title></g>;
       })()}
+    </g>
+  );
+}
+
+/** The route stop by stop: a thin line joining them in order (under the belts' dotted runs and SAM's trails), a numbered
+ *  dot per stop (the number is the checkpoint's number below the player), the picked one larger with its still. */
+function Stops({ stops, P, W, H, onStop }: { stops: Stop[]; P: (p: XY) => XY; W: number; H: number; onStop?: (key: string) => void }) {
+  const at = stops.map((s) => P(s.xy));
+  // stops at the same spot (a scan and the camera that saw it) fan out a little so each number stays readable
+  const placed: XY[] = [];
+  at.forEach(([x, y]) => {
+    let q: XY = [x, y];
+    for (let k = 0; placed.some(([px, py]) => Math.hypot(px - q[0], py - q[1]) < 17) && k < 8; k++) q = [x + 17 * Math.cos(k * 1.9), y + 17 * Math.sin(k * 1.9)];
+    placed.push(q);
+  });
+  const on = stops.findIndex((s) => s.on);
+  const tw = 120, th = 68; // the still: 16:9
+  // the still beside its stop, on the side that hides the fewest other stops (then the nearest)
+  const callout = on >= 0 && stops[on].still ? (() => {
+    const [x, y] = placed[on];
+    const clampR = (cx: number, cy: number) => ({ x: Math.min(Math.max(6, cx), W - tw - 6), y: Math.min(Math.max(6, cy), H - th - 6) });
+    const tries = [clampR(x + 18, y - th - 10), clampR(x - 18 - tw, y - th - 10), clampR(x + 18, y + 10), clampR(x - 18 - tw, y + 10),
+      clampR(x - tw / 2, y + 22), clampR(x - tw / 2, y - th - 22)];
+    const hides = (c: { x: number; y: number }) => placed.filter(([px, py], i) => i !== on && px > c.x - 12 && px < c.x + tw + 12
+      && py > c.y - 12 && py < c.y + th + 12).length + (x > c.x - 12 && x < c.x + tw + 12 && y > c.y - 12 && y < c.y + th + 12 ? 9 : 0);
+    const best = tries.reduce((a, b) => (hides(b) < hides(a) ? b : a));
+    return hides(best) === 0 ? best : null; // no free spot (a small plan): the player above shows the same frame
+  })() : null;
+  return (
+    <g data-ev="stops">
+      <polyline points={placed.map((p) => p.join(",")).join(" ")} fill="none" stroke={C.ink} strokeOpacity={0.35} strokeWidth={1.5}
+        strokeDasharray="1 5" strokeLinecap="round" strokeLinejoin="round" aria-hidden />
+      {stops.map((s, i) => {
+        const [x, y] = placed[i];
+        const r = s.on ? 11 : 8.5;
+        return (
+          <g key={s.key} role="button" tabIndex={0} aria-label={`${s.n}: ${s.label}`} aria-pressed={!!s.on} style={{ cursor: "pointer" }}
+            onClick={() => onStop?.(s.key)} onKeyDown={(e) => e.key === "Enter" && onStop?.(s.key)}>
+            {s.on && <circle cx={x} cy={y} r={r + 5} fill={C.acc} fillOpacity={0.2} />}
+            <circle cx={x} cy={y} r={r} fill={s.on ? C.acc : C.surf} stroke={s.on ? C.inkS : STOP_COL[s.tone]} strokeWidth={s.on ? 1.5 : 2} />
+            <text className="hp-t" x={x} y={y + (s.on ? 4 : 3.5)} fontSize={s.on ? 11 : 9.5} fontWeight={700} textAnchor="middle"
+              fill={s.on ? "#fff" : C.inkS} style={{ fontVariantNumeric: "tabular-nums" }}>{s.n}</text>
+            <title>{`${s.n}: ${s.label}`}</title>
+          </g>
+        );
+      })}
+      {callout && (
+        <g pointerEvents="none" aria-hidden>
+          <line x1={placed[on][0]} y1={placed[on][1]} x2={callout.x + (callout.x > placed[on][0] ? 0 : tw)} y2={callout.y + th / 2} stroke={C.acc} strokeOpacity={0.7} />
+          <clipPath id="hp-still"><rect x={callout.x} y={callout.y} width={tw} height={th} rx={6} /></clipPath>
+          <rect x={callout.x - 1.5} y={callout.y - 1.5} width={tw + 3} height={th + 3} rx={7} fill={C.surf} stroke={C.acc} strokeWidth={1.5} />
+          <image href={stops[on].still!} x={callout.x} y={callout.y} width={tw} height={th} preserveAspectRatio="xMidYMid slice" clipPath="url(#hp-still)" />
+        </g>
+      )}
     </g>
   );
 }
