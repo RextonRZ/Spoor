@@ -59,3 +59,4 @@
 .fp[data-dim] .fp-belt, .fp[data-dim] .fp-loop { stroke: #d5d8e1; }
 .fp[data-dim] .fp-solid { fill: #c9ccd6; }
 .fp[data-dim] .fp-label { fill: #3b3f4c; font-weight: 650; }
+.fp-scale text, .fp-north text { paint-order: stroke; stroke: var(--fp-paper); stroke-width: 0.35; stroke-linejoin: round; }

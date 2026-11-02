@@ -77,6 +77,8 @@ export function FloorApp({ caseId, waybill, waited, framed = true }: { caseId: s
   const route = walkRoute(YOU, place?.centroid_xy ?? YOU);
   const metres = route.reduce((a, p, i) => i ? a + Math.hypot(p[0] - route[i - 1][0], p[1] - route[i - 1][1]) : 0, 0);
   const walkMin = Math.max(1, Math.round(metres / 1.2 / 60)); // a brisk walk, 1.2 m/s
+  const here = metres < 8; // the place is where the worker starts (the office): no walk to show
+  const walkWords = here ? "Where you are" : `About ${walkMin} min walk`;
 
   // an answer saved while offline goes out when the phone is back online
   const flush = useCallback(async () => {
@@ -157,7 +159,7 @@ export function FloorApp({ caseId, waybill, waited, framed = true }: { caseId: s
                   <span className="fa-card-why">{lastSeen && placeName(place).toLowerCase().split(" ").some((w) => lastSeen.title.toLowerCase().includes(w))
                     ? `${lastSeen.title} at ${hm(lastSeen.t)}, not seen coming out` : "Next most likely place, from the cameras"}</span>
                   <span className="fa-card-meta">
-                    <span><svg viewBox="0 0 24 24" aria-hidden><path d="M13 4a1.5 1.5 0 1 0 0-.01M10 21l2-6 3 3v5M8 12l3-3 3 2 2 3M11 9l-2 6" /></svg>About {walkMin} min walk</span>
+                    <span><svg viewBox="0 0 24 24" aria-hidden><path d="M13 4a1.5 1.5 0 1 0 0-.01M10 21l2-6 3 3v5M8 12l3-3 3 2 2 3M11 9l-2 6" /></svg>{walkWords}</span>
                     <span className="fa-mono">…{waybill.slice(-4)}</span>
                   </span>
                   <svg className="fa-card-go" viewBox="0 0 24 24" aria-hidden><path d="M9 5l7 7-7 7" /></svg>
@@ -189,9 +191,9 @@ export function FloorApp({ caseId, waybill, waited, framed = true }: { caseId: s
                 </div>
               </section>
               <section className="fa-card fa-map" aria-label="Where to walk">
-                <div className="fa-map-head"><span className="fa-k">Walk to</span><span>{placeName(place)} · about {walkMin} min</span></div>
-                <FloorPlan label={`Walking route to the ${placeName(place)}`} fit={[you, target, ...route]} margin={4} highlight={zone?.id}
-                  route={route} you={you} labels="none" labelIds={["Z13", zone?.id ?? "", "Z05"]} labelSize={2.3} dim />
+                <div className="fa-map-head"><span className="fa-k">{here ? "You are here" : "Walk to"}</span><span>{here ? `Search the ${placeName(place).toLowerCase()}` : `${placeName(place)} · about ${walkMin} min`}</span></div>
+                <FloorPlan label={`Walking route to the ${placeName(place)}`} fit={[you, target, ...route]} margin={here ? 24 : 4} highlight={zone?.id}
+                  route={here ? undefined : route} you={you} labels="none" labelIds={["Z13", zone?.id ?? "", "Z05"]} labelSize={2.3} dim />
               </section>
             </div>
           )}
@@ -574,7 +576,8 @@ function NextPlace({ job, more, onNext, placeName: next }: { job: string | null;
   }, [job]);
   return (
     <div className="fa-pad fa-center">
-      <span className="fa-orbit" data-state={state} aria-hidden><i /><i /><i /></span>
+      {state === "plan" ? <span className="fa-orbit" aria-hidden><i /><i /><i /></span>
+        : <span className="fa-tick" aria-hidden><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24" /><path d="M15 27l7 7 15-16" /></svg></span>}
       <h1 className="fa-h1">{state === "plan" ? "Spoor is checking the next place" : more ? "Next place ready" : "Every place checked"}</h1>
       <p className="fa-lead">{state === "plan" ? "Your answer is in the case. The cameras are being checked again with it." : more ? `Next: the ${next}.` : "The supervisor has your answers and will decide what's next."}</p>
       {state === "ready" && more && <button type="button" className="fa-primary fa-inline" onClick={onNext}>Open the next place</button>}
