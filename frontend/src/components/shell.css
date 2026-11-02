@@ -206,3 +206,5 @@
 /* the app fills the page however tall it scrolls (a full-page capture showed the body colour below 100vh) */
 .sb-app { min-height: 100dvh; background: linear-gradient(to right, var(--tb-side) 0, var(--tb-side) var(--sb-w, 240px), var(--tb-bg) var(--sb-w, 240px)); }
 .sb-app[data-rail] { --sb-w: 68px; }
+@media (max-width: 1100px) { .sb-app { --sb-w: 64px; } }
+@media (max-width: 700px) { .sb-app { background: var(--tb-bg); } }
