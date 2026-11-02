@@ -494,11 +494,79 @@ function Overlay({ S, ext, journey: j, missing, marker, cloud, litCameras = [], 
   );
 }
 
+/** The belts as a graph (every conveyor's line, about a point a metre, joined where one belt's end meets another), for
+ *  drawing the way between two stops that both sit on belts the way a parcel rides (Rexton 2 Nov: 1 to 2 cut straight
+ *  across the building). Drawn as "not seen", like any hop between stops. */
+let BELTS: { pts: XY[]; adj: number[][] } | null = null;
+function belts() {
+  if (BELTS) return BELTS;
+  const pts: XY[] = [], adj: number[][] = [], ends: number[][] = [];
+  // the sorter loop (a stadium: two straights, two half circles) and the chutes off it ride with the belts
+  const L = HUB.machines.loop;
+  const arc = (cx: number, from: number): XY[] => Array.from({ length: 13 }, (_, k) => {
+    const a = from + (Math.PI * k) / 12;
+    return [cx + L.radius * Math.cos(a), L.cy + L.radius * Math.sin(a)];
+  });
+  const loop: XY[] = [[L.west_cx, L.south_y], [L.east_cx, L.south_y], ...arc(L.east_cx, -Math.PI / 2).slice(1),
+    [L.west_cx, L.north_y], ...arc(L.west_cx, Math.PI / 2).slice(1)];
+  const lines = [...HUB.machines.conveyors.map((cv) => cv.path), loop,
+    ...HUB.machines.chutes.map((c): XY[] => [[c.x, L.north_y], [c.x, c.mouth_y], [c.x, c.end_y]])];
+  for (const path of lines) {
+    const cv = { path };
+    const ids: number[] = [];
+    cv.path.forEach((p, i) => {
+      if (i) {
+        const q = cv.path[i - 1], n = Math.max(1, Math.ceil(Math.hypot(p[0] - q[0], p[1] - q[1])));
+        for (let k = 1; k < n; k++) { ids.push(pts.length); pts.push([q[0] + ((p[0] - q[0]) * k) / n, q[1] + ((p[1] - q[1]) * k) / n]); adj.push([]); }
+      }
+      ids.push(pts.length); pts.push([p[0], p[1]]); adj.push([]);
+    });
+    ids.forEach((id, i) => { if (i) { adj[id].push(ids[i - 1]); adj[ids[i - 1]].push(id); } });
+    ends.push(ids);
+  }
+  ends.forEach((ids, c) => [ids[0], ids[ids.length - 1]].forEach((e) => {  // a belt's end onto the nearest point of another
+    let best = -1, bd = 1.6;
+    ends.forEach((o, c2) => { if (c2 !== c) o.forEach((j) => { const d = Math.hypot(pts[j][0] - pts[e][0], pts[j][1] - pts[e][1]); if (d < bd) { bd = d; best = j; } }); });
+    if (best >= 0) { adj[e].push(best); adj[best].push(e); }
+  }));
+  BELTS = { pts, adj };
+  return BELTS;
+}
+function beltWay(a: XY, b: XY): XY[] | null {
+  const { pts, adj } = belts();
+  const near = (p: XY) => {
+    let best = -1, bd = 1.3;
+    pts.forEach((q, i) => { const d = Math.hypot(q[0] - p[0], q[1] - p[1]); if (d < bd) { bd = d; best = i; } });
+    return best;
+  };
+  const s = near(a), t = near(b);
+  if (s < 0 || t < 0 || s === t) return null;
+  const dist = new Array(pts.length).fill(Infinity), prev = new Array(pts.length).fill(-1), done = new Array(pts.length).fill(false);
+  dist[s] = 0;
+  for (;;) {
+    let u = -1;
+    for (let i = 0; i < pts.length; i++) if (!done[i] && dist[i] < Infinity && (u < 0 || dist[i] < dist[u])) u = i;
+    if (u < 0 || u === t) break;
+    done[u] = true;
+    for (const v of adj[u]) {
+      const d = dist[u] + Math.hypot(pts[v][0] - pts[u][0], pts[v][1] - pts[u][1]);
+      if (d < dist[v]) { dist[v] = d; prev[v] = u; }
+    }
+  }
+  if (!Number.isFinite(dist[t]) || dist[t] > 2.5 * Math.hypot(b[0] - a[0], b[1] - a[1]) + 8) return null;
+  const way: XY[] = [];
+  for (let v = t; v >= 0; v = prev[v]) way.unshift(pts[v]);
+  return [a, ...way, b];
+}
+
 /** The route stop by stop: a thin line joining them in order (under the belts' dotted runs and SAM's trails), a numbered
  *  dot per stop (the number is the checkpoint's number below the player), the picked one larger; picking one opens
  *  its frame in the player (a still on the plan as well only crowded it: Rexton 2 Nov). */
 function Stops({ stops, P, onStop }: { stops: Stop[]; P: (p: XY) => XY; onStop?: (key: string) => void }) {
   const at = stops.map((s) => P(s.xy));
+  // the way between stops: along the belts where both stops sit on them, otherwise a straight hop
+  const way = useMemo(() => stops.flatMap((s, i) => i === 0 ? [s.xy] : (beltWay(stops[i - 1].xy, s.xy)?.slice(1) ?? [s.xy])),
+    [stops]);
   // stops at the same spot (a scan and the camera that saw it) fan out a little so each number stays readable
   const placed: XY[] = [];
   at.forEach(([x, y]) => {
@@ -508,7 +576,7 @@ function Stops({ stops, P, onStop }: { stops: Stop[]; P: (p: XY) => XY; onStop?:
   });
   return (
     <g data-ev="stops">
-      <polyline points={placed.map((p) => p.join(",")).join(" ")} fill="none" stroke={C.ink} strokeOpacity={0.35} strokeWidth={1.5}
+      <polyline points={way.map((p) => P(p).join(",")).join(" ")} fill="none" stroke={C.ink} strokeOpacity={0.4} strokeWidth={1.5}
         strokeDasharray="1 5" strokeLinecap="round" strokeLinejoin="round" aria-hidden />
       {stops.map((s, i) => {
         const [x, y] = placed[i];
