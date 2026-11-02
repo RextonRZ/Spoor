@@ -289,7 +289,9 @@ def _keyed(r: _Run, store: EvidenceStore, case_id: str, models: dict[str, Any], 
             who = "people" if (a.get("concept") or "").lower() in ("person", "people") else "the parcel"
             n = len(res.get("tracks") or [])
             if err or not ok:
-                r.step("tracker", "sam_track", "unavailable", f"{_cam(cid or '')}: SAM could not run ({str(err)[:80]}).", camera_id=None)
+                why = ("not one of this case's cameras" if "outside the granted scope" in str(err)
+                       else "no detection there" if "no_detections" in str(err) else "the model did not answer")
+                r.step("tracker", "sam_track", "unavailable", f"{_cam(cid or '')}: SAM not run ({why}).", camera_id=None)
             else:
                 r.step("tracker", "sam_track", "done", f"{_cam(cid or '')}: SAM 3.1 tracked {who} ({n} track{'s' if n != 1 else ''}).",
                        node=node(cid, "seen", "Tracked") if cid and who == "the parcel" and n else None, camera_id=cid,

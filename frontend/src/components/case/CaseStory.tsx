@@ -68,7 +68,7 @@ function usePlayback(mediaId: string): { url: string; start: number } | null {
 function useClipFor(siteId: string | undefined) {
   const media = useResource<MediaRow[]>(siteId ? `/v1/sites/${siteId}/media` : null);
   return (hub: string, iso: string) => (media.data ?? []).find((m) => m.media.camera_id && camId.toHub(m.media.camera_id) === hub
-    && m.coverage.some((c) => Date.parse(c.start_utc) <= Date.parse(iso) && Date.parse(iso) <= Date.parse(c.end_utc)))?.media.media_id;
+    && !m.purged && m.coverage.some((c) => Date.parse(c.start_utc) <= Date.parse(iso) && Date.parse(iso) <= Date.parse(c.end_utc)))?.media.media_id;
 }
 
 export function CaseStory({ caseId, inside, view, journey, truck }: {

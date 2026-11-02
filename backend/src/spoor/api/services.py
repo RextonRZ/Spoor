@@ -15,6 +15,7 @@ from spoor.contracts import (
     Camera,
     CameraCoverage,
     Case,
+    CaseRevision,
     ClockSync,
     EvidenceScope,
     FloorCalibration,
@@ -50,6 +51,9 @@ from .jobs import JobRunner
 
 class ServiceError(ValueError):
     pass
+
+
+GRANT_REASON = "scope: cameras granted"
 
 
 @dataclass
@@ -380,13 +384,23 @@ class Services:
                          == "area" else "") + "new tracks are NOT linked to the case object until an investigator "
                                               "confirms them"}  # fmt: skip
 
+    def case_cameras(self, case: Case) -> list[str]:
+        """The cameras a case may use: those it was opened with, plus any an investigator granted later (a camera
+        installed after the case opened, e.g. a checkpoint camera), each grant a case revision with its actor. Empty:
+        every camera on the site (as at opening)."""
+        if not case.camera_ids:
+            return []
+        granted = [c for r in self.store.find(CaseRevision, case_id=case.case_id)
+                   if r.reason.startswith(GRANT_REASON) for c in r.changed_ids]  # fmt: skip
+        return list(dict.fromkeys([*case.camera_ids, *granted]))
+
     def tool_context(self, case: Case) -> ToolContext:
         site = self.site(case.site_id)
         window = None
         if case.window:
             window = TimeWindow(start_utc=case.window.start_utc, end_utc=case.window.end_utc)
         ctx = ToolContext(store=self.store, site=site, case=case, verifier=Verifier(self.store, site),
-                          scope=EvidenceScope(camera_ids=case.camera_ids, window=window))  # fmt: skip
+                          scope=EvidenceScope(camera_ids=self.case_cameras(case), window=window))  # fmt: skip
 
         def run_sam(media_id: str, concept: str | None = None, start_iso: str | None = None,
                     end_iso: str | None = None, scan_point_id: str | None = None, at_iso: str | None = None) -> dict:

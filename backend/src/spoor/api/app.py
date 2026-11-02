@@ -1283,6 +1283,30 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         p.require_site(site_id)
         return [a.model_dump(mode="json") for a in sorted(svc.store.find(LiveAlert, site_id=site_id), key=lambda a: a.at_utc)]
 
+    class CameraGrant(BaseModel):
+        camera_ids: list[str] = Field(min_length=1, max_length=50)
+
+    @app.post("/v1/cases/{case_id}/cameras", status_code=201)
+    def grant_cameras(case_id: str, body: CameraGrant, p: User) -> dict:
+        """Grant a case more cameras of its own site (a camera installed after the case opened): a case revision with
+        the investigator as its actor, audited. The run's scope is then the case's cameras plus the grants."""
+        from spoor.api.services import GRANT_REASON
+
+        p.require_role(Role.SITE_ADMIN, Role.INVESTIGATOR)
+        case = case_for(p, case_id)
+        if not case.camera_ids:
+            return {"camera_ids": [], "note": "this case already may use every camera on the site"}
+        for cam in body.camera_ids:
+            if get_or_404(Camera, cam).site_id != case.site_id:
+                raise HTTPException(422, f"{cam} is not on this case's site")
+        new = [c for c in body.camera_ids if c not in svc.case_cameras(case)]
+        if new:
+            head = svc.store.head_revision(case_id)
+            svc.store.append_revision(case_id, expected_parent=head.case_revision_id if head else None, actor=actor(p),
+                                      reason=f"{GRANT_REASON}: {', '.join(new)}", changed_ids=new, now=now())  # fmt: skip
+            audit(p, "case_cameras_granted", case_id, cameras=new)
+        return {"camera_ids": svc.case_cameras(case), "granted": new}
+
     @app.post("/v1/cases/{case_id}/customer-update")
     def customer_update(case_id: str, p: User) -> dict:
         """Draft the update for the customer who asked, from the verified answer only (spoor/customer.py). Stored as a

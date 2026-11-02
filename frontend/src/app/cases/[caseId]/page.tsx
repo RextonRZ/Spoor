@@ -53,7 +53,7 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
   const media = useResource<MediaRow[]>(siteId ? `/v1/sites/${siteId}/media` : null);
   // a checkpoint camera's clip that has this moment (for the passport's closing stamps)
   const clipAt = (hub: string, iso: string) => (media.data ?? []).find((m) => m.media.camera_id === `cam_${hub}`
-    && m.coverage.some((c) => Date.parse(c.start_utc) <= Date.parse(iso) && Date.parse(iso) <= Date.parse(c.end_utc)))?.media.media_id;
+    && !m.purged && m.coverage.some((c) => Date.parse(c.start_utc) <= Date.parse(iso) && Date.parse(iso) <= Date.parse(c.end_utc)))?.media.media_id;
 
   const view = st.data?.answer;
   // the investigation's verified answer leads when there is one (a floor find still wins); otherwise the read models

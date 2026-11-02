@@ -76,7 +76,7 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
     .map((x) => camId.toHub(x.camera_id!))), [run.data]);
   const records = cr.data?.objects[0]?.records ?? [];
   const coverage = (hub: string, t: string) => (media.data ?? []).find((m) => m.media.camera_id && camId.toHub(m.media.camera_id) === hub
-    && m.coverage.some((c) => within(t, c)));
+    && !m.purged && m.coverage.some((c) => within(t, c)));
 
   // every camera on the route, in order: who watched each scan, then the cameras due next (missing moment)
   const tiles: Tile[] = useMemo(() => {
@@ -97,17 +97,16 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
       const cam = camId.toHub(best.camera_id);
       const tunnel = best.rule === "tunnel_exit" && best.outcome === "outlined" && !best.labelled;
       const tone = best.labelled || tunnel ? "seen" : "wait";
-      const status = best.labelled ? `${waybillOf} · scanned here` : tunnel ? "The tunnel's own photo" : best.outcome === "clock_not_fitted" ? "Camera clock not fitted"
-        : best.outcome === "outlined" || best.outcome === "cant_tell" ? "Can't tell which carton" : "Not seen at the point";
+      // a scan no number can go on is shown as the scan record: the camera's frame at that moment, no carton named
+      const status = best.labelled ? `${waybillOf} · scanned here` : tunnel ? "The tunnel's own photo" : "Scan record";
       out.push({ key: s.scan_event_id, cam, place: label, t: best.at_utc, tone, status, media_id: best.media_id, frame: best.frame_index,
         mark: best.labelled && best.box_px ? { box: best.box_px, text: waybillOf } : undefined,
         photo: tunnel ? `/scanner/${waybillOf}.jpg` : undefined,
         headline: best.labelled ? `${label} at ${hms(s.t)}: this carton.` : `${label} at ${hms(s.t)}.`,
         body: best.labelled ? `The scan says which parcel; ${camName(cam)} sees ${where}, and SAM 3.1 outlined the one carton there that could be it.`
           : tunnel ? `The scan tunnel's own camera took this photo at the read. On ${camName(cam)} the carton at the exit can't be told from the one queued before it, so no number goes on it.`
-          : best.outcome === "cant_tell" && best.note.endsWith(" here") ? `${best.note}, and ${camName(cam)}'s clock is not fitted closely enough to tell them apart, so no number goes on either.`
-          : best.outcome === "clock_not_fitted" ? `${camName(cam)} sees ${where}, but its clock is not fitted, so the carton at the scan's second can't be told from its neighbours.`
-          : `${camName(cam)} sees ${where}; more than one carton could be the one scanned, so no number goes on any of them.` });
+          : best.outcome === "cant_tell" && best.note.endsWith(" here") ? `The scanner recorded this. ${best.note}, so ${camName(cam)}'s frame shows ${where} at that moment with no number on any carton.`
+          : `The scanner recorded this. ${camName(cam)}'s frame shows ${where} at that moment; a number goes on a carton only when no other could be the one scanned.` });
     }
     // taken out of its cage without a scan: the live alert (the only parcel caged there with no scan since)
     for (const a of (alerts.data ?? []).filter((x) => x.candidates.some((c) => c.waybill === waybillOf))) {
@@ -146,7 +145,7 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
     if (inside) {
       const wide = inside.camera.replace(" ", "_");
       const door = (media.data ?? []).find((m) => m.media.camera_id && camId.toHub(m.media.camera_id).startsWith("CHK_STORE")
-        && m.coverage.some((c) => within(inside.iso.carried_in_at, c)));
+        && !m.purged && m.coverage.some((c) => within(inside.iso.carried_in_at, c)));
       const cam = door ? camId.toHub(door.media.camera_id!) : wide;
       out.push({ key: "in", cam, place: `into the ${inside.place.replace(/ \(Z\d+\)$/, "").toLowerCase()}`, t: inside.iso.carried_in_at, tone: "seen",
         status: `Carried in ${inside.carried_in_at}`, headline: `Carried into the ${inside.place} at ${inside.carried_in_at}.`,
@@ -158,7 +157,7 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
       if (truck && Date.parse(truck.t) > Date.parse(inside.iso.carried_in_at) && Date.parse(truck.t) < Date.parse(inside.iso.until)) {
         const d = truck.station_id?.match(/D\d{2}/)?.[0] ?? "";
         const dock = (media.data ?? []).find((m) => m.media.camera_id && camId.toHub(m.media.camera_id) === "CHK_DOCK"
-          && m.coverage.some((c) => within(truck.t, c)));
+          && !m.purged && m.coverage.some((c) => within(truck.t, c)));
         out.push({ key: "truck", cam: dock ? "CHK_DOCK" : cam, place: "truck record", t: truck.t, tone: "bad", status: "Records vs cameras",
           headline: `Record says loaded on truck ${d}. Cameras show it never left.`.replace("  ", " "),
           body: `Its cage's tag was read at the dock gate at ${hms(truck.t)}, but at that moment it was inside the ${inside.place}: carried in at ${inside.carried_in_at}, not seen coming out until ${inside.until}.` });

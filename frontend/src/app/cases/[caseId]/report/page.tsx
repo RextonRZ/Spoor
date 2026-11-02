@@ -7,24 +7,39 @@
  */
 import { conflictWords, type Conflict } from "@/lib/conflict";
 import Link from "next/link";
-import { use, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { API_BASE, api, signedUrl, useResource } from "@/lib/api";
 import type { Journey, MissingMoment, XY } from "@/lib/journey";
 import { hhmm, hms, momentLabel, placeOf, shortPlace } from "@/lib/words";
 import { scanPoint } from "@/lib/hub";
+import type { MediaRow, Site } from "@/lib/types";
 import { CaseSteps } from "@/components/flow/CaseSteps";
 import HubPlan, { ZONE_NAMES } from "@/components/plan/HubPlan";
 import "@/app/hub/hub.css";
 import "./report.css";
 
 interface CaseState { case: { target_description: string; complaint?: string | null; created_at: string };
-  answer?: { objects: { inside: { place: string } | null }[] } | null }
+  answer?: { objects: { inside: { place: string; carried_in_at: string; iso: Record<string, string> } | null }[] } | null }
 interface Draft { draft: string; facts: string[]; model: string; note: string; approved: boolean; sent: boolean; status?: string }
 interface Possible { objects: { places: { area_id: string; name: string; zone_id: string | null; possible_share: number; centroid_xy: XY }[] }[] }
 interface Conflicts { objects: { conflicts: Conflict[] }[] }
 interface SearchView { found: { area_id: string; name: string; by: string; at: string } | null }
 const low = (t: string) => t.charAt(0).toLowerCase() + t.slice(1); // keeps "C12"
-interface Moment { key: string; t: string | null; text: string; who: string; xy: XY | null; frame?: string; cam?: string | null; tone?: "bad" | "ok" }
+interface Moment { key: string; t: string | null; text: string; who: string; xy: XY | null; frame?: string; cam?: string | null; tone?: "bad" | "ok";
+  /** a clip that shows the moment (the frame is fetched from it) */
+  media?: string }
+
+/** the frame of a clip at a moment (a signed original frame) */
+function MomentFrame({ media, t, alt }: { media: string; t: string; alt: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    api<{ frame_url: string }>(`/v1/media/${media}/frame-at?time=${encodeURIComponent(t)}`).then((r) => live && setUrl(signedUrl(r.frame_url))).catch(() => {});
+    return () => { live = false; };
+  }, [media, t]);
+  // eslint-disable-next-line @next/next/no-img-element -- a signed CCTV frame
+  return url ? <img src={url} alt={alt} /> : <span className="rp-fig-none" aria-busy="true" />;
+}
 
 export default function ReportPage({ params }: { params: Promise<{ caseId: string }> }) {
   const { caseId } = use(params);
@@ -42,6 +57,10 @@ export default function ReportPage({ params }: { params: Promise<{ caseId: strin
   const [copied, setCopied] = useState(false);
   const upd = drafted ?? saved.data ?? null;
   const inside = st.data?.answer?.objects.find((o) => o.inside)?.inside ?? null;
+  const sites = useResource<Site[]>("/v1/sites");
+  const media = useResource<MediaRow[]>(sites.data?.[0] ? `/v1/sites/${sites.data[0].site_id}/media` : null);
+  const clipAt = (hub: string, iso: string) => (media.data ?? []).find((m) => m.media.camera_id === `cam_${hub}` && !m.purged
+    && m.coverage.some((c) => Date.parse(c.start_utc) <= Date.parse(iso) && Date.parse(iso) <= Date.parse(c.end_utc)))?.media.media_id;
 
   const j = jr.data?.objects[0];
   const scans = j?.scans ?? [];
@@ -61,8 +80,21 @@ export default function ReportPage({ params }: { params: Promise<{ caseId: strin
     found ? `Floor staff found it at ${hhmm(found.at)}.` : places.length ? `It could be in ${places.length} places; the most likely is the ${shortPlace(places[0], ZONE_NAMES)}.` : "",
   ].filter(Boolean).join(" ") : "";
 
+  const records = (cr.data?.objects[0] as { records?: { t: string; event_kind?: string | null; station_id?: string | null }[] } | undefined)?.records ?? [];
+  const truckRec = records.find((r) => r.event_kind === "container_loaded");
+  const cage = scans.findLast((s) => s.event_kind === "container_add");
+  const answered: Moment[] = inside ? [
+    ...(cage ? [{ key: "cage", t: cage.t, text: low(momentLabel(cage.event_kind, cage.station_id)), who: "scan record", xy: null,
+      cam: "CHK_CAGE_W", media: clipAt("CHK_CAGE_W", cage.t) }] : []),
+    { key: "in", t: inside.iso.carried_in_at, text: `carried into the ${inside.place.replace(/ \(Z\d+\)$/, "").toLowerCase()}, no scan-in`, who: "camera", xy: null,
+      cam: "CHK_STORE", media: clipAt("CHK_STORE", inside.iso.carried_in_at), tone: "ok" as const },
+    ...(inside.iso.came_out_0 ? [{ key: "out", t: inside.iso.came_out_0, text: "came out without it", who: "camera", xy: null, cam: "CHK_STORE",
+      media: clipAt("CHK_STORE", inside.iso.came_out_0) }] : []),
+    ...(truckRec ? [{ key: "truck", t: truckRec.t, text: `record says loaded on truck ${truckRec.station_id?.match(/D\d{2}/)?.[0] ?? ""}, it never left`.replace("  ", " "),
+      who: "records check", xy: null, cam: "CHK_DOCK", media: clipAt("CHK_DOCK", truckRec.t), tone: "bad" as const }] : []),
+  ].filter((m) => m.media) : [];
   // four key moments: the last two scans, the records conflict, the floor search
-  const moments: Moment[] = [
+  const moments: Moment[] = answered.length ? answered : [
     ...scans.slice(-2).map((s) => ({ key: s.scan_event_id, t: s.t, text: low(momentLabel(s.event_kind, s.station_id)),
       who: "scan record", xy: s.xy, cam: scanPoint(s.station_id ?? s.device_id)?.visible_by[0] ?? null,
       frame: s.scan_event_id === lc?.evidence_id ? lc?.frames?.[0]?.frame_url : undefined })),
@@ -123,25 +155,25 @@ export default function ReportPage({ params }: { params: Promise<{ caseId: strin
             <span className="rp-ref">{waybill}</span>
           </header>
           <span className="rp-pill" data-tone={found || inside ? "ok" : "bad"}>{found ? `Found · ${hhmm(found.at)} by ${found.by}` : inside ? "Likely location found" : "Lost track"}</span>
-          <h1 className="rp-h1">{ready ? head : "Checking the records"}</h1>
+          <h1 className="rp-h1">{ready || inside ? head : "Checking the records"}</h1>
           {story && <p className="rp-p">{story}</p>}
 
           <h2 className="rp-h2">Key moments</h2>
           <div className="rp-frames">
             {moments.map((m) => (
               <figure key={m.key} className="rp-fig">
-                {m.frame ? (
+                {m.media && m.t ? <MomentFrame media={m.media} t={m.t} alt={m.text} /> : m.frame ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={signedUrl(m.frame)} alt={m.text} />
                 ) : m.cam ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={`/cameras/${m.cam}.jpg`} alt={`${m.cam.replace("_", " ")}'s view of the place`} loading="lazy" />
+                  <img src={`/cameras/${m.cam}.jpg`} alt={`${m.cam.replaceAll("_", " ")}'s view of the place`} loading="lazy" />
                 ) : m.xy ? (
                   <span className="rp-fig-plan"><HubPlan label={m.text} focus={{ xy: m.xy, radius_m: 9, tone: m.tone === "bad" ? "bad" : "warn" }} legend={false} fit="contain" minHeight={0} /></span>
                 ) : (
                   <span className="rp-fig-none" data-tone={m.tone}>{m.tone === "bad" ? "Records disagree" : m.tone === "ok" ? "Found" : "No picture"}</span>
                 )}
-                <figcaption><strong>{m.t ? hms(m.t) : "next"}</strong> · {m.text} · {m.cam ? `${m.cam.replace("_", " ")} view` : m.who}</figcaption>
+                <figcaption><strong>{m.t ? hms(m.t) : "next"}</strong> · {m.text} · {m.cam ? `${m.cam.replaceAll("_", " ")} view` : m.who}</figcaption>
               </figure>
             ))}
           </div>

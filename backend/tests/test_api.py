@@ -459,3 +459,21 @@ def test_reference_clock_and_camera_clock_fit(ready):
                headers=h("t-inv")).json()  # fmt: skip
     assert fa["frame_index"] == 0  # the clip now starts 2.5 s later on the reference timeline
     assert c.post("/v1/cameras/cam_a/clock-fit", json={"anchors": anchors[:3]}, headers=h("t-inv")).status_code == 403
+
+
+def test_granting_a_case_a_camera_installed_later(ready):
+    """A case opened with a camera list can be granted a camera of its own site added later (a case revision, audited);
+    the run's scope becomes the list plus the grant; a camera of another site is refused."""
+    c, svc, _, _ = ready
+    cam_b = {"camera_id": "cam_b", "site_id": "site_demo", "floor_id": "floor_g", "name": "B", "resolution_wh_px": [320, 240]}
+    assert c.post("/v1/sites/site_demo/cameras", json=cam_b, headers=h("t-admin")).status_code == 201
+    case = c.post("/v1/cases", json={"site_id": "site_demo", "question": "Where is it?", "target_description": "blue case",
+                                     "camera_ids": ["cam_a"]}, headers=h("t-inv")).json()
+    cid = case["case"]["case_id"] if "case" in case else case["case_id"]
+    r = c.post(f"/v1/cases/{cid}/cameras", json={"camera_ids": ["cam_b"]}, headers=h("t-inv"))
+    assert r.status_code == 201 and r.json()["granted"] == ["cam_b"]
+    from spoor.contracts import Case
+
+    assert svc.tool_context(svc.store.get(Case, cid)).scope.camera_ids == ["cam_a", "cam_b"]
+    assert c.post(f"/v1/cases/{cid}/cameras", json={"camera_ids": ["cam_b"]}, headers=h("t-inv")).json()["granted"] == []
+    assert c.post(f"/v1/cases/{cid}/cameras", json={"camera_ids": ["cam_zz"]}, headers=h("t-inv")).status_code == 404

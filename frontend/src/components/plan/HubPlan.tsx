@@ -411,7 +411,7 @@ function Overlay({ S, ext, journey: j, missing, marker, cloud, litCameras = [], 
             {hi && <path d={`M${cx},${cy} L${p1} A${rng * S},${rng * S} 0 0 0 ${p2} Z`} fill={C.acc} fillOpacity={0.07} stroke={C.acc} strokeOpacity={0.35} />}
             <circle cx={cx} cy={cy} r={hi ? 6 : 3.5} fill={C.surf} stroke={col} strokeWidth={1.6}><title>{`${c.id} ${c.osd_label}`}</title></circle>
             <line x1={cx} y1={cy} x2={cx + dx * (hi ? 11 : 6.5)} y2={cy + dy * (hi ? 11 : 6.5)} stroke={col} strokeWidth={1.8} strokeLinecap="round" />
-            {hi && <text className="hp-t" x={cx - dx * 15} y={cy - dy * 15 + 4} fontSize={10} fill={C.acc} fontWeight={640} textAnchor="middle">{c.id.replace("_", " ")}</text>}
+            {hi && <text className="hp-t" x={cx - dx * 15} y={cy - dy * 15 + 4} fontSize={10} fill={C.acc} fontWeight={640} textAnchor="middle">{c.id.replaceAll("_", " ")}</text>}
           </g>
         );
       })}

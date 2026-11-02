@@ -184,7 +184,7 @@ export function View({ siteId, point, at, tone, place }: { siteId: string; point
   const [viewOk, setViewOk] = useState(true);
   const hit = at && sp ? [...(media.data ?? [])].sort((x, y) => Number(!!y.media.camera_id?.includes("CHK_")) - Number(!!x.media.camera_id?.includes("CHK_")))
     .find((m) => m.media.camera_id && sp.visible_by.includes(camId.toHub(m.media.camera_id))
-    && m.coverage.some((c) => Date.parse(c.start_utc) <= Date.parse(at) && Date.parse(at) <= Date.parse(c.end_utc))) : undefined;
+    && !m.purged && m.coverage.some((c) => Date.parse(c.start_utc) <= Date.parse(at) && Date.parse(at) <= Date.parse(c.end_utc))) : undefined;
   const mediaId = hit?.media.media_id;
   const camHub = hit?.media.camera_id ? camId.toHub(hit.media.camera_id) : null;
   useEffect(() => {
@@ -224,7 +224,6 @@ export function CaseDetail({ siteId, a, keyed }: { siteId: string; a: CaseItem; 
   const dims = scans.find((s) => s.dims_mm)?.dims_mm;
   const investigated = (run.data?.steps.length ?? 0) > 0;
   const href = investigated ? `/cases/${a.c.case_id}` : `/cases/${a.c.case_id}/investigate`;
-  const cps = scans.length ? buildCheckpoints({ scans, records: cf.data?.objects[0]?.records ?? [], barcode: waybill }) : null;
   const sub = [dims ? `${dims.map((d) => Math.round(d / 10)).join(" × ")} cm` : "",
     cs.data?.case.complaint ? `customer asked: says it never arrived${last && waited(last.t, cs.data.case.created_at) ? `, ${waited(last.t, cs.data.case.created_at)} after its last scan here` : ""} · case opened ${ago(cs.data.case.created_at)}` : ""].filter(Boolean).join(" · ");
   const ans = cs.data?.answer?.objects[0];
@@ -233,6 +232,9 @@ export function CaseDetail({ siteId, a, keyed }: { siteId: string; a: CaseItem; 
   const records = cf.data?.objects[0]?.records ?? [];
   const truck = records.find((r) => r.event_kind === "container_loaded" || r.event_kind === "departed_facility");
   const truckLie = !!(inside && truck && Date.parse(truck.t) > Date.parse(inside.iso.carried_in_at) && Date.parse(truck.t) < Date.parse(inside.iso.until));
+  // the same checkpoints as the case page: once the run placed it, the truck and the store read from it
+  const cps = scans.length ? buildCheckpoints({ scans, records, barcode: waybill, truckSeen: inside ? !truckLie : undefined,
+    storeSeenAt: inside ? inside.iso.carried_in_at : undefined }) : null;
   const head = inside ? `Most likely in the ${inside.place}.`
     : ls ? `Last scan record: ${low(momentLabel(ls.event_kind, ls.scan_point_id))} at ${hms(ls.at)}. ${ls.camera ? `Seen there on ${ls.camera.replace(/^cam_/, "").replaceAll("_", " ")}.` : "Not seen on camera."}`
     : last ? `${lastScanSentence(last.event_kind, last.station_id, last.t)} ${missingNextSentence(last.event_kind)}` : "No scans of this parcel at this hub.";

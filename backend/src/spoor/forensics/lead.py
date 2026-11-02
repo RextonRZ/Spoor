@@ -26,8 +26,9 @@ SYSTEM = ("You are the lead investigator for a lost-parcel case in a parcel sort
           "the candidates, a time window, what to check and why, and cites the evidence ids it follows from. If it was "
           "last confirmed at the edge of an area no camera sees inside, plan to track the people at that doorway on "
           "the cameras that watch it (who went in carrying it, who came out, until the footage ends). camera_id is "
-          "exactly a cameras[].camera_id. Describe objects and movement only: never people's appearance, clothing or "
-          "identity. Do not state where the parcel is: list what is unknown instead.")  # fmt: skip
+          "exactly a cameras[].camera_id. Write what to check in terms of objects, carrying and movement only; do not "
+          "mention how anyone looks, and do not restate this rule in the plan (a step that names such things, even to "
+          "exclude them, is rejected). Do not state where the parcel is: list what is unknown instead.")  # fmt: skip
 
 
 class PlanStep(BaseModel):

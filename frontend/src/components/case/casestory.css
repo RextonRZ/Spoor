@@ -38,3 +38,5 @@
   .cs-plan { height: 200px; }
 }
 @media (prefers-reduced-motion: reduce) { .cs-video rect { transition: none; } }
+/* the story inset names its one area in the caption; the other zones' labels only collided at its edges (tick 1147 #3) */
+.cs-plan .hp-zl { display: none; }
