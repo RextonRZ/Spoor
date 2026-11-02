@@ -940,6 +940,14 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
 
     threading.Thread(target=warm, name="warm-read-models", daemon=True).start()
 
+    @app.get("/v1/sites/{site_id}/insights")
+    def insights(site_id: str, p: User) -> dict:
+        """Hub insights (tick 2315): the feedback loop from stored records only; every count with the ids behind it."""
+        from spoor.forensics.insights import hub_insights
+
+        p.require_site(site_id)
+        return memo("insights", site_id, "", lambda: hub_insights(svc.store, site_id, now=now()))
+
     @app.get("/v1/cases/{case_id}/possible-locations")
     def possible(case_id: str, p: User, t: AwareDatetime | None = None) -> dict:
         """Where it could be (I4): reachable floor area minus what analysed cameras watched without seeing it, per time

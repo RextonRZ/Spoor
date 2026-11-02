@@ -19,6 +19,7 @@ const ICONS: Record<string, ReactNode> = {
   hub: <path d="M10 3.2 3 6.6v6.8l7 3.4 7-3.4V6.6zM3 6.6l7 3.4 7-3.4M10 10v6.8" />,
   cases: <path d="M3.5 6.5h13v9a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1zM7.5 6.5V4.8a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1.7M3.5 10.5h13" />,
   cams: <path d="M3 6.5h9.5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1zM13.5 9l4-2.2v6.4l-4-2.2" />,
+  insights: <path d="M3.5 16.5h13M5.5 13.5v-3M9 13.5V6.5M12.5 13.5v-5M16 13.5V4.5" />,
   settings: <path d="M10 12.4a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8zM16 10c0-.5 0-.9-.1-1.3l1.6-1.3-1.5-2.6-2 .7a6 6 0 0 0-2.2-1.3L11.5 2h-3l-.3 2.2A6 6 0 0 0 6 5.5l-2-.7-1.5 2.6 1.6 1.3a6 6 0 0 0 0 2.6l-1.6 1.3 1.5 2.6 2-.7a6 6 0 0 0 2.2 1.3l.3 2.2h3l.3-2.2a6 6 0 0 0 2.2-1.3l2 .7 1.5-2.6-1.6-1.3c.1-.4.1-.8.1-1.3z" />,
 };
 // collapsed or expanded: a per-viewer convenience, remembered in this browser (blocked storage: expanded)
@@ -44,6 +45,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const nav = [
     { href: "/hub", label: "Hub", icon: "hub", on: path.startsWith("/hub") || path.startsWith("/cases") }, // cases live on the Hub
     { href: "/wall", label: "Cameras", icon: "cams", on: path.startsWith("/wall") },
+    { href: "/insights", label: "Insights", icon: "insights", on: path.startsWith("/insights") },
   ];
   const settings = { href: "/operator", label: "Settings", icon: "settings", on: path.startsWith("/operator") };
   const page = [...nav, settings].find((n) => n.on)?.label ?? "Spoor";
