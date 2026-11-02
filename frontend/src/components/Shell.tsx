@@ -54,7 +54,8 @@ export function Shell({ children }: { children: ReactNode }) {
     try { localStorage.setItem(SB_KEY, collapsed ? "full" : "rail"); } catch { /* storage blocked */ }
     window.dispatchEvent(new Event(SB_KEY));
   };
-  if (path === "/") return <>{children}</>; // the landing page (before the app) has its own header
+  // the landing page (before the app) has its own header; the worker's phone app (Spoor Floor) is full screen
+  if (path === "/" || path.startsWith("/floor/")) return <>{children}</>;
   return (
     <div className="tb-app sb-app" data-rail={collapsed ? "" : undefined}>
       <a className="sp-skip" href="#main">Skip to content</a>

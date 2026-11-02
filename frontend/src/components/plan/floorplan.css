@@ -1,0 +1,54 @@
+/* FloorPlan.tsx: a light, print-safe vector plan. Muted fills by zone kind, 1 px lines, the route the darkest mark.
+   Tokens are local so the plan reads the same on the dark app (it sits on its own light sheet) and on paper. */
+.fp {
+  --fp-paper: #fbfbfd; --fp-wall: #2b2f3a; --fp-line: #c9ccd6; --fp-ink: #3b3f4c; --fp-mute: #6b7080;
+  --fp-dock: #eef0f5; --fp-work: #f3f4f8; --fp-machine: #e9eaf1; --fp-stage: #f1f2f7; --fp-store: #eceef4; --fp-office: #f4f4f6;
+  --fp-accent: #4f46e5; --fp-accent-tint: rgba(79, 70, 229, 0.12); --fp-scan: #15803d; --fp-bad: #dc2626; --fp-route: #1e1b4b;
+  margin: 0; display: grid; gap: 8px;
+}
+.fp svg { display: block; width: 100%; height: auto; background: var(--fp-paper); border-radius: 10px; }
+.fp-building { fill: #fff; stroke: var(--fp-wall); }
+.fp-zone { stroke: var(--fp-line); }
+.fp-hl { fill: var(--fp-accent-tint); stroke: var(--fp-accent); }
+.fp-hatch { stroke: var(--fp-accent); opacity: 0.35; }
+.fp-walk { fill: none; stroke: none; }
+.fp-solid { fill: #9aa0ae; }
+.fp-bench { fill: #fff; stroke: #aab0bd; }
+.fp-bay { fill: none; stroke: #b7bcc8; }
+.fp-belt { stroke: #b4b9c6; fill: none; stroke-linecap: round; }
+.fp-loop { stroke: #b4b9c6; fill: none; }
+.fp-door { stroke: var(--fp-paper); stroke-linecap: butt; }
+.fp-label { fill: var(--fp-mute); font-family: Inter, system-ui, sans-serif; font-weight: 550; letter-spacing: 0.01em; paint-order: stroke;
+  stroke: rgba(251, 251, 253, 0.9); stroke-width: 0.35px; pointer-events: none; }
+.fp-label-hl { fill: var(--fp-accent); font-weight: 700; }
+.fp-route { stroke: var(--fp-route); stroke-linecap: round; }
+.fp-route-gap { stroke: var(--fp-bad); }
+.fp-walkroute { fill: none; stroke: var(--fp-accent); stroke-linecap: round; stroke-linejoin: round; }
+.fp-arrowhead { fill: var(--fp-accent); }
+.fp-cam-cone { fill: rgba(30, 27, 75, 0.12); }
+.fp-cam-dot { fill: var(--fp-route); }
+.fp-stop circle { fill: #fff; stroke: var(--fp-route); }
+.fp-stop text { fill: var(--fp-route); font-family: Inter, system-ui, sans-serif; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fp-stop[data-tone="scan"] circle { stroke: var(--fp-scan); }
+.fp-stop[data-tone="bad"] circle { stroke: var(--fp-bad); fill: #fff5f5; }
+.fp-stop[data-tone="bad"] text { fill: var(--fp-bad); }
+.fp-stop[data-on] circle { fill: var(--fp-accent); stroke: var(--fp-accent); }
+.fp-stop[data-on] text { fill: #fff; }
+.fp-stop[role="button"] { cursor: pointer; }
+.fp-stop:focus-visible { outline: none; }
+.fp-stop:focus-visible circle { stroke: var(--fp-accent); stroke-width: 0.5; }
+.fp-you-halo { fill: rgba(79, 70, 229, 0.18); animation: fp-pulse 2.4s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+.fp-you-dot { fill: var(--fp-accent); stroke: #fff; }
+@keyframes fp-pulse { 0% { transform: scale(0.6); opacity: 0.9; } 100% { transform: scale(1.6); opacity: 0; } }
+.fp-scale line { stroke: var(--fp-ink); }
+.fp-scale text, .fp-north text { fill: var(--fp-ink); font-family: Inter, system-ui, sans-serif; font-weight: 600; }
+.fp-north path { fill: var(--fp-ink); }
+.fp-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--tb-mute, #6b7080); }
+.fp-legend span { display: inline-flex; align-items: center; gap: 7px; }
+.fp-legend i { display: inline-block; width: 18px; height: 0; border-top: 2.5px solid var(--fp-route); }
+.fp-legend .fp-k-gap { border-top: 2.5px dashed var(--fp-bad); }
+.fp-legend .fp-k-hl { height: 10px; border: 1.5px solid var(--fp-accent); background: var(--fp-accent-tint); width: 14px; border-radius: 2px; }
+.fp-legend .fp-k-cam { width: 8px; height: 8px; border: 0; border-radius: 50%; background: var(--fp-route); }
+.fp-legend .fp-k-belt { border-top: 4px solid #b4b9c6; }
+@media (prefers-reduced-motion: reduce) { .fp-you-halo { animation: none; opacity: 0.4; } }
+@media print { .fp svg { background: #fff; } .fp-you-halo { animation: none; } }

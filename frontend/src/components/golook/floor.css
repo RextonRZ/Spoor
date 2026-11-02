@@ -1,0 +1,252 @@
+/* Spoor Floor (FloorApp.tsx): the worker's phone app. LIGHT for a bright hall (reviewer 03:40): white surfaces, near-black
+   ink, indigo the one action colour, green / red only for status. 48 px+ targets, the primary action in a fixed bottom bar.
+   Motion (apple-design + emil): screens push from the right and go back the same way (drawer curve, 380 ms), the sheet
+   rises from the bar it came from and follows the finger, presses answer on pointer-down (scale .97), the tick draws in
+   once. Reduced motion: cross-fades only. Prefix fa-. */
+.fa, .fa-phone {
+  --fa-bg: #f3f4f8; --fa-surface: #ffffff; --fa-ink: #0f1222; --fa-ink-2: #3a3f52; --fa-mute: #6b7084; --fa-line: #e3e5ee;
+  --fa-accent: #4f46e5; --fa-accent-2: #4338ca; --fa-accent-tint: #eef0ff; --fa-ok: #15803d; --fa-ok-tint: #e8f6ee;
+  --fa-bad: #b91c1c; --fa-bad-tint: #fdecec; --fa-warn: #a16207; --fa-warn-tint: #fdf4e3;
+  --fa-ease: cubic-bezier(0.32, 0.72, 0, 1); --fa-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --fa-r: 16px;
+}
+
+/* the phone frame (desktop): a device, not a card */
+.fa-phone { position: relative; width: 390px; height: 844px; flex: none; border-radius: 56px; padding: 12px; box-sizing: border-box;
+  background: linear-gradient(145deg, #2a2d36, #121318 60%); box-shadow: 0 0 0 1.5px #3b3f4b inset, 0 30px 80px rgba(0, 0, 0, 0.45), 0 2px 0 rgba(255, 255, 255, 0.06) inset; }
+.fa-phone > .fa { height: 100%; border-radius: 44px; overflow: hidden; }
+.fa-island { position: absolute; z-index: 30; top: 23px; left: 50%; width: 112px; height: 32px; margin-left: -56px; border-radius: 20px; background: #050507; }
+.fa-home { position: absolute; z-index: 30; bottom: 20px; left: 50%; width: 134px; height: 5px; margin-left: -67px; border-radius: 3px; background: rgba(15, 18, 34, 0.85); }
+
+.fa { position: relative; display: flex; flex-direction: column; background: var(--fa-bg); color: var(--fa-ink); font-family: Inter, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased; isolation: isolate; }
+.fa button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent; }
+.fa-status { flex: none; height: 50px; padding: 0 30px 0 34px; display: flex; align-items: center; justify-content: space-between;
+  font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.fa-status-r { display: inline-flex; gap: 6px; align-items: center; }
+.fa-status svg { height: 11px; fill: currentColor; }
+
+/* the bar: back or brand, title, step dots. Translucent over the content (material) */
+.fa-bar { flex: none; position: relative; z-index: 3; height: 52px; padding: 0 12px; display: grid; grid-template-columns: 48px 1fr 48px; align-items: center;
+  background: color-mix(in srgb, var(--fa-bg) 82%, transparent); backdrop-filter: blur(16px) saturate(170%); -webkit-backdrop-filter: blur(16px) saturate(170%); }
+.fa-brand { grid-column: 1 / span 2; display: inline-flex; align-items: center; gap: 8px; padding-left: 8px; font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+.fa-mark { width: 22px; height: 22px; fill: none; stroke: var(--fa-accent); stroke-width: 2; stroke-linecap: round; }
+.fa-back { all: unset; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 22px; cursor: pointer; transition: background-color 140ms ease, transform 120ms var(--fa-out); }
+.fa-back svg { width: 24px; height: 24px; fill: none; stroke: var(--fa-ink); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.fa-back:active { transform: scale(0.94); background: rgba(15, 18, 34, 0.06); }
+.fa-back:focus-visible { outline: 2px solid var(--fa-accent); outline-offset: 2px; }
+.fa-bar-title { text-align: center; font-size: 16px; font-weight: 650; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fa-steps { justify-self: end; display: inline-flex; gap: 4px; padding-right: 6px; }
+.fa-steps i { width: 6px; height: 6px; border-radius: 3px; background: #cfd2de; transition: width 300ms var(--fa-ease), background-color 200ms ease; }
+.fa-steps i[data-on] { background: var(--fa-accent); }
+.fa-steps i[data-on]:last-of-type, .fa-steps i[data-on]:has(+ i:not([data-on])) { width: 16px; }
+.fa-offline { margin: 0 12px 8px; padding: 10px 14px; border-radius: 12px; background: var(--fa-warn-tint); color: var(--fa-warn); font-size: 13.5px; font-weight: 550; }
+
+/* screens: pushed from the right, back slides from the left (the same path in both directions) */
+.fa-stage { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+.fa-screen { position: absolute; inset: 0; display: flex; flex-direction: column; animation: fa-in-fwd 380ms var(--fa-ease) both; }
+.fa-screen[data-dir="back"] { animation-name: fa-in-back; }
+@keyframes fa-in-fwd { from { transform: translateX(28%); opacity: 0; } }
+@keyframes fa-in-back { from { transform: translateX(-22%); opacity: 0; } }
+.fa-pad { padding: 8px 20px 120px; display: flex; flex-direction: column; gap: 14px; }
+.fa-scroll { overflow-y: auto; height: 100%; box-sizing: border-box; scrollbar-width: none; overscroll-behavior: contain; }
+.fa-scroll::-webkit-scrollbar { display: none; }
+.fa-center { align-items: center; text-align: center; justify-content: center; height: 100%; box-sizing: border-box; padding-bottom: 140px; }
+.fa-h1 { margin: 6px 0 0; font-size: 28px; line-height: 1.12; font-weight: 750; letter-spacing: -0.025em; text-wrap: balance; }
+.fa-h2 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.015em; }
+.fa-lead { margin: 0; font-size: 15.5px; line-height: 1.45; color: var(--fa-ink-2); text-wrap: pretty; }
+.fa-k { font-size: 12px; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; color: var(--fa-mute); }
+.fa-mono { font-family: "JetBrains Mono", ui-monospace, monospace; font-weight: 600; }
+
+/* cards */
+.fa-card { background: var(--fa-surface); border-radius: var(--fa-r); box-shadow: 0 1px 2px rgba(15, 18, 34, 0.05), 0 6px 20px rgba(15, 18, 34, 0.05); }
+.fa-taskcard { all: unset; box-sizing: border-box; position: relative; display: grid; gap: 6px; padding: 18px 48px 18px 18px; margin-top: 6px; cursor: pointer;
+  background: var(--fa-surface); border-radius: var(--fa-r); box-shadow: 0 1px 2px rgba(15, 18, 34, 0.05), 0 8px 24px rgba(15, 18, 34, 0.07);
+  transition: transform 160ms var(--fa-out), box-shadow 160ms ease; }
+.fa-taskcard:active { transform: scale(0.98); }
+.fa-taskcard:focus-visible { outline: 2px solid var(--fa-accent); outline-offset: 3px; }
+.fa-card-place { font-size: 22px; font-weight: 750; letter-spacing: -0.02em; }
+.fa-card-why { font-size: 14.5px; color: var(--fa-ink-2); line-height: 1.4; }
+.fa-card-meta { margin-top: 6px; display: flex; justify-content: space-between; align-items: center; font-size: 13.5px; color: var(--fa-mute); }
+.fa-card-meta span { display: inline-flex; align-items: center; gap: 6px; }
+.fa-card-meta svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.fa-card-go { position: absolute; right: 16px; top: 50%; width: 22px; height: 22px; margin-top: -11px; fill: none; stroke: #b5b9c8; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.fa-chip { justify-self: start; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 650; }
+.fa-chip[data-tone="urgent"] { background: var(--fa-bad-tint); color: var(--fa-bad); }
+.fa-chip[data-tone="urgent"]::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.fa-chip[data-tone="lang"] { background: var(--fa-accent-tint); color: var(--fa-accent-2); }
+.fa-empty { flex: 1; display: grid; place-items: center; padding-top: 60px; }
+.fa-empty-ring { width: 96px; height: 96px; border-radius: 50%; display: grid; place-items: center; background: var(--fa-surface); box-shadow: 0 8px 30px rgba(15, 18, 34, 0.08); }
+.fa-empty-ring .fa-mark { width: 40px; height: 40px; }
+
+/* task: what to look for */
+.fa-hero { margin: 0; position: relative; border-radius: var(--fa-r); overflow: hidden; background: #0d0f14; aspect-ratio: 16 / 9; }
+.fa-hero img, .fa-hero-none { width: 100%; height: 100%; object-fit: cover; display: block; }
+.fa-hero figcaption { position: absolute; left: 10px; bottom: 10px; padding: 5px 10px; border-radius: 8px; font-size: 12.5px; font-weight: 600; color: #fff;
+  background: rgba(10, 11, 14, 0.62); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.fa-look { display: grid; grid-template-columns: 104px 1fr; gap: 14px; padding: 12px; align-items: center; }
+.fa-look-pic { width: 104px; height: 104px; object-fit: cover; border-radius: 12px; background: var(--fa-bg); }
+.fa-look-txt { display: grid; gap: 3px; min-width: 0; }
+.fa-wb { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 15px; font-weight: 500; color: var(--fa-ink-2); letter-spacing: 0.01em; overflow-wrap: anywhere; }
+.fa-wb b { color: var(--fa-ink); font-weight: 750; font-size: 1.2em; background: var(--fa-accent-tint); border-radius: 5px; padding: 0 3px; margin-left: 1px; }
+.fa-wb-big { margin: 0; font-size: 18px; }
+.fa-look-sz { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+.fa-look-sub { font-size: 12.5px; color: var(--fa-mute); }
+.fa-map { padding: 12px; display: grid; gap: 10px; }
+.fa-map-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 14px; font-weight: 600; }
+.fa-map .fp svg { border-radius: 10px; }
+
+/* search: places + where to look */
+.fa-places { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.fa-places li { display: grid; grid-template-columns: 36px 1fr; gap: 12px; padding: 14px; border-radius: var(--fa-r); background: var(--fa-surface);
+  box-shadow: 0 1px 2px rgba(15, 18, 34, 0.05); }
+.fa-places li[data-state="now"] { box-shadow: 0 0 0 2px var(--fa-accent), 0 8px 24px rgba(79, 70, 229, 0.12); }
+.fa-places li[data-state="ruled"] { opacity: 0.6; }
+.fa-pn { width: 32px; height: 32px; border-radius: 16px; display: grid; place-items: center; font-size: 14px; font-weight: 750; background: var(--fa-bg); color: var(--fa-ink-2); }
+.fa-places li[data-state="now"] .fa-pn { background: var(--fa-accent); color: #fff; }
+.fa-pt { display: grid; gap: 8px; min-width: 0; }
+.fa-pt b { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; padding-top: 5px; }
+.fa-pt small { font-size: 13.5px; color: var(--fa-mute); }
+.fa-check { display: flex; flex-wrap: wrap; gap: 8px; }
+.fa-check button { all: unset; box-sizing: border-box; min-height: 44px; display: inline-flex; align-items: center; gap: 8px; padding: 0 14px; border-radius: 22px; cursor: pointer;
+  font-size: 14.5px; font-weight: 600; background: var(--fa-bg); color: var(--fa-ink-2); box-shadow: inset 0 0 0 1px var(--fa-line);
+  transition: background-color 160ms ease, color 160ms ease, transform 120ms var(--fa-out), box-shadow 160ms ease; }
+.fa-check button:active { transform: scale(0.96); }
+.fa-check button svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; opacity: 0.35;
+  stroke-dasharray: 14; stroke-dashoffset: 0; }
+.fa-check button[aria-pressed="true"] { background: var(--fa-ok-tint); color: var(--fa-ok); box-shadow: inset 0 0 0 1px rgba(21, 128, 61, 0.35); }
+.fa-check button[aria-pressed="true"] svg { opacity: 1; animation: fa-draw 260ms var(--fa-out) both; }
+.fa-check button:focus-visible { outline: 2px solid var(--fa-accent); outline-offset: 2px; }
+@keyframes fa-draw { from { stroke-dashoffset: 14; } }
+
+/* voice: hold to talk */
+.fa-voice { display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: var(--fa-r); background: var(--fa-surface); box-shadow: 0 1px 2px rgba(15, 18, 34, 0.05); }
+.fa-voice[data-state="text"] { display: block; }
+.fa-mic { all: unset; flex: none; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; touch-action: none;
+  background: var(--fa-accent); color: #fff; box-shadow: 0 6px 18px rgba(79, 70, 229, 0.35); transition: transform 160ms var(--fa-out), box-shadow 200ms ease, background-color 160ms ease; }
+.fa-mic svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.fa-mic svg rect { fill: currentColor; stroke: none; }
+.fa-mic:active, .fa-voice[data-state="rec"] .fa-mic { transform: scale(1.08); background: var(--fa-accent-2); box-shadow: 0 0 0 10px rgba(79, 70, 229, 0.14), 0 10px 26px rgba(79, 70, 229, 0.4); }
+.fa-mic:disabled { background: #c9ccd8; box-shadow: none; cursor: default; }
+.fa-mic:focus-visible { outline: 3px solid var(--fa-accent-tint); outline-offset: 3px; }
+.fa-voice-side { display: grid; gap: 4px; min-width: 0; }
+.fa-voice-t { font-size: 16px; font-weight: 700; }
+.fa-voice-s { font-size: 13px; color: var(--fa-mute); line-height: 1.35; }
+.fa-wave { height: 30px; display: flex; align-items: center; gap: 3px; }
+.fa-wave i { width: 4px; height: 30px; border-radius: 2px; background: var(--fa-accent); transform-origin: center; transition: transform 70ms linear; }
+.fa-timer { font-size: 13px; font-weight: 600; color: var(--fa-accent-2); font-variant-numeric: tabular-nums; }
+.fa-note { display: grid; gap: 10px; animation: fa-rise 240ms var(--fa-out) both; }
+.fa-note-head { display: flex; justify-content: space-between; align-items: center; }
+.fa-note textarea { width: 100%; box-sizing: border-box; resize: none; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--fa-line); background: var(--fa-bg);
+  font: inherit; font-size: 16px; line-height: 1.45; color: var(--fa-ink); }
+.fa-note textarea:focus-visible { outline: 2px solid var(--fa-accent); outline-offset: 1px; }
+.fa-note-used { padding: 14px; border-radius: var(--fa-r); background: var(--fa-accent-tint); display: grid; gap: 6px; text-align: left; animation: fa-rise 240ms var(--fa-out) both; }
+.fa-note-used p { margin: 0; font-size: 15px; line-height: 1.45; color: var(--fa-ink); }
+@keyframes fa-rise { from { opacity: 0; transform: translateY(8px); } }
+
+/* scan */
+.fa-scan { padding: 4px 20px 40px; display: grid; gap: 14px; align-content: start; height: 100%; box-sizing: border-box; overflow-y: auto; }
+.fa-viewfinder { position: relative; aspect-ratio: 3 / 4; border-radius: 22px; overflow: hidden; background: radial-gradient(120% 80% at 50% 40%, #1f2330, #0b0c10); }
+.fa-viewfinder video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 240ms ease; }
+.fa-viewfinder[data-cam="on"] video { opacity: 1; }
+.fa-frame { position: absolute; left: 14%; right: 14%; top: 34%; height: 26%; }
+.fa-frame i { position: absolute; width: 28px; height: 28px; border: 0 solid #fff; }
+.fa-frame i:nth-child(1) { left: 0; top: 0; border-left-width: 4px; border-top-width: 4px; border-top-left-radius: 12px; }
+.fa-frame i:nth-child(2) { right: 0; top: 0; border-right-width: 4px; border-top-width: 4px; border-top-right-radius: 12px; }
+.fa-frame i:nth-child(3) { left: 0; bottom: 0; border-left-width: 4px; border-bottom-width: 4px; border-bottom-left-radius: 12px; }
+.fa-frame i:nth-child(4) { right: 0; bottom: 0; border-right-width: 4px; border-bottom-width: 4px; border-bottom-right-radius: 12px; }
+/* the scan line sweeps while the camera looks: the app doing real work */
+.fa-laser { position: absolute; left: 6%; right: 6%; top: 0; height: 2px; border-radius: 1px; background: #a5b4fc; box-shadow: 0 0 12px 2px rgba(129, 140, 248, 0.8);
+  animation: fa-sweep 1.6s ease-in-out infinite alternate; }
+@keyframes fa-sweep { from { transform: translateY(6px); } to { transform: translateY(calc(26vh * 0.0 + 190px)); } }
+.fa-vf-hint { position: absolute; left: 0; right: 0; bottom: 18px; text-align: center; font-size: 14px; font-weight: 600; color: rgba(255, 255, 255, 0.86); padding: 0 24px; }
+.fa-miss { margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--fa-warn-tint); color: var(--fa-warn); font-size: 14px; font-weight: 550; }
+.fa-type { display: grid; gap: 8px; }
+.fa-type input { height: 64px; border-radius: 16px; border: 1.5px solid var(--fa-line); background: var(--fa-surface); text-align: center; font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 30px; font-weight: 700; letter-spacing: 0.4em; color: var(--fa-ink); }
+.fa-type input:focus-visible { outline: none; border-color: var(--fa-accent); box-shadow: 0 0 0 4px var(--fa-accent-tint); }
+.fa-type-h { font-size: 13px; color: var(--fa-mute); text-align: center; }
+.fa-link { all: unset; justify-self: center; padding: 12px 16px; border-radius: 12px; cursor: pointer; font-size: 15px; font-weight: 650; color: var(--fa-accent); }
+.fa-link:active { background: var(--fa-accent-tint); }
+.fa-link:focus-visible { outline: 2px solid var(--fa-accent); }
+
+/* found */
+.fa-tick { width: 88px; height: 88px; display: grid; place-items: center; animation: fa-pop 420ms var(--fa-ease) both; }
+.fa-tick svg { width: 88px; height: 88px; }
+.fa-tick circle { fill: var(--fa-ok-tint); stroke: var(--fa-ok); stroke-width: 2.5; }
+.fa-tick path { fill: none; stroke: var(--fa-ok); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 40; stroke-dashoffset: 40;
+  animation: fa-tickdraw 360ms 160ms var(--fa-out) forwards; }
+@keyframes fa-pop { from { transform: scale(0.9); opacity: 0; } }
+@keyframes fa-tickdraw { to { stroke-dashoffset: 0; } }
+.fa-photo { position: relative; width: 100%; min-height: 56px; border-radius: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;
+  font-size: 15px; font-weight: 650; color: var(--fa-ink-2); background: var(--fa-surface); box-shadow: inset 0 0 0 1.5px var(--fa-line); overflow: hidden; }
+.fa-photo input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.fa-photo svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+.fa-photo img { width: 100%; max-height: 160px; object-fit: cover; }
+.fa-orbit { position: relative; width: 72px; height: 72px; }
+.fa-orbit i { position: absolute; inset: 0; border-radius: 50%; border: 3px solid transparent; border-top-color: var(--fa-accent); animation: fa-spin 1.1s linear infinite; }
+.fa-orbit i:nth-child(2) { inset: 10px; border-top-color: #818cf8; animation-duration: 1.5s; animation-direction: reverse; }
+.fa-orbit i:nth-child(3) { inset: 22px; border: 0; background: var(--fa-accent-tint); }
+.fa-orbit[data-state="ready"] i { animation: none; border-color: var(--fa-ok); }
+.fa-orbit[data-state="ready"] i:nth-child(2) { opacity: 0; }
+@keyframes fa-spin { to { transform: rotate(360deg); } }
+
+/* the dock: one primary action, in thumb reach, over a soft fade */
+.fa-dock { position: absolute; z-index: 4; left: 0; right: 0; bottom: 0; padding: 16px 20px 36px; background: linear-gradient(to top, var(--fa-bg) 62%, transparent); }
+.fa-primary, .fa-secondary { all: unset; box-sizing: border-box; width: 100%; min-height: 56px; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center;
+  gap: 10px; cursor: pointer; font-size: 17px; font-weight: 700; letter-spacing: -0.005em; text-align: center;
+  transition: transform 120ms var(--fa-out), background-color 160ms ease, box-shadow 160ms ease, opacity 160ms ease; }
+.fa-primary { background: var(--fa-accent); color: #fff; box-shadow: 0 8px 22px rgba(79, 70, 229, 0.32); }
+.fa-primary svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.fa-primary-ok { background: var(--fa-ok); box-shadow: 0 8px 22px rgba(21, 128, 61, 0.3); }
+.fa-secondary { background: var(--fa-surface); color: var(--fa-ink); box-shadow: inset 0 0 0 1.5px var(--fa-line); }
+.fa-primary:active, .fa-secondary:active { transform: scale(0.97); }
+.fa-primary:disabled { opacity: 0.45; box-shadow: none; cursor: default; transform: none; }
+.fa-primary:focus-visible, .fa-secondary:focus-visible { outline: 3px solid #a5b4fc; outline-offset: 2px; }
+.fa-two { display: grid; grid-template-columns: 1fr 1.5fr; gap: 10px; }
+.fa-inline { width: auto; padding: 0 28px; margin-top: 8px; }
+.fa-err { position: absolute; z-index: 5; left: 16px; right: 16px; bottom: 120px; margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--fa-bad-tint); color: var(--fa-bad); font-size: 14px; }
+
+/* not here: the sheet rises from the bar and follows the finger down */
+.fa-sheet-wrap { position: absolute; inset: 0; z-index: 20; pointer-events: none; }
+.fa-sheet-wrap[data-open] { pointer-events: auto; }
+.fa-scrim { all: unset; position: absolute; inset: 0; background: rgba(15, 18, 34, 0.38); opacity: 0; transition: opacity 260ms ease; }
+.fa-sheet-wrap[data-open] .fa-scrim { opacity: 1; }
+.fa-sheet { position: absolute; left: 0; right: 0; bottom: 0; padding: 6px 20px 36px; display: grid; gap: 14px; border-radius: 26px 26px 0 0; background: var(--fa-surface);
+  box-shadow: 0 -10px 40px rgba(15, 18, 34, 0.18); transform: translateY(105%); transition: transform 420ms var(--fa-ease); }
+.fa-sheet-wrap[data-open] .fa-sheet { transform: translateY(0); }
+.fa-grab { height: 28px; display: grid; place-items: center; cursor: grab; touch-action: none; }
+.fa-grab i { width: 40px; height: 5px; border-radius: 3px; background: #d4d7e2; }
+.fa-reasons { display: grid; gap: 8px; }
+.fa-reasons button { all: unset; box-sizing: border-box; min-height: 56px; padding: 0 16px; border-radius: 14px; display: flex; align-items: center; gap: 12px; cursor: pointer;
+  font-size: 15.5px; font-weight: 600; background: var(--fa-bg); transition: background-color 140ms ease, box-shadow 140ms ease, transform 120ms var(--fa-out); }
+.fa-reasons button:active { transform: scale(0.98); }
+.fa-reasons button[aria-checked="true"] { background: var(--fa-accent-tint); box-shadow: inset 0 0 0 1.5px var(--fa-accent); }
+.fa-reasons button:focus-visible { outline: 2px solid var(--fa-accent); }
+.fa-radio { width: 20px; height: 20px; border-radius: 50%; box-shadow: inset 0 0 0 2px #c3c7d4; flex: none; transition: box-shadow 160ms var(--fa-out); }
+.fa-reasons button[aria-checked="true"] .fa-radio { box-shadow: inset 0 0 0 6px var(--fa-accent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .fa-screen, .fa-screen[data-dir="back"] { animation: fa-fade 160ms ease both; }
+  @keyframes fa-fade { from { opacity: 0; } }
+  .fa-sheet { transition: opacity 200ms ease; transform: none; opacity: 0; }
+  .fa-sheet-wrap[data-open] .fa-sheet { opacity: 1; }
+  .fa-laser, .fa-orbit i, .fa-tick, .fa-tick path, .fa-check button svg, .fa-note, .fa-note-used { animation: none; }
+  .fa-tick path { stroke-dashoffset: 0; }
+  .fa-primary:active, .fa-secondary:active, .fa-mic:active, .fa-taskcard:active { transform: none; }
+}
+@media (prefers-reduced-transparency: reduce) { .fa-bar { background: var(--fa-bg); backdrop-filter: none; } }
+.fa-look-sz { font-size: 16px; white-space: nowrap; }
+.fa-scan { grid-template-columns: minmax(0, 1fr); }
+.fa-viewfinder { aspect-ratio: auto; height: min(52vh, 380px); }
+.fa-type input { width: 100%; box-sizing: border-box; min-width: 0; }
+.fa-frame { top: 30%; height: 34%; }
+@keyframes fa-sweep { from { transform: translateY(6px); } to { transform: translateY(118px); } }
+.fa .fa-primary, .fa .fa-mic { color: #fff; }
+.fa .fa-mic:disabled { color: #f3f4f8; }
+.fa-center .fa-voice, .fa-center .fa-note-used, .fa-center .fa-photo { align-self: stretch; text-align: left; }
+/* the worker's own phone: the app is the whole screen */
+.fa-full { min-height: 100dvh; display: flex; background: #f3f4f8; }
+.fa-full > .fa { flex: 1; min-height: 100dvh; }
+.fa-full .fa-dock { position: fixed; padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+.fa-full .fa-status { display: none; }
