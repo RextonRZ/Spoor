@@ -11,12 +11,9 @@ export function CustomerBox({ caseId, complaint, opened, lastScan }: { caseId: s
   const wait = lastScan ? waited(lastScan, opened) : null;
   return (
     <section className="cu" aria-label="The customer who asked">
-      <div className="cu-top">
-        <span className="hb-chip" data-tone="ask">Customer asked</span>
-        <span className="cu-meta">{wait ? `Waited ${wait} after its last scan here` : "Trace request from customer service"} · case opened {ago(opened)}</span>
-      </div>
-      <p className="cu-quote">&ldquo;{complaint}&rdquo;</p>
-      <Link className="cu-go" href={`/cases/${caseId}/report#customer`}>Draft the update to the customer</Link>
+      <p className="cu-label"><b>Customer asked</b>{wait ? ` · waited ${wait} after its last scan here` : " · trace request from customer service"}<span> · case opened {ago(opened)}</span></p>
+      <blockquote className="cu-quote"><p>&ldquo;{complaint}&rdquo;</p></blockquote>
+      <Link className="hb-btn cu-go" href={`/cases/${caseId}/report#customer`}>Draft the update to the customer</Link>
     </section>
   );
 }

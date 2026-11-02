@@ -37,6 +37,40 @@ const secs = (t: number) => (t < 10 ? t.toFixed(1) : String(Math.round(t)));
 /** the run's own elapsed time (+m:ss), so it is never read as the hub clock of the footage */
 const runTime = (t: number) => `+${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 
+interface Beat { key: string; text: string; model: string; seq: number }
+const first = (t: string) => t.split(/(?<=\.)\s/)[0].replace(/\.$/, "");
+const unparen = (t: string) => t.replace(/\s*\([^)]*\)/g, "").replace(/\.$/, "");
+
+/** The run as a short storyline for a supervisor: one plain line per stage, each from the run's own steps (their
+ *  words and receipts), in the order they happened; a stage appears once its first step has. The full log stays below. */
+function storyline(steps: Step[], crew: RunView["crew"]): Beat[] {
+  const model = (role: string) => crew.find((c) => c.role === role)?.model.replace(/\s*·.*$/, "") ?? "";
+  const done = (tool: string) => steps.filter((s) => s.tool === tool && s.status === "done");
+  const out: Beat[] = [];
+  const add = (key: string, s: Step | undefined, text: string, role = s?.role ?? "") => { if (s) out.push({ key, text, model: model(role), seq: s.seq }); };
+  const read = done("read_scans")[0];
+  add("read", read, read ? unparen(read.text).replace(/\. Last: (.*)$/, " (last: $1)").replace(/^Read /, "Read the ") : "");
+  const tri = done("triage_clips")[0];
+  const share = (tri?.receipt?.output as { sent_share?: number } | undefined)?.sent_share;
+  add("triage", tri, share != null ? `Skipped ${Math.round((1 - share) * 100)}% of the footage; only moments with parcel handling went to the cloud` : tri ? first(tri.text) : "");
+  const plan = done("plan")[0], pick = done("pick_cameras")[0];
+  add("plan", plan, plan ? `${plan.text.split(":")[0]}${pick ? `. ${unparen(pick.text)}` : ""}` : "");
+  const doors = done("door_crossings"), tracked = done("sam_track");
+  const door = doors.at(-1)?.text.match(/^(.+?): (.+?) at its door/);
+  add("track", tracked[0], door ? `Tracked who went in and out: ${door[2]} at the ${door[1]} door` : tracked[0] ? unparen(tracked[0].text) : "", "tracker");
+  const carrier = done("carrier_check")[0], looked = done("observe_clip");
+  add("carrier", carrier ?? looked[0], carrier ? `${unparen(carrier.text)}${looked.length ? `; ${looked.length === 1 ? "a clip" : `${looked.length} clips`} checked` : ""}`
+    : looked[0] ? unparen(looked[0].text).replace(/Muse \w+ /, "") : "", "analyst");
+  const ideas = done("propose");
+  const tests = steps.filter((s) => s.role === "verifier" && s.seq > (ideas[0]?.seq ?? Infinity) && /^(Passed|Unproven|Rejected)/.test(s.text));
+  const passed = tests.filter((s) => s.text.startsWith("Passed")).length;
+  const why = tests.find((s) => !s.text.startsWith("Passed"))?.text.match(/\(([^)]*)\)/)?.[1];
+  add("ideas", tests[0], `Tested ${tests.length} idea${tests.length === 1 ? "" : "s"}: ${passed} passed, ${tests.length - passed} not proven${why ? ` (${why})` : ""}`, "verifier");
+  const ask = done("ask_a_person")[0] ?? done("create_search_task")[0];
+  add("ask", ask, ask ? unparen(ask.text) : "");
+  return out.sort((x, y) => x.seq - y.seq);
+}
+
 export default function InvestigatePage({ params }: { params: Promise<{ caseId: string }> }) {
   const { caseId } = use(params);
   const state = useResource<CaseState>(`/v1/cases/${caseId}/state`);
@@ -123,6 +157,7 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
   // Glimmer's on-site sweep looks at every camera; the agents then examine a few closely
   const swept = end?.swept ?? steps.find((s) => s.tool === "triage_clips" && s.status === "done")?.receipt?.output?.cameras ?? 0;
   const done = !!end;
+  const story = storyline(steps, stored.data?.crew ?? []);
 
   // node states: the latest word on each node wins; the node being checked right now is "checking"
   const nodes = new Map<string, Node>();
@@ -179,6 +214,19 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
 
           <div className="iv-card iv-log">
             <h2>What the crew did</h2>
+            {story.length > 0 && (
+              <ol className="iv-story" aria-label="The run, step by step">
+                {story.map((b, i) => (
+                  <li key={b.key} className="iv-story-row" data-now={!done && i === story.length - 1 ? "" : undefined}>
+                    <span className="iv-story-text">{b.text}</span>
+                    <span className="iv-story-model">{b.model}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
+            {steps.length > 0 && (
+            <details className="iv-every">
+              <summary>Show every step <span>{steps.length}</span></summary>
             {steps.map((s) => (
               <div key={s.seq} className="iv-log-row" data-status={s.status}>
                 <span className="iv-log-t" title="Time since the run started">{runTime(s.t_s)}</span>
@@ -186,6 +234,8 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
                 <span className="iv-log-text">{s.text}</span>
               </div>
             ))}
+            </details>
+            )}
             {!steps.length && <p className="iv-log-wait" role={failed ? "alert" : undefined}>{failed ? `The run could not start: ${failed}` : stored.loading ? "Loading the last run" : "Starting the crew"}</p>}
           </div>
 

@@ -57,6 +57,22 @@
 .iv-log-text { color: #C9CCD3; min-width: 0; }
 .iv-log-row[data-status="unavailable"] .iv-log-text { color: #8B909B; }
 .iv-log-wait { margin: 0; font-size: 14px; color: #8B909B; }
+/* the storyline: one plain line per stage, a dot on a thin spine, the model small at the end; the full log folds below */
+.iv-story { list-style: none; margin: 0; padding: 0; display: grid; }
+.iv-story-row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; align-items: baseline;
+  padding: 7px 0 7px 22px; font-size: 14.5px; line-height: 1.45; animation: iv-in 220ms cubic-bezier(0.23, 1, 0.32, 1); }
+.iv-story-row::before { content: ""; position: absolute; left: 4px; top: 14px; width: 7px; height: 7px; border-radius: 50%; background: var(--tb-ink-2, #c9ccd3); }
+.iv-story-row:not(:last-child)::after { content: ""; position: absolute; left: 7px; top: 25px; bottom: -9px; width: 1px; background: var(--tb-line, rgba(255,255,255,0.08)); }
+.iv-story-row[data-now]::before { background: var(--tb-accent, #6366f1); }
+.iv-story-text { color: var(--tb-ink, #f4f5f7); min-width: 0; text-wrap: pretty; }
+.iv-story-model { font-size: 12px; color: var(--tb-mute, #8b909b); white-space: nowrap; }
+.iv-every { margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--tb-line, rgba(255,255,255,0.08)); display: grid; gap: 8px; }
+.iv-every summary { cursor: pointer; width: fit-content; font-size: 13px; font-weight: 600; color: var(--tb-ink-2, #c9ccd3); border-radius: 4px; list-style-position: inside; }
+.iv-every summary span { margin-left: 6px; font-weight: 500; color: var(--tb-mute, #8b909b); font-variant-numeric: tabular-nums; }
+.iv-every summary:focus-visible { outline: 2px solid #818cf8; outline-offset: 3px; }
+.iv-every[open] summary { margin-bottom: 4px; }
+@media (prefers-reduced-motion: reduce) { .iv-story-row { animation: none; } }
+@media (max-width: 640px) { .iv-story-row { grid-template-columns: minmax(0, 1fr); } }
 .iv-foot { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
 .iv-foot > span { font-size: 13px; color: #8B909B; }
 .iv .iv-btn-primary { height: 48px; display: inline-flex; align-items: center; padding: 0 22px; border-radius: 12px; background: #5558EE; color: #FFFFFF;
