@@ -126,10 +126,17 @@ export default function FloorPlan(p: Props) {
         })}
         {/* labels */}
         {hub.zones.filter((z) => SHORT[z.id] && showLabel(z.id)).map((z) => {
-          const [cx0, cy] = centroid(z.polygons[0]);
+          const [cx0, cy0] = centroid(z.polygons[0]);
           const half = SHORT[z.id].length * fs * 0.29; // keep the whole label inside the frame
-          const cx = Math.min(Math.max(cx0, box.x0 + half + 0.4 * k), box.x1 - half - 0.4 * k);
-          return <text key={z.id} x={X(cx)} y={Y(cy)} fontSize={fs} className={`fp-label${z.id === p.highlight ? " fp-label-hl" : ""}`} textAnchor="middle" dominantBaseline="middle">{SHORT[z.id]}</text>;
+          // on a dimmed route map the route starts and ends at zone centres: name the zone in its top-left corner instead
+          const corner = p.dim && p.labelIds?.includes(z.id);
+          const xs = z.polygons[0].map((q) => q[0]), ys = z.polygons[0].map((q) => q[1]);
+          const left = Math.max(Math.min(...xs), box.x0) + 0.8 * k;
+          const out = corner && left + half * 2 > box.x1 - 0.4 * k; // would run off the frame: sit just left of the zone instead
+          const cx = !corner ? Math.min(Math.max(cx0, box.x0 + half + 0.4 * k), box.x1 - half - 0.4 * k) : out ? Math.min(...xs) - 0.8 * k : left;
+          const cy = corner ? Math.min(Math.max(...ys), box.y1) - fs * 0.9 : cy0;
+          return <text key={z.id} x={X(cx)} y={Y(cy)} fontSize={fs} className={`fp-label${z.id === p.highlight ? " fp-label-hl" : ""}`}
+            textAnchor={!corner ? "middle" : out ? "end" : "start"} dominantBaseline="middle">{SHORT[z.id]}</text>;
         })}
         {/* the route */}
         {p.legs?.map((g, i) => (
