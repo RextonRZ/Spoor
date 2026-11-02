@@ -184,16 +184,16 @@ export default function HubPage() {
 
       {ready && <div className={dockOpen ? "hb-split" : "hb-stack"}>
       <div className="hb-left">
-      <dl className="hb-kpis">
+      <div className="hb-kpis" role="group" aria-label="This shift at a glance">
         {kpis.map((k) => (
           <div key={k.label}>
             <button type="button" className="hb-kpi" onClick={() => setTab(k.tab)}>
-              <dt>{k.tone && <i data-tone={k.tone} aria-hidden="true" />}{k.label}</dt>
-              <dd>{ready ? k.n : <span className="hb-skel hb-skel-n" />}</dd>
+              <span className="hb-kpi-l">{k.tone && <i data-tone={k.tone} aria-hidden="true" />}{k.label}</span>
+              <span className="hb-kpi-n">{ready ? k.n : <span className="hb-skel hb-skel-n" />}</span>
             </button>
           </div>
         ))}
-      </dl>
+      </div>
 
       <LiveAlerts siteId={site?.site_id} />
       <section className="hb-panel" aria-label="Alerts">

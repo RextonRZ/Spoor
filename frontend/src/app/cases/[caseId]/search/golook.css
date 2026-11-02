@@ -57,7 +57,7 @@
 @keyframes gs-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
 .gs-phonewrap { position: sticky; top: 76px; display: grid; gap: 12px; justify-items: center; }
-.gs-phone-h { margin: 0; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #6c717d; }
+.gs-phone-h { margin: 0; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #8a90a0; }
 .gs-phone { position: relative; width: 360px; box-sizing: border-box; padding: 10px; border-radius: 38px; background: #1b1d24; border: 1px solid rgba(255, 255, 255, 0.12); box-shadow: 0 30px 70px -30px rgba(0, 0, 0, 0.7), inset 0 0 0 1px rgba(0, 0, 0, 0.5); }
 .gs-notch { position: absolute; z-index: 2; top: 18px; left: 50%; width: 84px; height: 6px; margin-left: -42px; border-radius: 3px; background: #0a0b0e; }
 .gs-screen { min-height: 640px; max-height: calc(100vh - 150px); overflow-y: auto; border-radius: 30px; background: var(--tb-bg); padding-top: 18px; overscroll-behavior: contain; }

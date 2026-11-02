@@ -81,7 +81,7 @@ export default function FloorPlan(p: Props) {
 
   return (
     <figure className="fp" aria-label={p.label} data-dim={p.dim ? "" : undefined}>
-      <svg viewBox={`${box.x0} ${H - box.y1} ${vw} ${vh}`} role="img" aria-label={p.label} preserveAspectRatio="xMidYMid meet">
+      <svg viewBox={`${box.x0} ${H - box.y1} ${vw} ${vh}`} role={p.onStop ? "group" : "img"} aria-label={p.label} preserveAspectRatio="xMidYMid meet">
         <defs>
           <pattern id={`hatch${uid}`} width={1.2 * k} height={1.2 * k} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
             <line x1="0" y1="0" x2="0" y2={1.2 * k} className="fp-hatch" strokeWidth={0.35 * k} />
