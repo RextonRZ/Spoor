@@ -1,83 +1,82 @@
 # Spoor
 
-**Give physical spaces a searchable memory — and every answer a source.**
+**Lost parcels, found with proof.**
 
-Spoor turns authorized CCTV recordings into a queryable history of where a physical object was *observed*. An
-investigator asks "Where is the blue equipment case? Did it leave the room?" and gets the last **visibly confirmed**
-position with a link to the exact original frame, the intervals where nothing is known, competing hypotheses with
-their verification status, and a report that separates observation from inference.
+A parcel hub's scan log says where a parcel was *scanned*. When a customer says it never arrived, nobody can say where
+it *went*. Spoor reads the hub's own CCTV and scan records together, follows the parcel from scanner to scanner on
+camera, finds where it went missing, and hands the supervisor the clip that proves it, with every claim checked by a
+deterministic verifier before it reaches the screen.
 
-Built for the Meta Global AI Developer Hackathon 2026 (theme: Push the Frontier). Full spec:
-[Spoor_Meta_Hackathon_PRD_v3.md](Spoor_Meta_Hackathon_PRD_v3.md) · build plan: [docs/build/](docs/build/README.md).
+Built for the Meta Global AI Developer Hackathon 2026. Footage is synthetic (a fictional hub, CONTOH Express, rendered
+in Blender with mocap workers); the scan log is simulated and labelled `scan_simulated`. No real people, no faces.
 
-> Investigative decision support; not an official forensic certification or determination of identity or wrongdoing.
+> Investigative decision support. Spoor never claims anyone's identity, intent or wrongdoing.
+
+## The case it solves (what the demo shows)
+
+Parcel CTX334048419302: the records say it was put in cage RC-760 at 14:21 and loaded on truck D07 at 14:33. The
+customer says it never arrived. Spoor's answer: **most likely in the Exception store (Z11)**. The cameras show it
+taken out of the cage at 14:32:13 (no scan), carried into the exception store at 14:32:32 past the unused scan-in
+post, the carrier coming out empty-handed, and the cage leaving through D07 without it. The truck record is wrong.
 
 ## How it works
 
 ```
-authorized MP4 ──> ingest (SHA-256, read-only original, frame-aligned proxy, timing flags)
-                     │
-         SAM 3.1 (Meta Model API) ──> per-clip tracks & observations, citing ORIGINAL frames
-                     │
-   floor homography (OpenCV) ──> metric floor position + measured uncertainty, or honest fallback
-                     │
-        append-only evidence store ──> last confirmed · visibility timeline · unobserved intervals
-                     │
-   Evidence & Hypothesis agents (Muse Spark) ──> structured claims ──> deterministic Verifier
-                     │
-        answer composed ONLY from verified findings · report export · reviewer approval
+scan log + CCTV (19 wide cameras, 6 checkpoint close-ups, the tunnel's own label camera)
+   |
+   |- Muse Glimmer (open weights, on the hub's GPU via Modal): watches all footage, flags parcel handling;
+   |  only flagged moments (17 % of it) go to the cloud models
+   |- Scan-to-camera handshake: each scan's identity + scan point + time -> the camera that sees it -> SAM 3.1
+   |  outlines THAT carton (its mask edge); a number goes on an outline only when no other carton could be it
+   |- Live alert: a carton seen leaving a cage area with no scan -> "could be <parcel>" before anyone complains
+   |
+   |- Muse Wonder 1.0 (lead investigator): plans which cameras and windows to check first
+   |- Muse Spark Open on Baseten (evidence + hypothesis agents): run the checks with tools (SAM 3.1, door crossings,
+   |  carrier check, scan history) and propose explanations
+   |- Deterministic verifier: every claim is tested against the evidence store; only verified findings form the answer
+   |
+   answer + proof timeline + floor search task + customer update draft (a person approves; nothing is sent)
 ```
 
-**Muse Spark interprets. SAM 3.1 sees object regions. The geometry engine maps. The store remembers. The verifier
-challenges. The human decides.**
+## Measured (details and method in [EVALUATION](docs/EVALUATION.md))
 
-## Status (2026-10-27) — read this first
-
-| Area | State |
+| What | Result |
 |---|---|
-| Backend (contracts, ingest, calibration, store, perception, reasoning, verifier, agents, API, reports) | Built; 183 tests pass; independent logic review done and fixed ([IMPROVEMENTS](docs/IMPROVEMENTS.md)) |
-| Live Meta Model API (SAM 3.1, Muse Spark 1.3) and Baseten | **Not yet run** — adapters tested against fixtures only; awaiting API keys |
-| Real staged footage, real room calibration | **Not yet recorded** |
-| Evaluation results | **None yet** — harness ready (`ml/evaluation`) |
-| Frontend / 3D | Not started (owner is designing it; backend exposes everything over HTTP) |
-| Postgres, Docker images | Written, **untested** |
+| The S2 parcel, keyed runs | "Most likely in the Exception store (Z11)": right in every completed run (6/6, plus the re-runs after each change today) |
+| Control parcels (look-alike, belt parcel, unload only) | 0 false locations; 2 confirmed on camera at their chute, 1 located by scan |
+| Handshake labels on screen, checked against the render truth | 51 of 51 right (100 %); 63 % of the right outlines carry a number (77 % at the diverts), the rest are shown as scan records |
+| Live alert "left without a scan" | fires once, at the real pick; on no control |
+| On-site triage (Muse Glimmer, Modal A100) | 17 % of the footage sent on (83 % less), the key pick moment kept; US$0.62 |
+| Cost of one investigation | Muse Wonder US$0.12 to 0.38, 54k to 129k Spark Open tokens, 2 to 5 minutes |
 
 ## Run it
 
-Requirements: Python 3.13, [uv](https://docs.astral.sh/uv/), FFmpeg on PATH.
+Requirements: Python 3.13, [uv](https://docs.astral.sh/uv/), Node 20, FFmpeg on PATH.
 
 ```bash
-cd backend
-uv sync
-uv run pytest                       # 183 tests, no keys needed
-cp .env.example .env                # add MODEL_API_KEY (Meta) and optionally Baseten
-cp users.example.json users.json    # set long random tokens
-uv run uvicorn spoor.api.app:create_app --factory
+cd backend && uv sync && uv run pytest     # 294 tests, no keys needed
+cd ../frontend && npm install
+npm run backend:keys                        # needs MODEL_API_KEY (Meta) and BASETEN_* in backend/.env
+npm run dev                                 # http://localhost:3000
 ```
 
-Provider smoke tests (need keys + your own staged clip): see
-[docs/build/00-setup-and-smoke-tests.md](docs/build/00-setup-and-smoke-tests.md).
+The demo store and the rendered footage are not in the repository (size). [DEMO_SCRIPT](docs/DEMO_SCRIPT.md) has the
+path through the app; [DEPLOYMENT](docs/DEPLOYMENT.md) the setup.
 
-## Real vs simulated (PRD §27.1)
+## Real vs simulated
 
-| Category | Label |
+| Item | What it is |
 |---|---|
-| Team-recorded consented footage | Real recording of staged event |
-| SAM tracks | Model inference on real recorded frames |
-| Floor positions | Estimated from calibrated geometry (floor XY by default) |
-| Optional XYZ | Metric triangulation estimates only with a validated overlapping rig (off by default) |
-| Room geometry | Measured / prebuilt; never inferred from hidden imagery |
-| Hypotheses and agent output | AI-generated interpretations with source references |
-| Door/weight CSV events | Simulated unless hardware-measured — each row must declare which |
-| Ground-truth labels | Evaluator-only, never model inputs |
-
-Test fixtures (synthetic ffmpeg clips, synthesized SAM wire output, scripted agent turns) exist only under
-`backend/tests/` and are never presented as inference results.
+| CCTV footage | Synthetic: Blender render of a fictional hub, CCTV look and on-screen clocks, every clip marked SYNTHETIC |
+| Scan log | Simulated (`scan_simulated`), from the same simulation as the render |
+| SAM 3.1 outlines, Muse Wonder plans, Spark Open agents, Glimmer flags | Real model calls on that footage |
+| Floor positions | Estimated from calibrated camera geometry (held-out error 1 to 2 cm) |
+| Camera clocks | Fitted from sorter events by Spoor, never read from the render |
+| Ground truth | Read only by the evaluator, after a run; never by the app or in a prompt |
 
 ## Docs
 
-[DECISIONS](docs/DECISIONS.md) · [DEPENDENCIES](docs/DEPENDENCIES.md) · [META_MODEL_USAGE](docs/META_MODEL_USAGE.md) ·
-[CALIBRATION](docs/CALIBRATION.md) · [MULTIVIEW_3D](docs/MULTIVIEW_3D.md) · [EVIDENCE_SCHEMA](docs/EVIDENCE_SCHEMA.md) ·
-[EVALUATION](docs/EVALUATION.md) · [PRIVACY](docs/PRIVACY.md) · [DATA_RIGHTS](docs/DATA_RIGHTS.md) ·
-[NEW_WORK](docs/NEW_WORK.md) · [LIMITATIONS](docs/LIMITATIONS.md) · [IMPROVEMENTS](docs/IMPROVEMENTS.md) ·
-[DEMO_SCRIPT](docs/DEMO_SCRIPT.md) · [DEPLOYMENT](docs/DEPLOYMENT.md)
+[EVALUATION](docs/EVALUATION.md) · [LIMITATIONS](docs/LIMITATIONS.md) · [DEMO_SCRIPT](docs/DEMO_SCRIPT.md) ·
+[META_MODEL_USAGE](docs/META_MODEL_USAGE.md) · [DECISIONS](docs/DECISIONS.md) · [CALIBRATION](docs/CALIBRATION.md) ·
+[EVIDENCE_SCHEMA](docs/EVIDENCE_SCHEMA.md) · [PRIVACY](docs/PRIVACY.md) · [DATA_RIGHTS](docs/DATA_RIGHTS.md) ·
+[DEPLOYMENT](docs/DEPLOYMENT.md)

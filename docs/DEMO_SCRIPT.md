@@ -1,74 +1,33 @@
-# 3-minute demo script: parcel hub (real app, keys first)
+# 3-minute demo script
 
-**The problem, in one sentence (say it first):** a customer says a parcel never arrived, and the hub's scan log only
-says where the parcel was *scanned*, not where it *went*.
-
-Goal: in 180 s, show what SAM 3.1 + Muse Spark do inside Spoor that a plain video model does not: **answers with
-sources, honest gaps, and revision when new evidence arrives**, on the fictional CONTOH Express hub (synthetic footage,
-simulated scan log). Every number on screen comes from a real run. If it is not measured, it is not shown. Fictional
-names only.
-
-**How to read the table.** The main column ("With keys") is the demo we want: what SAM 3.1 and Muse Spark do at that
-step. The "Fallback (no key)" column is what the same click shows without keys. Rows marked "—" in the 🔑 column are
-the same either way. Never narrate a model result that is not on screen. If a keyed step fails on the day, use its
-fallback line and move on.
+Parcel CTX334048419302 on the fictional CONTOH Express hub (synthetic footage, simulated scan log). Every number on
+screen comes from a real run; never narrate a result that is not on screen. Browser 1440x900, 100 % zoom. Deadline for
+the submission: Thu 5 Nov 2026, 10:00 MYT.
 
 ## Before recording (not on camera)
 
-1. **Keys and smoke tests first** (the top blocker, see `review/FOR_REXTON.md` 04:50). Put `MODEL_API_KEY` (Meta Model
-   API) and `BASETEN_API_KEY` + `BASETEN_MODEL_ID` in `backend/.env`. Run the smoke tests in
-   `docs/build/00-setup-and-smoke-tests.md` (`list_models`, `spark_structured`, `spark_video`, `sam_segment` image +
-   video, `baseten_open`). Record results in `docs/META_MODEL_USAGE.md`. If one fails, its steps below use the fallback.
-2. Start the stack:
+1. `cd frontend && npm run backend:keys` (keys in `backend/.env`: Meta Model API, Baseten) and `npm run dev`.
+2. No background jobs running (handshakes, watches): they slow the API. The investigation in step 3 is the only job.
+3. Open the Hub once so the frames are cached.
 
-```bash
-cd frontend
-npm run backend      # no-key mode: the seed only loads inputs into a backend without keys
-npm run seed -- --scenarios ../ml/evaluation/scenarios/manifest.json   # one input case per rendered scenario
-# stop it (Ctrl+C), then restart on the same data with the keys from backend/.env:
-npm run backend:keys
-npm run dev          # http://localhost:3000
-cd ../backend && uv run python ../ml/evaluation/run_hub.py --out ../frontend/.local/backend-data/evaluation
-```
+## The script
 
-The seed reads only `ml/evaluation/scenarios/manifest.json` and `<S>/case_input.json` (waybill, complaint, cameras,
-clips). It never reads scenario cards or anything the evaluator scores against.
+| Time | Screen | Click / show | Say |
+|---|---|---|---|
+| 0:00 | (customer chat card) | "Where is my parcel? Two weeks now." | A customer says their parcel never arrived. Tracking says it was loaded on a truck. |
+| 0:12 | Landing, hero | scroll once | Spoor reads a hub's own cameras and scan records together. |
+| 0:20 | Hub | the red live alert at the top: "A carton left the west cage bays without a scan", SAM's outline on the carton | Before anyone complained, the hub was told: a carton left a cage with no scan. It could only be one parcel. |
+| 0:35 | Hub | the CTX334048419302 row: "Customer asked", "Likely location found"; the side panel | The records say it left on truck D07. The cameras say it never left. |
+| 0:45 | Investigating | press Replay | Muse Glimmer on the hub's own GPU flagged 17 % of the footage. Muse Wonder plans: the doorway camera, then the store's close-up. Spark Open agents run the checks; the verifier passes one idea and rejects the others. |
+| 1:15 | Answer | the hero clip (carried in past the scan-in post), the five moments, the plan | Most likely in the Exception store. Carried in at 14:32:32, the carrier came out without it, nobody carried it out. No camera sees inside, and it says so. |
+| 1:45 | Answer | "Its journey on camera": click "Into chute C12" | At every scan, the barcode says which parcel and SAM 3.1 outlines that carton. A number goes on an outline only when no other carton could be the one scanned: 51 of 51 right against the truth. |
+| 2:10 | Proof | the checkpoint tiles, then the dock tile | Each checkpoint on camera, in order. Here the cage leaves through D07 without it. |
+| 2:25 | Go look | the search task on the phone | A person checks the store; the case closes with what they find. |
+| 2:40 | Report | "Draft the update to the customer" | The update is written from the verified answer only. A person approves it; Spoor sends nothing. |
+| 2:55 | (closing card) | | Lost parcels, found with proof. Spoor also flags them before anyone complains. |
 
-3. Tabs: `/wall?scenario=S2` (camera wall), the S2 case workspace (Investigator), `/operator` (Site admin). Browser at
-   1440×900, 100 % zoom. **Scenario: S2** (the builder renders it first; IDs and titles come from the manifest, so use
-   whatever the manifest calls it). If S2 is not rendered yet, the wall says "Renders not produced yet": use the
-   newest rendered scenario instead, or the seeded control case's footage (`/wall?case=<id>`).
+## If something fails on the day
 
-## Walkthrough (S2: "the records say it left on the truck; the cameras say it is in the exception store")
-
-Updated 31 Oct (block H/I/J). Every screen below runs on the real app; 🔑 marks what changes with keys.
-
-| Time | Click | Screen shows | What it proves | No key | 🔑 |
-|---|---|---|---|---|---|
-| 0:00–0:10 | **Hub** (Operator clock "+30 min") | Stalled parcels: S2's parcel, overdue, with "SP-BAG-C07 kept scanning other parcels" as proof; tracking-number search | Alerting from the scan log, before the customer complains; no false alarms when a log just ends | Same | — |
-| 0:10–0:25 | **Open case** → case summary | "Last confirmed at … · time" + one sub-line, 4 key frames (last confirmed · missing moment · where it is · found), route map, how sure, next action | Page 1 for claims and managers, built only from typed evidence | Same words; frames are context frames | — |
-| 0:25–0:55 | **Open the investigation** → ▶ replay at 4× | CCTV hero (follow-cam on the parcel), camera route strip, 2D journey: green seen, amber belt inference, blue scan beads, scan cards as the playhead passes each scan | It is a CCTV product: original pixels with hashes; the route snaps to belts; inferred is never drawn as seen | Scans + amber belt stretches + grey gap; follow-cam says "tracking needs SAM" | 🔑 SAM 3.1 |
-| 0:55–1:20 | **Missing moment**, then **Cameras** | Where the evidence stops; each camera due next at its predicted time with a dashed box; CAM_19 doorway carried in; CAM_01/06 "not seen" = typed negative evidence; synced grid on one scrubber | How we prove where it went missing: negative evidence made visible | "not analysed yet"; no-footage cameras listed | 🔑 SAM 3.1 |
-| 1:20–1:40 | Scrub past the break | The "could be here" area grows, then collapses into the exception store when the watched exits did not see it; "Where it might be · computed": 1. Exception store | A computed area, labelled as such; cameras that watched remove area | The area only grows (nothing analysed) | 🔑 SAM 3.1 |
-| 1:40–1:55 | Summary → **records vs cameras** | Two lanes split at a red pin: "The records say it left the hub (RC-864 loaded at D07); CAM_19 saw it at the exception store" | Records and video disagree, and the app says where | Empty camera lane: "not agreement" | 🔑 |
-| 1:55–2:15 | **Agent** → Plan with Muse Wonder (cost shown) → Run the investigation | Wonder's plan (steps checked against the evidence); Spark Open on Baseten sees the key frames; verifier decides | Agents propose, a deterministic verifier decides; open weights reason over evidence pictures | "Unavailable: no API key"; deterministic answer abstains | 🔑 Wonder · Spark · Spark Open |
-| 2:15–2:30 | Phone: **Floor search** → "Found it here" | Checklist in walking order; the case turns Found; summary headline updates | A person's outcome is new evidence, pseudonymous and hashed | Same (a real outcome, never a fixture on camera) | — |
-| 2:30–2:45 | Summary → **Export evidence reel** → Report → Approve | MP4 of the journey (seen crops, scan frames, amber, grey cards; SYNTHETIC, hashes); report appendix with hashes and the Evidence Act footnote | Hand-over material a claims team or police can use | Reel uses context frames + cards | — |
-| 2:45–3:00 | 3D → **Plan-built 3D** | The hub extruded from its floor plan; journey and cloud in 3D | "Any hub with a floor plan and its cameras gets this on day one" | Same | — |
-
-Never show a `fx_*` fixture on camera. Synthetic footage and simulated scans stay labelled.
-
-## Lines to keep
-
-- "The scan log says where it was scanned. Spoor shows where it went, and says so when nobody saw it."
-- "Spoor says only what was seen or scanned. The gap stays a gap."
-- "A divert confirmation is the sorter's word about a carrier, not a new label read."
-- "No faces, no names: operators are pseudonymous tokens; the footage is synthetic."
-
-## Recording checklist
-
-- Keys in and smoke tests recorded before the first take; otherwise record the fallback column and say "analysis
-  unavailable without a key" at the 🔑 steps. Never narrate what a model would have said.
-- Never show `fx_*` fixture screens as results; they exist only to test the renderer and carry a yellow banner.
-- Every footage frame shows its burned-in SYNTHETIC mark (the camera wall and the source panel play the original clips).
-- Keep the Operator tab ready in case a judge asks which model did what (model calls and agent steps panel).
+- The investigation is slow or fails: the Investigating screen replays the last stored run (press Replay).
+- A frame is slow to load: it is a preview of the original frame; wait a second, do not narrate a blank tile.
+- Never show the Hub's Resolved tab or the control parcels on camera; they are for EVALUATION.md.
