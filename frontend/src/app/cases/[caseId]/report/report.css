@@ -179,3 +179,17 @@
 .cs-ref-plain { cursor: default; color: var(--rp-mute); background: #eceef2; }
 /* closed: out of reach as well as out of view (it waits just past the screen edge) */
 .cs:not([data-open]) { visibility: hidden; transition: transform 380ms cubic-bezier(0.32, 0.72, 0, 1), visibility 0s linear 380ms; }
+/* print: the app's own chrome (sidebar, top bar, case steps) never reaches the paper; white all round */
+@media print {
+  html, body { background: #fff !important; }
+  .sb, .sb-top, .fl-casebar { display: none !important; }
+  .sb-app { display: block !important; background: #fff !important; min-height: 0 !important; }
+  .rp { color: #000; }
+  .rp-table tr { break-inside: avoid; }
+  :root, html, body { color-scheme: light !important; } /* a dark scheme paints the PDF's page margins black */
+}
+/* print: sections as plain block flow (Chrome fragments grid items across pages badly: a table row ran into the note) */
+@media print {
+  .rp-paper, .rp-sec, .rp-head { display: block !important; }
+  .rp-sec > * + *, .rp-head > * + * { margin-top: 12px; }
+}
