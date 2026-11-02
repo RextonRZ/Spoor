@@ -16,7 +16,7 @@
  * a click with a 140 ms crossfade only. Reduced motion: no autoplay, the clip rests on the moment's frame.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, signedUrl, useResource } from "@/lib/api";
+import { api, previewUrl, signedUrl, useResource } from "@/lib/api";
 import { camId } from "@/lib/hub";
 import type { MediaRow, Site } from "@/lib/types";
 import { HYPOTHESIS_WORDS, type InsideFacts, type InvestigationView } from "@/lib/answer";
@@ -45,7 +45,7 @@ function useStills(moments: Moment[]): Record<string, string> {
     let live = true;
     moments.forEach((m) => {
       api<{ frame_url: string }>(`/v1/media/${m.media}/frame-at?time=${encodeURIComponent(m.iso)}`)
-        .then((r) => live && setUrls((u) => ({ ...u, [m.key]: signedUrl(r.frame_url) }))).catch(() => {});
+        .then((r) => live && setUrls((u) => ({ ...u, [m.key]: previewUrl(r.frame_url, 1280) }))).catch(() => {});
     });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the moments are fixed by their clips and times
@@ -105,7 +105,7 @@ export function CaseStory({ caseId, inside, view, journey, truck }: {
   };
   const moments: Moment[] = useMemo(() => [
     ...(pick ? [{ key: "pick", iso: pick.at_utc, text: "Taken out of its cage, no scan", xy: floorAt(firstIso), media: pick.media_id,
-      cam: camId.toHub(pick.camera_id), box: pick.box_px }]
+      cam: camId.toHub(pick.camera_id), box: pick.box_px, tone: "bad" as const }]
       : inside.track_px.length > 1 ? [{ key: "first", iso: firstIso, text: `Seen on ${inside.camera}, carried toward the store`, xy: floorAt(firstIso),
         from: firstIso, media: inside.media_id, cam: wide }] : []),
     { key: "door", iso: inside.iso.door_at, text: "Last seen at the store door", xy: door, from: firstIso, media: inside.media_id, cam: wide },
@@ -174,6 +174,20 @@ export function CaseStory({ caseId, inside, view, journey, truck }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- redrawn per clip and moment
   }, [track, clip, cur.key]);
 
+  // SAM's box on a moment's thumbnail: the alert's outline at the pick, the wide camera's track at its own moments
+  const thumbBox = (m: Moment): number[] | null => {
+    if (m.box) return m.box;
+    if (m.media !== inside.media_id || !track.length) return null;
+    const ms = inside.door_pts_ms + (Date.parse(m.iso) - doorMs);
+    const near = track.reduce((a, b) => (Math.abs(b[0] - ms) < Math.abs(a[0] - ms) ? b : a));
+    return Math.abs(near[0] - ms) <= 400 ? near.slice(1) : null;
+  };
+  // focus: scale the frame (and its outline) about SAM's box so the carton fills the thumbnail, never past 3x
+  const zoomOn = (b: number[] | null): React.CSSProperties | undefined => {
+    if (!b) return undefined;
+    const s = Math.min(3, Math.max(1, Math.min(wh[0] / ((b[2] - b[0]) * 4), wh[1] / ((b[3] - b[1]) * 3.2))));
+    return { transform: `scale(${s.toFixed(2)})`, transformOrigin: `${((b[0] + b[2]) / 2 / wh[0]) * 100}% ${((b[1] + b[3]) / 2 / wh[1]) * 100}%` };
+  };
   const toPlan = cur.key === "in" || cur.key.startsWith("out") || cur.key === "truck" || cur.key === "end";
   return (
     <div className="cs">
@@ -217,12 +231,18 @@ export function CaseStory({ caseId, inside, view, journey, truck }: {
               <button type="button" className="lp-mo-btn" aria-pressed={m.key === cur.key} onClick={() => setSel(m.key)}
                 aria-label={`${hms(m.at ?? m.iso)}: ${m.text}`}>
                 <span className={`lp-mo-frame${m.key === cur.key ? " is-on" : ""}`}>
-                  {/* eslint-disable-next-line @next/next/no-img-element -- a signed CCTV frame from the API */}
-                  {stills[m.key] && <img src={stills[m.key]} alt="" loading="lazy" decoding="async" />}
+                  <span className="cs-mo-zoom" style={zoomOn(thumbBox(m))}>
+                    {/* eslint-disable-next-line @next/next/no-img-element -- a signed CCTV frame from the API */}
+                    {stills[m.key] && <img src={stills[m.key]} alt="" loading="lazy" decoding="async" />}
+                    {stills[m.key] && thumbBox(m) && (() => { const b = thumbBox(m)!; return (
+                      <svg className="cs-mo-mark" viewBox={`0 0 ${wh[0]} ${wh[1]}`} preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                        <rect x={b[0] - 8} y={b[1] - 8} width={b[2] - b[0] + 16} height={b[3] - b[1] + 16} rx="6" />
+                      </svg>); })()}
+                  </span>
                   <span className="lp-mo-cam">{camWords(m.cam)}</span>
                 </span>
               </button>
-              <p className="lp-mo-cap"><span className="lp-mo-n">{String(i + 1).padStart(2, "0")}</span>{m.text}</p>
+              <p className="lp-mo-cap">{m.text}</p>
             </li>
           );
         })}

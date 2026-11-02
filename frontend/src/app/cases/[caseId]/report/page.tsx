@@ -8,7 +8,7 @@
 import { conflictWords, type Conflict } from "@/lib/conflict";
 import Link from "next/link";
 import { use, useEffect, useState } from "react";
-import { API_BASE, api, signedUrl, useResource } from "@/lib/api";
+import { API_BASE, api, previewUrl, signedUrl, useResource } from "@/lib/api";
 import type { Journey, MissingMoment, XY } from "@/lib/journey";
 import { hhmm, hms, momentLabel, placeOf, shortPlace } from "@/lib/words";
 import { scanPoint } from "@/lib/hub";
@@ -34,7 +34,7 @@ function MomentFrame({ media, t, alt }: { media: string; t: string; alt: string 
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
-    api<{ frame_url: string }>(`/v1/media/${media}/frame-at?time=${encodeURIComponent(t)}`).then((r) => live && setUrl(signedUrl(r.frame_url))).catch(() => {});
+    api<{ frame_url: string }>(`/v1/media/${media}/frame-at?time=${encodeURIComponent(t)}`).then((r) => live && setUrl(previewUrl(r.frame_url, 800))).catch(() => {});
     return () => { live = false; };
   }, [media, t]);
   // eslint-disable-next-line @next/next/no-img-element -- a signed CCTV frame

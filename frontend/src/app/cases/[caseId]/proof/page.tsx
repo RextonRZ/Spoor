@@ -12,7 +12,7 @@ import dynamic from "next/dynamic";
 import { SpoorLoader } from "@/components/brand/SpoorLoader";
 import Link from "next/link";
 import { use, useEffect, useMemo, useRef, useState } from "react";
-import { api, signedUrl, useResource } from "@/lib/api";
+import { api, previewUrl, signedUrl, useResource } from "@/lib/api";
 import { HUB, camId, scanPoint } from "@/lib/hub";
 import type { Journey, MissingMoment, ObservedSegment } from "@/lib/journey";
 import type { MediaRow, Site } from "@/lib/types";
@@ -245,7 +245,7 @@ function TileThumb({ tile, media }: { tile: Tile; media?: MediaRow }) {
   const url = useFrame(media?.media.media_id, tile.t);
   const [still, setStill] = useState(true);
   // eslint-disable-next-line @next/next/no-img-element
-  if (url) return <img src={signedUrl(url)} alt="" className={`pf-tile-img${tile.tone === "bad" ? " pf-tile-img-bad" : ""}`} />;
+  if (url) return <img src={previewUrl(url, 480)} alt="" className={`pf-tile-img${tile.tone === "bad" ? " pf-tile-img-bad" : ""}`} />;
   if (tile.tone === "bad") return <span className="pf-tile-none pf-tile-bad">Records disagree</span>;
   // eslint-disable-next-line @next/next/no-img-element
   if (tile.cam && still) return <img src={`/cameras/${tile.cam}.jpg`} alt="" className="pf-tile-img pf-tile-still" loading="lazy" onError={() => setStill(false)} />;

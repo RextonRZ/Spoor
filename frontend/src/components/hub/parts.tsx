@@ -7,7 +7,7 @@
  */
 import Link from "next/link";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { api, signedUrl, useResource } from "@/lib/api";
+import { api, previewUrl, useResource } from "@/lib/api";
 import type { Journey, MissingMoment } from "@/lib/journey";
 import { hhmm, hms, lastScanSentence, minutes, missingNextSentence, momentLabel, placeOf } from "@/lib/words";
 import { low, type LastScan } from "@/lib/answer";
@@ -200,7 +200,7 @@ export function View({ siteId, point, at, tone, place }: { siteId: string; point
       <span className="hb-view-img">
         {frame ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={signedUrl(frame.url)} alt={`Camera sighting: ${frame.cam.replace("_", " ")}`} />
+          <img src={previewUrl(frame.url, 800)} alt={`Camera sighting: ${frame.cam.replaceAll("_", " ")}`} />
         ) : viewCam && viewOk ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={`/landing/posters/${viewCam}.jpg`} alt={`View of ${place ?? "the place"} from ${viewCam.replace("_", " ")}`} onError={() => setViewOk(false)} />

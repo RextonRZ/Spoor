@@ -129,3 +129,11 @@
 /* the checkpoint's number, the same 1-6 the hub map's markers carry (owner 1 Nov: one numbering everywhere) */
 .ck-n { display: inline-block; min-width: 1.4em; margin-right: 4px; font: 600 0.85em var(--mono, ui-monospace, Consolas, monospace);
   color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+/* calmer steps (tick 1239): the place name is the map link (no separate "Where is this?" line), one time, one line */
+.ck-label-link { color: inherit; text-decoration: none; border-radius: 4px; transition: color 150ms ease; }
+.ck-label-link:focus-visible { outline: 2px solid #818cf8; outline-offset: 2px; }
+@media (hover: hover) and (pointer: fine) { .ck-label-link:hover { text-decoration: underline; text-decoration-color: var(--ink-muted); text-underline-offset: 3px; } }
+.ck-compact .ck-label { font-size: 14px; font-weight: 620; }
+.ck-compact .ck-time, .ck-compact .ck-detail, .ck-compact .ck-how, .ck-compact .ck-none { font-size: 12.5px; }
+.ck-compact .ck-how { color: var(--ink-muted); }
+.ck-red { font-weight: 560; }

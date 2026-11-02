@@ -98,6 +98,8 @@ def test_end_to_end_flow(ready):
     assert r.status_code == 200 and r.json()["status"] == "human_confirmed"
 
     # I1 follow-cam crop: original pixels around the box, its hashes, and why this track is the object.
+    bx = c.get(f"/v1/media/{up['media_id']}/tracks/{track['track_id']}/boxes", headers=h("t-inv")).json()
+    assert bx["boxes"] and len(bx["boxes"][0]) == 6  # frame, pts, x1, y1, x2, y2
     cr = c.get(f"/v1/cases/{case_id}/tracks/{track['track_id']}/crop", params={"frame": 5}, headers=h("t-inv")).json()
     assert cr["media_sha256"] == up["sha256"] and cr["frame_index"] == 5 and cr["asset_kind"] == "original"
     x1, y1, x2, y2 = cr["crop_rect_px"]

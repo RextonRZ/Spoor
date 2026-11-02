@@ -338,17 +338,42 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         audit(p, "frame_link", media_id, frame_index=frame_index)
         return {"url": f"/v1/signed/frames/{media_id}/{frame_index}?exp={exp}&sig={sig}", "expires": exp}
 
+    _frames: dict[tuple[str, int], bytes] = {}  # recently extracted original frames (a page asks for the same ones)
+
+    def frame_png(m: MediaAsset, frame_index: int) -> bytes:
+        key = (m.media_id, frame_index)
+        if key not in _frames:
+            if len(_frames) > 96:
+                _frames.pop(next(iter(_frames)))
+            _frames[key] = extract_frame(asset_path(svc.media, m), load_result(svc.media, m.media_id).original_frames,
+                                         frame_index)  # fmt: skip
+        return _frames[key]
+
+    def preview(png: bytes, w: int | None, kind: str) -> Response:
+        """The original pixels (lossless PNG), or with ?w= a downscaled JPEG for a thumbnail on screen: labelled a
+        preview, never the evidence copy (the report and exports use the original)."""
+        if not w:
+            return Response(png, media_type="image/png", headers={"Cache-Control": "private, max-age=60", "X-Spoor-Asset-Kind": kind})
+        import cv2
+        import numpy as np
+
+        img = cv2.imdecode(np.frombuffer(png, np.uint8), cv2.IMREAD_COLOR)
+        h, w0 = img.shape[:2]
+        if w < w0:
+            img = cv2.resize(img, (w, max(1, round(h * w / w0))), interpolation=cv2.INTER_AREA)
+        _, jpg = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 84])
+        return Response(jpg.tobytes(), media_type="image/jpeg",
+                        headers={"Cache-Control": "private, max-age=600", "X-Spoor-Asset-Kind": f"{kind}_preview"})
+
     @app.get("/v1/signed/frames/{media_id}/{frame_index}")
-    def signed_frame(media_id: str, frame_index: int, exp: int, sig: str) -> Response:
+    def signed_frame(media_id: str, frame_index: int, exp: int, sig: str, w: int | None = None) -> Response:
         svc.signer.check(f"{media_id}/{frame_index}", exp, sig)
         m = get_or_404(MediaAsset, media_id)
-        r = load_result(svc.media, media_id)
         try:
-            png = extract_frame(asset_path(svc.media, m), r.original_frames, frame_index)
+            png = frame_png(m, frame_index)
         except (IndexError, MediaToolError) as e:
             raise HTTPException(404, str(e)) from e
-        return Response(png, media_type="image/png", headers={"Cache-Control": "private, max-age=60",
-                                                               "X-Spoor-Asset-Kind": m.kind.value})
+        return preview(png, min(w, 1920) if w else None, m.kind.value)
 
     @app.get("/v1/media/{media_id}/playback")
     def playback(media_id: str, p: User) -> dict:
@@ -1325,6 +1350,21 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         steps = [s for s in svc.store.find(AgentStep, case_id=case_id) if s.role == "customer_update"]
         return max(steps, key=lambda s: s.at).content if steps else None
 
+    @app.get("/v1/media/{media_id}/tracks/{track_id}/boxes")
+    def track_boxes(media_id: str, track_id: str, p: User) -> dict:
+        """SAM's box on every frame of one track on its clip (the passport plays it: the outline following the carton).
+        Boxes, not masks: the pipeline keeps SAM's per-frame box."""
+        m = get_or_404(MediaAsset, media_id)
+        p.require_site(m.site_id)
+        obs = sorted((o for o in svc.store.find(RawObservation, track_id=track_id)
+                      if o.bbox_xyxy_px and o.source_frame.media_id == media_id),
+                     key=lambda o: o.source_frame.frame_index)  # fmt: skip
+        if not obs:
+            raise HTTPException(404, "no boxes for this track on this clip")
+        return {"media_id": media_id, "track_id": track_id,
+                "boxes": [[o.source_frame.frame_index, o.source_frame.pts_ms, *o.bbox_xyxy_px] for o in obs],
+                "label": "SAM 3.1's box on each frame of the track (boxes, not masks)"}  # fmt: skip
+
     @app.get("/v1/parcels/{waybill}/passport")
     def passport(waybill: str, p: User) -> dict:
         """Every checkpoint where this parcel was met on camera (its scans' handshakes), in time order: "Scanned here"
@@ -1356,17 +1396,15 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         return {**out, "label": "original pixels around a requested region; context, not an observation"}
 
     @app.get("/v1/signed/crops/{media_id}/{frame_index}/{rect}")
-    def signed_crop(media_id: str, frame_index: int, rect: str, exp: int, sig: str) -> Response:
+    def signed_crop(media_id: str, frame_index: int, rect: str, exp: int, sig: str, w: int | None = None) -> Response:
         svc.signer.check(f"crop/{media_id}/{frame_index}/{rect}", exp, sig)
         m = get_or_404(MediaAsset, media_id)
-        r = load_result(svc.media, media_id)
         try:
-            png = extract_frame(asset_path(svc.media, m), r.original_frames, frame_index)
+            png = frame_png(m, frame_index)
             x1, y1, x2, y2 = (int(v) for v in rect.split("_"))
         except (IndexError, MediaToolError, ValueError) as e:
             raise HTTPException(404, str(e)) from e
-        return Response(crop_png(png, (x1, y1, x2, y2)), media_type="image/png",
-                        headers={"Cache-Control": "private, max-age=60", "X-Spoor-Asset-Kind": "original_crop"})
+        return preview(crop_png(png, (x1, y1, x2, y2)), min(w, 1920) if w else None, "original_crop")
 
     @app.get("/v1/sites/{site_id}/exceptions")
     def exceptions(site_id: str, p: User, as_of: AwareDatetime | None = None, after_log_min: float = 0,

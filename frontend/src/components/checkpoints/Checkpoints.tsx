@@ -39,7 +39,9 @@ export function CheckpointStrip({ cps, compact = false, gaps = false, pending = 
           <span className="ck-node" aria-hidden="true">
             {pending ? i + 1 : c.state === "conflict" || c.state === "unscanned" ? "!" : c.state === "missing" ? "" : "✓"}
           </span>
-          <span className="ck-label"><b className="ck-n">{i + 1}</b>{c.label}</span>
+          <span className="ck-label">{where && !pending && c.point
+            ? <Link className="ck-label-link" href={`/hub?place=${encodeURIComponent(c.point)}`} title="Where is this? Opens it on the hub map">{c.label}</Link>
+            : <>{pending && <b className="ck-n">{i + 1}</b>}{c.label}</>}</span>
           {pending ? null : c.state === "missing" || c.state === "unscanned" ? (
             <span className="ck-none">{c.none}</span>
           ) : (
@@ -56,7 +58,6 @@ export function CheckpointStrip({ cps, compact = false, gaps = false, pending = 
           {c.cameras && c.state === "unscanned" && <span className="ck-red"><span>{c.cameras.replace(/^Cameras: carried in at /, "Cameras saw it carried in at ")}</span></span>}
           {c.cameras && c.state === "scanned" && <span className="ck-how">{c.cameras}</span>}
           {!compact && <span className="ck-how">{c.how}</span>}
-          {where && !pending && c.point && <Link className="ck-where" href={`/hub?place=${encodeURIComponent(c.point)}`}>Where is this?</Link>}
         </li>
         );
       })}

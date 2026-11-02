@@ -60,7 +60,7 @@ def plan_handshakes(store: EvidenceStore, plan: SitePlan, scans: list[ScanEvent]
                     end: datetime | None = None) -> list[Planned]:  # fmt: skip
     """Every parcel scan in [start, end] (shared clock): one row per camera that sees its scan point."""
     out: list[Planned] = []
-    media = [m for m in store.find(MediaAsset) if m.kind.value == "original"]
+    media = [m for m in store.find(MediaAsset) if m.kind.value == "original" and not store.is_invalid(m.media_id)]
     covs = {m.media_id: store.find(CameraCoverage, media_id=m.media_id) for m in media}
     at_point: dict[str, list[datetime]] = {}  # every read's time at each scan point (who else was handled there)
     for s in effective(scans):

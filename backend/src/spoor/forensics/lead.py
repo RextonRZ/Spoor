@@ -56,7 +56,7 @@ def _cameras(store: EvidenceStore, site_id: str) -> dict[str, dict]:
             sees.setdefault(cam, []).append(rp.scan_point_id)
     out = {}
     for cam in store.find(Camera, site_id=site_id):
-        covs = [c for m in store.find(MediaAsset, camera_id=cam.camera_id) if m.kind.value == "original"
+        covs = [c for m in store.find(MediaAsset, camera_id=cam.camera_id) if m.kind.value == "original" and not store.is_invalid(m.media_id)
                 for c in store.find(CameraCoverage, media_id=m.media_id)[-1:]]  # fmt: skip
         if covs:
             out[cam.camera_id] = {"camera_id": cam.camera_id, "name": cam.name, "sees_scan_points": sees.get(cam.camera_id, []),

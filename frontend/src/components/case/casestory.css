@@ -40,3 +40,20 @@
 @media (prefers-reduced-motion: reduce) { .cs-video rect { transition: none; } }
 /* the story inset names its one area in the caption; the other zones' labels only collided at its edges (tick 1147 #3) */
 .cs-plan .hp-zl { display: none; }
+/* SAM's box on a moment's thumbnail (the pick's alert outline, the wide camera's track at the door) */
+.cs-mo-mark { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.cs-mo-mark rect { fill: none; stroke: #4ade80; stroke-width: 3; vector-effect: non-scaling-stroke; }
+/* moments rail (tick 1239, the four skills): one time and one plain line per moment, equal cards, the two
+   problems in red, the selected one ringed and synced with the hero, each thumbnail zoomed on SAM's box */
+.cs-mo { grid-template-columns: repeat(5, minmax(0, 1fr)); column-gap: 14px; }
+.cs-mo .lp-mo-time { font-size: 13px; font-weight: 650; }
+.cs-mo .lp-mo-gap { font-size: 11px; color: var(--tb-ink-3, var(--tb-mute)); border: 0; padding: 0 6px; }
+.cs-mo-zoom { position: absolute; inset: 0; display: block; transition: transform 260ms cubic-bezier(0.23, 1, 0.32, 1); }
+.cs-mo .lp-mo-cap { margin: 0; font-size: 13px; line-height: 1.4; color: var(--tb-ink-2); min-height: 2.8em; }
+.cs-mo .lp-mo-btn[aria-pressed="true"] + .lp-mo-cap, .cs-mo .lp-mo-item:has(.lp-mo-btn[aria-pressed="true"]) .lp-mo-cap { color: var(--tb-ink); }
+.cs-mo .lp-mo-frame.is-on { border-color: #818cf8; box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.28); }
+.cs-mo .lp-mo-item[data-tone="bad"] .lp-mo-frame { border-color: rgba(248, 113, 113, 0.55); }
+.cs-mo .lp-mo-item[data-tone="bad"] .lp-mo-frame.is-on { border-color: #f87171; box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.25); }
+.cs-mo .lp-mo-item[data-tone="bad"] .lp-mo-time { color: #fca5a5; }
+@media (max-width: 820px) { .cs-mo { grid-template-columns: 1fr; } .cs-mo .lp-mo-cap { min-height: 0; } }
+@media (prefers-reduced-motion: reduce) { .cs-mo-zoom { transition: none; } }

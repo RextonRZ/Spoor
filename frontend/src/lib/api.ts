@@ -54,6 +54,12 @@ export function signedUrl(path: string): string {
   return `${API_BASE}${path}`;
 }
 
+/** a signed frame or crop as an on-screen preview (a downscaled JPEG, labelled a preview by the API): thumbnails load
+ *  in a fraction of the lossless original's time; exports and the report keep the original */
+export function previewUrl(path: string, w: number): string {
+  return `${API_BASE}${path}${path.includes("?") ? "&" : "?"}w=${w}`;
+}
+
 // --- shared resource cache --------------------------------------------------------------------------------------
 
 interface Entry<T = unknown> {

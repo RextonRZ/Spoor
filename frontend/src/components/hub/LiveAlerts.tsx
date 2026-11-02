@@ -6,8 +6,8 @@
  * that moment, before anyone complains. From GET /v1/sites/{site}/alerts (LiveAlert records).
  */
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { api, signedUrl, useResource } from "@/lib/api";
+import { useResource } from "@/lib/api";
+import { inCrop, useFocusCrop } from "@/lib/focus";
 import { hms } from "@/lib/words";
 import "./livealerts.css";
 
@@ -20,20 +20,20 @@ interface CaseRow { case: { case_id: string; target_description: string } }
 const cam = (c: string) => c.replace(/^cam_/, "").replaceAll("_", " ");
 const PLACE: Record<string, string> = { "SP-CAGE-W": "the west cage bays", "SP-CAGE-E": "the east cage bays" };
 
+/** the moment it left, cropped around SAM's outline of the carton (the full frame opens in the case) */
 function Shot({ a }: { a: Alert }) {
-  const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => {
-    if (!a.box_px) return;
-    const [x1, y1, x2, y2] = a.box_px;
-    const w = Math.max(x2 - x1, y2 - y1) * 4 + 80, cx = (x1 + x2) / 2, cy = (y1 + y2) / 2;
-    const box = [cx - w * 0.66, cy - w / 2, cx + w * 0.66, cy + w / 2].map((v) => Math.max(0, Math.round(v))).join(",");
-    let live = true;
-    api<{ crop_url: string }>(`/v1/media/${a.media_id}/frames/${a.frame_index}/crop?box=${box}`)
-      .then((r) => live && setUrl(signedUrl(r.crop_url))).catch(() => {});
-    return () => { live = false; };
-  }, [a]);
-  // eslint-disable-next-line @next/next/no-img-element -- a signed crop of the original frame
-  return url ? <img src={url} alt="" /> : <span className="la-wait" aria-hidden />;
+  const got = useFocusCrop(a.media_id, a.frame_index, a.box_px);
+  if (!got || !a.box_px) return <span className="la-wait" aria-hidden />;
+  const b = inCrop(a.box_px, got.rect);
+  return (
+    <>
+      {/* eslint-disable-next-line @next/next/no-img-element -- a signed crop of the original frame around SAM's box */}
+      <img src={got.url} alt="" />
+      <svg className="la-mark" viewBox={`0 0 ${b.vw} ${b.vh}`} preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <rect x={b.x - 3} y={b.y - 3} width={b.w + 6} height={b.h + 6} rx="3" />
+      </svg>
+    </>
+  );
 }
 
 export function LiveAlerts({ siteId }: { siteId?: string }) {
