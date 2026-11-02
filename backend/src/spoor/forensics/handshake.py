@@ -16,8 +16,9 @@ Rules by where the carton is at the scan instant (general, from the record and t
   only if exactly one carton is handled there (in the area and moved: put in or taken out) in all of it.
 
 Which outlines carry the tracking number (labelled), by rule, from the truth check (eval_handshakes.py):
-- divert point: the carton is moving at the confirm (it leaves its tray); an outline that stands still at the point
-  is something resting there (a carton already in the chute) -> "can't tell", not labelled;
+- divert point (divert confirm, recirculation): the carton is moving at the confirm (it leaves its tray); an outline
+  that stands still at the point is something resting there (a carton already in the chute) -> "can't tell", not
+  labelled. Other sorter points (induction) are not labelled: the rule was checked at the chute mouths only;
 - tunnel exit: no picture signal tells the scanned carton from the one queued before it at the exit, so the CCTV
   outline is not labelled; the tunnel's own photo, taken by the reader at the read, identifies it;
 - handheld: exactly one carton handled in the work area in the window -> labelled.

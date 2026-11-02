@@ -54,6 +54,7 @@ class ServiceError(ValueError):
 
 
 GRANT_REASON = "scope: cameras granted"
+DIVERT_EVENTS = {"divert_confirmed", "recirculated"}  # sorter events at a chute mouth, where the motion rule holds
 
 
 @dataclass
@@ -248,7 +249,9 @@ class Services:
         after = [o for o in obs if o.source_frame.frame_index >= f_at]
         span = (after[-1].source_frame.pts_ms - after[0].source_frame.pts_ms) / 1000 if len(after) > 1 else 0.0
         labelled, note = row.rule == "work_area", ""
-        if row.rule == "point":  # the diverted carton is moving at the confirm; a still outline is something resting
+        if row.rule == "point" and row.scan.event_kind.value not in DIVERT_EVENTS:
+            labelled = False  # the motion rule was checked at divert points only (an induction outline was wrong 4/4)
+        elif row.rule == "point":  # the diverted carton is moving at the confirm; a still outline is something resting
             rp = plan.read_point(row.scan_point_id) if plan else None
             moving = [o for o in obs if f_at - 2 <= o.source_frame.frame_index <= f_at + 15]
             if rp is not None and cal is not None and len(moving) > 1:

@@ -70,18 +70,21 @@ the one nearest the outline). Windows: S2 (90 s, 19 wide + 6 checkpoint cameras)
 |---|---|---|---|---|
 | First run (point prompt, any clock) | 257 | 257 | 12 % | belt-sized and whole-frame outlines counted; unfitted clocks 5 s off |
 | + no outline bigger than 2x the largest parcel; no handshake on a +-5 s clock at belt points | 81 | 81 | 67 % strictly, 86 % right parcel nearest | |
-| + labels only where the rule rules out a neighbour (below) | 83 | **49** | **49 of 49 (100 %)** | 34 withheld as "can't tell which carton" |
+| + labels only where the rule rules out a neighbour (below); valid 1920 px copies only; induction never labelled | 100 | **51** | **51 of 51 (100 %)** | 49 withheld (shown as the scan record) |
 
 By kind of scan (final):
 
 | Scan | Outlines | Labelled | Right | Withheld | Labelled share of the right ones | Rule that decides the label |
 |---|---|---|---|---|---|---|
-| Divert (sorter) | 68 | 48 | 48 | 20 | 83 % | the diverted carton moves at the confirm; an outline that stands still is something resting at the chute (all 10 wrong outlines were still: 0.00-0.12 m in 1.7 s) |
+| Divert / recirculation and induction (sorter points) | 87 | 50 | 50 | 37 | 77 % | the diverted carton moves at the confirm; an outline that stands still is something resting at the chute (all 10 wrong outlines were still: 0.00-0.12 m in 1.7 s) |
 | Tunnel exit | 14 | 0 | - | 14 | 0 % on CCTV | no picture signal (motion, record spacing, measured size) told the scanned carton from the one queued before it, so the CCTV outline carries no number; the stamp is the tunnel's own photo, taken by the reader at the read |
 | Cage (handheld) | 1 | 1 | 1 | 0 | 100 % | one carton handled in the work area (put in or taken out), and on an unfitted clock only when no other scan at that point shares the +-5 s window |
 | Other handheld (unload door) | 0 | 0 | - | - | - | the inbound door scans every 3-7 s and its close-up's clock is not fitted: with the window rule above, nothing is shown (the first try labelled 7 of 11 wrong there) |
 
-Overall 49 of the 67 outlines whose nearest parcel is the scanned one carry a label (73 %); none of the 49 is wrong.
+Overall 51 of the 75 outlines whose nearest parcel is the scanned one carry a label (68 %); none of the 51 is wrong.
+Induction outlines are never labelled: when tried (4 outlines on CHK_TUNNEL at SP-INDUCT) all 4 were another carton,
+so the motion rule is applied only at the chute mouths where it was checked. Some early handshakes had used purged
+2688 px uploads; the planners now skip purged media and all rows above are on the valid delivery copies.
 Meta SAM spend for the handshakes: ~US$3.25 for the first pass, ~US$0.7 for the re-runs (the rest read SAM's cache).
 
 **The story parcel's checkpoints** (CTX334048419302):

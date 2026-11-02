@@ -1,13 +1,13 @@
 {
  "summary": {
   "all": {
-   "outlines": 104,
+   "outlines": 100,
    "labelled": 51,
-   "withheld": 53,
+   "withheld": 49,
    "labelled_right": 51,
    "label_precision": 1.0,
    "strict_right": 44,
-   "coverage_of_right": 0.63,
+   "coverage_of_right": 0.68,
    "wrong_labels": []
   },
   "by_type": {
@@ -22,9 +22,9 @@
     "wrong_labels": []
    },
    "divert": {
-    "outlines": 82,
+    "outlines": 87,
     "labelled": 50,
-    "withheld": 32,
+    "withheld": 37,
     "labelled_right": 50,
     "label_precision": 1.0,
     "strict_right": 43,
@@ -32,9 +32,9 @@
     "wrong_labels": []
    },
    "tunnel exit": {
-    "outlines": 21,
+    "outlines": 12,
     "labelled": 0,
-    "withheld": 21,
+    "withheld": 12,
     "labelled_right": 0,
     "label_precision": null,
     "strict_right": 0,
@@ -57,7 +57,7 @@
     "camera": "CHK_TUNNEL",
     "outcome": "outlined",
     "labelled": false,
-    "verdict": "right"
+    "verdict": "other_parcel"
    },
    {
     "at": "14:11:16.38",
@@ -78,159 +78,6 @@
   ]
  },
  "rows": [
-  {
-   "window": "W1",
-   "waybill": "CTX196721723997",
-   "camera": "CAM_05",
-   "scan_point": "SP-TUNNEL",
-   "event": "tunnel_read",
-   "rule": "tunnel_exit",
-   "at": "2026-10-28T14:10:39.600000+08:00",
-   "media": "media_405a56a495c1441dc8af",
-   "box": [
-    89.0,
-    0.0,
-    717.0,
-    363.0
-   ],
-   "outcome": "outlined",
-   "labelled": false,
-   "truth_px": null,
-   "verdict": "not_in_truth_view",
-   "identity_right": false
-  },
-  {
-   "window": "W1",
-   "waybill": "CTX196721723997",
-   "camera": "CHK_TUNNEL",
-   "scan_point": "SP-TUNNEL",
-   "event": "tunnel_read",
-   "rule": "tunnel_exit",
-   "at": "2026-10-28T14:10:39.600000+08:00",
-   "media": "media_9c5b1c06fc006e55f552",
-   "box": [
-    596.0,
-    466.0,
-    985.0,
-    627.0
-   ],
-   "outcome": "outlined",
-   "labelled": false,
-   "truth_px": null,
-   "verdict": "not_in_truth_view",
-   "identity_right": false
-  },
-  {
-   "window": "W1",
-   "waybill": "CTX334048419302",
-   "camera": "CAM_05",
-   "scan_point": "SP-TUNNEL",
-   "event": "tunnel_read",
-   "rule": "tunnel_exit",
-   "at": "2026-10-28T14:10:40.990000+08:00",
-   "media": "media_405a56a495c1441dc8af",
-   "box": [
-    93.0,
-    0.0,
-    715.0,
-    362.0
-   ],
-   "outcome": "outlined",
-   "labelled": false,
-   "truth_px": [
-    464,
-    316
-   ],
-   "verdict": "other_parcel",
-   "identity_right": false
-  },
-  {
-   "window": "W1",
-   "waybill": "CTX334048419302",
-   "camera": "CHK_TUNNEL",
-   "scan_point": "SP-TUNNEL",
-   "event": "tunnel_read",
-   "rule": "tunnel_exit",
-   "at": "2026-10-28T14:10:40.990000+08:00",
-   "media": "media_9c5b1c06fc006e55f552",
-   "box": [
-    769.0,
-    468.0,
-    987.0,
-    626.0
-   ],
-   "outcome": "outlined",
-   "labelled": false,
-   "truth_px": [
-    953,
-    554
-   ],
-   "verdict": "right",
-   "identity_right": true
-  },
-  {
-   "window": "W1",
-   "waybill": "CTX634608453704",
-   "camera": "CHK_TUNNEL",
-   "scan_point": "SP-TUNNEL",
-   "event": "tunnel_read",
-   "rule": "tunnel_exit",
-   "at": "2026-10-28T14:10:43.100000+08:00",
-   "media": "media_9c5b1c06fc006e55f552",
-   "box": [
-    742.0,
-    463.0,
-    976.0,
-    627.0
-   ],
-   "outcome": "outlined",
-   "labelled": false,
-   "truth_px": null,
-   "verdict": "not_in_truth_view",
-   "identity_right": false
-  },
-  {
-   "window": "W1",
-   "waybill": "CTX747826029841",
-   "camera": "CHK_TUNNEL",
-   "scan_point": "SP-TUNNEL",
-   "event": "tunnel_read",
-   "rule": "tunnel_exit",
-   "at": "2026-10-28T14:10:46.200000+08:00",
-   "media": "media_9c5b1c06fc006e55f552",
-   "box": [
-    767.0,
-    463.0,
-    974.0,
-    626.0
-   ],
-   "outcome": "outlined",
-   "labelled": false,
-   "truth_px": null,
-   "verdict": "not_in_truth_view",
-   "identity_right": false
-  },
-  {
-   "window": "W1",
-   "waybill": "CTX976915902866",
-   "camera": "CHK_TUNNEL",
-   "scan_point": "SP-TUNNEL",
-   "event": "tunnel_read",
-   "rule": "tunnel_exit",
-   "at": "2026-10-28T14:10:48.700000+08:00",
-   "media": "media_9c5b1c06fc006e55f552",
-   "box": [
-    859.0,
-    460.0,
-    982.0,
-    529.0
-   ],
-   "outcome": "outlined",
-   "labelled": false,
-   "truth_px": null,
-   "verdict": "not_in_truth_view",
-   "identity_right": false
-  },
   {
    "window": "W1",
    "waybill": "CTX334048419302",
@@ -281,30 +128,6 @@
   },
   {
    "window": "S2",
-   "waybill": "CTX976456695076",
-   "camera": "CHK_TUNNEL",
-   "scan_point": "SP-TUNNEL",
-   "event": "tunnel_read",
-   "rule": "tunnel_exit",
-   "at": "2026-10-28T14:32:08.300000+08:00",
-   "media": "media_f504b5b3a50e4be8e887",
-   "box": [
-    769.0,
-    466.0,
-    987.0,
-    626.0
-   ],
-   "outcome": "outlined",
-   "labelled": false,
-   "truth_px": [
-    953,
-    554
-   ],
-   "verdict": "right",
-   "identity_right": true
-  },
-  {
-   "window": "S2",
    "waybill": "CTX469895356834",
    "camera": "CAM_11",
    "scan_point": "SP-DIV-C11",
@@ -325,54 +148,6 @@
     225
    ],
    "verdict": "right",
-   "identity_right": true
-  },
-  {
-   "window": "S2",
-   "waybill": "CTX235687544500",
-   "camera": "CHK_TUNNEL",
-   "scan_point": "SP-TUNNEL",
-   "event": "tunnel_read",
-   "rule": "tunnel_exit",
-   "at": "2026-10-28T14:32:11.100000+08:00",
-   "media": "media_f504b5b3a50e4be8e887",
-   "box": [
-    793.0,
-    459.0,
-    982.0,
-    553.0
-   ],
-   "outcome": "outlined",
-   "labelled": false,
-   "truth_px": [
-    953,
-    554
-   ],
-   "verdict": "right",
-   "identity_right": true
-  },
-  {
-   "window": "S2",
-   "waybill": "CTX466229019130",
-   "camera": "CHK_TUNNEL",
-   "scan_point": "SP-TUNNEL",
-   "event": "tunnel_read",
-   "rule": "tunnel_exit",
-   "at": "2026-10-28T14:32:12.900000+08:00",
-   "media": "media_f504b5b3a50e4be8e887",
-   "box": [
-    862.0,
-    463.0,
-    978.0,
-    523.0
-   ],
-   "outcome": "outlined",
-   "labelled": false,
-   "truth_px": [
-    953,
-    554
-   ],
-   "verdict": "near_miss",
    "identity_right": true
   },
   {
@@ -422,102 +197,6 @@
    ],
    "verdict": "other_parcel",
    "identity_right": false
-  },
-  {
-   "window": "S2",
-   "waybill": "CTX119368214201",
-   "camera": "CHK_TUNNEL",
-   "scan_point": "SP-TUNNEL",
-   "event": "tunnel_read",
-   "rule": "tunnel_exit",
-   "at": "2026-10-28T14:32:16.400000+08:00",
-   "media": "media_f504b5b3a50e4be8e887",
-   "box": [
-    861.0,
-    464.0,
-    985.0,
-    518.0
-   ],
-   "outcome": "outlined",
-   "labelled": false,
-   "truth_px": [
-    953,
-    554
-   ],
-   "verdict": "near_miss",
-   "identity_right": true
-  },
-  {
-   "window": "S2",
-   "waybill": "CTX604693476795",
-   "camera": "CHK_TUNNEL",
-   "scan_point": "SP-TUNNEL",
-   "event": "tunnel_read",
-   "rule": "tunnel_exit",
-   "at": "2026-10-28T14:32:18+08:00",
-   "media": "media_f504b5b3a50e4be8e887",
-   "box": [
-    741.0,
-    466.0,
-    986.0,
-    627.0
-   ],
-   "outcome": "outlined",
-   "labelled": false,
-   "truth_px": [
-    953,
-    554
-   ],
-   "verdict": "right",
-   "identity_right": true
-  },
-  {
-   "window": "S2",
-   "waybill": "CTX975294578804",
-   "camera": "CHK_TUNNEL",
-   "scan_point": "SP-TUNNEL",
-   "event": "tunnel_read",
-   "rule": "tunnel_exit",
-   "at": "2026-10-28T14:32:19+08:00",
-   "media": "media_f504b5b3a50e4be8e887",
-   "box": [
-    741.0,
-    462.0,
-    980.0,
-    626.0
-   ],
-   "outcome": "outlined",
-   "labelled": false,
-   "truth_px": [
-    953,
-    554
-   ],
-   "verdict": "right",
-   "identity_right": true
-  },
-  {
-   "window": "S2",
-   "waybill": "CTX173082633561",
-   "camera": "CHK_TUNNEL",
-   "scan_point": "SP-TUNNEL",
-   "event": "tunnel_read",
-   "rule": "tunnel_exit",
-   "at": "2026-10-28T14:32:20.200000+08:00",
-   "media": "media_f504b5b3a50e4be8e887",
-   "box": [
-    744.0,
-    466.0,
-    987.0,
-    627.0
-   ],
-   "outcome": "outlined",
-   "labelled": false,
-   "truth_px": [
-    953,
-    554
-   ],
-   "verdict": "right",
-   "identity_right": true
   },
   {
    "window": "S2",
@@ -2558,6 +2237,228 @@
    ],
    "verdict": "near_miss",
    "identity_right": true
+  },
+  {
+   "window": "W1",
+   "waybill": "CTX334048419302",
+   "camera": "CAM_05",
+   "scan_point": "SP-TUNNEL",
+   "event": "tunnel_read",
+   "rule": "tunnel_exit",
+   "at": "2026-10-28T14:10:40.990000+08:00",
+   "media": "media_d1ac66083d686b25590c",
+   "box": [
+    320.0,
+    236.0,
+    445.0,
+    328.0
+   ],
+   "outcome": "outlined",
+   "labelled": false,
+   "truth_px": [
+    464,
+    316
+   ],
+   "verdict": "other_parcel",
+   "identity_right": false
+  },
+  {
+   "window": "W1",
+   "waybill": "CTX334048419302",
+   "camera": "CHK_TUNNEL",
+   "scan_point": "SP-TUNNEL",
+   "event": "tunnel_read",
+   "rule": "tunnel_exit",
+   "at": "2026-10-28T14:10:40.990000+08:00",
+   "media": "media_fc3be75b9a195ef16677",
+   "box": [
+    914.0,
+    425.0,
+    1043.0,
+    524.0
+   ],
+   "outcome": "outlined",
+   "labelled": false,
+   "truth_px": [
+    953,
+    554
+   ],
+   "verdict": "other_parcel",
+   "identity_right": false
+  },
+  {
+   "window": "W1",
+   "waybill": "CTX747826029841",
+   "camera": "CHK_TUNNEL",
+   "scan_point": "SP-TUNNEL",
+   "event": "tunnel_read",
+   "rule": "tunnel_exit",
+   "at": "2026-10-28T14:10:46.200000+08:00",
+   "media": "media_fc3be75b9a195ef16677",
+   "box": [
+    916.0,
+    453.0,
+    1006.0,
+    553.0
+   ],
+   "outcome": "outlined",
+   "labelled": false,
+   "truth_px": null,
+   "verdict": "not_in_truth_view",
+   "identity_right": false
+  },
+  {
+   "window": "S2",
+   "waybill": "CTX235687544500",
+   "camera": "CHK_TUNNEL",
+   "scan_point": "SP-TUNNEL",
+   "event": "tunnel_read",
+   "rule": "tunnel_exit",
+   "at": "2026-10-28T14:32:11.100000+08:00",
+   "media": "media_c6132276600de347c64f",
+   "box": [
+    900.0,
+    476.0,
+    1003.0,
+    579.0
+   ],
+   "outcome": "outlined",
+   "labelled": false,
+   "truth_px": [
+    953,
+    554
+   ],
+   "verdict": "right",
+   "identity_right": true
+  },
+  {
+   "window": "S2",
+   "waybill": "CTX975294578804",
+   "camera": "CHK_TUNNEL",
+   "scan_point": "SP-TUNNEL",
+   "event": "tunnel_read",
+   "rule": "tunnel_exit",
+   "at": "2026-10-28T14:32:19+08:00",
+   "media": "media_c6132276600de347c64f",
+   "box": [
+    939.0,
+    471.0,
+    987.0,
+    486.0
+   ],
+   "outcome": "outlined",
+   "labelled": false,
+   "truth_px": [
+    953,
+    554
+   ],
+   "verdict": "near_miss",
+   "identity_right": true
+  },
+  {
+   "window": "W1",
+   "waybill": "CTX546164904166",
+   "camera": "CHK_TUNNEL",
+   "scan_point": "SP-INDUCT",
+   "event": "inducted",
+   "rule": "point",
+   "at": "2026-10-28T14:10:41.800000+08:00",
+   "media": "media_fc3be75b9a195ef16677",
+   "box": [
+    1072.0,
+    209.0,
+    1179.0,
+    301.0
+   ],
+   "outcome": "outlined",
+   "labelled": false,
+   "truth_px": null,
+   "verdict": "not_in_truth_view",
+   "identity_right": false
+  },
+  {
+   "window": "W1",
+   "waybill": "CTX196721723997",
+   "camera": "CHK_TUNNEL",
+   "scan_point": "SP-INDUCT",
+   "event": "inducted",
+   "rule": "point",
+   "at": "2026-10-28T14:10:44.200000+08:00",
+   "media": "media_fc3be75b9a195ef16677",
+   "box": [
+    1120.0,
+    247.0,
+    1150.0,
+    272.0
+   ],
+   "outcome": "outlined",
+   "labelled": false,
+   "truth_px": null,
+   "verdict": "not_in_truth_view",
+   "identity_right": false
+  },
+  {
+   "window": "S2",
+   "waybill": "CTX984703077159",
+   "camera": "CHK_TUNNEL",
+   "scan_point": "SP-INDUCT",
+   "event": "inducted",
+   "rule": "point",
+   "at": "2026-10-28T14:32:09.800000+08:00",
+   "media": "media_c6132276600de347c64f",
+   "box": [
+    1082.0,
+    210.0,
+    1182.0,
+    312.0
+   ],
+   "outcome": "outlined",
+   "labelled": false,
+   "truth_px": null,
+   "verdict": "not_in_truth_view",
+   "identity_right": false
+  },
+  {
+   "window": "S2",
+   "waybill": "CTX976456695076",
+   "camera": "CHK_TUNNEL",
+   "scan_point": "SP-INDUCT",
+   "event": "inducted",
+   "rule": "point",
+   "at": "2026-10-28T14:32:12.900000+08:00",
+   "media": "media_c6132276600de347c64f",
+   "box": [
+    1132.0,
+    252.0,
+    1154.0,
+    264.0
+   ],
+   "outcome": "outlined",
+   "labelled": false,
+   "truth_px": null,
+   "verdict": "not_in_truth_view",
+   "identity_right": false
+  },
+  {
+   "window": "S2",
+   "waybill": "CTX235687544500",
+   "camera": "CHK_TUNNEL",
+   "scan_point": "SP-INDUCT",
+   "event": "inducted",
+   "rule": "point",
+   "at": "2026-10-28T14:32:15.700000+08:00",
+   "media": "media_c6132276600de347c64f",
+   "box": [
+    1102.0,
+    210.0,
+    1180.0,
+    297.0
+   ],
+   "outcome": "outlined",
+   "labelled": false,
+   "truth_px": null,
+   "verdict": "not_in_truth_view",
+   "identity_right": false
   }
  ]
 }
