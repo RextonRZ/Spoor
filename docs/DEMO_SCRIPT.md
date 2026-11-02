@@ -17,16 +17,16 @@ the submission: Thu 5 Nov 2026, 10:00 MYT.
 
 | Time | Screen | Click / show | Say |
 |---|---|---|---|
-| 0:00 | (customer chat card) | "Where is my parcel? Two weeks now." | A customer says their parcel never arrived. Tracking says it was loaded on a truck. |
+| 0:00 | (customer chat card) | "Where is my parcel? Four days now." (the case data: last scan 28 Oct, asked 1 Nov) | A customer says their parcel never arrived. Tracking says it was loaded on a truck. |
 | 0:12 | Landing, hero | scroll once | Spoor reads a hub's own cameras and scan records together. |
 | 0:20 | Hub | the red live alert at the top: "A carton left the west cage bays without a scan", SAM's outline on the carton | Before anyone complained, the hub was told: a carton left a cage with no scan. It could only be one parcel. |
 | 0:35 | Hub | the CTX334048419302 row: "Customer asked", "Likely location found"; the side panel | The records say it left on truck D07. The cameras say it never left. |
-| 0:45 | Investigating | press Replay | Muse Glimmer on the hub's own GPU flagged 17 % of the footage. Muse Wonder plans: the doorway camera, then the store's close-up. Spark Open agents run the checks; the verifier passes one idea and rejects the others. |
-| 1:15 | Answer | the hero clip (carried in past the scan-in post), the five moments, the plan | Most likely in the Exception store. Carried in at 14:32:32, the carrier came out without it, nobody carried it out. No camera sees inside, and it says so. |
-| 1:45 | Answer | "Its journey on camera": click "Into chute C12" | At every scan, the barcode says which parcel and SAM 3.1 outlines that carton. A number goes on an outline only when no other carton could be the one scanned: 51 of 51 right against the truth. |
-| 2:10 | Proof | the checkpoint tiles, then the dock tile | Each checkpoint on camera, in order. Here the cage leaves through D07 without it. |
-| 2:25 | Go look | the search task on the phone | A person checks the store; the case closes with what they find. |
-| 2:40 | Report | "Draft the update to the customer" | The update is written from the verified answer only. A person approves it; Spoor sends nothing. |
+| 0:45 | How the agents worked (from the case header) | press Replay; the dots fill in, agent by agent | Muse Glimmer on the hub's own GPU sent only 17 % of the footage to the cloud. Muse Wonder picks the cameras. SAM 3.1 tracks who went in and out. Spark Open tests three ideas; the rules-only verifier lets one through. Each place they worked is a real camera frame. |
+| 1:15 | Answer | the hero frame (carried in past the scan-in post, SAM's outline), the three facts | Most likely in the Exception store. Carried in at 14:32, not seen coming out. The truck record says D07; the cameras say it never left. No camera sees inside, and it says so. |
+| 1:45 | Proof | "Watch the proof": the journey player; click the "Into chute C12" frame | Every step on its own camera. At each scan the barcode says which parcel and SAM 3.1 outlines that carton. A number goes on an outline only when no other carton could be the one scanned: every number shown was right against the truth (13 of 13). |
+| 2:10 | Proof | click stop 11 on the plan | The route on the plan, numbered like the steps. Here the cage leaves through D07 without it. |
+| 2:25 | Go look (Spoor Floor, the worker's phone) | Open the task, Start search, Scan barcode (type 9302) | The worker gets the frame, the parcel's photo and a walking route; scans the label; the case closes with what they found. A voice note can go in, in Malay or English. |
+| 2:40 | Report | scroll the case file; "Draft the update to the customer", switch to Malay | The case file: every step's frame, the route, records against cameras. The update is written from verified facts only, each linked to its frame; a person approves it. |
 | 2:55 | (closing card) | | Lost parcels, found with proof. Spoor also flags them before anyone complains. |
 
 ## If something fails on the day
