@@ -189,3 +189,17 @@
 .tb-sugg-meta { color: var(--tb-mute); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tb-sugg-case { font-style: normal; font-size: 11px; font-weight: 600; color: #fca5a5; background: rgba(248, 113, 113, 0.12); padding: 1px 6px; border-radius: 4px; }
 @media (prefers-reduced-motion: reduce) { .tb-sugg { transition: none; } }
+.sb-account .tb-me { cursor: default; }
+.sb-account .tb-me:active { transform: none; }
+
+/* media loading (MediaFade.tsx): transparent while loading, the frame shimmers, then a 200 ms fade in */
+.sb-main img, .sb-main video { transition: opacity 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+.sb-main img[data-ld], .sb-main video[data-ld] { opacity: 0; }
+.sb-main :has(> img[data-ld]), .sb-main :has(> video[data-ld]) {
+  background-image: linear-gradient(100deg, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0) 70%);
+  background-size: 200% 100%; animation: media-shimmer 1.3s ease-in-out infinite; }
+@keyframes media-shimmer { from { background-position: 120% 0; } to { background-position: -20% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .sb-main img, .sb-main video { transition: none; }
+  .sb-main :has(> img[data-ld]), .sb-main :has(> video[data-ld]) { animation: none; background-image: none; background-color: rgba(255, 255, 255, 0.04); }
+}

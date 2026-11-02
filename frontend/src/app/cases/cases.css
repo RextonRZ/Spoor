@@ -1,5 +1,5 @@
 /* Cases, ops-console style (the Hub's tokens from the shell). Prefix cs-. */
-.cs { width: 100%; max-width: 1440px; padding: 24px 28px 48px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px; color: var(--tb-ink); }
+.cs { width: 100%; max-width: 1680px; margin-inline: auto; padding: 24px 28px 48px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px; color: var(--tb-ink); }
 .cs-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px 24px; }
 .cs-title { margin: 0; font-size: 24px; line-height: 1.2; font-weight: 700; letter-spacing: -0.02em; }
 .cs-sub { margin: 6px 0 0; font-size: 13px; color: var(--tb-mute); }

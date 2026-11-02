@@ -1,6 +1,6 @@
 /* Hub, ops-console style. Prefix hb-. Tokens from the shell (tb-app): neutral greys, one indigo accent, 6-8px
    corners, hairlines. Layers: header 30 (shell), drawer 60. */
-.hb { --hb-z-drawer: 60; width: 100%; max-width: 1440px; padding: 24px 28px 48px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px; }
+.hb { --hb-z-drawer: 60; width: 100%; max-width: 1680px; margin-inline: auto; padding: 24px 28px 48px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px; }
 
 .hb-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px 24px; }
 .hb-title { margin: 0; font-size: 24px; line-height: 1.2; font-weight: 700; letter-spacing: -0.02em; }

@@ -46,6 +46,8 @@ export interface Checkpoint {
   /** how it is scanned, in a few words */
   how: string;
   state: CheckpointState;
+  /** after the parcel's last scan, but the log ended before it was due: on its way, not a gap */
+  notDue?: boolean;
   t: string | null;
   /** what the record says, in plain words ("Into chute C12", "Into cage RC-760") */
   detail: string | null;
@@ -66,12 +68,15 @@ export function maskBarcode(code: string): string {
   return code.length > 8 ? `${code.slice(0, 4)}${"*".repeat(Math.max(4, code.length - 8))}${code.slice(-4)}` : code;
 }
 
+const NOT_DUE_MS = 120_000; // the slowest hop to the next checkpoint (unload to tunnel ~40 s; chute to bag ~2 min)
+
 export function buildCheckpoints({
   scans,
   records = [],
   barcode = null,
   truckSeen,
   storeSeenAt,
+  logEnd,
 }: {
   scans: JourneyScan[];
   records?: CaseRecord[];
@@ -81,6 +86,9 @@ export function buildCheckpoints({
   truckSeen?: boolean;
   /** when the cameras saw it go into the exception store (from footage); undefined = not known */
   storeSeenAt?: string | null;
+  /** the scan log's last record: a checkpoint after the parcel's last scan that was not yet due by then reads "not due
+   *  yet", not as a failure (a parcel unloaded 30 s before the log ends has not reached the tunnel: it is on its way) */
+  logEnd?: string | null;
 }): Checkpoint[] {
   const first = (pred: (s: JourneyScan) => boolean) => scans.find(pred);
   const unload = first((s) => s.event_kind === "arrived_facility");
@@ -151,6 +159,11 @@ export function buildCheckpoints({
     truck.cameras = "Cameras: not checked yet"; // no footage tracked yet: say so, never guess
   }
   cps.push(truck);
+  const lastT = scans.length ? Math.max(...scans.map((x) => Date.parse(x.t))) : NaN;
+  if (logEnd && Number.isFinite(lastT) && Date.parse(logEnd) - lastT < NOT_DUE_MS) {
+    const lastIdx = Math.max(...cps.map((c, i) => (c.state === "scanned" ? i : -1)));
+    cps.forEach((c, i) => { if (i > lastIdx && c.state === "missing") { c.none = "Not due yet"; c.notDue = true; } });
+  }
   return cps;
 }
 

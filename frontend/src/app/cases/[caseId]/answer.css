@@ -1,7 +1,7 @@
 /* Answer (step 1): verdict, scans, places, order; the camera view docked on the right. Prefix an-. Tokens from the shell;
    buttons, the view and the next-cameras list come from the Hub's stylesheet (hb-). */
 .an { color: var(--tb-ink); }
-.an-body { display: grid; grid-template-columns: minmax(0, 1fr) clamp(360px, 32vw, 440px); gap: 20px; align-items: start; max-width: 1440px; padding: 24px 28px 48px; box-sizing: border-box; }
+.an-body { display: grid; grid-template-columns: minmax(0, 1fr) clamp(360px, 32vw, 440px); gap: 20px; align-items: start; max-width: 1680px; margin-inline: auto; width: 100%; padding: 24px 28px 48px; box-sizing: border-box; }
 .an-main { display: grid; gap: 16px; min-width: 0; }
 .an-side { position: sticky; top: 76px; display: grid; gap: 14px; padding: 16px; border: 1px solid var(--tb-line); border-radius: var(--tb-r); background: var(--tb-surface); }
 

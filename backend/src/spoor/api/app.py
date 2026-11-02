@@ -676,6 +676,10 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
     @app.get("/v1/cases/{case_id}/state")
     def case_state(case_id: str, p: User) -> dict:
         case = case_for(p, case_id)
+        return memo("state", case_id, "", lambda: _state(case))
+
+    def _state(case: Case) -> dict:
+        case_id = case.case_id
         invalid = svc.store.invalid_ids()
         objects = svc.store.find(ObjectInstance, case_id=case_id)
         return {

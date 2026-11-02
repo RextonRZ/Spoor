@@ -195,10 +195,12 @@ export function View({ siteId, point, at, tone, place }: { siteId: string; point
     return () => { live = false; };
   }, [mediaId, at, camHub]);
   const viewCam = sp?.visible_by[0];
+  // still looking for the moment's frame (the clip list, then the frame): a skeleton, never "no footage" before we know
+  const pending = !frame && (media.loading || (!!mediaId && !!at));
   return (
     <figure className="hb-view">
       <span className="hb-view-img">
-        {frame ? (
+        {pending ? <span className="hb-skel" style={{ position: "absolute", inset: 0, borderRadius: 10 }} aria-busy="true" /> : frame ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={previewUrl(frame.url, 800)} alt={`Camera sighting: ${frame.cam.replaceAll("_", " ")}`} />
         ) : viewCam && viewOk ? (
@@ -210,7 +212,7 @@ export function View({ siteId, point, at, tone, place }: { siteId: string; point
         ) : null}
       </span>
       <figcaption>
-        {frame ? `${frame.cam.replace("_", " ")} at ${at ? hhmm(at) : ""}`
+        {pending ? " " : frame ? `${frame.cam.replace("_", " ")} at ${at ? hhmm(at) : ""}`
           : viewCam && viewOk ? `${viewCam.replace("_", " ")} · ${place ?? "the place"} · a still of the place, no footage of ${at ? hhmm(at) : "that minute"} yet`
             : "Where it stopped, on the floor plan"}
       </figcaption>
@@ -219,6 +221,7 @@ export function View({ siteId, point, at, tone, place }: { siteId: string; point
 }
 
 export function CaseDetail({ siteId, a, keyed }: { siteId: string; a: CaseItem; keyed: boolean }) {
+  const logEnd = useResource<{ as_of: string | null }>(`/v1/sites/${siteId}/exceptions?limit=50`); // (the Hub's own inbox: shared)
   const { cs, cf, run, scans, last } = useCase(a.c.case_id);
   const waybill = a.c.target.split(" ").at(-1) ?? a.c.target;
   const dims = scans.find((s) => s.dims_mm)?.dims_mm;
@@ -239,7 +242,8 @@ export function CaseDetail({ siteId, a, keyed }: { siteId: string; a: CaseItem; 
   const truckLie = !!(inside && truck && Date.parse(truck.t) > Date.parse(inside.iso.carried_in_at) && Date.parse(truck.t) < Date.parse(inside.iso.until));
   // the same checkpoints as the case page: once the run placed it, the truck and the store read from it
   const cps = scans.length ? buildCheckpoints({ scans, records, barcode: waybill, truckSeen: inside ? !truckLie : undefined,
-    storeSeenAt: inside ? inside.iso.carried_in_at : undefined }) : null;
+    storeSeenAt: inside ? inside.iso.carried_in_at : undefined, logEnd: logEnd.data?.as_of }) : null;
+  const onItsWay = !!(cps?.some((c) => c.notDue) && !inside);
   const where = ls ? placeWords(ls.event_kind, ls.scan_point_id) : last ? placeWords(last.event_kind, last.station_id) : undefined;
   const head = inside ? `Most likely in the ${inside.place}.` : where ? `At the ${where}.` : last ? lastScanSentence(last.event_kind, last.station_id, last.t)
     : "No scans of this parcel at this hub.";
@@ -247,6 +251,7 @@ export function CaseDetail({ siteId, a, keyed }: { siteId: string; a: CaseItem; 
     ? { text: `Records say loaded on ${truck.station_id?.match(/D\d{2}/)?.[0] ?? "a truck"} at ${hhmm(truck.t)}. Cameras say it never left.`, tone: "bad" }
     : ls ? { text: `Last scan: ${low(momentLabel(ls.event_kind, ls.scan_point_id))} at ${hms(ls.at)}. ${ls.camera ? `Seen there on ${ls.camera.replace(/^cam_/, "").replaceAll("_", " ")}.` : "No camera has shown it since."}`, tone: "plain" }
     : last && !inside ? { text: `${lastScanSentence(last.event_kind, last.station_id, last.t)} ${missingNextSentence(last.event_kind)}`, tone: "plain" } : null;
+  if (onItsWay && last && call) call.text = `${lastScanSentence(last.event_kind, last.station_id, last.t)} The scan log ends ${Math.round((Date.parse(logEnd.data!.as_of!) - Date.parse(last.t)) / 1000)} s later, before its next scan was due: it is on its way, not missing.`;
   return (
     <>
       {cs.data ? <h2 className="hb-d-h">{head}</h2> : <span className="hb-skel" style={{ width: "70%", height: 22, display: "block" }} aria-busy="true" />}

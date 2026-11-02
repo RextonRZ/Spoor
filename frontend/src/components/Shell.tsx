@@ -8,6 +8,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { MediaFade } from "./MediaFade";
 import { api, invalidate, useResource } from "@/lib/api";
 import { setSiteToRenderer } from "@/lib/frames";
 import type { Capabilities, CaseListRow, Me, Site } from "@/lib/types";
@@ -78,6 +79,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </button>
         <Account />
       </aside>
+      <MediaFade />
       <div className="sb-main">
         <header className="sb-top">
           <p className="sb-title">{page}</p>

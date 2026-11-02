@@ -1,7 +1,7 @@
 /* Proof (step 2): the viewer, the route's cameras, the docked card. Prefix pf-. Tokens from the shell; the viewer and the
    segmented switch come from the Cameras stylesheet (cv-, cm-); buttons from the Hub's (hb-). */
 .pf { color: var(--tb-ink); }
-.pf-main { display: grid; grid-template-columns: minmax(0, 1fr) clamp(340px, 30vw, 420px); gap: 20px; align-items: start; max-width: 1440px; padding: 24px 28px 48px; box-sizing: border-box; }
+.pf-main { display: grid; grid-template-columns: minmax(0, 1fr) clamp(340px, 30vw, 420px); gap: 20px; align-items: start; max-width: 1680px; margin-inline: auto; width: 100%; padding: 24px 28px 48px; box-sizing: border-box; }
 .pf-left { display: grid; gap: 14px; min-width: 0; }
 .pf-right { position: sticky; top: 76px; display: grid; gap: 14px; min-width: 0; }
 .pf-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
@@ -76,7 +76,7 @@
 @media (max-width: 700px) { .pf-main { padding: 16px 16px 40px; } .pf-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pf-time { min-width: 0; } }
 
 /* Proof = step by step (Rexton 2 Nov): the reel and its rail beside the numbered plan, then how we know, then how sure */
-.pf-wrap { display: grid; gap: 40px; max-width: 1440px; padding: 24px 28px 56px; box-sizing: border-box; }
+.pf-wrap { display: grid; gap: 40px; max-width: 1680px; margin-inline: auto; width: 100%; padding: 24px 28px 56px; box-sizing: border-box; }
 .pf-sec { display: grid; gap: 14px; min-width: 0; }
 .pf-sec + .pf-sec { padding-top: 28px; border-top: 1px solid var(--tb-line); }
 .pf-head { display: grid; gap: 4px; }
