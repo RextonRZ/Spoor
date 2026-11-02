@@ -263,7 +263,7 @@ def journey_segments(svc, case, waybill: str, answer: dict | None) -> list[Segme
     """The case's journey as reel segments, from stored evidence only: the passport's best stamp per scan, the live
     alert that named this parcel, the verified answer's tracks and clips, and the truck record. Cards where nothing
     can be seen. Labels only from labelled handshakes; outlines only from SAM tracks on that clip."""
-    from spoor.contracts import MediaAsset, ScanEvent
+    from spoor.contracts import ClockSync, MediaAsset, ScanEvent
     from spoor.contracts.observations import CameraCoverage, RawObservation, Track
     from spoor.forensics.journey import latest_plan
     from spoor.ingest import asset_path, load_result
@@ -374,7 +374,11 @@ def journey_segments(svc, case, waybill: str, answer: dict | None) -> list[Segme
             seg.contours, seg.boxes = track(h.media_id, h.track_id, upto=(h.frame_index or 0) + h.frames_followed)
             seg.label, seg.track_id = waybill, h.track_id
         else:
-            clip(seg, h.media_id, ev.device_time_utc)
+            # no outline: show the moment; on a clock known only to a few seconds (a handheld scanner's), the seconds
+            # it may really be in, so the carry itself is on screen and not cut off (Rexton 3 Nov: the door was 3 s)
+            covs = svc.store.find(CameraCoverage, media_id=h.media_id)
+            unc = svc.store.get(ClockSync, covs[-1].sync_id).uncertainty_ms if covs else 0
+            clip(seg, h.media_id, ev.device_time_utc, after=PAD + min(60, int(unc // 100)) if unc > 1000 else PAD)
             seg.sub = WHY.get(h.outcome, "")
         segs.append(seg)
     if last is None:
