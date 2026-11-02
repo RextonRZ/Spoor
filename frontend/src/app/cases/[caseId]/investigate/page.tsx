@@ -4,7 +4,7 @@
  * log line and meter value comes from the run's typed steps (POST /v1/cases/{id}/run, streamed; GET replays the last
  * run). Model steps that are not configured say so in the log; nothing here is scripted.
  * Rexton, 3 Nov: show which agent did what and where. "Who did what" is one lane per agent with a dot per step in the
- * order they ran (a thin line passes the baton between them), under a numbered summary whose numbers sit above the dots; "Where they looked" numbers every place the steps
+ * order they ran (a thin line passes the baton between them), under a numbered summary whose numbers sit above the dots; "Where they looked" letters every place the steps
  * touched on the plan. Picking a step lights its places; picking a place picks its first step.
  */
 import Link from "next/link";
@@ -12,7 +12,6 @@ import { use, useCallback, useEffect, useRef, useState } from "react";
 import { API_BASE, api, invalidate, signedUrl, useResource } from "@/lib/api";
 import { HUB, camId } from "@/lib/hub";
 import type { Journey, XY } from "@/lib/journey";
-import HubPlan, { type Stop } from "@/components/plan/HubPlan";
 import type { Chapter, Reel } from "@/components/case/JourneyReel";
 import "./investigate.css";
 
@@ -203,7 +202,7 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
     }
   };
   steps.forEach((s) => placesOf(s).forEach(addPlace));
-  const nOf = (key: string) => places.findIndex((p) => p.key === key) + 1;
+  const nOf = (key: string) => String.fromCharCode(65 + places.findIndex((p) => p.key === key));
   const chapters = reel.data?.chapters ?? [];
   const frameOf = (key: string): Chapter | undefined => key === "last" ? chapters.find((c) => c.last_scan)
     : key === "zone" ? chapters.find((c) => c.tone === "seen" && c.camera === "CHK_STORE") ?? chapters.find((c) => c.tone === "noscan")
@@ -214,7 +213,6 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
   // the step being looked at: the one picked, else the one hovered, else the one running now
   const focus = steps.find((s) => s.seq === (peek ?? picked)) ?? (!done ? cur : undefined) ?? null;
   const focusPlaces = focus ? placesOf(focus) : [];
-  const stops: Stop[] = places.map((p, i) => ({ key: p.key, xy: p.xy, n: i + 1, tone: p.tone, label: p.label, on: focusPlaces.includes(p.key) }));
   const pickPlace = (key: string) => { const s = steps.find((x) => placesOf(x).includes(key)); if (s) setPicked(s.seq); };
 
   const ideas = steps.flatMap((s, i) => {
@@ -377,13 +375,8 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
         <aside className="iv-right">
           <div className="iv-card iv-where">
             <div className="iv-card-head"><h2>Where they looked</h2></div>
-            <div className="iv-plan">
-              {places.length > 0
-                ? <HubPlan label="Floor plan: every place the crew worked, numbered" fit="width" legend={false} quiet fitStops stops={stops} onStop={pickPlace} />
-                : <div className="iv-plan-wait">The places appear here as the crew reaches them</div>}
-            </div>
             <ol className="iv-places">
-              {places.map((p, i) => {
+              {places.map((p) => {
                 const who = crew.filter((c) => steps.some((s) => s.role === c.role && placesOf(s).includes(p.key)));
                 const fr = frameOf(p.key);
                 return (
@@ -393,7 +386,7 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
                       <span className="iv-place-pic">
                         {/* eslint-disable-next-line @next/next/no-img-element -- a signed frame of the journey video, from the API */}
                         {fr?.thumb_url ? <img src={signedUrl(fr.thumb_url)} alt="" /> : <span className="iv-place-none" />}
-                        <span className="iv-place-n">{i + 1}</span>
+                        <span className="iv-place-n">{nOf(p.key)}</span>
                       </span>
                       <span className="iv-place-body">
                         <span className="iv-place-name">{p.label}</span>
@@ -414,7 +407,7 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
   );
 }
 
-interface Place { key: string; xy: XY; label: string; tone: Stop["tone"] }
+interface Place { key: string; xy: XY; label: string; tone: "scan" | "seen" | "bad" }
 
 /** the model behind an agent, as one of five colours (its name is always written beside it) */
 function fam(model: string): string {
