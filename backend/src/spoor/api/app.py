@@ -1004,7 +1004,18 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
                                   reason=f"floor search: {body.outcome.replace('_', ' ')} at {body.area_id}",
                                   changed_ids=[out.search_outcome_id], now=at)  # fmt: skip
         audit(p, "search_outcome", out.search_outcome_id, outcome=body.outcome, area=body.area_id)
-        return out.model_dump(mode="json")
+        res = out.model_dump(mode="json")
+        # the loop (tick 2315): a place staff marked "not here" sends the lead back to plan where it went next, with that
+        # check in its evidence (Muse Wonder, ~US$0.07; only with the key; one re-plan per outcome)
+        if body.outcome == "not_found" and svc.spark_client is not None:
+            from spoor.reasoning.backends import MetaResponsesBackend
+
+            def work(job):
+                return plan_investigation(svc.store, case_id, MetaResponsesBackend(svc.spark_client, model=WONDER), now=now())
+
+            res["replan_job_id"] = svc.jobs.submit("replan", p.user_id, work).job_id
+            audit(p, "lead_replan", case_id, after=out.search_outcome_id)
+        return res
 
     @app.post("/v1/cases/{case_id}/voice", status_code=201)
     def add_voice(case_id: str, p: User, file: Annotated[UploadFile, File()],

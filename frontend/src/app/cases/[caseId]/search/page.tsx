@@ -9,7 +9,7 @@
  */
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { use, useRef, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import { api, invalidate, signedUrl, useResource } from "@/lib/api";
 import type { Journey, MissingMoment, XY } from "@/lib/journey";
 import { hhmm } from "@/lib/words";
@@ -51,6 +51,7 @@ export default function GoLookPage({ params }: { params: Promise<{ caseId: strin
   const pr = useResource<PossibleView>(`/v1/cases/${caseId}/possible-locations`);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [replan, setReplan] = useState<string | null>(null); // a "Not here" sent the lead back to plan (job id)
   const task = view.data?.tasks.at(-1);
   const done = new Set(task?.outcomes.map((o) => o.area_id) ?? []);
   const place = task?.places.find((p) => !done.has(p.area_id));
@@ -69,7 +70,8 @@ export default function GoLookPage({ params }: { params: Promise<{ caseId: strin
     if (!task || !place) return;
     setBusy(outcome); setErr(null);
     try {
-      await api(`${path}/${task.search_task_id}/outcome`, { method: "POST", json: { area_id: place.area_id, outcome } });
+      const r = await api<{ replan_job_id?: string }>(`${path}/${task.search_task_id}/outcome`, { method: "POST", json: { area_id: place.area_id, outcome } });
+      if (r.replan_job_id) setReplan(r.replan_job_id);
       invalidate(path);
       invalidate(`/v1/cases/${caseId}/possible-locations`);
       if (outcome === "found") router.push(`/cases/${caseId}/report`);
@@ -95,6 +97,7 @@ export default function GoLookPage({ params }: { params: Promise<{ caseId: strin
           <span className="gs-chip" data-tone={status[1]}>{status[0]}</span>
           <h1 id="gs-h" className="gs-h1">{view.data?.found ? "Found. Thank you." : !task ? "Send someone to look" : !place ? "Every place checked" : `Checking ${queue.find((q) => q.state === "now")?.name ?? "the next place"}`}</h1>
           <p className="gs-sub">{sub}</p>
+          <Replan key={replan ?? "none"} caseId={caseId} job={replan} misses={(task?.outcomes ?? []).filter((o) => o.outcome === "not_found").length} />
           {queue.length > 0 && (
             <ol className="gs-queue" aria-label="Places to check, in order">
               {queue.map((q, i) => (
@@ -219,5 +222,42 @@ function HoldToRecord({ caseId, taskId, areaId }: { caseId: string; taskId: stri
       </button>
       {mine.map((v, i) => <p key={i} className="gl-note">Statement by floor staff: “{v.transcript}”</p>)}
     </>
+  );
+}
+
+/** The loop after a miss (tick 2315): "Not here" sends Muse Wonder back to plan where it went next, with the staff's
+ *  check in its evidence. While it plans: one quiet line; then its plan (a plan for what to analyse, not evidence). */
+interface LeadPlan { plan: { summary: string; steps: { camera_id: string; what_to_check: string }[]; at: string } | null }
+function Replan({ caseId, job, misses }: { caseId: string; job: string | null; misses: number }) {
+  const [state, setState] = useState<"done" | "failed" | null>(null); // (keyed by the job: a new miss starts fresh)
+  const lp = useResource<LeadPlan>(misses > 0 || job ? `/v1/cases/${caseId}/lead-plan` : null);
+  useEffect(() => {
+    if (!job) return;
+    let live = true;
+    const tick = async () => {
+      try {
+        const j = await api<{ status: string }>(`/v1/jobs/${job}`);
+        if (!live) return;
+        if (j.status === "done" || j.status === "succeeded") { setState("done"); invalidate(`/v1/cases/${caseId}/lead-plan`); return; }
+        if (j.status === "failed" || j.status === "error") { setState("failed"); return; }
+      } catch { if (live) { setState("failed"); return; } }
+      window.setTimeout(tick, 2000);
+    };
+    void tick();
+    return () => { live = false; };
+  }, [job, caseId]);
+  const plan = lp.data?.plan;
+  if (job && state === null) return <p className="gs-replan" role="status"><span className="gs-replan-dot" />Muse Wonder is planning where it went next, with this check in its evidence.</p>;
+  if (state === "failed") return <p className="gs-replan" role="status">The new plan could not be made. Try Investigate again from the case.</p>;
+  if (!plan || (misses === 0 && !job)) return null;
+  return (
+    <div className="gs-replan-box">
+      <p className="gs-replan-h">New plan from Muse Wonder, after the miss</p>
+      <p className="gs-replan-s">{plan.summary}</p>
+      {plan.steps.length > 0 && (
+        <ol>{plan.steps.slice(0, 3).map((s, i) => <li key={i}><b>{s.camera_id.replace(/^cam_/, "").replaceAll("_", " ")}</b> {s.what_to_check}</li>)}</ol>
+      )}
+      <span className="gs-replan-note">A plan for what to watch next, not evidence.</span>
+    </div>
   );
 }

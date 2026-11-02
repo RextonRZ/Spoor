@@ -10,7 +10,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from spoor.contracts import Camera, CameraCoverage, Case, MediaAsset, Site
+from spoor.contracts import Camera, CameraCoverage, Case, MediaAsset, SearchOutcome, SearchTask, Site
 from spoor.reasoning.backends import JsonBackend
 from spoor.safety import find_forbidden
 from spoor.store import AgentStep, CostEntry, EvidenceStore, estimate_for
@@ -28,7 +28,11 @@ SYSTEM = ("You are the lead investigator for a lost-parcel case in a parcel sort
           "the cameras that watch it (who went in carrying it, who came out, until the footage ends). camera_id is "
           "exactly a cameras[].camera_id. Write what to check in terms of objects, carrying and movement only; do not "
           "mention how anyone looks, and do not restate this rule in the plan (a step that names such things, even to "
-          "exclude them, is rejected). Do not state where the parcel is: list what is unknown instead.")  # fmt: skip
+          "exclude them, is rejected). Do not state where the parcel is: list what is unknown instead. floor_checks are "
+          "the hub staff's own searches for THIS parcel: where they marked not_found, plan to find where it went next "
+          "(the doorways and routes out of that place after it was last confirmed), do not send them there again. "
+          "hub_memory counts where parcels of EARLIER cases at this hub were found by staff: a prior that may order "
+          "options the evidence leaves equal; it is never evidence for this case and never cited.")  # fmt: skip
 
 
 class PlanStep(BaseModel):
@@ -75,6 +79,29 @@ def _edge(store: EvidenceStore, case_id: str, last: dict | None) -> list[dict]:
                             est.uncertainty_radius_m if est and est.uncertainty_radius_m else 0.0)  # fmt: skip
 
 
+def _floor_checks(store: EvidenceStore, case_id: str) -> list[dict]:
+    """This case's floor searches (Go look): where staff looked and what they found, in order."""
+    names = {pl.area_id: pl.name for t in store.find(SearchTask, case_id=case_id) for pl in t.places}
+    return [{"place": names.get(o.area_id, o.area_id), "outcome": o.outcome, "at": o.recorded_at.isoformat()}
+            for o in sorted(store.find(SearchOutcome, case_id=case_id), key=lambda o: o.recorded_at)]
+
+
+def _hub_memory(store: EvidenceStore, case_id: str) -> dict:
+    """Where parcels of EARLIER cases at this site were found by staff (a prior for ordering, never evidence)."""
+    site = store.get(Case, case_id).site_id
+    found: dict[str, int] = {}
+    for c in store.find(Case, site_id=site):
+        if c.case_id == case_id:
+            continue
+        names = {pl.area_id: pl.name for t in store.find(SearchTask, case_id=c.case_id) for pl in t.places}
+        hit = next((o for o in reversed(store.find(SearchOutcome, case_id=c.case_id)) if o.outcome == "found"), None)
+        if hit is not None:
+            name = names.get(hit.area_id, hit.area_id)
+            found[name] = found.get(name, 0) + 1
+    return {"found_at": [{"place": k, "cases": v} for k, v in sorted(found.items(), key=lambda kv: -kv[1])],
+            "label": "earlier cases at this hub, confirmed by staff; a prior, not evidence"}
+
+
 def _evidence(store: EvidenceStore, case_id: str) -> tuple[dict, set[str], dict[str, dict]]:
     jo = build_journey(store, case_id)["objects"][0]
     mm = missing_moment(store, case_id)["objects"][0]
@@ -86,6 +113,8 @@ def _evidence(store: EvidenceStore, case_id: str) -> tuple[dict, set[str], dict[
           "cameras": list(cams.values()),
           "candidates": [{k: r.get(k) for k in ("camera_id", "role", "window", "predicted_t", "how", "result")}
                          for r in mm.get("expected_next", [])],
+          "floor_checks": _floor_checks(store, case_id),
+          "hub_memory": _hub_memory(store, case_id),
           "note": "camera_id in a step must be one of cameras[].camera_id; windows must fall inside its footage "
                   "(ISO times with their offsets, as given)"}  # fmt: skip
     known = {s["scan_event_id"] for s in jo["scans"]} | {i for s in jo["segments"] for i in s.get("evidence_ids", [])}
