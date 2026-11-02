@@ -126,7 +126,7 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
   const seenNext = next.filter((r) => r.result === "seen"), notSeen = next.filter((r) => r.result === "not_seen");
   const noFootage = next.filter((r) => r.result === "no_footage");
   const unwatched = places.filter((p) => !p.covered_by.length).length;
-  const facts: { text: string; bad?: boolean }[] = found ? [{ text: `Found by floor staff at ${hm(found.at)}.` }] : [
+  const facts: { text: string; bad?: boolean }[] = found ? [{ text: `Found by floor staff on ${new Date(found.at).toLocaleDateString("en-GB", { timeZone: "Asia/Kuala_Lumpur", day: "numeric", month: "short" })} at ${hm(found.at)}.` }] : [
     ...(last ? [{ text: `Last scan: ${momentLabel(last.event_kind, last.station_id).toLowerCase()} at ${hm(last.t)}.` }] : []),
     ...(seenNext.length ? [{ text: `${hm(seenNext[0].predicted_t)}: seen on ${cam(seenNext[0].camera_id)}.` }]
       : notSeen.length ? [{ text: `Not seen on ${[...new Set(notSeen.map((r) => cam(r.camera_id)))].slice(0, 2).join(" or ")}, where it should have appeared next.`, bad: true }]
@@ -155,7 +155,8 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
                   </ol>
                 ) : <div className="an-skel an-skel-row" aria-busy="true" />}
                 <div className="an-one-acts">
-                  <Link className="hb-btn hb-btn-primary" href={`/cases/${caseId}/search`}>Send someone to look</Link>
+                  {found ? <Link className="hb-btn hb-btn-primary" href={`/cases/${caseId}/report`}>Open the report</Link>
+                    : <Link className="hb-btn hb-btn-primary" href={`/cases/${caseId}/search`}>Send someone to look</Link>}
                   <Link className="hb-btn" href={`/cases/${caseId}/proof`}>Watch the proof</Link>
                 </div>
                 {runLink}

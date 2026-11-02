@@ -96,3 +96,4 @@
 .gs[data-narrow] .gs-task { margin: 0 16px; }
 .gs[data-narrow] .gs-body { align-items: stretch; }
 .gs-phone-h a { color: var(--tb-ink-2); }
+.gs-queue li[data-state="skip"] .gs-qt, .gs-queue li[data-state="skip"] .gs-qs { color: var(--tb-mute); }

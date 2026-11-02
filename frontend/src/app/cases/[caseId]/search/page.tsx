@@ -67,7 +67,7 @@ export default function GoLookPage({ params }: { params: Promise<{ caseId: strin
   }
   // the queue: the sent task's places in order, else the places Spoor would send staff to (most likely first)
   const queue = task
-    ? places.map((pl) => ({ key: pl.area_id, name: where(pl as Place), state: view.data?.found?.area_id === pl.area_id ? "found" : done.has(pl.area_id) ? "ruled" : pl.area_id === place?.area_id ? "now" : "next" }))
+    ? places.map((pl) => ({ key: pl.area_id, name: where(pl as Place), state: view.data?.found?.area_id === pl.area_id ? "found" : done.has(pl.area_id) ? "ruled" : view.data?.found ? "skip" : pl.area_id === place?.area_id ? "now" : "next" }))
     : (pr.data?.objects[0]?.places ?? []).filter((x) => x.possible_share > 0).slice(0, 6).map((x) => ({ key: x.area_id, name: where(x as unknown as Place), state: "next" }));
   const left = queue.filter((q) => q.state === "next" || q.state === "now").length;
   const status = view.data?.found ? ["Found", "ok"] : !task ? ["Not sent yet", "idle"] : !place ? ["All checked", "warn"] : ["With floor staff", "now"];
@@ -92,7 +92,7 @@ export default function GoLookPage({ params }: { params: Promise<{ caseId: strin
                 <li key={q.key} data-state={q.state}>
                   <span className="gs-qn" aria-hidden="true">{q.state === "ruled" ? <svg viewBox="0 0 16 16"><path d="M4 8h8" /></svg> : q.state === "found" ? <svg viewBox="0 0 16 16"><path d="m3.5 8.5 3 3 6-6.5" /></svg> : i + 1}</span>
                   <span className="gs-qt">{q.name.replace(/^the /, "").replace(/^\w/, (c) => c.toUpperCase())}</span>
-                  <span className="gs-qs">{q.state === "now" ? "Being checked" : q.state === "ruled" ? "Not here" : q.state === "found" ? "Found" : task ? "Waiting" : ""}</span>
+                  <span className="gs-qs">{q.state === "now" ? "Being checked" : q.state === "ruled" ? "Not here" : q.state === "found" ? "Found" : q.state === "skip" ? "Not needed" : task ? "Waiting" : ""}</span>
                 </li>
               ))}
             </ol>

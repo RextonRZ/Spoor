@@ -38,8 +38,10 @@ export function caseAnswer({ ready, last, next, places, conflicts, found, zoneNa
   let why = "";
   if (ready && found) {
     pill = ["Found", "ok"];
-    head = `Found at ${low(clean(found.name))} at ${hms(found.at)}.`;
-    why = `Floor staff (${found.by}) found it there during the search. The last record before that was ${last ? `${low(momentLabel(last.event_kind, last.station_id))} at ${hms(last.t)}` : "none"}.`;
+    const when = new Date(found.at).toLocaleString("en-GB", { timeZone: "Asia/Kuala_Lumpur", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    head = `Found in the ${low(clean(found.name))}.`;
+    why = `Floor staff found it there on ${when.replace(",", " at")}.`;
+    why += ` The last record before that was ${last ? `${low(momentLabel(last.event_kind, last.station_id))} at ${hms(last.t)}` : "none"}.`;
   } else if (ready && lastScan) {
     // located by its last scan record: counted apart from "confirmed on camera" (a labelled handshake met it there)
     const what = low(momentLabel(lastScan.event_kind, lastScan.scan_point_id));
