@@ -13,7 +13,9 @@ import { useResource } from "@/lib/api";
 import type { Site } from "@/lib/types";
 import { HopTimes, MissingByHop, ScansPerMinute, type Flow } from "@/components/insights/Charts";
 import { Scorecard, type Score } from "@/components/insights/Scorecard";
+import { HistoryView, type History } from "@/components/insights/History";
 import "@/app/hub/hub.css";
+import "@/app/wall/cameras.css";
 import "./insights.css";
 
 interface Ranked { where: string; what: string; fix?: string; cases: string[] }
@@ -28,6 +30,7 @@ interface Insights {
   flow?: Flow;
   actions?: Action[];
   scorecard?: Score;
+  history?: History;
   cost: { usd: number; calls: number; cases_with_spend: number; answer_seconds: number[]; footage_hours: number };
 }
 interface Action { key: string; tone: "bad" | "warn"; count: number; unit: string; title: string; why: string; fix: string;
@@ -41,7 +44,8 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
 export default function InsightsPage() {
   const sites = useResource<Site[]>("/v1/sites");
   const site = sites.data?.[0]?.site_id;
-  const r = useResource<Insights>(site ? `/v1/sites/${site}/insights` : null);
+  const [range, setRange] = useState<"today" | "month">("today");
+  const r = useResource<Insights>(site ? `/v1/sites/${site}/insights${range === "month" ? "?history=true" : ""}` : null);
   const dash = useResource<Dash>(site ? `/v1/sites/${site}/dashboard` : null);
   const name = (id: string) => dash.data?.cases.find((c) => c.case_id === id)?.target.split(" ").at(-1) ?? "the case";
   const d = r.data;
@@ -53,9 +57,16 @@ export default function InsightsPage() {
           <h1 className="in-h1">Hub insights</h1>
           <p className="in-sub">How every checkpoint did this shift, what to fix first, and whether Spoor&apos;s answers held up on the floor.</p>
         </div>
-        <span className="in-demo">{d?.label ?? "Demo hub data"}</span>
+        <div className="in-head-r">
+          <div role="group" aria-label="Range" className="cm-seg in-range">
+            <button type="button" aria-pressed={range === "today"} onClick={() => setRange("today")}>This shift</button>
+            <button type="button" aria-pressed={range === "month"} onClick={() => setRange("month")}>Last 30 days</button>
+          </div>
+          <span className="in-demo">{range === "month" ? "Simulated demo history" : d?.label ?? "Demo hub data"}</span>
+        </div>
       </header>
-      {!d ? <div className="an-skel" style={{ height: 320, borderRadius: 12 }} aria-busy="true" /> : (
+      {range === "month" ? (d?.history ? <HistoryView h={d.history} /> : <div className="an-skel" style={{ height: 320, borderRadius: 12 }} aria-busy="true" />)
+        : !d ? <div className="an-skel" style={{ height: 320, borderRadius: 12 }} aria-busy="true" /> : (
         <>
           {d.scorecard?.rows.length ? (
             <section className="in-sec" aria-labelledby="in-score">

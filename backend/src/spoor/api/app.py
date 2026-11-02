@@ -941,12 +941,19 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
     threading.Thread(target=warm, name="warm-read-models", daemon=True).start()
 
     @app.get("/v1/sites/{site_id}/insights")
-    def insights(site_id: str, p: User) -> dict:
-        """Hub insights (tick 2315): the feedback loop from stored records only; every count with the ids behind it."""
+    def insights(site_id: str, p: User, history: bool = False) -> dict:
+        """Hub insights (tick 2315): the feedback loop from stored records only; every count with the ids behind it.
+        `history=true` adds the SIMULATED 30-day demo history (forensics/demo_history.py), labelled, never evidence."""
         from spoor.forensics.insights import hub_insights
 
         p.require_site(site_id)
-        return memo("insights", site_id, "", lambda: hub_insights(svc.store, site_id, now=now()))
+        out = memo("insights", site_id, "", lambda: hub_insights(svc.store, site_id, now=now()))
+        if history:
+            from spoor.forensics.demo_history import demo_history
+
+            end = datetime.fromisoformat(out["flow"]["window"][1]) if out.get("flow") else now()
+            out = {**out, "history": memo("history", site_id, "", lambda: demo_history(out, end=end))}
+        return out
 
     @app.get("/v1/cases/{case_id}/possible-locations")
     def possible(case_id: str, p: User, t: AwareDatetime | None = None) -> dict:
