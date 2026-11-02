@@ -254,6 +254,9 @@ class Services:
                                                     note="only outlines far bigger than a parcel at the point"))
             tracks = [t for t in tracks if t["track_id"] not in big]
         if not tracks:
+            later = self._retry_later(row, start, end, f_at) if row.rule == "work_area" else None
+            if later:
+                return self.store.put(ScanHandshake(**base, **later))
             return self.store.put(ScanHandshake(**base, outcome="not_found", frame_index=f_at,
                                                 note="nothing at the scan point at the scan's moment"))
         if len(tracks) > 1:  # two cartons fit: mark neither (never guess)
@@ -291,6 +294,9 @@ class Services:
             # (a carton resting, or crossing, is something else). Measured on the floor at the deck's height
             labelled = self._rides_loop(row, plan, cal, obs, f_at)
             if not labelled:
+                later = self._retry_later(row, start, end, f_at)
+                if later:
+                    return self.store.put(ScanHandshake(**base, **later))
                 return self.store.put(ScanHandshake(**base, outcome="cant_tell", track_id=tid, frame_index=f_at,
                                                     box_px=box, note="the outline did not ride off along the loop: "
                                                     "can't tell it is the carton boarding"))  # fmt: skip
@@ -323,7 +329,7 @@ class Services:
                                             labelled=labelled, frames_followed=len(after), followed_s=round(span, 2),
                                             note=note))
 
-    def _rides_loop(self, row, plan, cal, obs, f_at) -> bool:
+    def _rides_loop(self, row, plan, cal, obs, f_at, f_scan=None) -> bool:
         """The outline, on the floor at the deck height, moves at least RIDE_M along the loop's direction at the boarding
         spot within ~1.5 s, and at least twice as far along as across."""
         from spoor.perception.anchor import event_xyz
@@ -363,8 +369,96 @@ class Services:
         # it must not have been riding the loop already: an empty carrier passing the boarding spot rides along at the
         # loop's speed before the scan too (W1: SAM's point landed on the tray the parcel was about to board); a
         # carton boarding comes off the induction belt, so before the scan it was not yet moving along with the loop
-        before = travel(f_at - 6, f_at)
+        f0 = f_at if f_scan is None else f_scan
+        before = travel(f0 - 6, f0)
         return before is None or before[0] / before[2] < 0.5 * along / n
+
+    RETRY_S = (0.5, 1.0)
+
+    def _retry_later(self, row, start, end, f_at) -> dict | None:
+        """The outline at the scan instant failed its checks only because of timing (a head in front of the carton at
+        the door; the parcel not yet on its tray at the sorter's boarding spot): prompt SAM again RETRY_S later, at the
+        same spot (a handheld point: where the scanner is used) or where the parcel's tray is by then (boarding: the
+        boarding spot carried along the loop at the plan's loop speed), and label only if that passes every check the
+        scan instant's outline had to pass. None: leave it as it was."""
+        from datetime import timedelta
+
+        from spoor.perception.anchor import event_xyz, handled
+        from spoor.spatial.homography import site_to_image
+
+        plan = latest_plan(self.store, row.scan.site_id)
+        cal = self.valid_calibration(self.store.get(MediaAsset, row.media_id).camera_id)
+        rp = plan.read_point(row.scan_point_id) if plan else None
+        if rp is None or cal is None:
+            return None
+        kind = row.scan.event_kind.value
+        boards = row.rule == "point" and kind in BOARD_EVENTS and kind in rp.event_positions
+        if not boards and row.rule != "work_area":
+            return None
+        x, y, z = event_xyz(rp, kind, plan.conveyors) if boards else list(rp.position_m)
+        along = None
+        if boards:
+            loop = [cv for cv in plan.conveyors if cv.kind == "loop" and cv.speed_mps]
+            segs = [(a, b, cv.speed_mps) for cv in loop
+                    for a, b in zip(cv.path_m, cv.path_m[1:] + ([cv.path_m[0]] if cv.closed else []), strict=False)]
+            if not segs:
+                return None
+            p = np.array([x, y])
+
+            def dist(a, b):
+                a, b = np.array(a), np.array(b)
+                t = np.clip(np.dot(p - a, b - a) / max(1e-9, np.dot(b - a, b - a)), 0, 1)
+                return float(np.linalg.norm(p - (a + t * (b - a))))
+            a, b, speed = min(segs, key=lambda s_: dist(s_[0], s_[1]))
+            along = (np.array(b) - np.array(a)) / max(1e-9, np.linalg.norm(np.array(b) - np.array(a))) * speed
+        for dt in self.RETRY_S:
+            at2 = row.at + timedelta(seconds=dt)
+            px, py = (x + along[0] * dt, y + along[1] * dt) if along is not None else (x, y)
+            uv, front = site_to_image(cal, [[px, py, z]])
+            w, h = cal.image_wh_px
+            if not front[0] or not (0 <= uv[0][0] < w and 0 <= uv[0][1] < h):
+                continue
+            pt = (int(uv[0][0] + 0.5), int(uv[0][1] + 0.5))
+            try:
+                res = self.anchored_sam(None, row.media_id, concept=None, start_iso=start, end_iso=end,
+                                        scan_point_id=row.scan_point_id, at_iso=at2.isoformat(), keep="handled",
+                                        event_kind=kind, point_px=pt)
+                f2 = self.frame_at(row.media_id, at2.isoformat())
+            except (ServiceError, AnchorError):
+                continue
+            if res.get("status") not in (None, "ok", "completed", "succeeded"):
+                continue
+            cands = []
+            for t in res.get("tracks", []):
+                obs = sorted((o for o in self.store.find(RawObservation, track_id=t["track_id"]) if o.bbox_xyxy_px),
+                             key=lambda o: o.source_frame.frame_index)
+                near = [o for o in obs if o.source_frame.frame_index == f2]
+                if near and near[0].bbox_xyxy_px[0] <= pt[0] <= near[0].bbox_xyxy_px[2] \
+                        and near[0].bbox_xyxy_px[1] <= pt[1] <= near[0].bbox_xyxy_px[3]:
+                    cands.append((t["track_id"], obs, list(near[0].bbox_xyxy_px)))
+            if len(cands) != 1:  # nothing, or two cartons under the point: never guess
+                continue
+            tid, obs, box = cands[0]
+            pw, ph = parcel_extent_px(rp, cal)
+            if box[2] - box[0] > 2 * pw or box[3] - box[1] > 2 * ph:
+                continue
+            if boards:
+                exp = self._expected_box(row, plan, cal)
+                if exp is None or _area(box) > CARTON_X * _area(exp):
+                    continue
+                if not self._rides_loop(row, plan, cal, obs, f2, f_scan=f_at):
+                    continue
+            else:
+                anchor = anchor_for(rp, cal, kind, plan.conveyors)
+                if anchor.kind != "area" or not handled(anchor.polygon_px, [o.bbox_xyxy_px for o in obs]):
+                    continue
+            after = [o for o in obs if o.source_frame.frame_index >= f2]
+            span = (after[-1].source_frame.pts_ms - after[0].source_frame.pts_ms) / 1000 if len(after) > 1 else 0.0
+            return {"outcome": "outlined", "track_id": tid, "frame_index": f2, "box_px": box, "labelled": True,
+                    "frames_followed": len(after), "followed_s": round(span, 2),
+                    "note": f"found {dt:g} s after the scan instant (at the instant: "
+                            f"{'a person in front of the carton' if not boards else 'the parcel not yet on its tray'})"}
+        return None
 
     def _expected_box(self, row, plan, cal):
         """This parcel's own measured size (its tunnel read's dims) projected at the scan point, or None."""
@@ -468,7 +562,7 @@ class Services:
     def anchored_sam(self, case: Case | None, media_id: str, *, concept: str | None, start_iso: str | None,
                      end_iso: str | None, scan_point_id: str | None, at_iso: str | None,
                      out_of_view: bool = False, keep: str = "leaves", prompt_box: tuple | None = None,
-                     event_kind: str | None = None) -> dict:
+                     event_kind: str | None = None, point_px: tuple[int, int] | None = None) -> dict:
         """SAM on a window of one clip, aimed by a scan point (anchor.py): a device/sorter point is a point prompt on
         the scan's frame; a handheld point's work area keeps only tracks that start inside it and leave it."""
         original = self.store.get(MediaAsset, media_id)
@@ -494,6 +588,9 @@ class Services:
             if cal is None:
                 raise ServiceError(f"{original.camera_id} has no valid calibration")
             anchor = anchor_for(rp, cal, event_kind, plan.conveyors)
+        if point_px is not None and anchor is not None:  # a retry: prompt this pixel at at_iso (handshake retries)
+            from spoor.perception.anchor import Anchor
+            anchor = Anchor(anchor.scan_point_id, "point", point_px=(int(point_px[0]), int(point_px[1])))
         instance = None
         if anchor is not None and anchor.kind == "point":
             if not at_iso:

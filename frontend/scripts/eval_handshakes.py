@@ -30,7 +30,7 @@ MARGIN = 0.25  # of the box size, each side
 # rendered windows: the first render frame of each delivered clip (the Modal render ranges); S2's wide clips start at 1
 # W1 as re-rendered with the quiet unload door (2 Nov, start re-pinned 7.9 s earlier: every range +79 frames)
 W1_FIRST = {"CHK_UNLOAD": 255, "CAM_02": 255, "CHK_TUNNEL": 664, "CAM_05": 664, "CAM_01": 764, "CHK_CHUTE": 990,
-            "CAM_11": 1024}
+            "CAM_11": 1024, "CAM_06": 765, "CAM_07": 765}  # (3 Nov: CAM 06 / 07 rendered for the boarding spot)
 S2_FIRST = {"CHK_DOCK": 780, "CHK_STORE": 200}
 W2_FIRST = {"CHK_CHUTE": 30, "CHK_CAGE_W": 220}
 
