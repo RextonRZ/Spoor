@@ -15,7 +15,7 @@ import { caseAnswer, type InvestigationView } from "@/lib/answer";
 import { conflictWords, type Conflict } from "@/lib/conflict";
 import { buildCheckpoints, CHECKPOINT_LINE, type CaseRecord } from "@/lib/checkpoints";
 import { hms, momentLabel, placeOf, shortPlace } from "@/lib/words";
-import type { Site } from "@/lib/types";
+import type { MediaRow, Site } from "@/lib/types";
 import { CaseSteps } from "@/components/flow/CaseSteps";
 import { CheckpointStrip, ScannerScreen } from "@/components/checkpoints/Checkpoints";
 import { NextCams, View } from "@/components/hub/parts";
@@ -50,6 +50,10 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
   const waybill = st.data?.case.target_description.split(" ").at(-1) ?? "";
   const ready = !!(j && mm && pr.data);
   const siteId = sites.data?.[0]?.site_id;
+  const media = useResource<MediaRow[]>(siteId ? `/v1/sites/${siteId}/media` : null);
+  // a checkpoint camera's clip that has this moment (for the passport's closing stamps)
+  const clipAt = (hub: string, iso: string) => (media.data ?? []).find((m) => m.media.camera_id === `cam_${hub}`
+    && m.coverage.some((c) => Date.parse(c.start_utc) <= Date.parse(iso) && Date.parse(iso) <= Date.parse(c.end_utc)))?.media.media_id;
 
   const view = st.data?.answer;
   // the investigation's verified answer leads when there is one (a floor find still wins); otherwise the read models
@@ -96,7 +100,12 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
               <h2 id="an-scans" className="an-h2">How the hub tracked it</h2>
               {cps ? <CheckpointStrip cps={cps} compact gaps where /> : <div className="an-skel an-skel-row" aria-busy="true" />}
               <p className="an-line">{CHECKPOINT_LINE}</p>
-              <Passport waybill={waybill} />
+              <Passport waybill={waybill} after={[
+                ...(clipAt("CHK_STORE", inside.iso.carried_in_at) ? [{ key: "store", what: `Into the ${inside.place.replace(/ \(Z\d+\)$/, "").toLowerCase()}`,
+                  media: clipAt("CHK_STORE", inside.iso.carried_in_at)!, cam: "CHK_STORE", iso: inside.iso.carried_in_at, tag: "Carried in, no scan-in" }] : []),
+                ...(truck && insideAtTruck && clipAt("CHK_DOCK", truck.t) ? [{ key: "dock", what: `Its cage at dock ${truck.door ?? ""}`.trim(),
+                  media: clipAt("CHK_DOCK", truck.t)!, cam: "CHK_DOCK", iso: truck.t, tag: "Cage leaves without it" }] : []),
+              ]} />
               {tunnel?.screen && (
                 <details className="an-more">
                   <summary>Scan tunnel screen for this parcel</summary>

@@ -5,16 +5,20 @@
  * on the right with the parcel's path and where it is at the chosen moment, and the moments in order below on the
  * landing page's time rail (the same lp-mo classes). Picking a moment cuts the clip to it and moves the plan's marker.
  *
- * Moments, all from the verifier's facts and the case's records: first seen carrying it, last seen at the door, carried
- * in, someone came out without it, and either the truck record that says it left (while it is still inside) or the
- * end of the recording. Frames for in and out are shown just before going in and just after coming out (engine facts).
+ * Moments, all from the verifier's facts and the case's records, each on the best camera that has it (a close-up
+ * checkpoint camera first): taken out of its cage without a scan (the live alert's outline), last seen at the store
+ * door (the wide camera, SAM's track), carried in past the scan-in post and someone came out without it (the door's
+ * close-up), and either the truck record that says it left (the dock's close-up, while it is still inside) or the end
+ * of the recording. The hero opens on "carried in".
  * The agents' own ideas sit behind a toggle, each with the one check that decided it: their wording is never a finding.
  *
  * Motion: the clip plays a short window around the moment (ease is the footage's own); the frame and marker change on
  * a click with a 140 ms crossfade only. Reduced motion: no autoplay, the clip rests on the moment's frame.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, signedUrl } from "@/lib/api";
+import { api, signedUrl, useResource } from "@/lib/api";
+import { camId } from "@/lib/hub";
+import type { MediaRow, Site } from "@/lib/types";
 import { HYPOTHESIS_WORDS, type InsideFacts, type InvestigationView } from "@/lib/answer";
 import type { JourneyObject, XY } from "@/lib/journey";
 import { prefersReducedMotion } from "@/lib/motion";
@@ -26,32 +30,45 @@ import "./casestory.css";
 const CHECK_WORDS: Record<string, string> = { stayed_in_area: "stayed inside", exit: "left through a door", transition: "moved between areas",
   transfer: "handed over", parcel_match: "same parcel", order: "order of sightings" };
 
-interface Moment { key: string; iso: string; text: string; xy: XY; tone?: "bad"; from?: string; /** the measured time, when the frame shown is a moment off it */ at?: string }
+interface Moment { key: string; iso: string; text: string; xy: XY; tone?: "bad"; from?: string; /** the measured time, when the frame shown is a moment off it */ at?: string;
+  /** the clip that shows it and its camera; box: an outline at this moment (frame pixels) */
+  media: string; cam: string; box?: number[] | null }
+interface Alert { at_utc: string; camera_id: string; media_id: string; box_px: number[] | null; candidates: { waybill: string }[] }
 
-/** one still per moment, fetched up front (the rail's thumbnails and the clip's poster) */
-function useStills(mediaId: string, moments: Moment[]): Record<string, string> {
+const camWords = (c: string) => c.replace(/^cam_/, "").replaceAll("_", " ");
+
+/** one still per moment, each from its own clip, fetched up front (the rail's thumbnails and the clip's poster) */
+function useStills(moments: Moment[]): Record<string, string> {
   const [urls, setUrls] = useState<Record<string, string>>({});
-  const key = moments.map((m) => m.iso).join();
+  const key = moments.map((m) => `${m.media}@${m.iso}`).join();
   useEffect(() => {
     let live = true;
     moments.forEach((m) => {
-      api<{ frame_url: string }>(`/v1/media/${mediaId}/frame-at?time=${encodeURIComponent(m.iso)}`)
+      api<{ frame_url: string }>(`/v1/media/${m.media}/frame-at?time=${encodeURIComponent(m.iso)}`)
         .then((r) => live && setUrls((u) => ({ ...u, [m.key]: signedUrl(r.frame_url) }))).catch(() => {});
     });
     return () => { live = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- the moments are fixed by their times
-  }, [mediaId, key]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the moments are fixed by their clips and times
+  }, [key]);
   return urls;
 }
 
-function usePlayback(mediaId: string): string | null {
-  const [url, setUrl] = useState<{ k: string; u: string } | null>(null);
+function usePlayback(mediaId: string): { url: string; start: number } | null {
+  const [got, setGot] = useState<{ k: string; url: string; start: number } | null>(null);
   useEffect(() => {
     let live = true;
-    api<{ url: string }>(`/v1/media/${mediaId}/playback`).then((r) => live && setUrl({ k: mediaId, u: signedUrl(r.url) })).catch(() => {});
+    api<{ url: string; start_utc: string | null }>(`/v1/media/${mediaId}/playback`)
+      .then((r) => live && setGot({ k: mediaId, url: signedUrl(r.url), start: r.start_utc ? Date.parse(r.start_utc) : NaN })).catch(() => {});
     return () => { live = false; };
   }, [mediaId]);
-  return url?.k === mediaId ? url.u : null;
+  return got?.k === mediaId ? got : null;
+}
+
+/** the clip of a camera that has this moment (a close-up checkpoint camera if one does) */
+function useClipFor(siteId: string | undefined) {
+  const media = useResource<MediaRow[]>(siteId ? `/v1/sites/${siteId}/media` : null);
+  return (hub: string, iso: string) => (media.data ?? []).find((m) => m.media.camera_id && camId.toHub(m.media.camera_id) === hub
+    && m.coverage.some((c) => Date.parse(c.start_utc) <= Date.parse(iso) && Date.parse(iso) <= Date.parse(c.end_utc)))?.media.media_id;
 }
 
 export function CaseStory({ caseId, inside, view, journey, truck }: {
@@ -62,7 +79,12 @@ export function CaseStory({ caseId, inside, view, journey, truck }: {
   void caseId;
   const doorMs = Date.parse(inside.iso.door_at);
   const isoAt = (pts: number) => new Date(doorMs + (pts - inside.door_pts_ms)).toISOString();
-  const vt = (iso: string) => (inside.door_pts_ms + (Date.parse(iso) - doorMs)) / 1000; // the clip's own time
+  const sites = useResource<Site[]>("/v1/sites");
+  const siteId = sites.data?.[0]?.site_id;
+  const clipFor = useClipFor(siteId);
+  const alerts = useResource<Alert[]>(siteId ? `/v1/sites/${siteId}/alerts` : null);
+  const waybill = view.objects[0]?.label?.split(" ").at(-1) ?? "";
+  const pick = (alerts.data ?? []).find((a) => a.candidates.length === 1 && a.candidates[0].waybill === waybill);
   const area = inside.area_xy as XY;
   const door = inside.door_xy as XY;
   // where the tracked carton stood on the floor (the journey's observed points), nearest a time
@@ -76,20 +98,34 @@ export function CaseStory({ caseId, inside, view, journey, truck }: {
   const clockIso = (hmsText: string) => inside.iso.door_at.replace(/T\d{2}:\d{2}:\d{2}(\.\d+)?/, `T${hmsText}.000`);
   const truckInside = truck && Date.parse(truck.t) > Date.parse(inside.iso.carried_in_at) && Date.parse(truck.t) < Date.parse(inside.iso.until);
   const firstIso = inside.track_px.length ? isoAt(inside.track_px[0][0]) : inside.iso.door_at;
+  const wide = inside.camera.replace(" ", "_");
+  const best = (iso: string, hubs: string[]) => {  // the first of these cameras with a clip of the moment
+    for (const h of hubs) { const m = clipFor(h, iso); if (m) return { media: m, cam: h }; }
+    return { media: inside.media_id, cam: wide };
+  };
   const moments: Moment[] = useMemo(() => [
-    ...(inside.track_px.length > 1 ? [{ key: "first", iso: firstIso, text: `Seen on ${inside.camera}, carried toward the store`, xy: floorAt(firstIso), from: firstIso }] : []),
-    { key: "door", iso: inside.iso.door_at, text: "Last seen at the store door", xy: door, from: firstIso },
-    { key: "in", iso: inside.iso.carried_in_at, at: clockIso(inside.carried_in_at), text: "Carried in", xy: area },
-    ...inside.came_out_empty.map((t, i) => ({ key: `out${i}`, iso: inside.iso[`came_out_${i}`], at: clockIso(t), text: "Someone came out without it", xy: area })),
+    ...(pick ? [{ key: "pick", iso: pick.at_utc, text: "Taken out of its cage, no scan", xy: floorAt(firstIso), media: pick.media_id,
+      cam: camId.toHub(pick.camera_id), box: pick.box_px }]
+      : inside.track_px.length > 1 ? [{ key: "first", iso: firstIso, text: `Seen on ${inside.camera}, carried toward the store`, xy: floorAt(firstIso),
+        from: firstIso, media: inside.media_id, cam: wide }] : []),
+    { key: "door", iso: inside.iso.door_at, text: "Last seen at the store door", xy: door, from: firstIso, media: inside.media_id, cam: wide },
+    { key: "in", iso: inside.iso.carried_in_at, at: clockIso(inside.carried_in_at), text: "Carried in, past the scan-in post", xy: area,
+      ...best(inside.iso.carried_in_at, ["CHK_STORE", wide]) },
+    ...inside.came_out_empty.map((t, i) => ({ key: `out${i}`, iso: inside.iso[`came_out_${i}`], at: clockIso(t), text: "Someone came out without it",
+      xy: area, ...best(inside.iso[`came_out_${i}`], ["CHK_STORE", wide]) })),
     truckInside
-      ? { key: "truck", iso: truck!.t, text: `Record says loaded on truck ${truck!.door ?? ""}. Still inside`.replace("  ", " "), xy: area, tone: "bad" as const }
-      : { key: "end", iso: inside.iso.until, text: "Recording ends, not seen coming out", xy: area },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fixed by the facts
-  ], [inside, truck]);
-  const [sel, setSel] = useState("door");
+      ? { key: "truck", iso: truck!.t, text: `Record says loaded on truck ${truck!.door ?? ""}. Still inside`.replace("  ", " "), xy: area,
+        tone: "bad" as const, ...best(truck!.t, ["CHK_DOCK", wide]) }
+      : { key: "end", iso: inside.iso.until, text: "Recording ends, not seen coming out", xy: area, media: inside.media_id, cam: wide },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fixed by the facts and the clips on site
+  ], [inside, truck, pick, clipFor]);
+  const [sel, setSel] = useState("in");
   const cur = moments.find((m) => m.key === sel) ?? moments[0];
-  const stills = useStills(inside.media_id, moments);
-  const clip = usePlayback(inside.media_id);
+  const stills = useStills(moments);
+  const play = usePlayback(cur.media);
+  const clip = play?.url ?? null;
+  // the clip's own time of a moment, from the clip's recorded start (each moment may be a different clip)
+  const vt = (iso: string) => (Number.isFinite(play?.start) ? (Date.parse(iso) - play!.start) / 1000 : 0);
   const video = useRef<HTMLVideoElement>(null);
   const boxEl = useRef<SVGRectElement>(null);
   const [wh, track] = [inside.frame_wh_px, inside.track_px];
@@ -109,16 +145,19 @@ export function CaseStory({ caseId, inside, view, journey, truck }: {
     v.addEventListener("timeupdate", loop);
     return () => { v.removeEventListener("timeupdate", loop); v.removeEventListener("loadedmetadata", start); };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- re-cut when the moment or the clip changes
-  }, [cur.key, clip]);
+  }, [cur.key, clip, play?.start]);
 
   // SAM's box follows the carton: the box it drew at this video time (within one frame), hidden otherwise
   useEffect(() => {
     const v = video.current;
     if (!v) return;
     let id = 0;
+    const own = cur.media === inside.media_id;
+    const pickAt = cur.box && play ? (Date.parse(cur.iso) - play.start) : NaN;
     const draw = () => {
       const ms = v.currentTime * 1000;
-      const near = track.length ? track.reduce((a, b) => (Math.abs(b[0] - ms) < Math.abs(a[0] - ms) ? b : a)) : null;
+      const near = own && track.length ? track.reduce((a, b) => (Math.abs(b[0] - ms) < Math.abs(a[0] - ms) ? b : a))
+        : cur.box && Number.isFinite(pickAt) && Math.abs(ms - pickAt) < 400 ? [ms, ...cur.box] : null;
       const r = boxEl.current;
       if (r) {
         const on = near && Math.abs(near[0] - ms) <= 70;
@@ -132,7 +171,8 @@ export function CaseStory({ caseId, inside, view, journey, truck }: {
     };
     id = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(id);
-  }, [track, clip]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- redrawn per clip and moment
+  }, [track, clip, cur.key]);
 
   const toPlan = cur.key === "in" || cur.key.startsWith("out") || cur.key === "truck" || cur.key === "end";
   return (
@@ -140,24 +180,24 @@ export function CaseStory({ caseId, inside, view, journey, truck }: {
       <div className="cs-stage">
         <figure className="cs-video" style={{ aspectRatio: `${wh[0]} / ${wh[1]}` }}>
           {clip ? (
-            <video ref={video} src={clip} poster={stills[cur.key]} muted playsInline preload="auto" aria-label={`${inside.camera} at ${hms(cur.iso)}: ${cur.text}`} />
+            <video ref={video} src={clip} poster={stills[cur.key]} muted playsInline preload="auto" aria-label={`${camWords(cur.cam)} at ${hms(cur.iso)}: ${cur.text}`} />
           ) : stills[cur.key] ? (
             // eslint-disable-next-line @next/next/no-img-element -- a signed CCTV frame from the API, shown as it is
-            <img src={stills[cur.key]} alt={`${inside.camera} at ${hms(cur.iso)}: ${cur.text}`} />
+            <img src={stills[cur.key]} alt={`${camWords(cur.cam)} at ${hms(cur.iso)}: ${cur.text}`} />
           ) : <span className="an-skel cs-skel" aria-busy="true" />}
           <svg viewBox={`0 0 ${wh[0]} ${wh[1]}`} aria-hidden>
             <rect ref={boxEl} rx={4} fill="none" stroke="#4ade80" strokeWidth={2.5} vectorEffect="non-scaling-stroke" style={{ opacity: 0 }} />
           </svg>
           <figcaption data-tone={cur.tone}>
-            <b>{inside.camera}</b><span>{cur.text}</span>
+            <b>{camWords(cur.cam)}</b><span>{cur.text}</span>
           </figcaption>
-          <span className="cs-sam">Box: SAM 3.1 tracking</span>
+          {(cur.media === inside.media_id || cur.box) && <span className="cs-sam">Box: SAM 3.1 tracking</span>}
         </figure>
         <figure className="cs-plan">
           <HubPlan label={`The parcel's path; now: ${cur.text}`} journey={journey} quiet
             story={{ area: inside.area_polygon as XY[], from: door, to: area }}
             marker={{ xy: toPlan ? area : cur.xy, kind: cur.tone ? "unknown" : "observed", label: hms(cur.iso) }}
-            litCameras={[inside.camera.replace(" ", "_")]} legend={false} fit="contain" minHeight={0} />
+            litCameras={[cur.cam]} legend={false} fit="contain" minHeight={0} />
           <figcaption>{inside.place}</figcaption>
         </figure>
       </div>
@@ -179,7 +219,7 @@ export function CaseStory({ caseId, inside, view, journey, truck }: {
                 <span className={`lp-mo-frame${m.key === cur.key ? " is-on" : ""}`}>
                   {/* eslint-disable-next-line @next/next/no-img-element -- a signed CCTV frame from the API */}
                   {stills[m.key] && <img src={stills[m.key]} alt="" loading="lazy" decoding="async" />}
-                  <span className="lp-mo-cam">{inside.camera}</span>
+                  <span className="lp-mo-cam">{camWords(m.cam)}</span>
                 </span>
               </button>
               <p className="lp-mo-cap"><span className="lp-mo-n">{String(i + 1).padStart(2, "0")}</span>{m.text}</p>
