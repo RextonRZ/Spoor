@@ -43,13 +43,10 @@ def hub_dashboard(store: EvidenceStore, site_id: str, *, now: datetime) -> dict:
         if not store.find(ObjectInstance, case_id=case.case_id):
             continue
         j = build_journey(store, case.case_id, plan=plan)["objects"][0]
-        mm = missing_moment(store, case.case_id)["objects"][0]
         last = j["last_confirmed"]
         zone = _zone_of(site, plan, last)
         if zone:
             trail_ends[zone] += 1
-        depends = [r["camera_id"] for r in mm["expected_next"] if r.get("result") != "no_footage"]
-        relied.update(depends)
         scans = {s["scan_event_id"]: s for s in j["scans"]}
         for g in j["segments"]:
             if g["kind"] == "gap" and g["reason"] == "faster_than_belt" and g["after"] in scans:
@@ -63,6 +60,10 @@ def hub_dashboard(store: EvidenceStore, site_id: str, *, now: datetime) -> dict:
             o = next(iter(ans.get("objects") or []), {})
             status = "located" if o.get("inside") else {"camera": "confirmed", "scan": "by_scan"}.get(
                 (o.get("last_scan") or {}).get("located_by"), status)
+        # the cameras it depends on next: only while it is unanswered (the missing moment is the costly part: ~1 s a case)
+        depends = [r["camera_id"] for r in missing_moment(store, case.case_id)["objects"][0]["expected_next"]
+                   if r.get("result") != "no_footage"] if status == "unknown" else []  # fmt: skip
+        relied.update(depends)
         rows.append({
             "case_id": case.case_id, "question": case.question, "target": case.target_description,
             "status": status, "customer_asked": bool(case.complaint),
