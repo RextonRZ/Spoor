@@ -127,7 +127,7 @@ function CaseRow({ a, open, onOpen, asOf }: { a: CaseItem; open: boolean; onOpen
     <button type="button" className="hb-tr hb-cols-case" aria-pressed={open} onClick={(e) => onOpen(a.key, e.currentTarget)}>
       <span><span className="hb-chip" data-tone={a.tone}>{a.pill}</span></span>
       <span className="hb-parcel"><span className="hb-mono">{waybill}</span>
-        {a.c.customer_asked && <span className="hb-chip" data-tone="ask">Customer asked</span>}</span>
+        {a.c.customer_asked && <span className="hb-wait">Customer waiting</span>}</span>
       <span className="hb-ellipsis">{last || !j.loading ? where : <span className="hb-skel" style={{ width: 150 }} />}</span>
       <span className="hb-dim">{last ? hhmm(last.t) : ""}</span>
       <span className="hb-num">{since}</span>
@@ -224,8 +224,13 @@ export function CaseDetail({ siteId, a, keyed }: { siteId: string; a: CaseItem; 
   const dims = scans.find((s) => s.dims_mm)?.dims_mm;
   const investigated = (run.data?.steps.length ?? 0) > 0;
   const href = investigated ? `/cases/${a.c.case_id}` : `/cases/${a.c.case_id}/investigate`;
+  // every case's panel has the same parts, in the same order (Rexton 2 Nov): a short headline (where), one callout line
+  // (what the records and cameras say), the details line (size · who asked · when opened), the actions, the picture,
+  // where it was scanned
   const sub = [dims ? `${dims.map((d) => Math.round(d / 10)).join(" × ")} cm` : "",
-    cs.data?.case.complaint ? `customer asked: says it never arrived${last && waited(last.t, cs.data.case.created_at) ? `, ${waited(last.t, cs.data.case.created_at)} after its last scan here` : ""} · case opened ${ago(cs.data.case.created_at)}` : ""].filter(Boolean).join(" · ");
+    cs.data?.case.complaint ? `customer asked: says it never arrived${last && waited(last.t, cs.data.case.created_at) ? `, ${waited(last.t, cs.data.case.created_at)} after its last scan here` : ""}`
+      : cs.data ? "no customer query" : "",
+    cs.data ? `case opened ${ago(cs.data.case.created_at)}` : ""].filter(Boolean).join(" · ");
   const ans = cs.data?.answer?.objects[0];
   const inside = ans?.inside ?? null;
   const ls = !inside ? ans?.last_scan ?? null : null;
@@ -235,13 +240,17 @@ export function CaseDetail({ siteId, a, keyed }: { siteId: string; a: CaseItem; 
   // the same checkpoints as the case page: once the run placed it, the truck and the store read from it
   const cps = scans.length ? buildCheckpoints({ scans, records, barcode: waybill, truckSeen: inside ? !truckLie : undefined,
     storeSeenAt: inside ? inside.iso.carried_in_at : undefined }) : null;
-  const head = inside ? `Most likely in the ${inside.place}.`
-    : ls ? `Last scan record: ${low(momentLabel(ls.event_kind, ls.scan_point_id))} at ${hms(ls.at)}. ${ls.camera ? `Seen there on ${ls.camera.replace(/^cam_/, "").replaceAll("_", " ")}.` : "Not seen on camera."}`
-    : last ? `${lastScanSentence(last.event_kind, last.station_id, last.t)} ${missingNextSentence(last.event_kind)}` : "No scans of this parcel at this hub.";
+  const where = ls ? placeWords(ls.event_kind, ls.scan_point_id) : last ? placeWords(last.event_kind, last.station_id) : undefined;
+  const head = inside ? `Most likely in the ${inside.place}.` : where ? `At the ${where}.` : last ? lastScanSentence(last.event_kind, last.station_id, last.t)
+    : "No scans of this parcel at this hub.";
+  const call: { text: string; tone: "bad" | "plain" } | null = truckLie && truck
+    ? { text: `Records say loaded on ${truck.station_id?.match(/D\d{2}/)?.[0] ?? "a truck"} at ${hhmm(truck.t)}. Cameras say it never left.`, tone: "bad" }
+    : ls ? { text: `Last scan: ${low(momentLabel(ls.event_kind, ls.scan_point_id))} at ${hms(ls.at)}. ${ls.camera ? `Seen there on ${ls.camera.replace(/^cam_/, "").replaceAll("_", " ")}.` : "No camera has shown it since."}`, tone: "plain" }
+    : last && !inside ? { text: `${lastScanSentence(last.event_kind, last.station_id, last.t)} ${missingNextSentence(last.event_kind)}`, tone: "plain" } : null;
   return (
     <>
       {cs.data ? <h2 className="hb-d-h">{head}</h2> : <span className="hb-skel" style={{ width: "70%", height: 22, display: "block" }} aria-busy="true" />}
-      {truckLie && truck && <p className="hb-d-lie">Records say loaded on {truck.station_id?.match(/D\d{2}/)?.[0] ?? "a truck"} at {hhmm(truck.t)}. Cameras say it never left.</p>}
+      {call && <p className="hb-d-lie" data-tone={call.tone}>{call.text}</p>}
       {sub && <p className="hb-d-sub">{sub}</p>}
       <div className="hb-d-acts">
         <Link className="hb-btn hb-btn-primary" href={href}>{investigated ? "Open case" : "Investigate"}</Link>

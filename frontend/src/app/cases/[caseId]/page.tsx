@@ -1,11 +1,10 @@
 "use client";
 /**
- * Answer (step 1), ops-console style. The answer first: a verdict (status, one sentence, why) with a "how sure" meter
- * and its reasons; then the six scan checkpoints (what the hub's scanners recorded, and where it stopped); where it
- * could be (the places it could have reached, and whether any camera watches each); and what happened in order. On the
- * right, docked: the camera view of the place it was last scanned, which cameras to check next, and the two actions.
- * Everything comes from the case's read models (journey, missing moment, possible places, conflicts, floor search);
- * without model keys it says what is really known. The same words as the Hub and the landing page (lib/answer).
+ * Answer (step 1): where is it, and what do I do now (Rexton 2 Nov: Answer and Proof each get ONE job). Every case the
+ * same shape: the verdict (status, one sentence, its limit), one picture (the store door with SAM's outline once the
+ * run placed it; otherwise its last scan point), a few facts one line each, the two actions and the customer's note;
+ * an unplaced case adds the cameras to check next. The step by step, the plan and the identity checks are the Proof's.
+ * Everything comes from the case's read models; without model keys it says what is really known (lib/answer).
  */
 import Link from "next/link";
 import { use } from "react";
@@ -13,13 +12,11 @@ import { useResource } from "@/lib/api";
 import type { Journey, MissingMoment, Possible } from "@/lib/journey";
 import { caseAnswer, type InvestigationView } from "@/lib/answer";
 import { conflictWords, type Conflict } from "@/lib/conflict";
-import { buildCheckpoints, CHECKPOINT_LINE, type CaseRecord } from "@/lib/checkpoints";
-import { hms, momentLabel, placeOf, shortPlace } from "@/lib/words";
+import type { CaseRecord } from "@/lib/checkpoints";
+import { hms, momentLabel, placeOf } from "@/lib/words";
 import type { Site } from "@/lib/types";
 import { CaseSteps } from "@/components/flow/CaseSteps";
-import { CheckpointStrip, ScannerScreen } from "@/components/checkpoints/Checkpoints";
 import { NextCams, View } from "@/components/hub/parts";
-import { Identity } from "@/components/case/Identity";
 import { CaseStory } from "@/components/case/CaseStory";
 import { CustomerBox } from "@/components/case/CustomerBox";
 import { ZONE_NAMES } from "@/components/plan/HubPlan";
@@ -51,29 +48,19 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
   const found = sr.data?.found ?? null;
   const next = mm?.expected_next ?? [];
   const waybill = st.data?.case.target_description.split(" ").at(-1) ?? "";
-  const ready = !!(j && mm && pr.data);
+  const ready = !!(j && mm); // (the places it could have reached take longer: they add a line when they come)
   const siteId = sites.data?.[0]?.site_id;
 
   const view = st.data?.answer;
   // the investigation's verified answer leads when there is one (a floor find still wins); otherwise the read models
   const inside = !found ? view?.objects.find((o) => o.inside)?.inside : null;
   const lastScan = !found && !inside ? view?.objects.find((o) => o.last_scan)?.last_scan ?? null : null;
-  const { pill, head, why, level, reasons } = caseAnswer({ ready, last, next, places, conflicts, found, zoneNames: ZONE_NAMES, lastScan });
-  // one source of truth: once the run verified where it went, the checkpoints read from it too (the store's missing
-  // scan-in, and a truck record made while the cameras show it still inside)
+  const { pill, head, why, level } = caseAnswer({ ready, last, next, places, conflicts, found, zoneNames: ZONE_NAMES, lastScan });
+  // the truck record, and whether the cameras show it still inside the store when it was made
   const records = cr.data?.objects[0]?.records ?? [];
   const truckRec = records.find((r) => r.event_kind === "container_loaded" || r.event_kind === "departed_facility");
   const truck = truckRec ? { t: truckRec.t, door: truckRec.station_id?.match(/D\d{2}/)?.[0] ?? null } : null;
   const insideAtTruck = !!(inside && truck && Date.parse(truck.t) > Date.parse(inside.iso.carried_in_at) && Date.parse(truck.t) < Date.parse(inside.iso.until));
-  const cps = j ? buildCheckpoints({ scans, records, barcode: waybill || null, truckSeen: inside ? !insideAtTruck : undefined,
-    storeSeenAt: inside ? inside.iso.carried_in_at : undefined }) : null;
-  const tunnel = cps?.find((c) => c.id === "tunnel");
-  const conflictAt = conflicts[0]?.divergence_t;
-  const meter = level === "high" ? 3 : level === "medium" ? 2 : 1;
-  const events = [
-    ...scans.map((s) => ({ key: s.scan_event_id, t: s.t, label: momentLabel(s.event_kind, s.station_id), tone: "" })),
-    ...(conflictAt ? [{ key: "conflict", t: conflictAt, label: `Records disagree: ${conflictWords(conflicts[0]).short}`, tone: "bad" }] : []),
-  ].sort((a, b) => a.t.localeCompare(b.t));
 
   if (inside && view) {
     // three facts, one line each, in the records' and cameras' own terms (the step-by-step is the Proof's)
@@ -106,102 +93,57 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
                 </div>
               </div>
             </section>
-            {st.data?.case.complaint && <CustomerBox caseId={caseId} complaint={st.data.case.complaint} opened={st.data.case.created_at} lastScan={last?.t} />}
+            {st.data?.case.complaint && <CustomerBox caseId={caseId} complaint={st.data.case.complaint} opened={st.data.case.created_at} lastScan={last?.t} waybill={waybill} />}
           </div>
         </div>
       </div>
     );
   }
 
+  // the same shape as an answered case (Rexton 2 Nov): verdict, one picture (its last scan point), facts one line each,
+  // two actions, the customer note; then the cameras to check next. The step by step is the Proof's.
+  const cam = (id: string) => id.replace(/^cam_/i, "").replace("_", " ");
+  const seenNext = next.filter((r) => r.result === "seen"), notSeen = next.filter((r) => r.result === "not_seen");
+  const noFootage = next.filter((r) => r.result === "no_footage");
+  const unwatched = places.filter((p) => !p.covered_by.length).length;
+  const facts: { text: string; bad?: boolean }[] = found ? [{ text: `Found by floor staff at ${hm(found.at)}.` }] : [
+    ...(last ? [{ text: `Last scan: ${momentLabel(last.event_kind, last.station_id).toLowerCase()} at ${hm(last.t)}.` }] : []),
+    ...(seenNext.length ? [{ text: `${hm(seenNext[0].predicted_t)}: seen on ${cam(seenNext[0].camera_id)}.` }]
+      : notSeen.length ? [{ text: `Not seen on ${[...new Set(notSeen.map((r) => cam(r.camera_id)))].slice(0, 2).join(" or ")}, where it should have appeared next.`, bad: true }]
+      : noFootage.length ? [{ text: `No footage yet from the ${new Set(noFootage.map((r) => r.camera_id)).size} cameras that would show where it went.` }] : []),
+    ...(conflicts.length ? [{ text: `Records disagree: ${conflictWords(conflicts[0]).short}.`, bad: true }] : []),
+    ...(places.length ? [{ text: `${places.length} place${places.length === 1 ? "" : "s"} it could have reached${unwatched ? `, ${unwatched} with no camera` : ""}.` }] : []),
+  ];
   return (
     <div className="an">
       <CaseSteps caseId={caseId} waybill={waybill} said={st.data?.case.complaint ? "customer says it never arrived" : null} here={0} />
-      <div className="an-body">
+      <div className="an-body" data-answered="">
         <div className="an-main">
-          {(
-            <section className="an-verdict" aria-labelledby="an-h" data-level={level}>
-              <span className="an-chip" data-tone={pill[1]}>{pill[0]}</span>
-              {ready ? <h1 id="an-h" className="an-h1">{head}</h1> : <div className="an-skel an-skel-h" aria-busy="true" />}
-              {why && <p className="an-why">{why}</p>}
-              {ready && reasons.length > 0 && (
-                <div className="an-sure">
-                  <p className="an-sure-h">
-                    How sure
-                    <span className="an-meter" role="img" aria-label={`${level} confidence`}>
-                      {[1, 2, 3].map((i) => <i key={i} data-on={i <= meter ? "" : undefined} data-level={level} />)}
-                    </span>
-                    <b data-level={level}>{level}</b>
-                  </p>
-                  <ul>
-                    {reasons.slice(0, 3).map((r) => <li key={r.text} data-tone={r.tone}>{r.text}</li>)}
-                  </ul>
+          <section className="an-verdict an-one" aria-labelledby="an-h" data-level={level}>
+            <span className="an-chip" data-tone={pill[1]}>{pill[0]}</span>
+            {ready ? <h1 id="an-h" className="an-h1">{head}</h1> : <div className="an-skel an-skel-h" aria-busy="true" />}
+            {why && <p className="an-why">{why}</p>}
+            <div className="an-one-grid">
+              <div className="an-one-pic">
+                {siteId && last ? <View siteId={siteId} point={last.station_id ?? last.device_id} at={last.t} tone={level === "high" ? "ok" : "bad"}
+                  place={placeOf(last.event_kind, last.station_id).replace(/^the /, "")} /> : <div className="an-skel an-skel-pic" aria-busy="true" />}
+              </div>
+              <div className="an-one-side">
+                {ready ? (
+                  <ol className="an-facts" aria-label="What the records and cameras show">
+                    {facts.map((f) => <li key={f.text} data-bad={f.bad ? "" : undefined}>{f.text}</li>)}
+                  </ol>
+                ) : <div className="an-skel an-skel-row" aria-busy="true" />}
+                <div className="an-one-acts">
+                  <Link className="hb-btn hb-btn-primary" href={`/cases/${caseId}/search`}>Send someone to look</Link>
+                  <Link className="hb-btn" href={`/cases/${caseId}/proof`}>Watch the proof</Link>
                 </div>
-              )}
-            </section>
-          )}
-          {st.data?.case.complaint && <CustomerBox caseId={caseId} complaint={st.data.case.complaint} opened={st.data.case.created_at} lastScan={last?.t} />}
-
-          <section className="an-card" aria-labelledby="an-scans">
-            <h2 id="an-scans" className="an-h2">Where it was scanned</h2>
-            {cps ? <CheckpointStrip cps={cps} compact gaps where /> : <div className="an-skel an-skel-row" aria-busy="true" />}
-            <p className="an-line">{CHECKPOINT_LINE}</p>
-            {tunnel?.screen && (
-              <details className="an-more">
-                <summary>Scan tunnel screen for this parcel</summary>
-                <div className="an-dws"><ScannerScreen s={tunnel.screen} at={tunnel.t} /></div>
-              </details>
-            )}
+              </div>
+            </div>
           </section>
-
-          <section className="an-card" aria-labelledby="an-id">
-            <h2 id="an-id" className="an-h2">How we know it&apos;s this parcel</h2>
-            <Identity siteId={siteId} waybill={waybill} />
-          </section>
-
-          {places.length > 0 && (
-            <section className="an-card" aria-labelledby="an-where">
-              <h2 id="an-where" className="an-h2">Where it could be</h2>
-              <ul className="an-places">
-                {places.slice(0, 5).map((p, i) => (
-                  <li key={p.area_id}>
-                    <span className="an-place-n" aria-hidden="true">{i + 1}</span>
-                    <span className="an-place-t">{shortPlace(p, ZONE_NAMES).replace(/^\w/, (c) => c.toUpperCase())}{i === 0 && <em>most likely</em>}</span>
-                    <span className="an-place-c" data-seen={p.covered_by.length ? "" : undefined}>
-                      {p.covered_by.length ? `Watched by ${p.covered_by.slice(0, 2).map((c) => c.replace(/^cam_/i, "").replace("_", " ")).join(", ")}` : "No camera watches this"}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {events.length > 0 && (
-            <section className="an-card" aria-labelledby="an-order">
-              <h2 id="an-order" className="an-h2">What happened, in order</h2>
-              <ol className="an-tl">
-                {events.map((m) => (
-                  <li key={m.key} data-tone={m.tone || undefined}><time>{hms(m.t)}</time><span>{m.label}</span></li>
-                ))}
-                {found ? (
-                  <li data-tone="ok"><time>{hms(found.at)}</time><span>Found by floor staff</span></li>
-                ) : last && (
-                  <li data-tone="unknown"><time>after {hms(last.t)}</time><span>Not seen since</span></li>
-                )}
-              </ol>
-            </section>
-          )}
+          {st.data?.case.complaint && <CustomerBox caseId={caseId} complaint={st.data.case.complaint} opened={st.data.case.created_at} lastScan={last?.t} waybill={waybill} settled={!!found} />}
+          {!found && mm && next.length > 0 && <section className="an-card an-next"><NextCams caseId={caseId} /></section>}
         </div>
-
-        <aside className="an-side" aria-label="Where it stopped">
-          {siteId && last && (
-            <View siteId={siteId} point={last.station_id ?? last.device_id} at={last.t} tone={level === "high" ? "ok" : "bad"} place={placeOf(last.event_kind, last.station_id).replace(/^the /, "")} />
-          )}
-          <div className="an-acts">
-            <Link className="hb-btn hb-btn-primary" href={`/cases/${caseId}/proof`}>Watch the proof</Link>
-            <Link className="hb-btn" href={`/cases/${caseId}/search`}>Send someone to look</Link>
-          </div>
-          {mm && next.length > 0 && <NextCams caseId={caseId} />}
-        </aside>
       </div>
     </div>
   );

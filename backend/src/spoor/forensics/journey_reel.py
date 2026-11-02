@@ -89,15 +89,32 @@ def _fit(frame: np.ndarray) -> tuple[np.ndarray, float, int, int]:
     return img[dy:dy + H, dx:dx + W].copy(), k, dx, dy
 
 
+def _wrap(text: str, scale: float, width: int, thick: int = 1) -> list[str]:
+    """Words into lines no wider than `width` px (the player's frame; a long line ran off the picture)."""
+    lines: list[str] = []
+    for w in text.split():
+        cand = f"{lines[-1]} {w}" if lines else w
+        if lines and cv2.getTextSize(cand, cv2.FONT_HERSHEY_SIMPLEX, scale, thick)[0][0] <= width:
+            lines[-1] = cand
+        else:
+            lines.append(w)
+    return lines
+
+
 def _burn(img, seg: Segment, when: datetime):
-    cv2.rectangle(img, (0, H - 58), (W, H), (10, 10, 12), -1)
-    _txt(img, f"{seg.camera}   {when.astimezone(MYT):%H:%M:%S}   {seg.title}", (24, H - 22), 0.66)
+    """The caption band at the TOP of the picture (the player's own controls cover the bottom): camera, time and step on
+    the first line, the badge at its right, the plain line under it wrapped to the frame."""
     badge, col = ("Last scan", GREEN) if seg.last_scan else BADGES.get(seg.tone, BADGES["seen"])
-    (tw, _), _ = cv2.getTextSize(badge, cv2.FONT_HERSHEY_SIMPLEX, 0.62, 2)
-    cv2.rectangle(img, (W - tw - 46, H - 46), (W - 22, H - 14), col, -1)
-    cv2.putText(img, badge, (W - tw - 34, H - 23), cv2.FONT_HERSHEY_SIMPLEX, 0.62, (12, 12, 12), 2, cv2.LINE_AA)
-    if seg.sub:
-        _txt(img, seg.sub, (24, H - 72), 0.58, MUTE)
+    (tw, _), _ = cv2.getTextSize(badge, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
+    sub = _wrap(seg.sub, 0.54, W - 48)[:2] if seg.sub else []
+    band = 52 + 24 * len(sub)
+    shade = img[:band].astype(np.float32) * 0.25 + np.array((10, 10, 12), np.float32) * 0.75
+    img[:band] = shade.astype(np.uint8)
+    _txt(img, f"{seg.camera}   {when.astimezone(MYT):%H:%M:%S}   {seg.title}", (24, 34), 0.66)
+    cv2.rectangle(img, (W - tw - 46, 14), (W - 22, 44), col, -1)
+    cv2.putText(img, badge, (W - tw - 34, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (12, 12, 12), 2, cv2.LINE_AA)
+    for i, line in enumerate(sub):
+        _txt(img, line, (24, 66 + 24 * i), 0.54, MUTE)
 
 
 def _outline(img, seg: Segment, f: int, k: float, dx: int, dy: int, ox: int = 0, oy: int = 0):
@@ -125,8 +142,8 @@ def _outline(img, seg: Segment, f: int, k: float, dx: int, dy: int, ox: int = 0,
 def _card(seg: Segment) -> np.ndarray:
     img = np.full((H, W, 3), BG, np.uint8)
     _txt(img, seg.title, (64, H // 2 - 14), 1.1, INK, 2)
-    if seg.sub:
-        _txt(img, seg.sub, (64, H // 2 + 30), 0.7, MUTE)
+    for i, line in enumerate(_wrap(seg.sub, 0.7, W - 128)[:3] if seg.sub else []):
+        _txt(img, line, (64, H // 2 + 30 + 32 * i), 0.7, MUTE)
     _txt(img, f"{seg.t.astimezone(MYT):%H:%M:%S}", (64, H // 2 - 70), 0.7, RED if seg.tone in ("noscan", "record") else MUTE)
     return img
 
@@ -147,7 +164,7 @@ def build_journey_reel(segments: list[Segment], out_dir: Path, reel_id: str, tit
 
         intro = np.full((H, W, 3), BG, np.uint8)
         _txt(intro, "The parcel's journey", (64, H // 2 - 20), 1.2, INK, 2)
-        _txt(intro, title, (64, H // 2 + 26), 0.72, MUTE)
+        _txt(intro, title.encode("ascii", "ignore").decode(), (64, H // 2 + 26), 0.72, MUTE)  # (cv2 draws ASCII only)
         _txt(intro, "Every clip from the hub's own cameras, in time order. Outline: SAM 3.1, where it followed the carton.",
              (64, H // 2 + 64), 0.55, MUTE)
         hold(intro, 2.4)
@@ -160,7 +177,7 @@ def build_journey_reel(segments: list[Segment], out_dir: Path, reel_id: str, tit
                 img, *_ = _fit(still)
                 _burn(img, seg, seg.t)
                 if seg.label:
-                    _txt(img, seg.label, (24, 40), 0.7, GREEN, 2)
+                    _txt(img, seg.label, (24, 120), 0.7, GREEN, 2)  # (under the caption band)
                 hold(img, seg.seconds)
                 sources.append({"kind": "still", "path": seg.image.name, "title": seg.title})
             else:

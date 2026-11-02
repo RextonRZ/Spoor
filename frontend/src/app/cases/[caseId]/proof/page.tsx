@@ -91,26 +91,19 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
           <h2 id="pf-know" className="pf-h2">How we know it&apos;s this parcel</h2>
           <div className="pf-know">
             {tunnel?.screen && <div className="pf-dws"><ScannerScreen s={tunnel.screen} at={tunnel.t} /></div>}
-            <Identity siteId={siteId} waybill={waybill} />
+            <Identity siteId={siteId} waybill={waybill} photo={!tunnel?.screen} />
           </div>
         </section>
 
         <section className="pf-sec" aria-labelledby="pf-sure">
           <h2 id="pf-sure" className="pf-h2">How sure</h2>
           <ul className="pf-sure">
-            {rows.length > 0 && (
-              <li><b>Camera clocks.</b> {fitted.length} of {rows.length} cameras on this route checked against the sorter&apos;s own events
-                {fitted.length < rows.length ? `; the rest can be off by up to ${Math.round(worst / 1000)} s, so no number goes on a carton there by time alone` : ""}.</li>
-            )}
-            {calib.length > 0 && <li><b>Positions.</b> Camera calibrations checked on points held back from fitting: median error {Math.round(calib[calib.length >> 1] * 100)} cm.</li>}
-            {scanSteps.length > 0 && (
-              <li><b>The number on a carton.</b> Shown on {numbered} of {scanSteps.length} scans, only where no other carton could have been the one
-                scanned. The other steps show the place at that moment with no number. Outlines are SAM 3.1&apos;s, carton-sized.</li>
-            )}
-            <li><b>Limits.</b> No camera sees inside the {place}: this assumes its door is the only way in.
-              {spark?.answer === "can't see" ? " Muse Spark could not see the carrier's hands in the clip it checked, so empty hands coming out are not claimed." : ""}
-              {" "}The footage is synthetic, of a fictional hub.</li>
+            {rows.length > 0 && <li><b>Camera clocks</b><span>{fitted.length} of {rows.length} matched to the sorter&apos;s clock{fitted.length < rows.length ? `; the rest within ±${Math.round(worst / 1000)} s` : ""}</span></li>}
+            {calib.length > 0 && <li><b>Positions</b><span>within {Math.max(1, Math.round(calib[calib.length >> 1] * 100))} cm on test points</span></li>}
+            {scanSteps.length > 0 && <li><b>Numbers on cartons</b><span>{numbered} of {scanSteps.length} scans: only where no other carton could be it</span></li>}
+            <li><b>Not covered</b><span>inside the {place}{spark?.answer === "can't see" ? "; the carrier's hands coming out" : ""}</span></li>
           </ul>
+          <p className="pf-sure-note">Synthetic footage of a fictional hub. Outlines by SAM 3.1.</p>
         </section>
       </div>
     </div>

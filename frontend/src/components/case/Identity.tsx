@@ -31,7 +31,9 @@ const containerName = (c: string) => (/^RC-/i.test(c) ? `cage ${c}` : /^(BG|BAG)
 /** about the same carton: every side within 2 cm (sides compared longest to shortest, so turning it does not matter) */
 const alike = (a: number[], b: number[]) => sorted(a).every((v, i) => Math.abs(v - sorted(b)[i]) <= 20);
 
-export function Identity({ siteId, waybill }: { siteId: string | undefined; waybill: string }) {
+export function Identity({ siteId, waybill, photo = true }: { siteId: string | undefined; waybill: string;
+  /** off where the tunnel's own screen (with the same photo) sits beside it */
+  photo?: boolean }) {
   const res = useResource<{ parcels: ParcelRow[] }>(siteId && waybill ? `/v1/sites/${siteId}/parcels?limit=2000` : null);
   const caps = useResource<Capabilities>("/v1/capabilities");
   const [photoOk, setPhotoOk] = useState(true);
@@ -46,7 +48,7 @@ export function Identity({ siteId, waybill }: { siteId: string | undefined; wayb
   const vision = !!caps.data?.sam;
   return (
     <div className="id">
-      {photoOk && me.tunnel_t && (
+      {photo && photoOk && me.tunnel_t && (
         <a className="id-photo" href={`/scanner/${me.id}.jpg`} target="_blank" rel="noreferrer">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={`/scanner/${me.id}.jpg`} alt={`The scan tunnel's photo of ${me.id}, label and barcode readable`} onError={() => setPhotoOk(false)} />

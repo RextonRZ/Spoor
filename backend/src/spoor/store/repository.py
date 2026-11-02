@@ -269,6 +269,7 @@ class EvidenceStore:
             )
             engine = create_engine(url, **kw)
         self.engine = engine
+        self.writes = 0  # evidence writes in this process: read models cached against it are fresh while it is unchanged
         if self.engine.dialect.name == "sqlite":
             event.listen(self.engine, "connect", lambda conn, _: conn.execute("PRAGMA journal_mode=WAL"))
         db.metadata.create_all(self.engine)
@@ -309,6 +310,7 @@ class EvidenceStore:
         )
 
     def _write(self, c, record: BaseModel, *, check_refs: bool, known: set[str]) -> None:
+        self.writes += 1
         if isinstance(record, CalibrationInvalidation):
             raise StoreError("use invalidate_calibration()")
         spec = SPECS[type(record)]
@@ -440,6 +442,7 @@ class EvidenceStore:
         return self.find(HypothesisStatusChange, hypothesis_id=hypothesis_id)
 
     def change_status(self, change: HypothesisStatusChange) -> HypothesisStatusChange:
+        self.writes += 1
         current = self.hypothesis_status(change.hypothesis_id)
         if change.from_status != current:
             raise ConflictError(f"{change.hypothesis_id} is {current}, not {change.from_status}")
@@ -450,6 +453,7 @@ class EvidenceStore:
 
     def change_status_chain(self, changes: list[HypothesisStatusChange]) -> None:
         """Several consecutive status changes, all or nothing."""
+        self.writes += 1
         if not changes:
             return
         current = self.hypothesis_status(changes[0].hypothesis_id)
@@ -469,6 +473,7 @@ class EvidenceStore:
 
     def append_revision(self, case_id: str, *, expected_parent: str | None, actor: Actor, reason: str,
                         changed_ids: list[str], now: datetime) -> CaseRevision:  # fmt: skip
+        self.writes += 1
         head = self.head_revision(case_id)
         head_id = head.case_revision_id if head else None
         if head_id != expected_parent:
@@ -490,6 +495,7 @@ class EvidenceStore:
 
     def invalidate(self, target_id: str, *, reason: str, actor: Actor, now: datetime) -> list[str]:
         """Invalidate `target_id` and everything derived from or citing it. Returns all invalidated ids."""
+        self.writes += 1
         already = self.invalid_ids()
         root = Invalidation(invalidation_id=new_id("invalidation"), target_id=target_id, reason=reason, actor=actor,
                             at=now)  # fmt: skip
@@ -514,6 +520,7 @@ class EvidenceStore:
         return done
 
     def invalidate_calibration(self, inv: CalibrationInvalidation, now: datetime) -> list[str]:
+        self.writes += 1
         actor = Actor(kind=ActorKind.HUMAN, id=inv.invalidated_by)
         return self.invalidate(inv.calibration_id, reason=inv.reason, actor=actor, now=now)
 
@@ -524,6 +531,7 @@ class EvidenceStore:
 
         Returns the sha256 of every media asset whose bytes the caller must now delete from object storage.
         """
+        self.writes += 1
         media_ids = [media_id]
         i = 0
         while i < len(media_ids):
@@ -547,6 +555,7 @@ class EvidenceStore:
 
     def delete_case(self, case_id: str, *, actor: Actor, now: datetime) -> None:
         """Delete case-scoped records. Audit entries are kept (IDs only) as the documented exception (§7.1)."""
+        self.writes += 1
         objects = [o.object_instance_id for o in self.find(ObjectInstance, case_id=case_id)]
         hyps = [h.hypothesis_id for h in self.find(Hypothesis, case_id=case_id)]
         with self.engine.begin() as c:

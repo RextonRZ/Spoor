@@ -910,12 +910,42 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         case_for(p, case_id)
         return records_vs_video(svc.store, case_id)
 
+    # the computed read models are slow (possible places 14-22 s, missing moment ~4 s) and every case screen asks for them:
+    # computed once per case and evidence state (the store's write count), one computation at a time per key
+    _memo: dict = {}
+    _memo_locks: dict = {}
+
+    def memo(kind: str, case_id: str, extra: str, fn):
+        key = (kind, case_id, extra, svc.store.writes)
+        hit = _memo.get(key)
+        if hit is not None and time.monotonic() - hit[0] < 600:
+            return hit[1]
+        with _memo_locks.setdefault(key, threading.Lock()):
+            hit = _memo.get(key)
+            if hit is not None and time.monotonic() - hit[0] < 600:
+                return hit[1]
+            val = fn()
+            if len(_memo) > 256:
+                _memo.clear()
+                _memo_locks.clear()
+            _memo[key] = (time.monotonic(), val)
+            return val
+
+    def warm() -> None:  # at start-up: every case's possible places, so the first screen to ask does not wait
+        for c in svc.store.find(Case):
+            try:
+                memo("possible", c.case_id, "", lambda c=c: possible_locations(svc.store, c.case_id))
+            except Exception:  # noqa: BLE001, S112 (a case that cannot be computed yet: computed on request instead)
+                continue
+
+    threading.Thread(target=warm, name="warm-read-models", daemon=True).start()
+
     @app.get("/v1/cases/{case_id}/possible-locations")
     def possible(case_id: str, p: User, t: AwareDatetime | None = None) -> dict:
         """Where it could be (I4): reachable floor area minus what analysed cameras watched without seeing it, per time
         step (or at t), and the places ranked with evidence for / against. Computed, not observed."""
         case_for(p, case_id)
-        return possible_locations(svc.store, case_id, t=t)
+        return memo("possible", case_id, t.isoformat() if t else "", lambda: possible_locations(svc.store, case_id, t=t))
 
     class SearchTaskRequest(BaseModel):
         area_ids: list[str] = Field(default=[], description="places to search; default = the top computed places")
@@ -925,7 +955,7 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         """A floor search task (I7) from the ranked possible places, in walking order."""
         p.require_role(Role.INVESTIGATOR)
         case = case_for(p, case_id)
-        ranked = possible_locations(svc.store, case_id)["objects"][0]["places"]
+        ranked = memo("possible", case_id, "", lambda: possible_locations(svc.store, case_id))["objects"][0]["places"]
         pick = [r for r in ranked if (r["area_id"] in body.area_ids if body.area_ids else r["possible_share"] > 0)][:6]
         if not pick:
             raise HTTPException(409, "no possible place to search")
@@ -1096,7 +1126,7 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
             raise HTTPException(409, "no scans or footage of this parcel yet")
         reel_id = new_id("reel")
         out = Path(svc.settings.data_dir) / "reels"
-        man = build_journey_reel(segs, out, reel_id, f"{waybill} · {case.question}")
+        man = build_journey_reel(segs, out, reel_id, waybill)
         (out / f"journey_{case_id}.json").write_text(json.dumps({"reel_id": reel_id}), encoding="utf-8")
         audit(p, "make_journey_reel", case_id, reel_id=reel_id, chapters=len(man["chapters"]))
         return journey_reel_out(case_id, man)
@@ -1221,7 +1251,7 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         negative observation) / not analysed / no footage (I3)."""
         case_for(p, case_id)
         audit(p, "missing_moment", case_id)
-        return missing_moment(svc.store, case_id, frame_lookup=frame_lookup(p))
+        return memo("missing", case_id, p.user_id, lambda: missing_moment(svc.store, case_id, frame_lookup=frame_lookup(p)))
 
     def _crop(p: Principal, media_id: str, frame_index: int, box: tuple[float, float, float, float],
               basis: tuple[float, float] | None = None) -> dict:

@@ -157,3 +157,7 @@
 .an-one-acts { display: flex; flex-wrap: wrap; gap: 8px; }
 @media (max-width: 1100px) { .an-one-grid { grid-template-columns: 1fr; gap: 18px; } }
 @media (max-width: 700px) { .an-one-acts .hb-btn { flex: 1 1 100%; justify-content: center; } }
+.an-one-pic { min-width: 0; }
+.an-one-pic figure { margin: 0; }
+.an-skel-pic { aspect-ratio: 16 / 9; border-radius: 10px; }
+.an-next { margin-top: 8px; }

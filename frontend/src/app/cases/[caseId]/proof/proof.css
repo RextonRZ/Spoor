@@ -87,11 +87,14 @@
 .pf-reel { min-width: 0; }
 .pf-side { position: sticky; top: 76px; display: grid; gap: 10px; min-width: 0; }
 .pf-plan-note { margin: 0; font-size: 12px; color: var(--tb-mute); }
-.pf-know { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); gap: 24px; align-items: start; }
+.pf-know { display: grid; grid-template-columns: minmax(0, 440px) minmax(0, 1fr); gap: 28px; align-items: start; }
 .pf-dws { min-width: 0; }
 .pf-sure { list-style: none; margin: 0; padding: 0; display: grid; max-width: 78ch; }
-.pf-sure li { padding: 12px 0; border-top: 1px solid var(--tb-line); font-size: 14px; line-height: 1.55; color: var(--tb-ink-2); text-wrap: pretty; }
+.pf-sure li { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 16px; padding: 11px 0; border-top: 1px solid var(--tb-line);
+  font-size: 14px; line-height: 1.5; color: var(--tb-ink-2); font-variant-numeric: tabular-nums; }
 .pf-sure li:last-child { border-bottom: 1px solid var(--tb-line); }
-.pf-sure b { color: var(--tb-ink); font-weight: 650; }
+.pf-sure b { color: var(--tb-ink); font-weight: 600; }
+.pf-sure-note { margin: 0; font-size: 12.5px; color: var(--tb-mute); }
+@media (max-width: 640px) { .pf-sure li { grid-template-columns: 1fr; gap: 2px; } }
 @media (max-width: 1100px) { .pf-grid, .pf-know { grid-template-columns: 1fr; } .pf-side { position: static; } }
 @media (max-width: 700px) { .pf-wrap { padding: 16px 16px 40px; gap: 32px; } .pf-go { justify-content: center; } }
