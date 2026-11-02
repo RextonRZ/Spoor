@@ -83,7 +83,8 @@ export function JourneyReel({ caseId }: { caseId: string }) {
         <a className="jr-dl" href={signedUrl(reel.url)} download={`${reel.reel_id}.mp4`}>Download MP4</a>
       </div>
       <figure className="jr-stage">
-        <video ref={video} src={signedUrl(reel.url)} muted playsInline preload="metadata" controls
+        <video ref={video} src={signedUrl(reel.url)} muted playsInline preload="auto" controls
+          onLoadedMetadata={(e) => { if (steps[0] && e.currentTarget.currentTime === 0) e.currentTarget.currentTime = steps[0].start_s + 0.8; }}
           aria-label={cur ? `${hms(cur.t)}: ${cur.title}` : "The parcel's journey"} />
       </figure>
       <ol className="jr-rail" aria-label="The journey, step by step">

@@ -2,6 +2,26 @@
 
 Newest first. Each entry: what is done, where to look, what is still open.
 
+## 2026-11-02 15:15 · The parcel's journey: one player, one video (ticks 1406, 1410, 1505)
+
+**Where to look:** case page (answered) -> "The parcel's journey"; `review/shots/mon/journey/` (1440, 390),
+`review/shots/mon/reel/chapters_sheet.jpg` (one frame per chapter), the MP4 via "Download MP4".
+
+- One section replaces the tracker strip, the passport and the moments stills (the answer hero and map stay). Step
+  rail: time, one line, Scanned here / No scan (red after the last scan), camera, the number only on a labelled
+  handshake; a step plays its chapter; "Play the whole journey" plays all 53 s; gaps between filmed steps are the
+  connectors; 390: steps stack under the player.
+- The video is built by the API from stored evidence only (POST/GET `/v1/cases/{id}/journey-reel`): 12 chapters in
+  time order; SAM's own mask edge on the carton on every frame SAM followed it (labelled tracks at chute C12 and cage
+  RC-760, the live alert's pick track, CAM_19's verified carry, the carried carton on the store door close-up); cards
+  for "In RC-760, no scan for 11 min" and the answer; burn-ins: camera, shared clock, checkpoint, Scanned here / No
+  scan, SYNTHETIC; a manifest with every source clip's hash. Cameras for the store and dock steps are chosen by a
+  general best-view rule, not by name.
+- Cost: US$0.06 of SAM (one "box" pass on the store door close-up); everything else came from stored tracks.
+
+**Open:** Unloaded and the chute close-up wait for the W1 re-render (below); "On the sorter" stays unlabelled (the
+induction outlines were 4 of 4 wrong when tried; the tunnel's own photo carries the number one step earlier).
+
 ## 2026-11-02 14:42 · Labels on carton-sized outlines only (ticks 1402, 1405, 1426)
 
 **Numbers (stronger eval: IoU and area against the true carton's projected box, clipped to the picture):**
