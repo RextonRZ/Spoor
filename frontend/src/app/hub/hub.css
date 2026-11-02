@@ -20,21 +20,21 @@
 .hb-dock-empty { margin: 0; padding: 28px 20px; font-size: 13.5px; color: var(--tb-mute); }
 
 /* buttons */
-:is(.hb, .an, .pf, .sr, .rp) .hb-btn {
+:is(.hb, .an, .pf, .sr, .rp, .nf) .hb-btn {
   height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; box-sizing: border-box; padding: 0 12px;
   border-radius: var(--tb-r-sm); border: 1px solid var(--tb-line-2); background: var(--tb-surface); color: var(--tb-ink); font: inherit;
   font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
   transition: background-color 140ms ease, border-color 140ms ease, transform 140ms var(--tb-ease-out);
 }
-:is(.hb, .an, .pf, .sr, .rp) .hb-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linejoin: round; }
-:is(.hb, .an, .pf, .sr, .rp) .hb-btn:active { transform: scale(0.97); }
-:is(.hb, .an, .pf, .sr, .rp) .hb-btn:focus-visible { outline: 2px solid #818cf8; outline-offset: 2px; }
-:is(.hb, .an, .pf, .sr, .rp) .hb-btn:disabled { opacity: 0.55; cursor: default; }
-:is(.hb, .an, .pf, .sr, .rp) .hb-btn-primary { border-color: transparent; background: var(--tb-accent); color: #fff; }
-:is(.hb, .an, .pf, .sr, .rp) .hb-btn-sm { height: 28px; padding: 0 10px; font-size: 12.5px; }
+:is(.hb, .an, .pf, .sr, .rp, .nf) .hb-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linejoin: round; }
+:is(.hb, .an, .pf, .sr, .rp, .nf) .hb-btn:active { transform: scale(0.97); }
+:is(.hb, .an, .pf, .sr, .rp, .nf) .hb-btn:focus-visible { outline: 2px solid #818cf8; outline-offset: 2px; }
+:is(.hb, .an, .pf, .sr, .rp, .nf) .hb-btn:disabled { opacity: 0.55; cursor: default; }
+:is(.hb, .an, .pf, .sr, .rp, .nf) .hb-btn-primary { border-color: transparent; background: var(--tb-accent); color: #fff; }
+:is(.hb, .an, .pf, .sr, .rp, .nf) .hb-btn-sm { height: 28px; padding: 0 10px; font-size: 12.5px; }
 @media (hover: hover) and (pointer: fine) {
-  :is(.hb, .an, .pf, .sr, .rp) .hb-btn:hover { background: var(--tb-raise); color: var(--tb-ink); }
-  :is(.hb, .an, .pf, .sr, .rp) .hb-btn-primary:hover { background: #6366f1; color: #fff; }
+  :is(.hb, .an, .pf, .sr, .rp, .nf) .hb-btn:hover { background: var(--tb-raise); color: var(--tb-ink); }
+  :is(.hb, .an, .pf, .sr, .rp, .nf) .hb-btn-primary:hover { background: #6366f1; color: #fff; }
 }
 
 /* KPI strip: one row of equal cells, each a way into its tab */
