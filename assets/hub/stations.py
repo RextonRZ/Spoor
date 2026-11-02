@@ -511,15 +511,18 @@ class Docks:
                 w_, d_, h_ = box.dims
                 low = box.pos.z + h_ * 0.65 < 0.8
                 heavy = 1.0 + 0.35 * min(w_ * d_ * h_ / 0.03, 1.0)
-                # where it goes: flush in his corner (6 cm off the face, 3 cm off the lorry's side wall), turned with
+                # where it goes: flush in his corner (1 cm off the face, 3 cm off the lorry's side wall), turned with
                 # his body and squared to the trailer
                 a0 = math.atan2(box.pos.y - w.pos.y, box.pos.x - w.pos.x)
                 a1 = math.atan2(sd * 0.25, -0.31)
                 yaw = box.yaw + ((a1 - a0 + math.pi) % (2 * math.pi) - math.pi)
                 yaw = round(yaw / (math.pi / 2)) * (math.pi / 2)
+                # short side toward him (out along x): the long side toward him put his toe 3-7 cm into it (gates 3 Nov)
+                yaw = min((yaw, yaw + math.pi / 2), key=lambda y_: abs(math.cos(y_)) * w_ + abs(math.sin(y_)) * d_)
                 ex = abs(math.cos(yaw)) * w_ / 2 + abs(math.sin(yaw)) * d_ / 2
                 ey = abs(math.sin(yaw)) * w_ / 2 + abs(math.cos(yaw)) * d_ / 2
-                rest = Vector((X_FACE + 0.06 + ex, w.dock["cy"] + sd * (1.08 - 0.03 - ey), stack_z))
+                rest = Vector((X_FACE + 0.01 + ex, w.dock["cy"] + sd * (1.08 - 0.03 - ey), stack_z))  # (1 cm off the side
+                # wall put his forearm into it)
                 sp = Pick(box, w)
                 sp.below_top = q.below_top if hasattr(q, "below_top") else None
                 T_reach = rnd.uniform(1.0, 1.3) + (0.4 if low else 0.0)
