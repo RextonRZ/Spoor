@@ -30,6 +30,9 @@ interface PossibleView { objects: { places: { area_id: string; name: string; zon
 
 /** "the blind corner by the exception store" / "the cage staging". */
 function where(p: Place): string {
+  // a named place (the answer's own, e.g. "Exception store (Z11)") keeps its name; zone rows ("Z11 Exception store") read
+  // from the zone list (it was "the blind corner by the exception store" for the store the answer names)
+  if (!/^Z\d+ /.test(p.name)) return `the ${p.name.replace(/\s*\(Z\d+\)$/, "")}`;
   const zone = p.zone_id ? ZONE_NAMES[p.zone_id.replace(/^zone_/, "")] : undefined;
   const z = (zone ?? p.name.replace(/^Z\d+ /, "").replace(/\s*[(,;].*$/, "")).toLowerCase();
   return p.area_id.startsWith("BLIND") ? `the blind corner by the ${z}` : `the ${z}`;
@@ -54,7 +57,9 @@ export default function GoLookPage({ params }: { params: Promise<{ caseId: strin
   const [replan, setReplan] = useState<string | null>(null); // a "Not here" sent the lead back to plan (job id)
   const task = view.data?.tasks.at(-1);
   const done = new Set(task?.outcomes.map((o) => o.area_id) ?? []);
-  const place = task?.places.find((p) => !done.has(p.area_id));
+  // one row per place: a zone row naming the same place as an earlier one (the answer's store, then its zone) is that place
+  const places = (task?.places ?? []).filter((pl, i, all) => all.findIndex((q) => where(q as Place).toLowerCase() === where(pl as Place).toLowerCase()) === i);
+  const place = places.find((p) => !done.has(p.area_id));
   const waybill = st.data?.case.target_description.split(" ").at(-1) ?? "";
   const scans = jr.data?.objects[0]?.scans ?? [];
   const dims = scans.find((s) => s.dims_mm)?.dims_mm;
@@ -80,13 +85,13 @@ export default function GoLookPage({ params }: { params: Promise<{ caseId: strin
 
   // the queue: the sent task's places in order, else the places Spoor would send staff to (most likely first)
   const queue = task
-    ? task.places.map((pl) => ({ key: pl.area_id, name: where(pl as Place), state: view.data?.found?.area_id === pl.area_id ? "found" : done.has(pl.area_id) ? "ruled" : pl.area_id === place?.area_id ? "now" : "next" }))
+    ? places.map((pl) => ({ key: pl.area_id, name: where(pl as Place), state: view.data?.found?.area_id === pl.area_id ? "found" : done.has(pl.area_id) ? "ruled" : pl.area_id === place?.area_id ? "now" : "next" }))
     : (pr.data?.objects[0]?.places ?? []).filter((x) => x.possible_share > 0).slice(0, 6).map((x) => ({ key: x.area_id, name: where(x as unknown as Place), state: "next" }));
   const left = queue.filter((q) => q.state === "next" || q.state === "now").length;
   const status = view.data?.found ? ["Found", "ok"] : !task ? ["Not sent yet", "idle"] : !place ? ["All checked", "warn"] : ["With floor staff", "now"];
   const sub = view.data?.found ? `Recorded by ${view.data.found.by} at ${hhmm(view.data.found.at)}`
     : !task ? "Spoor lists the places it could be, most likely first. Floor staff answer each one on their phone."
-    : !place ? `Not found in any of the ${task.places.length} places. The case stays open with these ruled out.`
+    : !place ? `Not found in any of the ${places.length} places. The case stays open with these ruled out.`
     : `Sent ${hhmm(task.created_at)} by the hub supervisor · ${left} place${left === 1 ? "" : "s"} left`;
 
   return (
@@ -143,7 +148,7 @@ export default function GoLookPage({ params }: { params: Promise<{ caseId: strin
                 ) : !place ? (
                   <div className="gl-done">
                     <h2 className="gl-h1">Every place checked</h2>
-                    <p className="gl-p">Not found in any of the {task.places.length} places.</p>
+                    <p className="gl-p">Not found in any of the {places.length} places.</p>
                   </div>
                 ) : (
                   <>

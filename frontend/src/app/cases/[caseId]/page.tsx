@@ -62,6 +62,18 @@ export default function AnswerPage({ params }: { params: Promise<{ caseId: strin
   const truck = truckRec ? { t: truckRec.t, door: truckRec.station_id?.match(/D\d{2}/)?.[0] ?? null } : null;
   const insideAtTruck = !!(inside && truck && Date.parse(truck.t) > Date.parse(inside.iso.carried_in_at) && Date.parse(truck.t) < Date.parse(inside.iso.until));
 
+  if (!st.data) {  // the case is still loading: a neutral skeleton (it flashed the unplaced layout, "Checking", first)
+    return (
+      <div className="an">
+        <CaseSteps caseId={caseId} waybill="" here={0} />
+        <div className="an-body"><div className="an-main">
+          <div className="an-skel an-skel-h" aria-busy="true" />
+          <div className="an-one-grid"><div className="an-skel an-skel-pic" aria-busy="true" /><div className="an-skel an-skel-row" aria-busy="true" /></div>
+        </div></div>
+      </div>
+    );
+  }
+
   if (inside && view) {
     // three facts, one line each, in the records' and cameras' own terms (the step-by-step is the Proof's)
     const caged = [...records].reverse().find((r) => r.event_kind === "container_add" && Date.parse(r.t) <= Date.parse(inside.iso.carried_in_at));

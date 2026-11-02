@@ -243,7 +243,7 @@ export function CaseDetail({ siteId, a, keyed }: { siteId: string; a: CaseItem; 
   const where = ls ? placeWords(ls.event_kind, ls.scan_point_id) : last ? placeWords(last.event_kind, last.station_id) : undefined;
   const head = inside ? `Most likely in the ${inside.place}.` : where ? `At the ${where}.` : last ? lastScanSentence(last.event_kind, last.station_id, last.t)
     : "No scans of this parcel at this hub.";
-  const call: { text: string; tone: "bad" | "plain" } | null = truckLie && truck
+  const call: { text: string; tone: "bad" | "plain" } | null = !cs.data ? null : truckLie && truck
     ? { text: `Records say loaded on ${truck.station_id?.match(/D\d{2}/)?.[0] ?? "a truck"} at ${hhmm(truck.t)}. Cameras say it never left.`, tone: "bad" }
     : ls ? { text: `Last scan: ${low(momentLabel(ls.event_kind, ls.scan_point_id))} at ${hms(ls.at)}. ${ls.camera ? `Seen there on ${ls.camera.replace(/^cam_/, "").replaceAll("_", " ")}.` : "No camera has shown it since."}`, tone: "plain" }
     : last && !inside ? { text: `${lastScanSentence(last.event_kind, last.station_id, last.t)} ${missingNextSentence(last.event_kind)}`, tone: "plain" } : null;
@@ -257,7 +257,8 @@ export function CaseDetail({ siteId, a, keyed }: { siteId: string; a: CaseItem; 
         <Link className="hb-btn" href={`/cases/${a.c.case_id}/search`}>Send someone to look</Link>
       </div>
       <p className="hb-d-note">{keyed ? "Investigate: about 1 min, ~US$0.30." : "Shows what the scan log knows."}</p>
-      {inside ? <View siteId={siteId} point="SP-STORE-IN" at={inside.iso.carried_in_at} tone="ok" place={`the ${inside.place.replace(/ \(Z\d+\)$/, "").toLowerCase()} door`} />
+      {!cs.data ? <span className="hb-skel" style={{ width: "100%", aspectRatio: "16 / 9", display: "block", borderRadius: 10 }} aria-busy="true" />
+        : inside ? <View siteId={siteId} point="SP-STORE-IN" at={inside.iso.carried_in_at} tone="ok" place={`the ${inside.place.replace(/ \(Z\d+\)$/, "").toLowerCase()} door`} />
         : <View siteId={siteId} point={ls?.scan_point_id ?? last?.station_id ?? last?.device_id} at={ls?.at ?? last?.t} tone={a.tone} place={placeWords(ls?.event_kind ?? last?.event_kind, ls?.scan_point_id ?? last?.station_id)} />}
       {cps && (
         <section className="hb-d-sec">
