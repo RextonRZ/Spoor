@@ -29,6 +29,7 @@ ap.add_argument("--samples", type=int, default=8)
 ap.add_argument("--fps", type=int, default=30)
 ap.add_argument("--test", action="store_true", help="render one frame per distinct place, to judge the look and speed")
 ap.add_argument("--from-frame", type=int, default=0, help="resume: skip frames already on disk before this one")
+ap.add_argument("--table-only", action="store_true", help="write tour.json (with each frame's projection matrix), render nothing")
 args = ap.parse_args(sys.argv[sys.argv.index("--") + 1:])
 
 OFFSET = Vector((-4.0, -11.0, 10.5))   # the drone sits south-west of the point, above it: north stays up, as on the plan
@@ -119,7 +120,7 @@ def aim(target):
 out = Path(args.out).resolve()
 (out / "frames").mkdir(parents=True, exist_ok=True)
 frames = [k[0] for k in keys if k[0] == min(kk[0] for kk in keys if math.dist(pts[kk[1]], pts[k[1]]) < 0.5)] if args.test else range(total)
-proj, marker = [], []
+proj, marker, mats = [], [], []
 t0 = time.time()
 for fr in frames:
     tgt, mk = place(fr)
@@ -127,6 +128,10 @@ for fr in frames:
     uv = lambda p: [round(v, 4) for v in world_to_camera_view(sc, cam, Vector((p[0], p[1], PIN_Z)))[:2]]
     proj.append([uv(p) for p in pts])
     marker.append(uv(mk))
+    P = cam.calc_matrix_camera(bpy.context.evaluated_depsgraph_get(), x=rx, y=ry) @ cam.matrix_world.inverted()
+    mats.append([round(v, 5) for row in P for v in row])
+    if args.table_only:
+        continue
     path = out / "frames" / f"f{fr:05d}.jpg"
     if fr >= args.from_frame or not path.exists():
         sc.render.filepath = str(path)
@@ -136,6 +141,6 @@ for fr in frames:
 
 meta = {"fps": fps, "frames": total, "size": [rx, ry], "test": args.test,
         "steps": [{"n": i + 1, "arrive": k, "title": steps[i]["title"], "tone": steps[i]["tone"]} for k, i in keys],
-        "pins": proj, "marker": marker}
+        "pins": proj, "marker": marker, "P": mats}
 (out / ("tour_test.json" if args.test else "tour.json")).write_text(json.dumps(meta, separators=(",", ":")), encoding="utf-8")
 print(f"TOUR done {len(list(frames)) if args.test else total} frames in {time.time() - t0:.0f}s")

@@ -227,3 +227,10 @@ already in MP4s): now 17 GB free. If it keeps growing, you may want to look at C
   GPU US$0.39 + US$0.40, + encodes). Meta SAM 3.1 since midnight MYT: 37,222 frames ~US$7.4 (overnight + the morning's
   first S2 handshake pass ~US$6.6; since noon the re-runs and re-prompts ~US$0.87, inside the US$5 re-run budget).
   Earlier "~US$0.25 new SAM" in READY was an estimate and wrong; corrected.
+
+## 17:50 Tue · builder · drag-to-spin turntables: cost
+- Estimate: 7 places on the route + the whole hub, 2 rings each (the fly-through's height and 60 degrees), 36 frames per
+  ring = 576 frames at 1280x720. Measured 2.7 to 3.3 s a frame on this laptop = about 30 min.
+- **Rendered locally, US$0 of the US$5 you approved; Modal not used** (the laptop was free, and locally it needed no
+  upload of the 1 GB hub blend). Same for the Spoor Floor walk (about 560 frames, about 25 min).
+- The frames (WebP, about 25 MB) stay out of git like the camera clips and the fly-through video; spin.json is committed.

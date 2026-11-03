@@ -87,3 +87,5 @@ assets/realtest/raw/*.MOV
 assets/tour/out*/
 assets/tour/ov/
 assets/tour/*.log
+assets/tour/spin*/
+frontend/public/tour/**/*.webp

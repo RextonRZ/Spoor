@@ -166,3 +166,53 @@
 .ht-step-t { display: none; }
 .ht-step[aria-current] .ht-step-t { display: inline; }
 .ht-rail li:has(.ht-step[aria-current]) { flex: 1.8 1 0; }
+
+/* the turntable (spin.ts): a canvas over the video, shown only once turned (its first frame is the video's), so the
+   swap is invisible; a drag turns it 1:1, a flick glides (JS, from the current value), nothing here transitions */
+.ht-turn { position: absolute; inset: 0; width: 100%; height: 100%; display: block; visibility: hidden; pointer-events: none; }
+.ht-turn[data-on] { visibility: visible; }
+.ht-stage { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.ht-stage video { pointer-events: none; }
+.ht-stage[data-turn] { cursor: grab; touch-action: pan-y; }
+.ht-stage[data-turn]:active { cursor: grabbing; }
+.ht-stage:focus-visible { outline: 2px solid #a5b4fc; outline-offset: 2px; }
+.ht-hint { position: absolute; z-index: 5; right: 14px; top: 14px; display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px 0 10px; border-radius: 16px;
+  background: rgba(15, 17, 23, 0.72); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); color: #fff; font-size: 12.5px; font-weight: 600; pointer-events: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); animation: ht-hint-in 260ms 400ms var(--ht-ease) both; }
+.ht-hint svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+@keyframes ht-hint-in { from { opacity: 0; transform: translateY(-4px); } }
+.ht-ctl { display: flex; gap: 8px; }
+.ht-ctl-r { left: auto; right: 14px; }
+.ht-ghost { padding: 0 14px 0 11px; }
+.ht-ghost[aria-pressed="true"] { background: rgba(80, 72, 229, 0.9); }
+.ht-play:disabled { opacity: 0.5; cursor: default; }
+.ht-play svg.ht-stroke { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* the camera that saw the step: where it is mounted, and its line of sight to the step's point */
+.ht-sight { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.ht-sight line { stroke: rgba(255, 255, 255, 0.85); stroke-width: 1.5px; stroke-dasharray: 4 5; vector-effect: non-scaling-stroke; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6)); }
+.ht-cam { position: absolute; z-index: 2; width: 26px; height: 26px; transform: translate(-50%, -50%); border-radius: 50%; display: grid; place-items: center;
+  background: rgba(250, 250, 252, 0.94); color: #1e1b4b; box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.45), 0 4px 12px rgba(0, 0, 0, 0.4); }
+.ht-cam svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+.ht-cam small { position: absolute; top: calc(100% + 5px); left: 50%; transform: translateX(-50%); white-space: nowrap; padding: 2px 7px; border-radius: 6px;
+  background: rgba(15, 17, 23, 0.78); color: #e5e7ef; font-size: 11px; font-weight: 600; }
+@media (max-width: 700px) { .ht-hint { top: 10px; right: 10px; } .ht-ctl-r .ht-play { font-size: 0; gap: 0; padding: 0 11px; } }
+@media (prefers-reduced-motion: reduce) { .ht-hint { animation: none; } }
+.ht-turn[data-cut] { animation: ht-unblur 220ms ease-out both; }
+@keyframes ht-unblur { from { filter: blur(5px); opacity: 0.7; } }
+@media (prefers-reduced-motion: reduce) { .ht-turn[data-cut] { animation: none; } }
+.ht-pin[data-flip] .ht-pin-tag { left: auto; right: calc(100% + 10px); }
+@keyframes ht-tag-l { from { opacity: 0; translate: 6px 0; } }
+.ht-pin[data-flip] .ht-pin-tag { animation-name: ht-tag-l; }
+
+/* the answer zone (where Spoor says to search first): a soft indigo volume on the floor; it pulses once on arrival */
+.ht-zone { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.ht-zone polygon { vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.ht-zone-floor { fill: rgba(99, 102, 241, 0.2); stroke: #818cf8; stroke-width: 2px; }
+.ht-zone-wall { fill: rgba(99, 102, 241, 0.08); stroke: rgba(129, 140, 248, 0.45); stroke-width: 1px; }
+.ht-zone-top { fill: none; stroke: rgba(165, 180, 252, 0.8); stroke-width: 1.5px; }
+.ht-zone[data-pulse] { animation: ht-zone-pulse 1.1s var(--ht-ease) 1 both; }
+@keyframes ht-zone-pulse { 0% { opacity: 0.35; } 35% { opacity: 1; filter: drop-shadow(0 0 10px rgba(129, 140, 248, 0.9)); } 100% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ht-zone[data-pulse] { animation: none; } }
+.ht-key { display: inline-flex; align-items: center; gap: 7px; margin-right: 10px; color: var(--tb-ink-2); }
+.ht-key i { width: 14px; height: 10px; border-radius: 2px; background: rgba(99, 102, 241, 0.35); box-shadow: inset 0 0 0 1.5px #818cf8; }
