@@ -114,12 +114,26 @@ for i, p in enumerate(pts):
 # closer, then holds: the page's answer ("Most likely here") is drawn on these frames
 last = len(steps) - 1
 store = pts[held_at(last)]
+
+
+def zone_mid(p):
+    """the middle of the layout zone a point is in (the ending frames that whole zone), else the point"""
+    for z in hub["zones"]:
+        for poly in z["polygons"]:
+            xs, ys = [q[0] for q in poly], [q[1] for q in poly]
+            if min(xs) <= p[0] <= max(xs) and min(ys) <= p[1] <= max(ys):
+                return ((min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2)
+    return p
+
+
+# the ending looks between where the carton was left and the middle of its zone, so the zone fits and the carton is in it
+end_look = tuple((a + b) / 2 for a, b in zip(store, zone_mid(store)))
 end_seg = None
 if math.dist(pts[last], store) > 0.5:
     m = round(fps * 2.6)
     end_seg = (f, f + m)
     f += m
-END_K = 0.72                     # the drone's offset at the end, as a share of the usual one
+END_K = 1.35                     # the drone a little wider than step 9 at the end (reviewer 01:35): the whole store in view
 end_arrive = f
 f += round(fps * 2.0)
 total = f + round(fps * 0.3)
@@ -165,9 +179,9 @@ def place(frame):
             return look, V(route_path.at(way, s)), 1.0
     if end_seg and end_seg[0] <= frame < end_seg[1]:
         u = ease((frame - end_seg[0]) / (end_seg[1] - end_seg[0]))
-        return V(pts[last]).lerp(V(store), u), V(store), 1 + (END_K - 1) * u
+        return V(pts[last]).lerp(V(end_look), u), V(store), 1 + (END_K - 1) * u
     if frame >= end_arrive:
-        return V(store), V(store), END_K
+        return V(end_look), V(store), END_K
     cur = max((k for k in keys if k[0] <= frame), default=keys[0])
     return V(pts[cur[1]]), V(pts[held_at(cur[1])]), 1.0
 

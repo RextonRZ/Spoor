@@ -54,6 +54,19 @@ function prefix(q: XY[], u: number): XY[] {
   }
   return out;
 }
+/** the end of a polyline that lies inside the frame (with a margin), cut where it crosses in: on the ending no line
+ *  leaves the picture (reviewer 01:35) */
+function tailInside(q: XY[], m = 0.05): XY[] {
+  const ok = (p: XY) => p[0] > m && p[0] < 1 - m && p[1] > m && p[1] < 1 - m;
+  let i = q.length - 1;
+  if (i < 0 || !ok(q[i])) return [];
+  while (i > 0 && ok(q[i - 1])) i -= 1;
+  if (i === 0) return q;
+  // where the segment q[i-1] -> q[i] enters the frame: halve towards it
+  let a = q[i - 1], b = q[i];
+  for (let k = 0; k < 20; k++) { const c: XY = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; if (ok(c)) b = c; else a = c; }
+  return [b, ...q.slice(i)];
+}
 /** where a screen point falls on a polyline (page fractions; y counted at the stage's 16:9) */
 function splitAt(pts: XY[], q: XY): [XY[], XY[]] {
   let best = { d: Infinity, i: 0, p: pts[0] as XY };
@@ -401,10 +414,13 @@ export function HubTour({ caseId }: { caseId: string }) {
     return observed.reduce((sum, [b0, b1]) => sum + Math.max(0, Math.min(a1, b1) - Math.max(a0, b0)), 0) / (a1 - a0) >= 0.5; };
   const flying = playing ? ways.find((w) => w.kind !== "held" && frame >= arrive[w.from] && frame < arrive[w.to]) : undefined;
   const mkTop = flat(mk);
-  const route = t && !fading ? ways.filter((w) => w.kind !== "held").map((w) => {
+  // on the ending only the last carry is drawn, and only its part inside the picture
+  const lastWay = ways.filter((w) => w.kind !== "held").at(-1);
+  const route = t && !fading ? ways.filter((w) => w.kind !== "held" && (!ending || endAt == null || w === lastWay)).map((w) => {
     const line = w.path.map(([x, y, z]) => proj(x, y, z ?? 0)).filter((q): q is XY => !!q);
     const unrolling = pen && w.from >= pen.from && w.to <= pen.upTo && line.length > 1;
     const [done, rest]: [XY[], XY[]] = unrolling ? [prefix(line, pen.u), line]
+      : ending && endAt != null ? [tailInside(line), []]
       : ending || (w !== flying && w.to <= on) ? [line, []]
       : w === flying && mkTop && line.length > 1 ? splitAt(line, mkTop) : [[], line];
     const gap = !seenMove(w.from, w.to), mins = Math.round((tms[w.to] - tms[w.from]) / 60000);
@@ -530,7 +546,8 @@ export function HubTour({ caseId }: { caseId: string }) {
           )}
           {ending && !fading && (
             <div className="ht-end" role="status" data-foot={endAt != null ? "" : undefined}>
-              <b>Most likely here</b>
+              {/* "here" only while the carton is in the picture: the words never point at empty floor */}
+              <b>{inView(mk) || endAt == null ? "Most likely here" : `Most likely in the ${placeName}`}</b>
               {inside && <small>{placeName}{inside.carried_in_at ? ` · carried in at ${inside.carried_in_at}, not seen coming out` : ""}</small>}
             </div>
           )}
