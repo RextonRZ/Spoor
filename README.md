@@ -58,6 +58,7 @@ seeded simulated history and its live feed is the recorded shift played back ([L
 | Handshake labels on screen, checked against the render truth | 13 of 13 right (100 %) across all 98 outlines on every rendered window; a number is shown only where no other carton could be the one scanned, so most outlines (85 of 98) carry none |
 | Live alert "left without a scan" | fires once, at the real pick; on no control |
 | On-site triage (Muse Glimmer, Modal A100) | 17 % of the footage sent on (83 % less), the key pick moment kept; US$0.62 |
+| Real footage, one clip ([Pexels 4156510](https://www.pexels.com/video/packages-moving-on-a-conveyor-belt-4156510/), panning camera, hand-made scan log) | The same scan handshake outlined and followed the right item for 9 of 11 scans (51 of 63 checkpoints); it failed on two touching yellow look-alike sacks (one outline covered both). Judged by eye, no IoU; one clip only |
 | Cost of one investigation | Muse Wonder US$0.12 to 0.38, 54k to 129k Spark Open tokens, 2 to 5 minutes |
 
 ## Run it
@@ -65,7 +66,7 @@ seeded simulated history and its live feed is the recorded shift played back ([L
 Requirements: Python 3.13, [uv](https://docs.astral.sh/uv/), Node 20, FFmpeg on PATH.
 
 ```bash
-cd backend && uv sync && uv run pytest     # 294 tests, no keys needed
+cd backend && uv sync && uv run pytest     # 299 tests, no keys needed
 cd ../frontend && npm install
 npm run backend:keys                        # needs MODEL_API_KEY (Meta) and BASETEN_* in backend/.env
 npm run dev                                 # http://localhost:3000
