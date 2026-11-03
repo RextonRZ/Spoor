@@ -225,3 +225,9 @@
   .ht-hint { top: 8px; right: 8px; height: 26px; padding: 0 9px 0 8px; font-size: 11.5px; }
   .ht-cam small { display: none; }
 }
+/* a phone: the step you are on keeps only its number (its time squeezed in and the number spilled off the left edge);
+   the card below the stage gives the time */
+@media (max-width: 700px) {
+  .ht-step[aria-current] .ht-step-t { display: none; }
+  .ht-rail li, .ht-rail li:has(.ht-step[aria-current]) { flex: 0 0 auto; }
+}
