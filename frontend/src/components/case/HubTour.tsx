@@ -534,7 +534,7 @@ export function HubTour({ caseId }: { caseId: string }) {
                 const label = g.length > 1 ? `${g[0] + 1}–${g.at(-1)! + 1}` : `${g[0] + 1}`;
                 return (
                   <button key={g[0]} type="button" tabIndex={-1} className="ht-pin" data-tone={c.tone} data-on={here ? "" : undefined} data-flip={flip ? "" : undefined}
-                    data-reached={g[0] <= reached ? "" : undefined} data-lift={ending && endAt != null && g.includes(held) ? "" : undefined}
+                    data-reached={g[0] <= reached ? "" : undefined} data-lift={carton3d && (here || (ending && g.includes(held))) ? "" : undefined}
                     style={{ left: `${p[0] * 100}%`, top: `${(1 - p[1]) * 100}%` }} onClick={() => void goTo(here ? on : g[0])}>
                     <span className="ht-pin-n">{here ? on + 1 : label}</span>
                     {here && <span className="ht-pin-tag"><b>{c.title}</b><small>{hms(c.t)}</small></span>}

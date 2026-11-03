@@ -340,7 +340,7 @@ a.ht-btn-main { text-decoration: none; display: grid; place-items: center; }
 .ht-zone[data-glow] .ht-zone-top { stroke: #c7d2fe; stroke-width: 2px; }
 .ht-zone[data-glow] { filter: drop-shadow(0 0 10px rgba(129, 140, 248, 0.85)); }
 .ht-end[data-foot] { top: auto; bottom: 14px; left: auto; right: 14px; transform: none; justify-items: end; text-align: right; animation-name: ht-end-up; }
-/* on the ending the store's pin rises on a stem, so the carton it marks shows underneath */
+/* the step's pin (and on the ending the store's) rises on a stem, so the carton in the scene shows underneath */
 .ht-pin[data-lift] { transform: translate(-50%, calc(-50% - 44px)); }
 .ht-pin[data-lift]::after { content: ""; position: absolute; left: 50%; top: 100%; width: 2px; height: 30px; margin-left: -1px; background: linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0)); }
 @keyframes ht-end-up { from { opacity: 0; transform: translateY(12px); } }
