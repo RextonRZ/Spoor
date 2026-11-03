@@ -8,7 +8,7 @@ Newest first. Each entry: what is done, where to look, what is still open.
 2. **"Compare with what really happened"** on the answer card plays the simulation's own carry into the store (labelled "Simulation ground truth. Not used by Spoor." throughout), then draws Spoor's route over it; one line compares the two answers (computed, not typed in).
 3. **Cameras page:** the 3D hub now turns (drag, a frame every 2 degrees, inertia) and zooms (scroll, to 2.5x) with every camera and its coverage glued on; a plain camera list replaces the chip grid; "Replay the search" plays the run on the wall in 8 s (Glimmer's skips dim, the 2 picks light, CAM 19 pulses).
 4. **Fixed on the way:** at step 11 (the D07 record) the carton used to fly to D07, against our own evidence; it now stays in the store. The step row is a timeline, not boxes; a step's camera opens its own clip.
-5. **Decide:** your staff-ID idea is not done on purpose (Spoor links a carrier by place and time, never an identity); the 3D carton is drawn at 2x its size to be visible (LIMITATIONS). Commits from 79b4a57 on; 300 tests pass; nothing pushed.
+5. **Decide:** your staff-ID idea is not done on purpose (Spoor links a carrier by place and time, never an identity); the 3D carton is drawn at 2x its size to be visible (LIMITATIONS). Commits from 79b4a57 on; 300 tests pass; production on :3001 rebuilt at 03:00 and the whole demo path clicked through green there (record from :3001); nothing pushed.
 
 ## For Rexton, Tue 3 Nov 08:30: what changed overnight (start here)
 
