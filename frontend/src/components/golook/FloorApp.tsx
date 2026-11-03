@@ -296,20 +296,27 @@ export function FloorApp({ caseId, waybill, waited, framed = true, center }: { c
             <div className="fa-pad fa-scroll">
               <div className="fa-large"><span className="fa-k">Step 2 of 4</span><h1 className="fa-large-t">Where to look</h1></div>
               <ol className="fa-places">
-                {places.map((p, i) => {
-                  const state = done.has(p.area_id) ? "ruled" : p.area_id === place.area_id ? "now" : "next";
-                  return (
-                    <li key={p.area_id} data-state={state}>
-                      <span className="fa-pn">{state === "ruled" ? "–" : i + 1}</span>
-                      <span className="fa-pt">
-                        <b>{placeName(p)}</b>
-                        {state === "now" ? <Checklist kind={zoneOf(p)?.kind} /> : <small>{state === "ruled" ? "Checked, not here" : "Next, if not here"}</small>}
-                      </span>
-                      {state === "now" && <span className="fa-pv"><VoiceHold caseId={caseId} taskId={task!.search_task_id} areaId={place.area_id} used={note} onUse={setNote} /></span>}
-                    </li>
-                  );
-                })}
+                <li data-state="now">
+                  <span className="fa-pn">{places.findIndex((p) => p.area_id === place.area_id) + 1}</span>
+                  <span className="fa-pt"><b>{placeName(place)}</b><Checklist kind={zoneOf(place)?.kind} /></span>
+                  <span className="fa-pv"><VoiceHold caseId={caseId} taskId={task!.search_task_id} areaId={place.area_id} used={note} onUse={setNote} /></span>
+                </li>
               </ol>
+              {/* the rest in one list, not a card each: they are what comes next, not what to do now */}
+              {places.length > 1 && (
+                <section className="fa-group" aria-label="If not here">
+                  <h2 className="fa-k">If not here, then</h2>
+                  <ol className="fa-card fa-rows fa-order">
+                    {places.map((p, i) => p.area_id === place.area_id ? null : (
+                      <li key={p.area_id} data-state={done.has(p.area_id) ? "ruled" : "next"}>
+                        <span className="fa-order-n">{i + 1}</span>
+                        <span className="fa-row-t">{placeName(p)}</span>
+                        {done.has(p.area_id) && <span className="fa-chip" data-tone="mute">Not here</span>}
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              )}
             </div>
           )}
 
@@ -680,6 +687,12 @@ function ReasonSheet({ open, onClose, onSend, busy }: { open: boolean; onClose: 
   const [dy, setDy] = useState(0);
   const drag = useRef<{ y: number; t: number; last: number } | null>(null);
   const close = () => { setPick(null); setDy(0); onClose(); };
+  // Escape closes it too (the scrim and the swipe down are not the only ways out)
+  useEffect(() => {
+    if (!open) return;
+    const k = (e: KeyboardEvent) => { if (e.key === "Escape") { setPick(null); setDy(0); onClose(); } };
+    window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k);
+  }, [open, onClose]);
   return (
     <div className="fa-sheet-wrap" data-open={open ? "" : undefined} aria-hidden={!open} inert={!open}>
       <button type="button" className="fa-scrim" aria-label="Close" onClick={close} tabIndex={-1} />
