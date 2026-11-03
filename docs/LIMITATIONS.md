@@ -39,9 +39,14 @@ Current as of Mon 2 Nov 2026. The deadline is Thu 5 Nov, 10:00 MYT.
 - **Live alert covers open containers only** (cages, pallets, gaylords): a carton inside a closed bag cannot be seen
   leaving as a carton.
 - **The 3D hub is the Blender model, not footage.** The route fly-through and the drag-to-spin views are renders of
-  the hub model with people, moving cartons and the roof hidden; the pins, the carton marker, the cameras and the
-  search zone are drawn from the case's evidence positions over that picture. The moves between steps are drawn, not
-  filmed.
+  the hub model with people, moving cartons and the roof hidden; the pins, the cameras and the search zone are drawn
+  from the case's evidence positions over that picture. The moves between steps are drawn, not filmed: along the
+  belts the layout says a parcel rides, and along the walkways where it was carried (assets/tour/route_path.py), with
+  the route dashed wherever no camera saw the move.
+- **The carton in the 3D hub is a marker of the evidence, not the simulation's carton.** It is a modelled box placed
+  at the evidence's positions and times (assets/tour/carton.py); the simulation's own carton stays hidden. It is drawn
+  at twice the measured size (51 x 37 x 20 cm, not 25.5 x 18.3 x 10.2): at true size it is about 16 px from the
+  drone. Carried, it floats at hand height (the people are hidden), with its shadow on the floor below.
 - **Walking directions in Spoor Floor are simulated in the demo.** Indoors there is no GPS: a real phone would place
   the worker from their last scan (the office desk) and from QR or BLE markers on the pillars. The demo has neither,
   so the walk plays along the planned route at a set pace, and the "Position: marker P…" line names the nearest pillar

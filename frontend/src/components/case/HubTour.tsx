@@ -26,6 +26,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { signedUrl, useResource } from "@/lib/api";
 import { SEEK_JOURNEY, type Chapter, type Reel } from "./JourneyReel";
 import { CameraSetup } from "./CameraSetup";
+import { TruthCompare, type Truth } from "./TruthCompare";
 import { loadRing, onFrame, placeOf, project, ringReady, volume, type Spin, type UV } from "./spin";
 import { HUB } from "@/lib/hub";
 import "./hubtour.css";
@@ -100,6 +101,13 @@ export function HubTour({ caseId }: { caseId: string }) {
   const [evAt, setEvAt] = useState<number | null>(null);   // the step whose own clip is open (another step closes it)
   const [endOv, setEnding] = useState(false);              // older tours without an ending: the answer on the whole hub
   const [hoverCam, setHoverCam] = useState<string | null>(null);
+  // the simulation's ground truth: fetched only when asked for, shown only behind its own button
+  const [truth, setTruth] = useState<Truth | null | "none">(null);
+  const [cmp, setCmp] = useState(false);
+  const compare = () => {
+    if (truth && truth !== "none") { setCmp(true); return; }
+    fetch(`/tour/${caseId}/truth.json`).then((r) => (r.ok ? r.json() : "none")).then((j) => { setTruth(j); if (j !== "none") setCmp(true); }).catch(() => setTruth("none"));
+  };
   // legs a jump has just travelled, unrolling like a pen stroke (u 0..1, ease-in-out over 700 ms)
   const [pen, setPen] = useState<{ upTo: number; from: number; u: number } | null>(null);
   const penRaf = useRef(0);
@@ -537,6 +545,10 @@ export function HubTour({ caseId }: { caseId: string }) {
                 <svg viewBox="0 0 24 24" aria-hidden><path d="M15 5l-7 7 7 7" /></svg>Back to the route</button>
             </div>
           )}
+          {cmp && truth && truth !== "none" && (
+            <TruthCompare src={`/tour/${caseId}/truth.mp4`} truth={truth} legs={ways.filter((w) => w.kind !== "held").map((w) => w.path)}
+              zone={answer?.polygons[0]} answerZone={first?.zone_id?.replace(/^zone_/, "") ?? null} answerName={placeName} onClose={() => setCmp(false)} />
+          )}
           {canTurn && !turned && (
             <span className="ht-hint" aria-hidden>
               <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66" /><path d="M20 4v4.5h-4.5" /></svg>Drag to look around
@@ -605,6 +617,12 @@ export function HubTour({ caseId }: { caseId: string }) {
             <a className="ht-btn ht-btn-main" href={`/cases/${caseId}/search`}>Go look</a>
             <span />
           </div>
+          {truth !== "none" && (
+            <button type="button" className="ht-truth-btn" onClick={compare} aria-pressed={cmp}>
+              <svg viewBox="0 0 24 24" aria-hidden><path d="M8 5.6v12.8a1 1 0 0 0 1.5.86l10.4-6.4a1 1 0 0 0 0-1.72L9.5 4.74A1 1 0 0 0 8 5.6Z" /></svg>
+              Compare with what really happened
+            </button>
+          )}
         </aside>
       )}
       {cur && !ending && (

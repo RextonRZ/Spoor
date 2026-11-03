@@ -7,7 +7,11 @@ been run on the hub yet.
 
 ## Hub S2: keyed runs and control parcels (2026-11-02)
 
-Ground truth (the render's flow truth) is read only here, after each run; never by the app or in a prompt.
+Ground truth (the render's flow truth) is read only here, after each run; never by the app or in a prompt. The one
+place it is shown is the 3D hub's "Compare with what really happened" button (assets/tour/truth_render.py): a render
+of the simulation's own story parcel and the person carrying it, labelled "Simulation ground truth. Not used by Spoor."
+the whole time, behind its own button after the answer, with Spoor's evidence route drawn over its last frame. It is
+built offline from the render truth; nothing in Spoor's answer reads it.
 
 **The S2 parcel** (CTX334048419302, last scan: put in cage RC-760 at 14:21:33; truth: carried into the Exception store
 at 14:32:32 and still there when the footage ends). Keyed runs 12 to 18, same store, same footage:
