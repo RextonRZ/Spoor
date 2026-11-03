@@ -80,7 +80,7 @@ function upTo(sc: Score, at: number | null): Score {
     const no_reads = Math.round((r.no_reads * so) / all);
     // the problem's own count follows the feed too ("19 labels not read" said 19 while the tile said 12)
     return { ...r, reads: Math.round((r.reads * so) / all), no_reads, per_minute: r.per_minute.map((x, i) => (i <= at ? x : 0)),
-      problems: r.no_reads ? r.problems.map((p) => p.replace(new RegExp(`^${r.no_reads}\\b`), String(no_reads))) : r.problems };
+      problems: r.no_reads ? r.problems.map((p) => p.replace(/\b\d+\b/g, (n) => String(Math.round((Number(n) * so) / all)))) : r.problems };
   }) };
 }
 
@@ -104,6 +104,13 @@ function TodayBoard({ d, name }: { d: Insights; name: (id: string) => string }) 
   const ans = d.cost.answer_seconds;
   const open = d.loop.opened.length - d.loop.resolved.length - (d.loop.resolved_on_camera ?? []).length;
   const rate = tunnel?.read_rate ?? null;
+  // the unread labels follow the feed everywhere (tile, Needs attention, the pipeline arrow), not only on the tile: mid-replay
+  // the board said 15 on the tile, 19 under Needs attention and 17 on the arrow
+  const fullUnread = d.scorecard?.rows.find((r) => r.group === "Scan tunnel")?.no_reads ?? 0;
+  const part = (n: number) => (at == null || !fullUnread ? n : Math.round((n * (tunnel?.no_reads ?? 0)) / fullUnread));
+  const matched = d.unread?.matched.length ?? 0;
+  const actions = (d.actions ?? []).map((a) => a.key !== "unread" || at == null ? a : { ...a, count: part(a.count), parcels: a.parcels.slice(0, part(a.parcels.length)),
+    why: a.why.replace(new RegExp(`^${matched} of them`), `${part(matched)} of them`).replace(new RegExp(`${a.count} went to`), `${part(a.count)} went to`) });
   const allMins = sc ? minuteLabels(sc) : undefined;
   const last = at ?? (sc ? sc.minutes - 1 : 0), from = Math.max(0, last - WIN + 1);
   const w = <T,>(v?: T[]) => v?.slice(from, last + 1);
@@ -127,13 +134,13 @@ function TodayBoard({ d, name }: { d: Insights; name: (id: string) => string }) 
         {sc && <Panel title="Throughput by stage" meta={
           <span className="db-live"><i aria-hidden="true" />Live · <b>{allMins ? allMins[last] : ""}</b> · scans per minute, one scale</span>}>
           <Stages s={d.scorecard!} upto={at} /></Panel>}
-        <Panel title="Needs attention" meta={`${d.actions?.length ?? 0} open`}>
-          {d.actions?.length ? <Attention items={d.actions} name={name} /> : <p className="db-empty">Nothing to fix in the records.</p>}
+        <Panel title="Needs attention" meta={`${actions.length} open`}>
+          {actions.length ? <Attention items={actions} name={name} /> : <p className="db-empty">Nothing to fix in the records.</p>}
         </Panel>
       </div>
 
       {sc && <Panel title="Checkpoint pipeline" meta={<span className="db-key"><span><i className="db-dot" data-tone="bad" />Problem</span> <span><i className="db-dot" data-tone="warn" />Watch</span> <span><i className="db-dot" data-tone="ok" />Fine</span> <span>· arrows: usual time between scans</span></span>}>
-        <Pipeline s={sc} hops={d.flow?.hops ?? []} name={name} unread={d.unread?.matched.length ?? 0} />
+        <Pipeline s={sc} hops={d.flow?.hops ?? []} name={name} unread={part(matched)} />
       </Panel>}
 
       <div className="db-row db-row-111">

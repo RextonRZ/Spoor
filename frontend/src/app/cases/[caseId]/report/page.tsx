@@ -16,6 +16,7 @@ import type { Conflict } from "@/lib/conflict";
 import type { Journey, XY } from "@/lib/journey";
 import { hhmm, hms } from "@/lib/words";
 import { HUB } from "@/lib/hub";
+import { ZONE_NAMES } from "@/lib/zones";
 import { CaseSteps } from "@/components/flow/CaseSteps";
 import type { Chapter, Reel } from "@/components/case/JourneyReel";
 import { waited } from "@/components/hub/parts";
@@ -42,7 +43,8 @@ const CLOSE: Record<string, string> = { UNLOAD: "Unload", TUNNEL: "Tunnel", CAGE
 const camWords = (c: string) => c === "Tunnel reader" ? "Tunnel reader's photo"
   : c.startsWith("CHK_") ? `${CLOSE[c.slice(4)] ?? c.slice(4)} close-up camera` : c.replace("_", " ");
 const modelName = (m: string) => /spark-open/i.test(m) ? "Muse Spark Open" : /spark/i.test(m) ? "Muse Spark" : /wonder/i.test(m) ? "Muse Wonder" : m;
-const floorName = (n: string) => n.replace(/^Z\d+ /, "").replace(/\s*[(,;].*$/, "");
+// zone rows ("Z13 Supervisor office ...") read from the app's one zone list, as Go look and the phone name them
+const floorName = (n: string) => ZONE_NAMES[n.match(/^(Z\d+) /)?.[1] ?? ""] ?? n.replace(/^Z\d+ /, "").replace(/\s*[(,;].*$/, "");
 const day = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { timeZone: "Asia/Kuala_Lumpur", day: "numeric", month: "short", year: "numeric" });
 
 export default function ReportPage({ params }: { params: Promise<{ caseId: string }> }) {
@@ -219,7 +221,7 @@ export default function ReportPage({ params }: { params: Promise<{ caseId: strin
           <section className="rp-sec" aria-labelledby="rp-5">
             <h2 id="rp-5" className="rp-h2"><span>5</span>Floor check</h2>
             {task && !task.outcomes.length && !found ? (
-              <p className="rp-p">Not started. {task.places.filter((p, i, all) => all.findIndex((q) => floorName(q.name) === floorName(p.name)) === i).length} places to check, in order: {task.places.filter((p, i, all) => all.findIndex((q) => floorName(q.name) === floorName(p.name)) === i).map((p) => floorName(p.name).replace(/ \/ non-conveyable area$/i, "")).join(", ")}.</p>
+              <p className="rp-p">Sent to the floor staff, no answer yet. {task.places.filter((p, i, all) => all.findIndex((q) => floorName(q.name) === floorName(p.name)) === i).length} places to check, in order: {task.places.filter((p, i, all) => all.findIndex((q) => floorName(q.name) === floorName(p.name)) === i).map((p) => floorName(p.name)).join(", ")}.</p>
             ) : task ? (
               <ul className="rp-floor">
                 {task.places.filter((p, i, all) => all.findIndex((q) => floorName(q.name) === floorName(p.name)) === i).slice(0, 6).map((p) => {

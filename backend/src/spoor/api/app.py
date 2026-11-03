@@ -878,7 +878,7 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
             raise HTTPException(404, f"no site plan imported for {site_id}")
         return plan.model_dump(mode="json")
 
-    def frame_lookup(p: Principal):
+    def frame_lookup(p: Principal | None = None):  # (the same links for every user)
         """(camera_id, t_ms) -> the original frame shown at that normalized time, with a signed link (context only)."""
         tables: dict[str, object] = {}
 
@@ -912,21 +912,21 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         """Records vs video (I6): typed conflicts where a record claims an ongoing place and a confirmed sighting
         contradicts it, plus records-timing conflicts; both lanes for the UI."""
         case_for(p, case_id)
-        return records_vs_video(svc.store, case_id)
+        return memo("conflicts", case_id, "", lambda: records_vs_video(svc.store, case_id))
 
     # the computed read models are slow (possible places 14-22 s, missing moment ~4 s) and every case screen asks for them:
     # computed once per case and evidence state (the store's write count), one computation at a time per key
     _memo: dict = {}
     _memo_locks: dict = {}
 
-    def memo(kind: str, case_id: str, extra: str, fn):
+    def memo(kind: str, case_id: str, extra: str, fn, ttl: float = 600):
         key = (kind, case_id, extra, svc.store.writes)
         hit = _memo.get(key)
-        if hit is not None and time.monotonic() - hit[0] < 600:
+        if hit is not None and time.monotonic() - hit[0] < ttl:
             return hit[1]
         with _memo_locks.setdefault(key, threading.Lock()):
             hit = _memo.get(key)
-            if hit is not None and time.monotonic() - hit[0] < 600:
+            if hit is not None and time.monotonic() - hit[0] < ttl:
                 return hit[1]
             val = fn()
             if len(_memo) > 256:
@@ -935,19 +935,35 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
             _memo[key] = (time.monotonic(), val)
             return val
 
-    def warm() -> None:  # at start-up: each site's insights and every case's possible places, so no first screen waits
+    def warm() -> None:
+        """Each site's insights and every case's possible places, conflicts, journey and missing moment, kept warm: at start-up, then again whenever a write or
+        the 10 minute age makes them stale (a draft or a floor answer is a write), so no screen waits on a cold one
+        (the landing waited 32 s for possible places after a customer draft). A fresh one costs nothing to re-check."""
         from spoor.forensics.insights import hub_insights
 
-        for site in {c.site_id for c in svc.store.find(Case)}:
+        while True:
             try:
-                memo("insights", site, "", lambda site=site: hub_insights(svc.store, site, now=now()))
-            except Exception:  # noqa: BLE001, S112 (computed on request instead)
-                continue
-        for c in svc.store.find(Case):
-            try:
-                memo("possible", c.case_id, "", lambda c=c: possible_locations(svc.store, c.case_id))
-            except Exception:  # noqa: BLE001, S112 (a case that cannot be computed yet: computed on request instead)
-                continue
+                cases = svc.store.find(Case)
+            except Exception:  # noqa: BLE001 (the store is gone: a test's app, or shutting down)
+                return
+            for site in {c.site_id for c in cases}:
+                try:
+                    memo("insights", site, "", lambda site=site: hub_insights(svc.store, site, now=now()))
+                except Exception:  # noqa: BLE001, S112 (computed on request instead)
+                    continue
+            for c in cases:
+                try:
+                    memo("possible", c.case_id, "", lambda c=c: possible_locations(svc.store, c.case_id))
+                    memo("conflicts", c.case_id, "", lambda c=c: records_vs_video(svc.store, c.case_id))
+                    memo("journey", c.case_id, "", lambda c=c: build_journey(svc.store, c.case_id))
+                    # refreshed early (at 180 of its 240 s) and swapped in when ready: readers keep the old one meanwhile
+                    key = ("missing", c.case_id, "", svc.store.writes)
+                    hit = _memo.get(key)
+                    if hit is None or time.monotonic() - hit[0] > 180:
+                        _memo[key] = (time.monotonic(), missing_moment(svc.store, c.case_id, frame_lookup=frame_lookup()))
+                except Exception:  # noqa: BLE001, S112 (a case that cannot be computed yet: computed on request instead)
+                    continue
+            time.sleep(20)
 
     threading.Thread(target=warm, name="warm-read-models", daemon=True).start()
 
@@ -1302,7 +1318,8 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
         negative observation) / not analysed / no footage (I3)."""
         case_for(p, case_id)
         audit(p, "missing_moment", case_id)
-        return memo("missing", case_id, p.user_id, lambda: missing_moment(svc.store, case_id, frame_lookup=frame_lookup(p)))
+        # (the same for every user: frame_lookup only signs links; kept under the links' 300 s life)
+        return memo("missing", case_id, "", lambda: missing_moment(svc.store, case_id, frame_lookup=frame_lookup(p)), ttl=240)
 
     def _crop(p: Principal, media_id: str, frame_index: int, box: tuple[float, float, float, float],
               basis: tuple[float, float] | None = None) -> dict:
@@ -1601,7 +1618,7 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
     def journey(case_id: str, p: User) -> dict:
         """Typed journey segments (I2): observed / inferred_along_conveyor / gap, each with its evidence ids."""
         case_for(p, case_id)
-        return build_journey(svc.store, case_id)
+        return memo("journey", case_id, "", lambda: build_journey(svc.store, case_id))
 
     # --- parcels & scans (parcel-hub pivot) ------------------------------------------------------------------------
 

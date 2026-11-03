@@ -1,7 +1,7 @@
 /* Live alerts on the Hub (LiveAlerts.tsx): a carton left a container area without a scan. One row: the moment on
    camera (carrier and bays, the carton in a plain rectangle), what happened in one line, who it could be, one action. */
 .la { display: grid; gap: 10px; margin: 0 0 16px; }
-.la-row { display: grid; grid-template-columns: 168px minmax(0, 1fr) auto; column-gap: 18px; align-items: center; padding: 12px 16px 12px 12px;
+.la-row { display: grid; grid-template-columns: 232px minmax(0, 1fr) auto; column-gap: 18px; align-items: center; padding: 12px 16px 12px 12px;
   border: 1px solid rgba(248, 113, 113, 0.3); border-radius: 12px; background: rgba(248, 113, 113, 0.05);
   transition: opacity 220ms cubic-bezier(0.23, 1, 0.32, 1), transform 220ms cubic-bezier(0.23, 1, 0.32, 1);
   @starting-style { opacity: 0; transform: translateY(8px); } }
@@ -17,7 +17,7 @@
 .la-who { margin: 0; font-size: 13px; line-height: 1.45; color: var(--tb-ink-2); text-wrap: pretty; }
 .la-who b { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--tb-ink); }
 .la-mark { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.la-mark rect { fill: none; stroke: #4ade80; stroke-width: 1.5; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 1.5px rgba(0, 0, 0, 0.9)); }
+.la-mark rect { fill: none; stroke: #4ade80; stroke-width: 2; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 1.5px rgba(0, 0, 0, 0.9)); }
 @media (max-width: 700px) {
   .la-row { grid-template-columns: 1fr; row-gap: 12px; padding: 12px; }
   .la-kick { white-space: normal; }

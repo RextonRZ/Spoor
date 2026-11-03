@@ -11,7 +11,8 @@ the submission: Thu 5 Nov 2026, 10:00 MYT.
    after a restart); the cause was not reproduced (page traffic and reel builds stay at ~0.1 s), so restart anyway.
 2. Check it: `curl -s localhost:8000/healthz` must say `"status": "ok"` with `store_read_ms` well under 1000 and
    `"jobs_busy": 0`. No background jobs running (handshakes, watches): the investigation in step 3 is the only job.
-3. Open the Hub once so the frames are cached.
+3. Wait a minute after the restart (the backend warms the case read models in the background, ~20 s), then open the
+   Landing once until its six-scan strip shows the parcel's times, and the Hub once so the frames are cached.
 
 ## The script
 

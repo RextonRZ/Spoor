@@ -247,7 +247,7 @@
 .fa-center .fa-voice, .fa-center .fa-note-used, .fa-center .fa-photo { align-self: stretch; text-align: left; }
 /* the worker's own phone: the app is the whole screen */
 .fa-full { min-height: 100dvh; display: flex; background: #f3f4f8; }
-.fa-full > .fa { flex: 1; min-height: 100dvh; }
+.fa-full > .fa { flex: 1; min-height: 100dvh; overflow: clip; } /* closed sheets wait below the app */
 .fa-full .fa-dock { position: fixed; padding-bottom: max(20px, env(safe-area-inset-bottom)); }
 .fa-full .fa-status { display: none; }
 

@@ -134,17 +134,22 @@ export async function loadStory(): Promise<Story> {
   // responses saved by scripts/landing-case-snapshot.mjs (so the public page never goes blank on another store)
   let read: (<T>(view: string) => Promise<T>) | null = null;
   try {
-    const rows = await api<{ case: { case_id: string } }[]>("/v1/cases");
-    for (const r of rows) {
-      const j = await api<Journey>(`/v1/cases/${r.case.case_id}/journey`);
-      const o = j.objects.find((x) => x.identity_keys.some((k) => k.endsWith(`:${parcel}`)));
-      if (o) {
-        obj = o;
-        caseId = r.case.case_id;
-        const id = caseId;
-        read = <T,>(view: string) => api<T>(`/v1/cases/${id}/${view}`);
-        break;
-      }
+    const rows = await api<{ case: { case_id: string; target_description?: string } }[]>("/v1/cases");
+    // the case that names the parcel first (one journey read), else every journey at once (they were read one by one)
+    const named = rows.filter((r) => r.case.target_description?.endsWith(parcel));
+    const look = named.length ? named : rows;
+    const js = await Promise.all(look.map((r) => api<Journey>(`/v1/cases/${r.case.case_id}/journey`).catch(() => null)));
+    const k = js.findIndex((j) => j?.objects.some((x) => x.identity_keys.some((key) => key.endsWith(`:${parcel}`))));
+    if (k >= 0) {
+      obj = js[k]!.objects.find((x) => x.identity_keys.some((key) => key.endsWith(`:${parcel}`)))!;
+      caseId = look[k].case.case_id;
+      const id = caseId;
+      // each view read once (conflicts was read twice)
+      const got = new Map<string, Promise<unknown>>();
+      read = <T,>(view: string) => {
+        if (!got.has(view)) got.set(view, api<T>(`/v1/cases/${id}/${view}`));
+        return got.get(view) as Promise<T>;
+      };
     }
   } catch {
     obj = null;

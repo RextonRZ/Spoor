@@ -251,7 +251,7 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
           <span title={end?.text}><strong>US${(end?.cost_usd ?? cur?.cost_usd ?? 0).toFixed(2)}</strong> <span>spent</span></span>
           {swept > 0 && <span><strong>{swept}</strong> <span>wide cameras swept</span></span>}
           <span><strong>{end?.cameras_checked ?? cur?.cameras_checked ?? 0}</strong> <span>{swept > 0 ? "examined closely" : "of 19 wide cameras examined"}</span></span>
-          <span><strong>{secs(end?.t_s ?? cur?.t_s ?? 0)} s</strong></span>
+          <span><strong>{secs(end?.t_s ?? cur?.t_s ?? 0)} s</strong> <span>{end ? "start to answer" : "so far"}</span></span>
           <button type="button" onClick={() => { setPicked(null); if (events.length && !live) replay(events); }} disabled={live || !events.length}>Replay</button>
         </div>
       </div>

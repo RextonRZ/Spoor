@@ -219,7 +219,7 @@
 
 /* one colour per MODEL, none of them an evidence colour (reviewer 02:58): Wonder indigo, Glimmer teal, Spark Open violet,
    Spark (hosted) sky, SAM 3.1 pink, rules grey */
-.iv { --f-sparkopen: #a78bfa; --f-spark: #38bdf8; --f-sam: #f472b6; }
+.iv { --f-sparkopen: #fbbf24; --f-spark: #38bdf8; --f-sam: #f472b6; }
 .iv [data-fam="sparkopen"] { --f: var(--f-sparkopen); }
 /* one column (tablet, phone): the places sit with the steps, and the way on, "See the answer", comes last */
 @media (max-width: 1100px) {

@@ -93,7 +93,7 @@
 /* a phone: the app is the page (full height under the case header), the supervisor's side below it */
 .gs[data-narrow] .gs-body { display: flex; flex-direction: column; padding: 0 0 40px; gap: 20px; }
 .gs-app { height: calc(100dvh - 120px); min-height: 640px; }
-.gs-app > .fa { height: 100%; }
+.gs-app > .fa { height: 100%; overflow: hidden; } /* the closed sheets wait below the app: clip them */
 .gs[data-narrow] .gs-task { margin: 0 16px; }
 .gs[data-narrow] .gs-body { align-items: stretch; }
 .gs-phone-h a { color: var(--tb-ink-2); }
