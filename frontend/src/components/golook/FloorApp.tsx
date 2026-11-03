@@ -28,7 +28,10 @@ export interface SearchView {
   tasks: { search_task_id: string; created_by: string; created_at: string; places: Place[];
     outcomes: { area_id: string; outcome: "found" | "not_found"; note?: string | null }[] }[];
 }
-type Screen = "tasks" | "task" | "search" | "scan" | "found" | "done" | "next";
+type Screen = "tasks" | "map" | "me" | "task" | "search" | "scan" | "found" | "done" | "next";
+type Tab = "tasks" | "map" | "scan" | "me";
+/** the tab roots: the tab bar shows on these; a task's own screens push over it and hide it (as iOS does) */
+const ROOTS: Screen[] = ["tasks", "map", "me", "done"];
 const STEP: Partial<Record<Screen, number>> = { task: 1, search: 2, scan: 3, found: 4 };
 const ZONE_WORDS: Record<string, string> = { store: "shelves · floor · cages", staging: "cages · floor around them", work: "benches · floor · bins",
   machine: "under the belt · catch trays", dock: "trailer edge · floor · cages", office: "desk · shelves" };
@@ -51,7 +54,8 @@ export function FloorApp({ caseId, waybill, waited, framed = true, center }: { c
   const mr = useResource<MissingMoment>(`/v1/cases/${caseId}/missing-moment`);
   const reel = useResource<Reel>(`/v1/cases/${caseId}/journey-reel`);
   const [chosen, setScreen] = useState<Screen>("tasks");
-  const [dir, setDir] = useState<"fwd" | "back">("fwd");
+  const [dir, setDir] = useState<"fwd" | "back" | "tab">("fwd");
+  const [scanFromTab, setScanFromTab] = useState(false);
   const [sheet, setSheet] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -94,7 +98,7 @@ export function FloorApp({ caseId, waybill, waited, framed = true, center }: { c
   const screen: Screen = view.data?.found && chosen !== "found" ? "done" : chosen;
 
   const [scrolled, setScrolled] = useState(false);
-  const go = (s: Screen, d: "fwd" | "back" = "fwd") => {
+  const go = (s: Screen, d: "fwd" | "back" | "tab" = "fwd") => {
     const apply = () => { setDir(d); setErr(null); setScrolled(false); setScreen(s); };
     // the place name on the task card becomes the task screen's title (a shared element), where the browser can
     const vt = (document as Document & { startViewTransition?: (f: () => void) => unknown }).startViewTransition;
@@ -102,8 +106,18 @@ export function FloorApp({ caseId, waybill, waited, framed = true, center }: { c
       vt.call(document, () => flushSync(apply));
     } else apply();
   };
-  const back = () => go(screen === "task" ? "tasks" : screen === "search" ? "task" : screen === "scan" ? "search" : "tasks", "back");
-  const swipe = useSwipeBack(screen !== "tasks" && screen !== "done" && screen !== "next" && screen !== "found", back);
+  const back = () => go(screen === "task" ? "tasks" : screen === "search" ? "task" : screen === "scan" ? (scanFromTab ? "tasks" : "search") : "tasks", "back");
+  const root = ROOTS.includes(screen);
+  const swipe = useSwipeBack(!root && screen !== "next" && screen !== "found", back);
+  const tab: Tab | null = screen === "done" ? "tasks" : screen === "tasks" || screen === "map" || screen === "me" ? screen : null;
+  const onTab = (t: Tab) => {
+    buzz(8);
+    if (t === "scan") { setScanFromTab(true); go("scan"); return; }
+    if (t !== tab) go(t === "tasks" && view.data?.found ? "done" : t, "tab");
+  };
+  // answers saved on the phone while offline, for the Me tab (Me only opens on a tap, never on the server render)
+  let queued = 0;
+  if (screen === "me") { try { queued = JSON.parse(localStorage.getItem(`floor:${caseId}`) ?? "[]").length; } catch { queued = 0; } }
 
   async function answer(outcome: "found" | "not_found", text?: string | null) {
     if (!task || !place) return;
@@ -136,22 +150,24 @@ export function FloorApp({ caseId, waybill, waited, framed = true, center }: { c
   const body = (
     <div className="fa" data-offline={offline ? "" : undefined}>
       <StatusBar />
-      <header className="fa-bar">
-        {screen !== "tasks" && screen !== "done" && screen !== "next"
-          ? <button type="button" className="fa-back" onClick={back} aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden><path d="M15 5l-7 7 7 7" /></svg></button>
-          : <span className="fa-brand"><Mark />Spoor Floor</span>}
-        <span className="fa-bar-title" data-shown={scrolled || screen === "scan" || screen === "found" ? "" : undefined}>{screen !== "tasks" && screen !== "done" && screen !== "next" ? title : ""}</span>
-        {step ? <span className="fa-steps" aria-label={`Step ${step} of 4`}>{[1, 2, 3, 4].map((i) => <i key={i} data-on={i <= step ? "" : undefined} />)}</span> : <span />}
-      </header>
+      {!root && (
+        <header className="fa-bar">
+          {screen !== "next"
+            ? <button type="button" className="fa-back" onClick={back} aria-label="Back"><svg viewBox="0 0 24 24" aria-hidden><path d="M15 5l-7 7 7 7" /></svg></button>
+            : <span />}
+          <span className="fa-bar-title" data-shown={scrolled || screen === "scan" || screen === "found" ? "" : undefined}>{screen !== "next" ? title : ""}</span>
+          {step ? <span className="fa-steps" aria-label={`Step ${step} of 4`}>{[1, 2, 3, 4].map((i) => <i key={i} data-on={i <= step ? "" : undefined} />)}</span> : <span />}
+        </header>
+      )}
       {offline && <p className="fa-offline" role="status">Offline. Your answer is saved and goes out when you are back online.</p>}
 
       <div className="fa-stage" onScrollCapture={(e) => { const y = (e.target as HTMLElement).scrollTop; if ((y > 34) !== scrolled) setScrolled(y > 34); }}
         {...swipe}>
         <div key={screen} className="fa-screen" data-dir={dir}>
           {screen === "tasks" && (
-            <div className="fa-pad">
-              <h1 className="fa-h1">{task && place ? "1 task for you" : view.data?.found ? "All done" : "No tasks right now"}</h1>
-              <p className="fa-lead">{task && place ? "Sent by the hub supervisor" : "New searches arrive here the moment the supervisor sends one."}</p>
+            <div className="fa-pad fa-scroll fa-root">
+              <h1 className="fa-root-t">Tasks</h1>
+              <p className="fa-lead">{task && place ? "1 search, sent by the hub supervisor" : view.data?.found ? "All done" : "New searches arrive here the moment the supervisor sends one."}</p>
               {task && place ? (
                 <button type="button" className="fa-card fa-taskcard" onClick={() => { buzz(); go("task"); }}>
                   <span className="fa-chip" data-tone="urgent">{waited ? `Customer waiting ${waited}` : "Customer waiting"}</span>
@@ -165,6 +181,57 @@ export function FloorApp({ caseId, waybill, waited, framed = true, center }: { c
                   <svg className="fa-card-go" viewBox="0 0 24 24" aria-hidden><path d="M9 5l7 7-7 7" /></svg>
                 </button>
               ) : <div className="fa-empty"><span className="fa-empty-ring"><Mark /></span></div>}
+              {task && place && <button type="button" className="fa-primary" onClick={() => { buzz(); go("task"); }}>Open the task</button>}
+              {!!task?.outcomes.length && (
+                <section className="fa-group" aria-label="Checked today">
+                  <h2 className="fa-k">Checked today</h2>
+                  <ul className="fa-card fa-rows">
+                    {task.outcomes.map((o, i) => {
+                      const pl = task.places.find((x) => x.area_id === o.area_id);
+                      return (
+                        <li key={i}>
+                          <span className="fa-row-t">{pl ? placeName(pl) : "A place"}</span>
+                          <span className="fa-chip" data-tone={o.outcome === "found" ? "ok" : "mute"}>{o.outcome === "found" ? "Found" : "Not here"}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              )}
+            </div>
+          )}
+
+          {screen === "map" && (
+            <div className="fa-pad fa-scroll fa-root">
+              <h1 className="fa-root-t">Map</h1>
+              <p className="fa-lead">{place ? here ? `You are at the ${placeName(place).toLowerCase()}` : `The office to the ${placeName(place).toLowerCase()}, about ${walkMin} min` : "The hub floor"}</p>
+              <section className="fa-card fa-map fa-map-full" aria-label="Hub floor plan">
+                <FloorPlan label={place ? `Hub floor plan, the walk to the ${placeName(place)}` : "Hub floor plan"} highlight={zone?.id}
+                  route={place && !here ? route : undefined} you={you} labels="none" labelIds={["Z13", zone?.id ?? "", "Z05"]} labelSize={2.8} dim={!!place} />
+              </section>
+              <ul className="fa-card fa-rows fa-legend">
+                <li><i className="fa-lg-you" aria-hidden />You<span className="fa-row-s">The office</span></li>
+                {place && <li><i className="fa-lg-hl" aria-hidden />Search here<span className="fa-row-s">{placeName(place)}</span></li>}
+                {place && !here && <li><i className="fa-lg-route" aria-hidden />Walk<span className="fa-row-s">{Math.round(metres)} m along the walkways</span></li>}
+              </ul>
+              {task && place && <button type="button" className="fa-primary" onClick={() => { buzz(); go("task"); }}>Open the task</button>}
+            </div>
+          )}
+
+          {screen === "me" && (
+            <div className="fa-pad fa-scroll fa-root">
+              <h1 className="fa-root-t">Me</h1>
+              <section className="fa-card fa-me">
+                <span className="fa-avatar" aria-hidden>FS</span>
+                <span><b>Floor staff</b><small>Klang Valley hub</small></span>
+              </section>
+              <ul className="fa-card fa-rows">
+                <li><span className="fa-row-t">Connection</span><span className="fa-row-v" data-tone={offline ? "bad" : "ok"}>{offline ? "Offline" : "Online"}</span></li>
+                <li><span className="fa-row-t">Answers waiting to send</span><span className="fa-row-v">{queued}</span></li>
+                <li><span className="fa-row-t">Places checked today</span><span className="fa-row-v">{task?.outcomes.length ?? 0}</span></li>
+                <li><span className="fa-row-t">Voice notes</span><span className="fa-row-v">English or Malay</span></li>
+              </ul>
+              <p className="fa-fine">Your answers go to the hub supervisor as your statement. Nothing goes to the customer from this app.</p>
             </div>
           )}
 
@@ -258,7 +325,7 @@ export function FloorApp({ caseId, waybill, waited, framed = true, center }: { c
               <button type="button" className="fa-secondary fa-ans" onClick={() => setSheet(true)}>
                 <span><b>Not here</b><small>Say why</small></span>
               </button>
-              <button type="button" className="fa-primary fa-ans" onPointerDown={() => buzz()} onClick={() => go("scan")}>
+              <button type="button" className="fa-primary fa-ans" onPointerDown={() => buzz()} onClick={() => { setScanFromTab(false); go("scan"); }}>
                 <svg viewBox="0 0 24 24" aria-hidden><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 9v6M10 9v6M13 9v6M16 9v6" /></svg>
                 <span><b>It&apos;s here</b><small>Scan the label</small></span>
               </button>
@@ -267,9 +334,7 @@ export function FloorApp({ caseId, waybill, waited, framed = true, center }: { c
           {screen === "found" && <button type="button" className="fa-primary fa-primary-ok" disabled={busy} onClick={() => answer("found")}>{busy ? "Saving" : "Done, it's found"}</button>}
         </footer>
       )}
-      {screen === "tasks" && task && place && (
-        <footer className="fa-dock"><button type="button" className="fa-primary" onClick={() => { buzz(); go("task"); }}>Open the task</button></footer>
-      )}
+      <TabBar tab={tab} onTab={onTab} badge={task && place && !view.data?.found ? 1 : 0} scanOff={!task || !place} />
       <ReasonSheet open={sheet} onClose={() => setSheet(false)} busy={busy} onSend={(r) => { setSheet(false); void answer("not_found", [r, note].filter(Boolean).join(" · ")); }} />
     </div>
   );
@@ -303,6 +368,31 @@ function FitPhone({ center, children }: { center?: boolean; children: React.Reac
     <div ref={ref} style={{ width: 390 * f.z, height: f.h * f.z, flex: "none" }}>
       <div className="fa-phone" style={{ height: f.h, transform: f.z < 1 ? `scale(${f.z})` : undefined, transformOrigin: "0 0" }}>{children}</div>
     </div>
+  );
+}
+
+/** iOS-style floating tab bar: a glass capsule, an indicator that slides to the tab (transform only), icons that dip on
+ *  press. Hidden (slides down) while a task's own screens are open. Tabs switch with a short fade, no slide: they are
+ *  siblings, and a worker switches them many times a shift. */
+const TABS: { id: Tab; label: string; d: string }[] = [
+  { id: "tasks", label: "Tasks", d: "M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2" },
+  { id: "map", label: "Map", d: "M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14" },
+  { id: "scan", label: "Scan", d: "M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 9v6M10 9v6M13 9v6M16 9v6" },
+  { id: "me", label: "Me", d: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0" },
+];
+function TabBar({ tab, onTab, badge, scanOff }: { tab: Tab | null; onTab: (t: Tab) => void; badge: number; scanOff: boolean }) {
+  const i = Math.max(0, TABS.findIndex((t) => t.id === tab));
+  return (
+    <nav className="fa-tabs" data-hidden={tab ? undefined : ""} aria-label="Spoor Floor" inert={!tab}>
+      <span className="fa-tabs-ind" style={{ transform: `translateX(${i * 100}%)` }} aria-hidden />
+      {TABS.map((t) => (
+        <button key={t.id} type="button" className="fa-tab" aria-current={tab === t.id ? "page" : undefined} disabled={t.id === "scan" && scanOff} onClick={() => onTab(t.id)}>
+          <svg viewBox="0 0 24 24" aria-hidden><path d={t.d} /></svg>
+          <span>{t.label}</span>
+          {t.id === "tasks" && badge > 0 && <i className="fa-badge" aria-label={`${badge} new`}>{badge}</i>}
+        </button>
+      ))}
+    </nav>
   );
 }
 
