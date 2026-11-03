@@ -339,8 +339,11 @@ a.ht-btn-main { text-decoration: none; display: grid; place-items: center; }
 .ht-zone[data-glow] .ht-zone-floor { fill: rgba(99, 102, 241, 0.28); stroke: #a5b4fc; stroke-width: 2.5px; }
 .ht-zone[data-glow] .ht-zone-top { stroke: #c7d2fe; stroke-width: 2px; }
 .ht-zone[data-glow] { filter: drop-shadow(0 0 10px rgba(129, 140, 248, 0.85)); }
-.ht-end[data-foot] { top: auto; bottom: 70px; animation-name: ht-end-up; }
-@keyframes ht-end-up { from { opacity: 0; transform: translate(-50%, 12px); } }
+.ht-end[data-foot] { top: auto; bottom: 14px; left: auto; right: 14px; transform: none; justify-items: end; text-align: right; animation-name: ht-end-up; }
+/* on the ending the store's pin rises on a stem, so the carton it marks shows underneath */
+.ht-pin[data-lift] { transform: translate(-50%, calc(-50% - 44px)); }
+.ht-pin[data-lift]::after { content: ""; position: absolute; left: 50%; top: 100%; width: 2px; height: 30px; margin-left: -1px; background: linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0)); }
+@keyframes ht-end-up { from { opacity: 0; transform: translateY(12px); } }
 /* one primary control at a time: Fly the route, while nothing plays; a pressed toggle is outlined, not filled */
 .ht-play[data-primary] { background: #5048e5; box-shadow: 0 6px 18px rgba(80, 72, 229, 0.4); }
 .ht-play[data-primary]:hover { background: #4338ca; }
@@ -356,7 +359,7 @@ a.ht-btn-main { text-decoration: none; display: grid; place-items: center; }
 .ht-seen-cam small { font-size: 11.5px; color: var(--tb-mute); }
 .ht-seen-cam:hover small, .ht-seen-cam[data-best] small { color: var(--tb-ink); }
 .ht-seen-cam:focus-visible { outline: 2px solid #a5b4fc; outline-offset: 2px; border-radius: 6px; }
-@media (max-width: 700px) { .ht-end[data-foot] { bottom: 52px; } }
+@media (max-width: 700px) { .ht-end[data-foot] { bottom: 8px; right: 8px; } }
 @media (prefers-reduced-motion: reduce) { .ht-beams, .ht-end, .ht-cone { animation: none; } .ht-pin .ht-pin-n, .ht-beams { transition: none; } }
 
 /* "Compare with what really happened": the simulation's ground truth, over the stage, labelled the whole time. Its

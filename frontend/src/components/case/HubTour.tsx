@@ -54,6 +54,16 @@ function prefix(q: XY[], u: number): XY[] {
   }
   return out;
 }
+/** a world path (metres) with its last `m` metres taken off */
+function trimEnd(q: [number, number, number?][], m: number): [number, number, number?][] {
+  const out = [...q];
+  while (out.length > 1 && m > 0) {
+    const b = out[out.length - 1], a = out[out.length - 2], d = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (d > m) { const f = (d - m) / d; out[out.length - 1] = [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, b[2]]; break; }
+    out.pop(); m -= d;
+  }
+  return out;
+}
 /** the end of a polyline that lies inside the frame (with a margin), cut where it crosses in: on the ending no line
  *  leaves the picture (reviewer 01:35) */
 function tailInside(q: XY[], m = 0.05): XY[] {
@@ -417,7 +427,9 @@ export function HubTour({ caseId }: { caseId: string }) {
   // on the ending only the last carry is drawn, and only its part inside the picture
   const lastWay = ways.filter((w) => w.kind !== "held").at(-1);
   const route = t && !fading ? ways.filter((w) => w.kind !== "held" && (!ending || endAt == null || w === lastWay)).map((w) => {
-    const line = w.path.map(([x, y, z]) => proj(x, y, z ?? 0)).filter((q): q is XY => !!q);
+    // on the ending the last carry stops 1.5 m short of the carton, so the line leads to it without covering it
+    const path = ending && endAt != null ? trimEnd(w.path, 1.5) : w.path;
+    const line = path.map(([x, y, z]) => proj(x, y, z ?? 0)).filter((q): q is XY => !!q);
     const unrolling = pen && w.from >= pen.from && w.to <= pen.upTo && line.length > 1;
     const [done, rest]: [XY[], XY[]] = unrolling ? [prefix(line, pen.u), line]
       : ending && endAt != null ? [tailInside(line), []]
@@ -521,7 +533,7 @@ export function HubTour({ caseId }: { caseId: string }) {
                 const label = g.length > 1 ? `${g[0] + 1}–${g.at(-1)! + 1}` : `${g[0] + 1}`;
                 return (
                   <button key={g[0]} type="button" tabIndex={-1} className="ht-pin" data-tone={c.tone} data-on={here ? "" : undefined} data-flip={flip ? "" : undefined}
-                    data-reached={g[0] <= reached ? "" : undefined}
+                    data-reached={g[0] <= reached ? "" : undefined} data-lift={ending && endAt != null && g.includes(held) ? "" : undefined}
                     style={{ left: `${p[0] * 100}%`, top: `${(1 - p[1]) * 100}%` }} onClick={() => void goTo(here ? on : g[0])}>
                     <span className="ht-pin-n">{here ? on + 1 : label}</span>
                     {here && <span className="ht-pin-tag"><b>{c.title}</b><small>{hms(c.t)}</small></span>}
