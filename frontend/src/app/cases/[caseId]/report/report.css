@@ -196,3 +196,7 @@
 .rp-skel { display: block; border-radius: 8px; background: linear-gradient(90deg, #eceef2 0%, #f6f7f9 50%, #eceef2 100%); background-size: 200% 100%; animation: cs-shine 1.2s linear infinite; }
 .rp-skel-h { width: 62%; height: 38px; margin: 4px 0; }
 @media (prefers-reduced-motion: reduce) { .rp-skel { animation: none; } }
+
+/* Rexton 3 Nov (too wordy): a step's note is two lines on screen; print keeps it whole */
+.rp-step-sub { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+@media print { .rp-step-sub { display: block; -webkit-line-clamp: unset; overflow: visible; } }

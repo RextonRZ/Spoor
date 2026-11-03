@@ -117,7 +117,7 @@ export default function GoLookPage({ params }: { params: Promise<{ caseId: strin
 
         {!narrow && (
           <aside className="gs-phonewrap" aria-label="What floor staff see on their phone">
-            <p className="gs-phone-h">Spoor Floor, on the worker&apos;s phone · <Link href={`/floor/${caseId}`} target="_blank">open it full screen</Link></p>
+            <p className="gs-phone-h">The worker&apos;s phone · <Link href={`/floor/${caseId}`} target="_blank">Open full screen</Link></p>
             <FloorApp caseId={caseId} waybill={waybill} waited={wait} />
           </aside>
         )}

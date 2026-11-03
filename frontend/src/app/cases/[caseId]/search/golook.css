@@ -81,7 +81,8 @@
 .gs-replan-note { font-size: 12px; color: var(--tb-mute); }
 
 /* Rexton 3 Nov: the phone is Spoor Floor (components/golook/FloorApp.tsx); the supervisor side gains "From the floor" */
-.gs-body { grid-template-columns: minmax(0, 1fr) 390px; max-width: 1180px; gap: 48px; }
+/* Rexton 3 Nov: fills the width like the case header above it (no empty band on the right at 1920) */
+.gs-body { grid-template-columns: minmax(0, 1fr) 390px; max-width: none; gap: 48px; }
 .gs-phonewrap { position: sticky; top: 72px; display: grid; gap: 12px; justify-items: center; }
 .gs-phone-h { margin: 0; font-size: 12.5px; color: var(--tb-mute); }
 .gs-notes { justify-self: stretch; display: grid; gap: 8px; padding-top: 14px; border-top: 1px solid var(--tb-line); }

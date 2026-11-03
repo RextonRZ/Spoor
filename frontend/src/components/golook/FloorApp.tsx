@@ -44,7 +44,7 @@ function zoneOf(p: Place) {
   return (HUB as unknown as { zones: { id: string; kind: string; polygons: number[][][] }[] }).zones.find((z) => z.id === id);
 }
 
-export function FloorApp({ caseId, waybill, waited, framed = true }: { caseId: string; waybill: string; waited?: string | null; framed?: boolean }) {
+export function FloorApp({ caseId, waybill, waited, framed = true, center }: { caseId: string; waybill: string; waited?: string | null; framed?: boolean; center?: boolean }) {
   const path = `/v1/cases/${caseId}/search-tasks`;
   const view = useResource<SearchView>(path);
   const jr = useResource<Journey>(`/v1/cases/${caseId}/journey`);
@@ -254,10 +254,13 @@ export function FloorApp({ caseId, waybill, waited, framed = true }: { caseId: s
           {screen === "task" && <button type="button" className="fa-primary" onPointerDown={() => buzz()} onClick={() => go("search")}>Start search</button>}
           {screen === "search" && (
             <div className="fa-two">
-              <button type="button" className="fa-secondary" onClick={() => setSheet(true)}>Not here</button>
-              <button type="button" className="fa-primary" onPointerDown={() => buzz()} onClick={() => go("scan")}>
+              {/* the two answers, side by side; "It's here" counts only once the label's number matches */}
+              <button type="button" className="fa-secondary fa-ans" onClick={() => setSheet(true)}>
+                <span><b>Not here</b><small>Say why</small></span>
+              </button>
+              <button type="button" className="fa-primary fa-ans" onPointerDown={() => buzz()} onClick={() => go("scan")}>
                 <svg viewBox="0 0 24 24" aria-hidden><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M7 9v6M10 9v6M13 9v6M16 9v6" /></svg>
-                Scan barcode
+                <span><b>It&apos;s here</b><small>Scan the label</small></span>
               </button>
             </div>
           )}
@@ -272,10 +275,33 @@ export function FloorApp({ caseId, waybill, waited, framed = true }: { caseId: s
   );
   if (!framed) return body;
   return (
-    <div className="fa-phone">
+    <FitPhone center={center}>
       <span className="fa-island" aria-hidden />
       {body}
       <span className="fa-home" aria-hidden />
+    </FitPhone>
+  );
+}
+
+/** Full screen on a computer, the drawn phone fits the window (Rexton 3 Nov). It keeps its 390 px layout and scales
+ *  down, never under 0.8 so the text stays readable; a shorter window gets a shorter phone instead. On the Go look page
+ *  it stays true size and the page scrolls (Rexton: a squeezed phone looks wrong). */
+function FitPhone({ center, children }: { center?: boolean; children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [f, setF] = useState({ z: 1, h: 844 });
+  useEffect(() => {
+    if (!center) return;
+    const fit = () => {
+      const avail = window.innerHeight - 48;
+      const z = Math.max(0.8, Math.min(1, avail / 844));
+      setF({ z, h: Math.round(Math.max(560, Math.min(844, avail / z))) });
+    };
+    fit(); window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, [center]);
+  return (
+    <div ref={ref} style={{ width: 390 * f.z, height: f.h * f.z, flex: "none" }}>
+      <div className="fa-phone" style={{ height: f.h, transform: f.z < 1 ? `scale(${f.z})` : undefined, transformOrigin: "0 0" }}>{children}</div>
     </div>
   );
 }
@@ -323,7 +349,9 @@ function useSwipeBack(enabled: boolean, onBack: () => void) {
 }
 
 function Mark() {
-  return <svg className="fa-mark" viewBox="0 0 24 24" aria-hidden><path d="M4 9c0-3 2.5-5 8-5s8 2 8 5M4 13c0-3 2.5-5 8-5s8 2 8 5M4 17c0-3 2.5-5 8-5s8 2 8 5M7 20c1-2 2.6-3 5-3s4 1 5 3" /></svg>;
+  // Rexton's exact mark, the same file the loader uses (never a redrawn stand-in)
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img className="fa-mark" src="/brand/spoor-mark.png" alt="" aria-hidden="true" width={288} height={306} />;
 }
 
 function StatusBar() {

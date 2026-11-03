@@ -501,9 +501,9 @@ function useLabels(): Label[] {
   return useMemo(() => {
     const out: Label[] = [];
     if (mode !== "people") {
-      cps.forEach((c, i) => out.push({
+      cps.forEach((c) => out.push({
         key: `ck-${c.id}`, site: [c.at[0], c.at[1], c.at[2] + 3.4],
-        text: c.state === "missing" || c.state === "unscanned" ? `${i + 1} ${c.label} · ${c.none.charAt(0).toLowerCase()}${c.none.slice(1)}` : c.state === "conflict" ? `${c.label} · ${c.records?.replace(/^Record says /, "")} · ${c.cameras?.toLowerCase() ?? "never seen there"}` : `${i + 1} ${c.label}${c.t ? ` · ${fmtTime(c.t, false)}` : ""}`,
+        text: c.state === "missing" || c.state === "unscanned" ? `${c.label} · ${c.none.charAt(0).toLowerCase()}${c.none.slice(1)}` : c.state === "conflict" ? `${c.label} · ${c.records?.replace(/^Record says /, "")} · ${c.cameras?.toLowerCase() ?? "never seen there"}` : `${c.label}${c.t ? ` · ${fmtTime(c.t, false)}` : ""}`,
         tone: `ck-${c.state}` as Label["tone"],
       }));
     }

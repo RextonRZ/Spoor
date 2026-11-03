@@ -12,7 +12,7 @@
 import Link from "next/link";
 import { use, useMemo, useState } from "react";
 import { api, invalidate, signedUrl, useResource } from "@/lib/api";
-import { conflictWords, type Conflict } from "@/lib/conflict";
+import type { Conflict } from "@/lib/conflict";
 import type { Journey, XY } from "@/lib/journey";
 import { hhmm, hms } from "@/lib/words";
 import { HUB } from "@/lib/hub";
@@ -80,12 +80,10 @@ export default function ReportPage({ params }: { params: Promise<{ caseId: strin
   const summary = [
     last ? `${waybill} was last scanned at ${hhmm(last.t)} on ${day(last.t)}, ${(steps.find((c) => c.last_scan)?.title ?? "at the hub").replace(/^\w/, (x) => x.toLowerCase())}.` : "",
     inside ? `At ${hhmm(inside.iso.carried_in_at)} it was carried into the ${place} without a scan-in, and no camera saw it come out.` : "",
-    conflict ? `${conflictWords(conflict).headline}` : "",
     found ? `Floor staff found it there at ${hhmm(found.at)}.` : inside ? "A floor search has been sent to confirm it." : "",
   ].filter(Boolean);
   const sure = inside
-    ? found ? "Confirmed on the floor. The carry-in is on the store door camera with SAM's outline; nothing inside the store is on camera."
-      : "Likely, not yet confirmed. The carry-in is on the store door camera with SAM's outline; nothing inside the store is on camera, so the floor search decides."
+    ? found ? "Confirmed on the floor." : "Likely, not confirmed. A camera saw it carried in; none sees inside, so the floor search decides."
     : "Unconfirmed: the cameras lose the parcel after its last scan.";
 
   // the map: the steps that have a place, numbered like the cards; a leg is solid when both ends were on camera
@@ -105,9 +103,12 @@ export default function ReportPage({ params }: { params: Promise<{ caseId: strin
   const rows = steps.filter((c) => c.tone === "scan" || c.tone === "noscan" || c.tone === "record").map((c) => ({
     n: steps.indexOf(c) + 1, t: c.t,
     record: c.tone === "scan" ? `Scan: ${c.title.toLowerCase()}` : c.tone === "noscan" ? "No scan-in at the store's post" : c.title,
-    camera: c.tone === "scan" ? `${camWords(c.camera)}${c.label ? ", number confirmed" : ", seen"}` : c.sub || camWords(c.camera),
-    verdict: c.tone === "scan" ? "Agree" : c.tone === "noscan" ? "Not scanned in" : "Records disagree", tone: c.tone,
+    camera: c.tone === "scan" ? `${camWords(c.camera)}${c.label ? ", number confirmed" : ", seen"}`
+      : c.tone === "record" && inside ? `Carried into the ${place} at ${hhmm(inside.iso.carried_in_at)}, never seen coming out` : c.sub || camWords(c.camera),
+    verdict: c.tone === "scan" ? "Agree" : c.tone === "noscan" ? "Not scanned in" : "Records disagree", tone: c.tone, label: !!c.label,
   }));
+  // Rexton 3 Nov (too long): the scans that agree are one row; only the disagreements get a row each
+  const agree = rows.filter((r) => r.tone === "scan"), clash = rows.filter((r) => r.tone !== "scan");
 
   async function exportPdf() {
     setBusy("pdf"); setNote(null);
@@ -196,7 +197,15 @@ export default function ReportPage({ params }: { params: Promise<{ caseId: strin
             <table className="rp-table">
               <thead><tr><th>Step</th><th>Time</th><th>The record says</th><th>The cameras show</th><th>Verdict</th></tr></thead>
               <tbody>
-                {rows.map((r) => (
+                {agree.length > 1 && (
+                  <tr data-tone="scan">
+                    <td className="rp-mono">{agree[0].n}–{agree.at(-1)!.n}</td><td className="rp-mono">{hhmm(agree[0].t)}–{hhmm(agree.at(-1)!.t)}</td>
+                    <td>{agree.length} scans, unloaded to {(steps.find((c) => c.last_scan)?.title ?? "the last scan").replace(/^\w/, (x) => x.toLowerCase())}</td>
+                    <td>Each one on camera · {agree.filter((r) => r.label).length} numbers confirmed</td>
+                    <td><span className="rp-chip" data-tone="scan">Agree</span></td>
+                  </tr>
+                )}
+                {(agree.length > 1 ? clash : rows).map((r) => (
                   <tr key={r.n} data-tone={r.tone}>
                     <td className="rp-mono">{r.n}</td><td className="rp-mono">{hms(r.t)}</td><td>{r.record}</td><td>{r.camera}</td>
                     <td><span className="rp-chip" data-tone={r.tone}>{r.verdict}</span></td>
@@ -204,12 +213,14 @@ export default function ReportPage({ params }: { params: Promise<{ caseId: strin
                 ))}
               </tbody>
             </table>
-            {conflict && <p className="rp-fix"><b>To fix.</b> {conflictWords(conflict).body} Check why the door&apos;s RFID read counts every parcel in a cage as loaded.</p>}
+            {conflict && <p className="rp-fix"><b>To fix.</b> The dock door&apos;s RFID read marks every parcel in a cage as loaded, even one taken out of it.</p>}
           </section>
 
           <section className="rp-sec" aria-labelledby="rp-5">
             <h2 id="rp-5" className="rp-h2"><span>5</span>Floor check</h2>
-            {task ? (
+            {task && !task.outcomes.length && !found ? (
+              <p className="rp-p">Not started. {task.places.filter((p, i, all) => all.findIndex((q) => floorName(q.name) === floorName(p.name)) === i).length} places to check, in order: {task.places.filter((p, i, all) => all.findIndex((q) => floorName(q.name) === floorName(p.name)) === i).map((p) => floorName(p.name).replace(/ \/ non-conveyable area$/i, "")).join(", ")}.</p>
+            ) : task ? (
               <ul className="rp-floor">
                 {task.places.filter((p, i, all) => all.findIndex((q) => floorName(q.name) === floorName(p.name)) === i).slice(0, 6).map((p) => {
                   const same = task.places.filter((q) => floorName(q.name) === floorName(p.name)).map((q) => q.area_id);
@@ -249,9 +260,8 @@ export default function ReportPage({ params }: { params: Promise<{ caseId: strin
               {end && <div><dt>Run</dt><dd>{end.text}</dd></div>}
             </dl>
             <ul className="rp-limits">
-              <li>No camera sees inside the {place ?? "store"}: where it is inside is for the floor search to confirm.</li>
-              <li>Steps without a number: the outline at that moment could not be told apart from a person or the next carton, so no number is shown.</li>
-              <li>Ideas the agents tested guide where to look; they are never evidence. Outlines are SAM 3.1&apos;s, timed on each camera&apos;s fitted clock.</li>
+              <li>No camera sees inside the {place ?? "store"}; the floor search confirms where.</li>
+              <li>A step has no number when its outline could not be told from a person or the next carton. The agents&apos; ideas guide the search; they are never evidence.</li>
             </ul>
           </section>
           <footer className="rp-fine">Decision support for the hub, not a forensic certificate. Every parcel leaves a trail.</footer>
