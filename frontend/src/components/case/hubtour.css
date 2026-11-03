@@ -359,7 +359,7 @@ a.ht-btn-main { text-decoration: none; display: grid; place-items: center; }
 .ht-seen-cam small { font-size: 11.5px; color: var(--tb-mute); }
 .ht-seen-cam:hover small, .ht-seen-cam[data-best] small { color: var(--tb-ink); }
 .ht-seen-cam:focus-visible { outline: 2px solid #a5b4fc; outline-offset: 2px; border-radius: 6px; }
-@media (max-width: 700px) { .ht-end[data-foot] { bottom: 8px; right: 8px; } }
+@media (max-width: 700px) { .ht-end[data-foot] { top: 8px; bottom: auto; right: 8px; } }   /* the controls own the foot on a phone */
 @media (prefers-reduced-motion: reduce) { .ht-beams, .ht-end, .ht-cone { animation: none; } .ht-pin .ht-pin-n, .ht-beams { transition: none; } }
 
 /* "Compare with what really happened": the simulation's ground truth, over the stage, labelled the whole time. Its
@@ -390,3 +390,7 @@ a.ht-btn-main { text-decoration: none; display: grid; place-items: center; }
 .tc-acts { display: flex; gap: 8px; }
 @media (max-width: 700px) { .tc-label { top: 8px; font-size: 11.5px; padding: 5px 10px; } .tc-foot { left: 8px; right: 8px; bottom: 8px; } .tc-key { display: none; } }
 @media (prefers-reduced-motion: reduce) { .tc, .tc-ev { animation: none; } }
+
+/* the turntable's hint names the gesture the device has */
+.hc-hint-touch { display: none; }
+@media (hover: none) { .hc-hint-mouse { display: none; } .hc-hint-touch { display: inline; } }

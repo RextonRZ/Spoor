@@ -266,7 +266,8 @@ export function CameraSetup({ used = {} }: { used?: Record<string, number[]> }) 
 
           {canTurn && !turned && (
             <span className="ht-hint" aria-hidden>
-              <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66" /><path d="M20 4v4.5h-4.5" /></svg>Drag to turn · scroll to zoom
+              <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66" /><path d="M20 4v4.5h-4.5" /></svg>
+              <span className="hc-hint-mouse">Drag to turn · scroll to zoom</span><span className="hc-hint-touch">Drag to turn · + to zoom</span>
             </span>
           )}
           {!open && h && (
