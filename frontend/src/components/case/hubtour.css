@@ -394,3 +394,9 @@ a.ht-btn-main { text-decoration: none; display: grid; place-items: center; }
 /* the turntable's hint names the gesture the device has */
 .hc-hint-touch { display: none; }
 @media (hover: none) { .hc-hint-mouse { display: none; } .hc-hint-touch { display: inline; } }
+
+/* the ending's ring of light round the carton: an ellipse on the floor (seen at the drone's angle), one gentle pulse */
+.ht-ping { position: absolute; z-index: 2; width: 54px; height: 22px; margin: -11px 0 0 -27px; border-radius: 50%; pointer-events: none;
+  box-shadow: 0 0 0 2px #a5b4fc, 0 0 14px 3px rgba(129, 140, 248, 0.75), inset 0 0 10px rgba(129, 140, 248, 0.6); animation: ht-ping 1.4s var(--ht-ease) 400ms both; }
+@keyframes ht-ping { 0% { opacity: 0; scale: 1.8; } 55% { opacity: 1; scale: 0.92; } 100% { opacity: 1; scale: 1; } }
+@media (prefers-reduced-motion: reduce) { .ht-ping { animation: none; } }

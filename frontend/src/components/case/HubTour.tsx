@@ -541,6 +541,10 @@ export function HubTour({ caseId }: { caseId: string }) {
                   </button>
                 );
               })}
+              {/* on the ending, a ring of light on the floor round the carton where it was left, so it reads at a glance */}
+              {ending && endAt != null && mkTop && inView(mkTop) && !fading && (
+                <span className="ht-ping" style={{ left: `${mkTop[0] * 100}%`, top: `${mkTop[1] * 100}%` }} />
+              )}
               {trail.map((q, i) => (
                 <span key={i} className="ht-trail" style={{ left: `${q[0] * 100}%`, top: `${q[1] * 100}%`, opacity: 0.55 - i * 0.1, scale: `${1 - i * 0.12}` }} />
               ))}
