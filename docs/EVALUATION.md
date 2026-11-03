@@ -157,6 +157,13 @@ not have put a number on these belt-point outlines (a plain belt point is never 
 that rule could not run here. Not built: a check that two scans 1.6 s apart received the same outline (a sign that
 one outline covers two items). SAM spend: 1,595 frames (about US$0.32 at the hub's measured rate).
 
+The other leads were checked and not run: "luggage at the conveyor belt" (Pexels 853905) is handheld (the belt's angle
+changes through the clip) and close up with a crowd behind; "conveyor at the airport" (1169852) is fixed but carries
+one bag, so it tests nothing about look-alikes; "industrial conveyor system in action" (35069357) could not be fetched
+automatically (Pexels blocks scripted downloads; a manual download into `assets/realtest/raw/` would let it run). **A
+fixed-camera real clip with touching look-alikes is still untested**; Rexton's own takes (`assets/realtest/FILMING.md`)
+would be that test.
+
 ## Question being tested (PRD §21.1)
 
 Does a persistent evidence graph plus bounded agent investigation produce more accurate, better-grounded answers than
