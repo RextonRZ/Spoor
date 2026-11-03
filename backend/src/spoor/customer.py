@@ -33,14 +33,32 @@ that is not in the facts. No dashes. Do not mention cameras' names or record ids
 STYLE = {
     ("chat", "short"): "A marketplace chat reply: two or three short sentences, no greeting line, no sign-off.",
     ("chat", "detailed"): "A marketplace chat reply: four short sentences, no sign-off.",
-    ("email", "short"): "An email body: a one-line greeting, three sentences, a one-line sign-off from Customer Service.",
-    ("email", "detailed"): "An email body: a one-line greeting, four or five sentences, a one-line sign-off from Customer Service.",
+    ("email", "short"): ("An email. greeting: one short line, like 'Dear customer,'. paragraphs: two short paragraphs of one or two "
+                         "sentences: where the parcel is (and what changed in its tracking, if a fact says so), then what happens "
+                         "next. No sign-off: it is added."),
+    ("email", "detailed"): ("An email. greeting: one short line, like 'Dear customer,'. paragraphs: three short paragraphs of one to "
+                            "three sentences: where the parcel is, what changed in its tracking (if a fact says so), what happens next. "
+                            "No sign-off: it is added."),
 }
+# an email is laid out by Spoor, not the model (Rexton 3 Nov: one run-on paragraph is not an email): the model writes a
+# greeting and paragraphs; the subject and sign-off are fixed words
+SIGN = {"en": "Kind regards,\nCustomer Service\nCONTOH Express", "ms": "Yang benar,\nKhidmat Pelanggan\nCONTOH Express"}
+SUBJECT = {("en", "holding"): "Update on your parcel {wb}", ("ms", "holding"): "Kemas kini bungkusan anda {wb}",
+           ("en", "found"): "Your parcel {wb} has been found", ("ms", "found"): "Bungkusan anda {wb} telah ditemui"}
 LANG = {"en": "Write in English.", "ms": "Write in Bahasa Melayu (Malaysian Malay), natural and polite."}
 
 
 class CustomerUpdate(BaseModel):
     message: str = Field(max_length=900)
+
+
+class EmailUpdate(BaseModel):
+    greeting: str = Field(max_length=80)
+    paragraphs: list[str] = Field(min_length=1, max_length=3)
+
+
+def email(greeting: str, paragraphs: list[str], lang: str) -> str:
+    return "\n\n".join([greeting.strip(), *(p.strip() for p in paragraphs if p.strip()), SIGN.get(lang, SIGN["en"])])
 
 
 def _found(store: EvidenceStore, case_id: str):
@@ -101,11 +119,11 @@ def template(facts: list[str], lang: str = "en", channel: str = "chat") -> str:
     hello = "Terima kasih atas kesabaran anda." if lang == "ms" else "Hello, thank you for your patience."
     bye = ("Kami akan memaklumkan anda sebaik sahaja ia dalam perjalanan." if lang == "ms"
            else "We will let you know as soon as it is on its way.")
-    body = " ".join([hello, *facts[1:], bye])
     if channel == "email":
-        return ("Pelanggan yang dihormati,\n\n" if lang == "ms" else "Dear customer,\n\n") + body + (
-            "\n\nKhidmat Pelanggan" if lang == "ms" else "\n\nCustomer Service")
-    return body
+        thanks = "Terima kasih atas kesabaran anda." if lang == "ms" else "Thank you for your patience."
+        return email("Pelanggan yang dihormati," if lang == "ms" else "Dear customer,",
+                     [f"{thanks} {facts[1]}", " ".join(facts[2:]), bye], lang)
+    return " ".join([hello, *facts[1:], bye])
 
 
 def draft(store: EvidenceStore, case: Case, backend: JsonBackend | None, *, now: datetime, channel: str = "chat",
@@ -120,8 +138,13 @@ def draft(store: EvidenceStore, case: Case, backend: JsonBackend | None, *, now:
     if backend is not None:
         try:
             system = f"{SYSTEM}\n{STYLE.get((channel, tone), STYLE[('chat', 'short')])}\n{LANG.get(language, LANG['en'])}"
-            reply = backend.complete(system=system, content="\n".join(facts), output=CustomerUpdate, name="customer_update")
-            words = reply.data.message.replace(chr(0x2014), ",").replace(chr(0x2013), ",").strip()
+            if channel == "email":
+                reply = backend.complete(system=system, content="\n".join(facts), output=EmailUpdate, name="customer_update")
+                words = email(reply.data.greeting, reply.data.paragraphs, language)
+            else:
+                reply = backend.complete(system=system, content="\n".join(facts), output=CustomerUpdate, name="customer_update")
+                words = reply.data.message
+            words = words.replace(chr(0x2014), ",").replace(chr(0x2013), ",").strip()
             if hits := find_forbidden(words):
                 why = f"model draft used {sorted({t for _, t in hits})}: plain template used"
             else:
@@ -131,6 +154,8 @@ def draft(store: EvidenceStore, case: Case, backend: JsonBackend | None, *, now:
     n = len([s for s in store.find(AgentStep, case_id=case.case_id) if s.role == "customer_update"])
     content = {"draft": text, "facts": facts, "refs": refs, "model": model, "note": why, "approved": False, "sent": False,
                "stage": "found" if found else "holding", "channel": channel, "language": language, "tone": tone,
+               "subject": (SUBJECT[(language if language in ("en", "ms") else "en", "found" if found else "holding")]
+                           .format(wb=case.target_description.split(" ")[-1]) if channel == "email" else None),
                "label": "draft for customer service to pass on; a person approves it; Spoor sends nothing"}
     store.put(AgentStep(step_id=f"custupd_{case.case_id}_{n + 1:02d}", case_id=case.case_id,
                         request_id=f"custupd_{case.case_id}", seq=n + 1, role="customer_update", kind="final",

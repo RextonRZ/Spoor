@@ -10,7 +10,7 @@
  * nothing leaves Spoor: an audited record), Copy text.
  */
 import Link from "next/link";
-import { use, useMemo, useState } from "react";
+import { Fragment, use, useMemo, useState } from "react";
 import { api, invalidate, signedUrl, useResource } from "@/lib/api";
 import type { Conflict } from "@/lib/conflict";
 import type { Journey, XY } from "@/lib/journey";
@@ -31,7 +31,7 @@ interface SearchView { found: { area_id: string; name: string; by: string; at: s
     outcomes: { area_id: string; outcome: "found" | "not_found"; note?: string | null; recorded_by?: string; recorded_at?: string }[] }[] }
 interface Draft { status?: string; draft: string; facts: string[]; refs?: ({ kind: string; at?: string; label: string } | null)[]; model: string;
   note: string; approved: boolean; sent: boolean; stage?: string; channel?: string; language?: string; tone?: string; approved_by?: string;
-  sent_at?: string; edited?: boolean }
+  sent_at?: string; edited?: boolean; subject?: string | null }
 interface RunView { steps: { type: string; t_s?: number; cost_usd?: number; text?: string; model?: string; role?: string }[];
   crew: { role: string; who: string; model: string }[] }
 type Source = { kind: string; camera?: string; sha256?: string; frames?: number[]; title?: string; path?: string };
@@ -292,6 +292,7 @@ function CustomerSheet({ caseId, open, onClose, saved, onFact }: { caseId: strin
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [editing, setEditing] = useState(false);
   const cur = d ?? saved;
   const text = edit ?? cur?.draft ?? "";
   const channel = pick.channel ?? cur?.channel ?? "chat", language = pick.language ?? cur?.language ?? "en", tone = pick.tone ?? cur?.tone ?? "short";
@@ -303,7 +304,7 @@ function CustomerSheet({ caseId, open, onClose, saved, onFact }: { caseId: strin
     setBusy("draft"); setErr(null);
     try {
       const r = await api<Draft>(`/v1/cases/${caseId}/customer-update`, { method: "POST", json: o });
-      setD(r); setText(null);
+      setD(r); setText(null); setEditing(false);
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setBusy(null); }
   }
   async function send() {
@@ -328,10 +329,14 @@ function CustomerSheet({ caseId, open, onClose, saved, onFact }: { caseId: strin
         <button type="button" className="cs-x" onClick={onClose} aria-label="Close"><svg viewBox="0 0 20 20" aria-hidden><path d="M5 5l10 10M15 5L5 15" /></svg></button>
       </header>
       <div className="cs-body">
+        {/* Rexton 3 Nov: the choices in one compact block; the draft shown as what the customer will get (an email or a chat
+            message), with Edit for changes. Spoor lays the email out (greeting, paragraphs, sign-off), not the model. */}
         <div className="cs-controls">
-          <label>Channel{seg(channel, setChannel, "channel", [["chat", "Marketplace chat"], ["email", "Email"]])}</label>
-          <label>Language{seg(language, setLanguage, "language", [["en", "English"], ["ms", "Malay"]])}</label>
-          <label>Length{seg(tone, setTone, "tone", [["short", "Short"], ["detailed", "Detailed"]])}</label>
+          {seg(channel, setChannel, "channel", [["chat", "Marketplace chat"], ["email", "Email"]])}
+          <div className="cs-controls-2">
+            <label>Language{seg(language, setLanguage, "language", [["en", "English"], ["ms", "Malay"]])}</label>
+            <label>Length{seg(tone, setTone, "tone", [["short", "Short"], ["detailed", "Detailed"]])}</label>
+          </div>
         </div>
         <div className="cs-draft" data-busy={busy === "draft" ? "" : undefined}>
           {!cur && !busy ? (
@@ -340,10 +345,31 @@ function CustomerSheet({ caseId, open, onClose, saved, onFact }: { caseId: strin
               <button type="button" className="rp-btn rp-btn-primary" onClick={() => make()}>Write the draft</button>
             </div>
           ) : busy === "draft" && !text ? <span className="cs-skel" aria-busy="true"><i /><i /><i /></span> : (
-            <textarea value={text} onChange={(e) => setText(e.target.value)} rows={channel === "email" ? 11 : 7} readOnly={!!cur?.sent}
-              aria-label="The update, edit before approving" />
+            <article className={channel === "email" ? "cs-mail" : "cs-chat"} aria-label={channel === "email" ? "The email" : "The chat message"}>
+              {channel === "email" ? (
+                <header className="cs-mail-h">
+                  <div><span>To</span><b>The customer, through customer service</b></div>
+                  <div><span>Subject</span><b>{cur?.subject ?? `Update on your parcel ${cur?.facts?.[0]?.split(" ").at(-1)?.replace(/\.$/, "") ?? ""}`}</b></div>
+                </header>
+              ) : (
+                <header className="cs-chat-h"><span className="cs-chat-av" aria-hidden>CE</span><span><b>CONTOH Express</b><small>Marketplace chat</small></span></header>
+              )}
+              {!cur?.sent && (
+                <button type="button" className="cs-edit" onClick={() => setEditing((e) => !e)} aria-pressed={editing}>{editing ? "Done" : "Edit"}</button>
+              )}
+              {editing ? (
+                <textarea className="cs-edit-area" value={text} onChange={(e) => setText(e.target.value)} rows={channel === "email" ? 12 : 6}
+                  aria-label="The update, edit before approving" autoFocus />
+              ) : (
+                <div className={channel === "email" ? "cs-mail-b" : "cs-bubble"}>
+                  {text.split(/\n{2,}/).map((para, i) => (
+                    <p key={i}>{para.split("\n").map((l, j) => <Fragment key={j}>{j > 0 && <br />}{l}</Fragment>)}</p>
+                  ))}
+                </div>
+              )}
+            </article>
           )}
-          <span className="cs-by">{cur ? (cur.model === "template" ? "Plain template" : `Worded by ${modelName(cur.model)}`) : ""}{busy === "draft" ? " · rewording…" : ""}</span>
+          <span className="cs-by">{cur ? (cur.model === "template" ? "Plain template" : `Worded by ${modelName(cur.model)}`) : ""}{edit !== null ? " · edited by you" : ""}{busy === "draft" ? " · rewording…" : ""}</span>
         </div>
         {cur?.facts && (
           <div className="cs-facts">
@@ -369,7 +395,9 @@ function CustomerSheet({ caseId, open, onClose, saved, onFact }: { caseId: strin
           <p className="cs-sent"><svg viewBox="0 0 16 16" aria-hidden><path d="m3.5 8.5 3 3 6-6.5" /></svg>Approved by {cur.approved_by} and sent to customer service at {cur.sent_at ? hhmm(cur.sent_at) : ""}. Kept on the case with its hash.</p>
         ) : (
           <>
-            <button type="button" className="rp-btn" onClick={() => { void navigator.clipboard?.writeText(text).then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 1400); }); }}>{copied ? "Copied" : "Copy text"}</button>
+            <button type="button" className="rp-btn" onClick={() => { void navigator.clipboard?.writeText(channel === "email" && cur?.subject ? `Subject: ${cur.subject}
+
+${text}` : text).then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 1400); }); }}>{copied ? "Copied" : "Copy text"}</button>
             <button type="button" className="rp-btn rp-btn-primary" disabled={!text.trim() || !!busy} onClick={send}>{busy === "send" ? "Sending" : "Approve and send"}</button>
           </>
         )}

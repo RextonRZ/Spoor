@@ -53,6 +53,10 @@ def test_malay_template_and_email_wrapping_keep_only_the_facts():
     assert out["language"] == "ms" and out["draft"].startswith("Pelanggan yang dihormati")
     assert "jam 14:32" in out["draft"] and out["stage"] == "holding"
     assert out["refs"][1]["kind"] == "camera"
+    # laid out as an email: greeting, paragraphs, the fixed sign-off, and a subject
+    parts = out["draft"].split("\n\n")
+    assert parts[0] == "Pelanggan yang dihormati," and parts[-1].startswith("Yang benar,") and len(parts) >= 4
+    assert out["subject"].startswith("Kemas kini bungkusan anda CTX")
 
 
 def test_found_on_the_floor_is_the_found_update_and_promises_no_date(monkeypatch):

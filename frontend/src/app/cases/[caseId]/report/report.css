@@ -200,3 +200,36 @@
 /* Rexton 3 Nov (too wordy): a step's note is two lines on screen; print keeps it whole */
 .rp-step-sub { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 @media print { .rp-step-sub { display: block; -webkit-line-clamp: unset; overflow: visible; } }
+
+/* Rexton 3 Nov: the customer update as the customer will see it */
+.cs-controls { gap: 12px; }
+.cs-controls-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cs-mail, .cs-chat { position: relative; border-radius: 12px; transition: filter 200ms ease, opacity 200ms ease; }
+.cs-mail { background: #fff; border: 1px solid #e1e4ea; box-shadow: 0 1px 2px rgba(15, 18, 34, 0.04), 0 8px 24px rgba(15, 18, 34, 0.05); }
+.cs-mail-h { display: grid; gap: 7px; padding: 12px 70px 12px 16px; border-bottom: 1px solid #eceef3; font-size: 13px; }
+.cs-mail-h div { display: grid; grid-template-columns: 56px 1fr; gap: 8px; align-items: baseline; }
+.cs-mail-h span { color: var(--rp-mute); }
+.cs-mail-h b { color: var(--rp-ink); font-weight: 600; }
+.cs-mail-b { padding: 16px 18px 18px; font-size: 14.5px; line-height: 1.6; color: var(--rp-ink); }
+.cs-mail-b p { margin: 0 0 12px; text-wrap: pretty; }
+.cs-mail-b p:last-child { margin: 18px 0 0; color: var(--rp-ink-2); }
+.cs-chat { padding: 12px; background: #eef0f4; }
+.cs-chat-h { display: flex; align-items: center; gap: 10px; padding: 0 64px 10px 2px; }
+.cs-chat-av { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: #1e1b4b; color: #fff; font-size: 11px; font-weight: 700; }
+.cs-chat-h b { display: block; font-size: 13.5px; color: var(--rp-ink); }
+.cs-chat-h small { font-size: 12px; color: var(--rp-mute); }
+.cs-bubble { max-width: 92%; padding: 11px 14px; border-radius: 4px 18px 18px 18px; background: #fff; font-size: 14.5px; line-height: 1.55; color: var(--rp-ink);
+  box-shadow: 0 1px 2px rgba(15, 18, 34, 0.06); }
+.cs-bubble p { margin: 0 0 8px; text-wrap: pretty; }
+.cs-bubble p:last-child { margin: 0; }
+.cs-edit { all: unset; position: absolute; top: 9px; right: 10px; height: 30px; padding: 0 12px; border-radius: 15px; cursor: pointer; font-size: 13px; font-weight: 650;
+  color: var(--rp-accent); background: #eef0ff; transition: transform 120ms ease-out, background-color 160ms ease; }
+.cs-edit:hover { background: #e0e4ff; }
+.cs-edit:active { transform: scale(0.97); }
+.cs-edit:focus-visible { outline: 2px solid var(--rp-accent); outline-offset: 2px; }
+.cs-edit[aria-pressed="true"] { background: var(--rp-accent); color: #fff; }
+.cs-edit-area { display: block; width: calc(100% - 20px); margin: 10px; box-sizing: border-box; resize: vertical; padding: 12px 14px; border-radius: 10px; border: 1px solid #c9cef8;
+  background: #fff; font: inherit; font-size: 14.5px; line-height: 1.55; color: var(--rp-ink); }
+.cs-edit-area:focus-visible { outline: 2px solid var(--rp-accent); outline-offset: 1px; }
+.cs-draft[data-busy] .cs-mail, .cs-draft[data-busy] .cs-chat { filter: blur(2px); opacity: 0.6; }
+@media (prefers-reduced-motion: reduce) { .cs-mail, .cs-chat { transition: none; } }
