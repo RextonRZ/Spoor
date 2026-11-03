@@ -1,0 +1,12 @@
+scan_id,time_s,spot,item,note
+S01,2.6,L1,carton,during the camera's fast pan (1 to 2.5 s)
+S02,6.5,L1,net bag,
+S03,8.45,L1,plaid bag,
+S04,10.8,L1,red bag,mostly behind the teal sack
+S05,12.4,L1,teal sack,
+S06,14.2,L1,yellow sack (front),touches the next yellow sack
+S07,15.8,L1,yellow sack (back),look-alike of S06
+S08,17.3,L1,white bag,partly behind the olive sack
+S09,18.9,L1,olive sack,
+S10,21.0,L1,silver bag,
+S11,24.9,L1,big yellow sack,clip ends 2.9 s after; top passes through the face blur

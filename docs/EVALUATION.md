@@ -119,6 +119,44 @@ Not done in the 2 h box (Rexton's ideas 1 and 3): an expected box from the tunne
 size at the exit was too far from SAM's boxes to separate right from wrong), and assigning a window's reads to the
 cartons in order (Hungarian). Both could bring tunnel-exit labels back.
 
+## Real footage: the handshake on a real conveyor clip (2026-11-03)
+
+The same handshake as the hub's belt point (`backend/src/spoor/forensics/handshake.py`, point rule) on real footage:
+for each scan, the clip from 0.5 s before to 5 s after at its own frame rate, ONE positive point on the scan spot on
+the scan's frame, SAM 3.1 segments and follows (propagation "both"). Nothing in the run knows which item is right.
+Scripts: `assets/realtest/` (`stab_slit.py`, `blur_box.py`, `run_handshake.py`, `overlay_sheet.py`).
+
+- **Clip:** "Packages Moving on a Conveyor Belt", Pexels video 4156510,
+  https://www.pexels.com/video/packages-moving-on-a-conveyor-belt-4156510/ (27.8 s, 1920x1080, 29.97 fps).
+  **Licence:** Pexels licence (https://www.pexels.com/license/): free to use, modification allowed, no attribution
+  required; not to be sold unaltered or redistributed as stock. The clip itself is not in the repo.
+- **Not a fixed camera.** The camera swings at 1 to 2.5 s and then pans slowly (about 20 px/s) to the end. The scan
+  spot is a fixed place on the belt, moved each frame by the camera's shift measured on the static wall above the belt
+  (phase correlation, `shift.json`): the stand-in for a fixed camera's calibration. The belt edge stays level in the
+  slit-scan through the spot (`slit.png`), so the shift holds.
+- **Faces:** the two workers at the window are blurred (a box that follows the camera's shift) before anything was
+  sent to SAM; checked on every second of the clip. The blur also covers the top of the big yellow sack at 24-27 s.
+- **Scan log, hand-made** (`scan_log.csv`): one scan line on the belt; a scan for every item that crosses it, timed at
+  its centre from the slit-scan: 11 scans. Only the first item (no 0.5 s before it) and the last (no time left to
+  follow) are left out.
+- **Scoring:** by eye, on the outline drawn on the scan frame and every second after (`handshakes_sheet.jpg`, zoomed
+  where items touch: `zoom_678.jpg`, `zoom_048.jpg`). Verdicts in `verdicts.csv`. No hand-drawn boxes, so **no IoU**.
+
+| | Result |
+|---|---|
+| Scans whose outline is the item at the spot and stays on it to the end of the follow | **9 of 11** |
+| Checkpoints (scan frame and each second after) on the right item | **51 of 63 (81 %)** |
+| Wrong | **S06 and S07: two yellow sacks that touch** (look-alikes). Both scans got ONE outline over both sacks; they only part at about 17 s |
+| Partly hidden items | right: the red bag behind the teal sack (the box shrinks to its visible part) and the white bag behind the olive sack |
+| During the camera's fast pan | right: the carton at 2.6 s, followed through the swing |
+
+What it says: on a real belt the point prompt finds the scanned item and follows it, including half-hidden ones, but
+**two touching look-alikes are outlined as one**, the case the test was meant to find. The hub's labelling rules would
+not have put a number on these belt-point outlines (a plain belt point is never labelled), and a measured parcel size
+(the hub's carton-size rule) would have flagged an outline twice a sack's size; this clip has no measured sizes, so
+that rule could not run here. Not built: a check that two scans 1.6 s apart received the same outline (a sign that
+one outline covers two items). SAM spend: 1,595 frames (about US$0.32 at the hub's measured rate).
+
 ## Question being tested (PRD §21.1)
 
 Does a persistent evidence graph plus bounded agent investigation produce more accurate, better-grounded answers than

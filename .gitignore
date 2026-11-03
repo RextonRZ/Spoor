@@ -89,3 +89,7 @@ assets/tour/ov/
 assets/tour/*.log
 assets/tour/spin*/
 frontend/public/tour/**/*.webp
+assets/realtest/*/sam/
+assets/realtest/*/sec/
+assets/realtest/*/bsec/
+assets/realtest/*/look/

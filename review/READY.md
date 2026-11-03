@@ -25,8 +25,9 @@ Newest first. Each entry: what is done, where to look, what is still open.
 - **Decide:** the video script says "Two weeks now"; the case data says the customer waited **4 days** after the last
   scan (28 Oct -> 1 Nov). The app shows 4 days everywhere. Change the script line to "Four days now", or tell me to
   move the case date.
-- **Real-footage test:** blocked (no phone takes yet; no openly licensed parcel CCTV clip). Film the two takes from
-  `assets/realtest/FILMING.md` if you want it.
+- **Real-footage test (3 Nov):** done on Pexels clip 4156510 (real conveyor, Pexels licence): 9 of 11 scans outlined and
+  followed the right item, 51 of 63 checkpoints (81 %); the miss is two touching yellow look-alikes outlined as one.
+  The camera pans, so the spot follows its measured shift. Details: docs/EVALUATION.md "Real footage".
 - Spend overnight: Modal ~US$0.45, SAM ~US$0.25, Spark drafts a few cents.
 - **Screen recordings for the video edit** (production build, 1920x1080, no dev overlay, git-ignored):
   `review/video/scenes/01_landing.mp4` ... `07_report.mp4` in DEMO_SCRIPT order, plus the worker phone flow

@@ -1,0 +1,12 @@
+scan_id,item,s0,s1,s2,s3,s4,s5,note
+S01,carton,right,right,right,right,right,right,held through the camera's fast pan
+S02,net bag,right,right,right,right,right,right,
+S03,plaid bag,right,right,right,right,right,right,
+S04,red bag,right,right,right,right,right,right,"right bag; the box shrinks to its visible part as the teal sack covers it"
+S05,teal sack,right,right,right,right,right,right,
+S06,yellow sack (front),merged,merged,merged,merged,merged,merged,"one outline over both touching yellow sacks (they part at about 17 s)"
+S07,yellow sack (back),merged,merged,merged,merged,merged,merged,"the same outline as S06: both yellow sacks"
+S08,white bag,right,right,right,right,right,right,"partly behind the olive sack; outline on its visible part"
+S09,olive sack,right,right,right,right,right,right,
+S10,silver bag,right,right,right,right,right,right,
+S11,big yellow sack,right,right,right,,,,"clip ends 2.9 s after the scan"

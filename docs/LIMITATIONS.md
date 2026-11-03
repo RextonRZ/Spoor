@@ -46,6 +46,9 @@ Current as of Mon 2 Nov 2026. The deadline is Thu 5 Nov, 10:00 MYT.
   the worker from their last scan (the office desk) and from QR or BLE markers on the pillars. The demo has neither,
   so the walk plays along the planned route at a set pace, and the "Position: marker P…" line names the nearest pillar
   on that route, not a reading.
+- **Real footage: one clip.** The handshake was run on one real, panning conveyor clip (EVALUATION, "Real footage"):
+  9 of 11 right, but two touching look-alike sacks were outlined as one. Spoor has no rule yet that catches one
+  outline given to two scans.
 - **Jobs run in the API process.** Long SAM jobs slow the API while they run; restarting loses in-flight jobs (results
   already stored are kept). Auth is a token file, not an identity provider.
 
