@@ -43,8 +43,8 @@ export function TruthCompare({ src, truth, legs, zone, answerZone, answerName, o
   return (
     <div className="tc" role="dialog" aria-label="What really happened in the simulation">
       <video ref={v} className="tc-v" src={src} autoPlay muted playsInline onEnded={() => setEnded(true)} />
-      {mk && !ended && (
-        <span className="tc-mk" style={{ left: `${mk[0] * 100}%`, top: `${(1 - mk[1]) * 100}%` }}><i />The parcel</span>
+      {mk && (
+        <span className="tc-mk" style={{ left: `${mk[0] * 100}%`, top: `${(1 - mk[1]) * 100}%` }}><i />{ended ? "Where it really is" : "The parcel"}</span>
       )}
       {ended && (
         <svg className="tc-ev" viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden>
@@ -60,7 +60,7 @@ export function TruthCompare({ src, truth, legs, zone, answerZone, answerName, o
           <span>Truth: <b>{truth.truth.zone_name}</b></span>
           <em>{same ? "Same place" : answerZone ? "They differ" : "No answer to compare"}</em>
         </p>
-        {ended && <p className="tc-key"><i />Spoor&apos;s evidence route and the place it names, drawn over the last frame</p>}
+        {ended && <p className="tc-key"><i />Spoor&apos;s evidence route and the place it names <b className="tc-key-t" />the parcel in the simulation</p>}
         <div className="tc-acts">
           <button type="button" className="hc-x" onClick={onClose}><svg viewBox="0 0 24 24" aria-hidden><path d="M15 5l-7 7 7 7" /></svg>Back to the answer</button>
           {ended && <button type="button" className="hc-x" onClick={() => { setEnded(false); const el = v.current; if (el) { el.currentTime = 0; void el.play(); } }}>Play again</button>}
