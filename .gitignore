@@ -82,3 +82,8 @@ frontend/public/places/turn/
 # real-footage test: raw phone takes (a 720p copy goes in the repo)
 assets/realtest/raw/*.mp4
 assets/realtest/raw/*.MOV
+
+# Blender tour renders (frames and intermediates; the published copies live in frontend/public/tour)
+assets/tour/out*/
+assets/tour/ov/
+assets/tour/*.log

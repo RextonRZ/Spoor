@@ -6,20 +6,17 @@
  * wall; the 3D hub is one switch away. Same split-view frame as the Hub: the wall on the left, the chosen camera docked
  * on the right (narrower screens: it slides in).
  */
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { SpoorLoader } from "@/components/brand/SpoorLoader";
 import { useResource } from "@/lib/api";
 import { HUB, camId } from "@/lib/hub";
 import type { Site } from "@/lib/types";
-import { WorkspaceProvider } from "@/components/workspace/context";
+import { CameraSetup } from "@/components/case/CameraSetup";
 import { Drawer, Tabs, WIDE, onWideChange } from "@/components/hub/parts";
 import { Clock, Feed, useFeeds } from "@/components/cameras/Feed";
 import { Viewer } from "@/components/cameras/Viewer";
 import "./cameras.css";
 
-const Scene3D = dynamic(() => import("@/components/workspace/Scene3D"), { ssr: false, loading: () => <SpoorLoader label="Loading the 3D hub" size={56} fill /> });
 
 // zones as the prototype groups them (by where each camera looks)
 const ZONE_OF: Record<string, "in" | "sort" | "out"> = {
@@ -93,7 +90,8 @@ export default function CamerasPage() {
       </header>
 
       {view === "3d" ? (
-        <div className="cm-3d">{openCase ? <WorkspaceProvider caseId={openCase}><Scene3D /></WorkspaceProvider> : <div className="cm-3d-wait">No open case to centre the 3D hub on.</div>}</div>
+        // Rexton 3 Nov: the 3D hub is the Blender model with every camera on it (click one to look through it)
+        <div className="ht cm-setup"><CameraSetup /></div>
       ) : (
         <div className={wide ? "hb-split cm-split" : "hb-stack"}>
           <div className="hb-left">

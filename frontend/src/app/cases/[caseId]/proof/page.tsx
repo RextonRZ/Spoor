@@ -7,8 +7,7 @@
  * read models and records; never the evaluator's truth.
  */
 import Link from "next/link";
-import dynamic from "next/dynamic";
-import { use, useCallback, useEffect, useRef, useState } from "react";
+import { use, useCallback, useState } from "react";
 import { useResource } from "@/lib/api";
 import type { Journey } from "@/lib/journey";
 import type { InvestigationView } from "@/lib/answer";
@@ -19,27 +18,12 @@ import { ScannerScreen } from "@/components/checkpoints/Checkpoints";
 import { Identity } from "@/components/case/Identity";
 import { JourneyReel, SEEK_JOURNEY, type Reel } from "@/components/case/JourneyReel";
 import FloorPlan, { type FPLeg, type FPStop } from "@/components/plan/FloorPlan";
-import { WorkspaceProvider } from "@/components/workspace/context";
-import { SpoorLoader } from "@/components/brand/SpoorLoader";
+import { HubTour } from "@/components/case/HubTour";
 import "@/app/hub/hub.css";
 import "./proof.css";
 
 interface CaseState { case: { case_id: string; site_id: string; target_description: string }; answer?: InvestigationView | null }
 interface Conflicts { objects: { records?: CaseRecord[] }[] }
-
-const Scene3D = dynamic(() => import("@/components/workspace/Scene3D"), { ssr: false, loading: () => <SpoorLoader label="Loading the 3D hub" size={56} fill /> });
-
-/** The route in the 3D hub (Rexton 3 Nov: bring it back). Mounted only once it scrolls near, so the reel loads first. */
-function Route3D({ caseId }: { caseId: string }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [on, setOn] = useState(false);
-  useEffect(() => {
-    const el = ref.current; if (!el) return;
-    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setOn(true); io.disconnect(); } }, { rootMargin: "300px" });
-    io.observe(el); return () => io.disconnect();
-  }, []);
-  return <div ref={ref} className="pf-3d">{on && <WorkspaceProvider caseId={caseId}><Scene3D /></WorkspaceProvider>}</div>;
-}
 
 const STOP_TONE: Record<string, NonNullable<FPStop["tone"]>> = { scan: "scan", seen: "seen", noscan: "bad", record: "bad", wait: "none", card: "none" };
 
@@ -97,7 +81,7 @@ export default function ProofPage({ params }: { params: Promise<{ caseId: string
 
         <section className="pf-sec" aria-labelledby="pf-3d">
           <h2 id="pf-3d" className="pf-h2">The route in the 3D hub</h2>
-          <Route3D caseId={caseId} />
+          <HubTour caseId={caseId} />
         </section>
 
         <section className="pf-sec" aria-labelledby="pf-know">

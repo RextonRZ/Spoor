@@ -92,6 +92,3 @@
 @media (max-width: 1100px) { .pf-grid, .pf-know { grid-template-columns: 1fr; } .pf-side { position: static; } }
 @media (max-width: 700px) { .pf-wrap { padding: 16px 16px 40px; gap: 32px; } .pf-go { justify-content: center; } }
 
-/* the route in the 3D hub (brought back 3 Nov) */
-.pf-3d { position: relative; border-radius: var(--tb-r); overflow: hidden; border: 1px solid var(--tb-line); background: #000; aspect-ratio: 16 / 9; max-height: 72vh; width: 100%; }
-.pf-3d .sp-scene { position: absolute; inset: 0; }
