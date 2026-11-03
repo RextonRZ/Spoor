@@ -54,6 +54,7 @@ export function HubTour({ caseId }: { caseId: string }) {
   const [playing, setPlaying] = useState<"all" | "to" | null>(null);
   const [fading, setFading] = useState(false);
   const [ov, setOv] = useState(false);
+  const [evAt, setEvAt] = useState<number | null>(null);   // the step whose own clip is open (another step closes it)
   const stopAt = useRef<number | null>(null);
   const base = `/tour/${caseId}/spin`;
 
@@ -125,6 +126,11 @@ export function HubTour({ caseId }: { caseId: string }) {
     want.reduce((p, [pl, ee]) => p.then(() => loadRing(base, pl, ee, spin.n).then(() => { if (live) setLoaded((x) => x + 1); }).catch(() => {})), Promise.resolve());
     return () => { live = false; };
   }, [spin, t, place, on, base]);
+  useEffect(() => {
+    if (evAt === null) return;
+    const k = (e: KeyboardEvent) => { if (e.key === "Escape") setEvAt(null); };
+    window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k);
+  }, [evAt]);
 
   // the turntable is a canvas: a decoded frame is drawn in one call, so spinning never flashes an empty picture
   useEffect(() => {
@@ -217,7 +223,7 @@ export function HubTour({ caseId }: { caseId: string }) {
   const canTurn = resting && !!spin && !!place && !!ringReady(base, place, 0) && !busy;
   const onDown = (ev: React.PointerEvent) => {
     // a drag may start anywhere on the picture, pins included (the step's pin sits in the middle); only the controls are out
-    if (ev.button !== 0 || (ev.target as Element).closest(".ht-ctl")) return;
+    if (ev.button !== 0 || (ev.target as Element).closest(".ht-ctl, .ht-ev")) return;
     ev.preventDefault();   // a drag on the picture never selects the page's text (also before it can turn)
     if (!canTurn) return;
     stopAnim();
@@ -253,6 +259,7 @@ export function HubTour({ caseId }: { caseId: string }) {
   };
 
   const cur = steps[on];
+  const ev = evAt === on;
   // the cameras this route was seen on, with their step numbers (for the camera setup's highlight)
   const used: Record<string, number[]> = {};
   steps.forEach((c, i) => { if (/^(CAM|CHK)_/.test(c.camera)) (used[c.camera] ??= []).push(i + 1); });
@@ -266,7 +273,9 @@ export function HubTour({ caseId }: { caseId: string }) {
   if (tour === "none") return <div className="ht">{modes}<p className="ht-none">The 3D route has not been exported for this case yet.</p></div>;
   // at rest the marks come from the turntable's table (its first frame is the video's), while flying from the video's
   const pins: UV[] = ring ? ring.pins[k] : t?.pins[Math.min(frame, t.pins.length - 1)] ?? [];
-  const mk: UV | undefined = ring ? ring.pins[k][on] : t?.marker[Math.min(frame, t.marker.length - 1)];
+  // the carton stays where it was last seen: a step that is only a record (the truck's manifest) does not move it
+  let held = on; while (held > 0 && steps[held]?.tone === "record") held -= 1;
+  const mk: UV | undefined = ring ? ring.pins[k][held] : t?.marker[Math.min(frame, t.marker.length - 1)];
   const camUV = ring && !ov && cur ? ring.cams[k]?.[cur.camera] : null;
   const pinUV = pins[on];
   // the camera's name gives way to the step's tag (which hangs right of its pin) when the two would touch
@@ -284,7 +293,7 @@ export function HubTour({ caseId }: { caseId: string }) {
       <div className="ht-main">
         <div ref={stage} className="ht-stage" data-fading={fading ? "" : undefined} data-turn={canTurn ? "" : undefined}
           style={t ? { aspectRatio: `${t.size[0]} / ${t.size[1]}` } : undefined} tabIndex={canTurn ? 0 : -1} onKeyDown={onKey}
-          onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onDoubleClick={(ev) => { if (!(ev.target as Element).closest("button") && canTurn) void rewind(); }}
+          onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onDoubleClick={(ev) => { if (!(ev.target as Element).closest("button, .ht-ev") && canTurn) void rewind(); }}
           aria-label={canTurn ? "The hub around this step. Drag, or use the arrow keys, to turn it; up and down to look from higher or lower." : undefined}>
           {t && <video ref={video} className="ht-video" src={`/tour/${caseId}/tour.mp4`} muted playsInline preload="auto"
             onSeeked={() => setFading(false)} aria-label="Fly-through of the hub model along the parcel's route" />}
@@ -305,10 +314,11 @@ export function HubTour({ caseId }: { caseId: string }) {
                 </svg>
               )}
               {inView(camUV) && (
-                <span className="ht-cam" style={{ left: `${camUV[0] * 100}%`, top: `${(1 - camUV[1]) * 100}%` }}>
-                  <svg viewBox="0 0 24 24"><path d="M4 8h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1zM16 11l5-3v8l-5-3" /></svg>
+                <button type="button" className="ht-cam" style={{ left: `${camUV[0] * 100}%`, top: `${(1 - camUV[1]) * 100}%` }}
+                  tabIndex={-1} onClick={() => setEvAt(on)} aria-label={`See what the ${camShort(cur.camera)} camera recorded at step ${on + 1}`}>
+                  <svg viewBox="0 0 24 24" aria-hidden><path d="M4 8h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1zM16 11l5-3v8l-5-3" /></svg>
                   {!camNearTag && <small>{camShort(cur.camera)}</small>}
-                </span>
+                </button>
               )}
               {groups.map((g) => {
                 const p = pins[g[0]]; if (!inView(p)) return null;
@@ -332,6 +342,16 @@ export function HubTour({ caseId }: { caseId: string }) {
             </div>
           )}
           {!t && <span className="ht-wait" />}
+          {ev && cur && reel.data && (
+            <div className="ht-ev" role="dialog" aria-label={`What ${camWords(cur.camera).replace(/^The /, "the ")} recorded at step ${on + 1}`}>
+              {/* the step's own stretch of the journey reel: the camera's recording, the outline and the clock as filmed, and the
+                  reel's own title for the step (so nothing here repeats it; the way back sits on the floor, bottom centre) */}
+              <video key={on} className="ht-ev-v" src={`${signedUrl(reel.data.url)}#t=${cur.start_s},${cur.end_s}`} poster={cur.thumb_url ? signedUrl(cur.thumb_url) : undefined}
+                autoPlay muted playsInline onTimeUpdate={(e) => { const v = e.currentTarget; if (v.currentTime >= cur.end_s - 0.05) { v.currentTime = cur.start_s; void v.play(); } }} />
+              <button type="button" className="hc-x ht-ev-x" onClick={() => setEvAt(null)}>
+                <svg viewBox="0 0 24 24" aria-hidden><path d="M15 5l-7 7 7 7" /></svg>Back to the route</button>
+            </div>
+          )}
           {canTurn && !turned && (
             <span className="ht-hint" aria-hidden>
               <svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66" /><path d="M20 4v4.5h-4.5" /></svg>Drag to look around
@@ -361,7 +381,7 @@ export function HubTour({ caseId }: { caseId: string }) {
         </div>
         <ol className="ht-rail" aria-label="Steps">
           {steps.map((c, i) => (
-            <li key={i}>
+            <li key={i} data-done={i <= on ? "" : undefined}>
               <button type="button" className="ht-step" data-tone={c.tone} aria-current={on === i ? "step" : undefined} onClick={() => void goTo(i)}>
                 <span className="ht-step-n">{i + 1}</span><span className="ht-step-t">{hms(c.t).slice(0, 5)}</span>
               </button>
@@ -373,8 +393,11 @@ export function HubTour({ caseId }: { caseId: string }) {
       {cur && (
         <aside className="ht-card" aria-live="polite">
           <figure className="ht-frame">
-            {/* eslint-disable-next-line @next/next/no-img-element -- the step's own frame, cut from its camera by the API */}
-            {cur.thumb_url ? <img key={on} src={signedUrl(cur.thumb_url)} alt={`${cur.title}, ${camWords(cur.camera)}`} /> : <span className="ht-frame-none">No camera saw this step</span>}
+            {cur.thumb_url
+              ? <button type="button" className="ht-frame-open" onClick={() => setEvAt(on)} aria-label={`Play step ${on + 1} as ${camWords(cur.camera).toLowerCase()} recorded it`}>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- the step's own frame, cut from its camera by the API */}
+                  <img key={on} src={signedUrl(cur.thumb_url)} alt={`${cur.title}, ${camWords(cur.camera)}`} /></button>
+              : <span className="ht-frame-none">No camera saw this step</span>}
           </figure>
           <div className="ht-card-top"><span className="ht-n">Step {on + 1} of {steps.length}</span><span className="ht-chip" data-tone={cur.tone}>{cur.last_scan ? "Last scan" : CHIP[cur.tone]}</span></div>
           <h3 className="ht-title">{cur.title}</h3>

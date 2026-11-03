@@ -21,6 +21,9 @@ import bpy
 from bpy_extras.object_utils import world_to_camera_view
 from mathutils import Vector
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import route_path  # noqa: E402  (the carton's way: belts while on them, walkways when carried)
+
 ap = argparse.ArgumentParser()
 ap.add_argument("--reel", required=True)
 ap.add_argument("--out", required=True)
@@ -30,6 +33,8 @@ ap.add_argument("--fps", type=int, default=30)
 ap.add_argument("--test", action="store_true", help="render one frame per distinct place, to judge the look and speed")
 ap.add_argument("--from-frame", type=int, default=0, help="resume: skip frames already on disk before this one")
 ap.add_argument("--table-only", action="store_true", help="write tour.json (with each frame's projection matrix), render nothing")
+ap.add_argument("--hub", default="frontend/src/data/hub.generated.json", help="the hub layout the carton's way is planned on")
+ap.add_argument("--every", type=int, default=1, help="render every Nth frame only (a preview of the moves)")
 args = ap.parse_args(sys.argv[sys.argv.index("--") + 1:])
 
 OFFSET = Vector((-4.0, -11.0, 10.5))   # the drone sits south-west of the point, above it: north stays up, as on the plan
@@ -71,34 +76,57 @@ for c in steps:
     xy = c.get("xy") or (pts[-1][:2] if pts else [0, 0])
     pts.append((float(xy[0]), float(xy[1])))
 
-# the timeline: arrive at step 1, rest; glide to the next place (time by distance), rest; same place: rest only
+# the carton's way between steps (route_path.py): along the belts, carried along the walkways, or held where it was
+# last seen when the next step is only a record
+hub = json.loads(Path(args.hub).read_text(encoding="utf-8"))
+ways = {j: (kind, path) for i, j, kind, path in route_path.legs(hub, steps)}
+
+
+def held_at(i):
+    """the step whose place the carton is at during step i: a record step leaves it where it was"""
+    while i > 0 and steps[i].get("tone") == "record":
+        i -= 1
+    return i
+
+
+# the timeline: arrive at step 1, rest; move to the next place, rest; same place: rest only. A carried move takes
+# its time from its length along the way (a lap of the sort loop is longer than a hop across an aisle), within limits
 fps = args.fps
 ease = lambda u: 4 * u ** 3 if u < 0.5 else 1 - (-2 * u + 2) ** 3 / 2  # ease-in-out cubic
 keys = []   # (frame, step index) when the camera arrives at that step
-segs = []   # (f0, f1, a, b): a glide from step a's place to step b's
+segs = []   # (f0, f1, a, b, kind, way): a move from step a's place to step b's
 f = 0
 for i, p in enumerate(pts):
     if i:
         d = math.dist(pts[i - 1], p)
         if d > 0.5:
-            m = round(fps * min(2.6, max(1.4, d / 10)))
-            segs.append((f, f + m, i - 1, i))
+            kind, way = ways.get(i, ("held", [pts[held_at(i - 1)]]))
+            sec = min(2.6, max(1.4, d / 10)) if kind == "held" else min(4.2, max(1.4, route_path.length(way) / 9))
+            m = round(fps * sec)
+            segs.append((f, f + m, i - 1, i, kind, way))
             f += m
     keys.append((f, i))
     f += round(fps * (HOLD if i == 0 or math.dist(pts[i - 1], p) > 0.5 else SAME_HOLD))
 total = f + round(fps * 0.5)
+V = lambda xy: Vector((xy[0], xy[1], 0))
 
 
 def place(frame):
-    """(point the camera looks at, the marker's point) at this frame."""
-    for f0, f1, a, b in segs:
+    """(point the camera looks at, the marker's point) at this frame. The camera follows the carton along its way,
+    smoothed over a few metres so it rounds a belt's corner instead of snapping; the smoothing shrinks to nothing at
+    either end, so the camera lands exactly where it always did (the turntables start from that pose)."""
+    for f0, f1, a, b, kind, way in segs:
         if f0 <= frame < f1:
             u = ease((frame - f0) / (f1 - f0))
-            pa, pb = Vector((*pts[a], 0)), Vector((*pts[b], 0))
-            return pa.lerp(pb, u), pa.lerp(pb, u)
+            if kind == "held":
+                return V(pts[a]).lerp(V(pts[b]), u), V(way[0])
+            L = route_path.length(way)
+            s = u * L
+            w = min(3.0, s, L - s)
+            look = sum((V(route_path.at(way, s + w * k / 4)) for k in range(-4, 5)), Vector()) / 9
+            return look, V(route_path.at(way, s))
     last = max((k for k in keys if k[0] <= frame), default=keys[0])
-    p = Vector((*pts[last[1]], 0))
-    return p, p
+    return V(pts[last[1]]), V(pts[held_at(last[1])])
 
 
 cam_data = bpy.data.cameras.new("tour_cam")
@@ -119,7 +147,7 @@ def aim(target):
 
 out = Path(args.out).resolve()
 (out / "frames").mkdir(parents=True, exist_ok=True)
-frames = [k[0] for k in keys if k[0] == min(kk[0] for kk in keys if math.dist(pts[kk[1]], pts[k[1]]) < 0.5)] if args.test else range(total)
+frames = [k[0] for k in keys if k[0] == min(kk[0] for kk in keys if math.dist(pts[kk[1]], pts[k[1]]) < 0.5)] if args.test else range(0, total, args.every)
 proj, marker, mats = [], [], []
 t0 = time.time()
 for fr in frames:

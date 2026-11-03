@@ -47,24 +47,28 @@
 .ht-play:active { transform: scale(0.97); }
 .ht-play:focus-visible { outline: 2px solid #a5b4fc; outline-offset: 2px; }
 
-/* the step row: every step, numbered like the reel, coloured like its pin */
-.ht-rail { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+/* the step row: a timeline. Every step is a numbered dot on one track, coloured like its pin, with its time under it;
+   the track is filled up to the step you are on. No boxes: the dots and the line are the structure. */
+.ht-rail { list-style: none; margin: 0; padding: 0; display: flex; overflow-x: auto; scrollbar-width: none; }
 .ht-rail::-webkit-scrollbar { display: none; }
-.ht-rail li { flex: 1 0 auto; }
-.ht-step { all: unset; box-sizing: border-box; width: 100%; min-width: 64px; min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 0 10px;
-  border-radius: 10px; cursor: pointer; background: var(--tb-surface, #1a1c23); box-shadow: inset 0 0 0 1px var(--tb-line); color: var(--tb-ink-2);
-  transition: background-color 160ms ease, transform 120ms ease-out; }
-.ht-step:hover { background: color-mix(in srgb, var(--tb-accent, #6366f1) 10%, var(--tb-surface, #1a1c23)); }
-.ht-step:active { transform: scale(0.97); }
-.ht-step:focus-visible { outline: 2px solid #a5b4fc; outline-offset: 2px; }
-.ht-step-n { --c: var(--ht-seen); width: 22px; height: 22px; border-radius: 11px; display: grid; place-items: center; box-shadow: inset 0 0 0 2px var(--c);
-  color: var(--tb-ink); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ht-rail li { position: relative; flex: 1 1 0; min-width: 44px; }
+.ht-rail li + li::before { content: ""; position: absolute; top: 20px; left: -50%; right: 50%; height: 2px; margin: 0 17px; border-radius: 1px; background: var(--tb-line-2, rgba(255, 255, 255, 0.14)); transition: background-color 200ms ease; }
+.ht-rail li[data-done]::before { background: color-mix(in srgb, var(--tb-accent, #6366f1) 75%, transparent); }
+.ht-step { all: unset; box-sizing: border-box; position: relative; z-index: 1; width: 100%; display: grid; justify-items: center; gap: 6px; padding: 8px 0 6px; border-radius: 10px; cursor: pointer;
+  transition: transform 120ms ease-out; }
+.ht-step:active { transform: scale(0.96); }
+.ht-step:focus-visible { outline: 2px solid #a5b4fc; outline-offset: -2px; }
+.ht-step-n { --c: var(--ht-seen); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--tb-bg, #0c0d11); box-shadow: inset 0 0 0 2px var(--c);
+  color: var(--tb-ink); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; transition: transform 200ms var(--ht-ease), background-color 160ms ease, box-shadow 160ms ease; }
 .ht-step[data-tone="scan"] .ht-step-n { --c: var(--ht-scan); }
 .ht-step[data-tone="noscan"] .ht-step-n, .ht-step[data-tone="record"] .ht-step-n { --c: var(--ht-bad); }
 .ht-step[data-tone="wait"] .ht-step-n { --c: var(--ht-wait); }
-.ht-step-t { font-size: 12px; font-variant-numeric: tabular-nums; }
-.ht-step[aria-current] { background: color-mix(in srgb, var(--tb-accent, #6366f1) 18%, var(--tb-surface, #1a1c23)); box-shadow: inset 0 0 0 1.5px var(--tb-accent, #6366f1); color: var(--tb-ink); }
-.ht-step[aria-current] .ht-step-n { background: var(--c); color: #fff; }
+.ht-step:hover .ht-step-n { box-shadow: inset 0 0 0 2px var(--c), 0 0 0 4px color-mix(in srgb, var(--c) 18%, transparent); }
+.ht-step-t { font-size: 11.5px; color: var(--tb-mute); font-variant-numeric: tabular-nums; }
+.ht-step[aria-current] .ht-step-n { background: var(--c); color: #fff; transform: scale(1.12); box-shadow: 0 0 0 4px color-mix(in srgb, var(--c) 28%, transparent); }
+.ht-step[aria-current] .ht-step-t { color: var(--tb-ink); font-weight: 650; }
+@media (max-width: 700px) { .ht-step-t { visibility: hidden; } .ht-step[aria-current] .ht-step-t { visibility: visible; } }
+@media (prefers-reduced-motion: reduce) { .ht-step, .ht-step-n, .ht-rail li::before { transition: none; } }
 
 /* the card: the step's own camera frame and words */
 .ht-card { display: grid; gap: 8px; padding: 12px 12px 14px; border-radius: var(--tb-r, 12px); background: var(--tb-surface, #1a1c23); box-shadow: inset 0 0 0 1px var(--tb-line); }
@@ -95,7 +99,7 @@
 .ht-none { margin: 0; font-size: 14px; color: var(--tb-mute); }
 
 @media (max-width: 1100px) { .ht { grid-template-columns: 1fr; } }
-@media (max-width: 700px) { .ht-pin-tag { display: none; } .ht-step-t { display: none; } .ht-step { min-width: 44px; } }
+@media (max-width: 700px) { .ht-pin-tag { display: none; } }
 @media (prefers-reduced-motion: reduce) { .ht-video, .ht-marks, .ht-pin-n { transition: none; } .ht-pin-tag, .ht-frame img, .ht-wait { animation: none; } }
 
 /* the two views of the 3D hub: a segmented switch above it */
@@ -149,23 +153,10 @@
 .hc-k-close { background: #f4f4f7; }
 .hc-k-used { background: #15171d; box-shadow: inset 0 0 0 2px #818cf8; }
 .hc-hint { margin-left: auto; }
-.hc-list { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
-.hc-li { all: unset; height: 32px; padding: 0 11px; border-radius: 8px; display: inline-flex; align-items: center; cursor: pointer; font-size: 12.5px; font-weight: 600;
-  color: var(--tb-ink-2); box-shadow: inset 0 0 0 1px var(--tb-line); transition: background-color 160ms ease, transform 120ms ease-out; }
-.hc-li[data-used] { color: var(--tb-ink); box-shadow: inset 0 0 0 1.5px #818cf8; }
-.hc-li:hover { background: rgba(99, 102, 241, 0.14); }
-.hc-li:active { transform: scale(0.97); }
-.hc-li:focus-visible { outline: 2px solid #a5b4fc; outline-offset: 2px; }
 .hc-look { margin-top: 6px; }
 @media (max-width: 700px) { .hc-hint { display: none; } .hc-x { padding: 0 10px; } }
 @media (prefers-reduced-motion: reduce) { .hc-world, .hc-view, .hc-cam, .hc-floor polygon { transition: none; } .hc-feed { animation: none; } }
 
-/* eleven steps fit in one row: each is its number; the step you are on also shows its time */
-.ht-rail li { flex: 1 1 0; min-width: 0; }
-.ht-step { min-width: 44px; padding: 0 6px; }
-.ht-step-t { display: none; }
-.ht-step[aria-current] .ht-step-t { display: inline; }
-.ht-rail li:has(.ht-step[aria-current]) { flex: 1.8 1 0; }
 
 /* the turntable (spin.ts): a canvas over the video, shown only once turned (its first frame is the video's), so the
    swap is invisible; a drag turns it 1:1, a flick glides (JS, from the current value), nothing here transitions */
@@ -225,9 +216,53 @@
   .ht-hint { top: 8px; right: 8px; height: 26px; padding: 0 9px 0 8px; font-size: 11.5px; }
   .ht-cam small { display: none; }
 }
-/* a phone: the step you are on keeps only its number (its time squeezed in and the number spilled off the left edge);
-   the card below the stage gives the time */
-@media (max-width: 700px) {
-  .ht-step[aria-current] .ht-step-t { display: none; }
-  .ht-rail li, .ht-rail li:has(.ht-step[aria-current]) { flex: 0 0 auto; }
-}
+
+/* the turntable (CameraSetup): the zoom layer carries the picture and the lit floor; the pins sit above it, placed in JS
+   so they keep their size. The higher view's video lies over the lower one and fades in once it holds the same frame. */
+.hc-stage[data-turn] { cursor: grab; touch-action: pan-y; }
+.hc-stage[data-turn]:active { cursor: grabbing; }
+.hc-stage:focus-visible { outline: 2px solid #a5b4fc; outline-offset: 2px; }
+.hc-zoom { position: absolute; inset: 0; transform-origin: 0 0; will-change: transform; }
+.hc-img { -webkit-user-drag: none; user-select: none; }
+.hc-turn { opacity: 0; pointer-events: none; }
+.hc-turn[data-on] { opacity: 1; }
+.hc-turn + .hc-turn { transition: opacity 220ms ease; }
+.hc-zoomctl { gap: 8px; }
+.hc-zbtn { width: 40px; padding: 0; justify-content: center; }
+.hc-zbtn:disabled { opacity: 0.4; }
+
+/* the camera list: what each camera watches, in its numbering, grouped by kind; height (or the route step) in a fixed
+   column so it lines up down the list */
+.hc-groups { max-height: 560px; overflow-y: auto; margin: 2px -8px 0; padding: 0 8px 8px; scrollbar-width: thin;
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent); }
+.hc-gh { display: flex; justify-content: space-between; margin: 12px 0 4px; padding: 0 8px; font-size: 11.5px; font-weight: 650; letter-spacing: 0.05em; text-transform: uppercase; color: var(--tb-mute); }
+.hc-gh span { font-variant-numeric: tabular-nums; letter-spacing: 0; }
+.hc-group:first-child .hc-gh { margin-top: 6px; }
+.hc-rows { list-style: none; margin: 0; padding: 0; display: grid; }
+.hc-row { all: unset; box-sizing: border-box; width: 100%; height: 34px; padding: 0 8px; border-radius: 8px; display: grid; grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center; gap: 10px; cursor: pointer; transition: background-color 140ms ease; }
+.hc-row-n { font-size: 12px; font-weight: 600; color: var(--tb-mute); font-variant-numeric: tabular-nums; display: flex; align-items: center; }
+.hc-row-n i { width: 9px; height: 9px; border-radius: 50%; margin-left: 2px; }
+.hc-row-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; font-weight: 550; color: var(--tb-ink); }
+.hc-row-m { font-size: 12px; color: var(--tb-mute); font-variant-numeric: tabular-nums; }
+.hc-row[data-used] .hc-row-m { color: #a5b4fc; font-weight: 600; }
+.hc-row:hover, .hc-row[data-on] { background: rgba(99, 102, 241, 0.12); }
+.hc-row:focus-visible { outline: 2px solid #a5b4fc; outline-offset: -2px; }
+@media (max-width: 1100px) { .hc-groups { max-height: none; -webkit-mask-image: none; mask-image: none; } }
+@media (prefers-reduced-motion: reduce) { .hc-turn + .hc-turn, .hc-row { transition: none; } }
+
+/* the step's camera opens its evidence: the step's own stretch of the journey reel, over the route, as the camera
+   setup's view does; "Back to the route" or Esc closes it, and moving to another step closes it too */
+.ht-cam { all: unset; position: absolute; z-index: 3; width: 26px; height: 26px; transform: translate(-50%, -50%); border-radius: 50%; display: grid; place-items: center; cursor: pointer;
+  background: rgba(250, 250, 252, 0.94); color: #1e1b4b; box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.45), 0 4px 12px rgba(0, 0, 0, 0.4); transition: transform 160ms var(--ht-ease), background-color 140ms ease, color 140ms ease; }
+.ht-cam:hover { transform: translate(-50%, -50%) scale(1.15); background: #5048e5; color: #fff; }
+.ht-cam:active { transform: translate(-50%, -50%) scale(1.05); }
+.ht-ev { position: absolute; inset: 0; z-index: 6; background: #000; display: grid; animation: ht-ev-in 220ms var(--ht-ease) both; }
+@keyframes ht-ev-in { from { opacity: 0; transform: scale(0.97); } }
+.ht-ev-v { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; }
+.ht-ev-x { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); }
+.ht-ev-x:active { transform: translateX(-50%) scale(0.97); }
+.ht-frame-open { all: unset; display: block; width: 100%; height: 100%; cursor: zoom-in; }
+.ht-frame-open:focus-visible { outline: 2px solid #a5b4fc; outline-offset: -2px; }
+@media (max-width: 700px) { .ht-ev-x { bottom: 8px; } }
+@media (prefers-reduced-motion: reduce) { .ht-ev { animation: none; } .ht-cam { transition: none; } }

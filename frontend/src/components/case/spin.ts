@@ -37,19 +37,33 @@ export const placeOf = (s: Spin | null, step: number) => s ? Object.keys(s.rings
 /** where a flick comes to rest (Apple's projection, in frames): small input, big output, then snap to a frame */
 export const project = (v: number, rate = 0.997) => (v / 1000) * rate / (1 - rate);
 
+const homog = (P: number[], x: number, y: number, z: number) =>
+  [P[0] * x + P[1] * y + P[2] * z + P[3], P[4] * x + P[5] * y + P[6] * z + P[7], P[12] * x + P[13] * y + P[14] * z + P[15]];
+const NEAR = 0.05;
+/** one face on a frame, clipped at the camera's near plane, as SVG points in the page's 0..1 coordinates (y down) */
+function face(pts: number[][]): string | null {
+  const out: number[][] = [];
+  pts.forEach((b, i) => {
+    const a = pts[(i + pts.length - 1) % pts.length];
+    const cut = () => { const t = (NEAR - a[2]) / (b[2] - a[2]); return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, NEAR]; };
+    if (b[2] >= NEAR) { if (a[2] < NEAR) out.push(cut()); out.push(b); } else if (a[2] >= NEAR) out.push(cut());
+  });
+  return out.length > 2 ? out.map((c) => `${((c[0] / c[2] + 1) / 2).toFixed(4)},${((1 - c[1] / c[2]) / 2).toFixed(4)}`).join(" ") : null;
+}
+
+/** a point of the hub (metres) on a frame, in the page's 0..1 coordinates (y down); null behind the camera */
+export function onFrame(P: number[], x: number, y: number, z: number): [number, number] | null {
+  const [cx, cy, w] = homog(P, x, y, z);
+  return w < NEAR ? null : [(cx / w + 1) / 2, (1 - cy / w) / 2];
+}
+
+/** a floor polygon (metres) on a frame */
+export const floorOn = (P: number[], poly: number[][]) => face(poly.map((q) => homog(P, q[0], q[1], 0.03)));
+
 /** a floor polygon (and its walls up to h metres) on a frame, from the frame's projection matrix: each face clipped at
  *  the camera's near plane, in the page's 0..1 coordinates (y down). Faces wholly behind the camera are left out. */
 export function volume(P: number[], poly: number[][], h: number): { floor: string | null; walls: string[]; top: string | null } {
-  const clip = (x: number, y: number, z: number) => [P[0] * x + P[1] * y + P[2] * z + P[3], P[4] * x + P[5] * y + P[6] * z + P[7], P[12] * x + P[13] * y + P[14] * z + P[15]];
-  const face = (pts: number[][]) => {
-    const near = 0.05, out: number[][] = [];
-    pts.forEach((b, i) => {
-      const a = pts[(i + pts.length - 1) % pts.length];
-      const cut = () => { const t = (near - a[2]) / (b[2] - a[2]); return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, near]; };
-      if (b[2] >= near) { if (a[2] < near) out.push(cut()); out.push(b); } else if (a[2] >= near) out.push(cut());
-    });
-    return out.length > 2 ? out.map((c) => `${((c[0] / c[2] + 1) / 2).toFixed(4)},${((1 - c[1] / c[2]) / 2).toFixed(4)}`).join(" ") : null;
-  };
+  const clip = (x: number, y: number, z: number) => homog(P, x, y, z);
   const floor = face(poly.map((q) => clip(q[0], q[1], 0.03)));
   const top = face(poly.map((q) => clip(q[0], q[1], h)));
   const walls = poly.map((q, i) => { const r = poly[(i + 1) % poly.length]; return face([clip(q[0], q[1], 0), clip(r[0], r[1], 0), clip(r[0], r[1], h), clip(q[0], q[1], h)]); })

@@ -31,6 +31,8 @@ ap.add_argument("--n", type=int, default=36, help="frames per ring")
 ap.add_argument("--high", type=float, default=60.0, help="ring 1 elevation, degrees")
 ap.add_argument("--only", default="", help="comma list of ring names to render (p0..p6, ov)")
 ap.add_argument("--test", action="store_true", help="4 angles per ring at half size, to judge the look and speed")
+ap.add_argument("--fmt", default="WEBP", help="WEBP for the page's rings; JPEG (q95) when the ring becomes a video")
+ap.add_argument("--limit", type=int, default=0, help="render only the first N frames of each ring (timing)")
 ap.add_argument("--table-only", action="store_true", help="write the tables (with each frame's projection matrix), render nothing")
 args = ap.parse_args(sys.argv[sys.argv.index("--") + 1:])
 
@@ -45,8 +47,8 @@ rx, ry = (int(v) for v in args.res.split("x"))
 if args.test:
     rx, ry = rx // 2, ry // 2
 sc.render.resolution_x, sc.render.resolution_y, sc.render.resolution_percentage = rx, ry, 100
-sc.render.image_settings.file_format = "WEBP"
-sc.render.image_settings.quality = 78
+sc.render.image_settings.file_format = args.fmt
+sc.render.image_settings.quality = 95 if args.fmt == "JPEG" else 78
 sc.render.use_stamp = False
 sc.eevee.taa_render_samples = 4 if args.test else args.samples
 sc.eevee.use_raytracing = False
@@ -158,7 +160,9 @@ for name, look, idx, rings in jobs:
                 continue
             if args.test and k % (args.n // 4):
                 continue
-            sc.render.filepath = str(d / f"f{k:02d}.webp")
+            if args.limit and k >= args.limit:
+                continue
+            sc.render.filepath = str(d / f"f{k:0{3 if args.n > 100 else 2}d}.{'jpg' if args.fmt == 'JPEG' else 'webp'}")
             bpy.ops.render.render(write_still=True)
             done += 1
         meta["rings"][name]["rings"].append({"elev": elev, "pins": pins, "cams": cuv, "P": mats})
