@@ -85,8 +85,8 @@
 .jr-thumb img, .jr-thumb-none { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block;
   transition: opacity 200ms ease, filter 200ms ease; }
 .jr-thumb-none { background: linear-gradient(160deg, #1b1e25, #0d0f13); }
-/* the steps not playing are dimmed a little so the one playing reads first */
-.jr-step:not([data-on]) .jr-thumb img { opacity: 0.78; filter: saturate(0.85); }
+/* the steps not playing step back (dimmed, in colour: reviewer 01:05) so the one playing reads first; hover brings one back */
+.jr-step:not([data-on]) .jr-thumb img { opacity: 0.55; }
 @media (hover: hover) and (pointer: fine) { .jr-btn:hover .jr-thumb img { opacity: 1; filter: none; } }
 .jr-step[data-on] .jr-thumb { box-shadow: 0 0 0 2px var(--tb-accent); }
 .jr-step:is([data-tone="noscan"], [data-tone="record"]):not([data-on]) .jr-thumb { box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.55); }

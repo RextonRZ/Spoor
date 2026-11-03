@@ -266,3 +266,95 @@
 .ht-frame-open:focus-visible { outline: 2px solid #a5b4fc; outline-offset: -2px; }
 @media (max-width: 700px) { .ht-ev-x { bottom: 8px; } }
 @media (prefers-reduced-motion: reduce) { .ht-ev { animation: none; } .ht-cam { transition: none; } }
+
+/* story mode, cinematic (reviewer 01:05: no grey, light and motion). The hub keeps its colour; only a very soft
+   vignette at the corners (-15 %) keeps the eye in the middle. */
+.ht-vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(120% 120% at 50% 50%, transparent 62%, rgba(8, 9, 14, 0.15) 100%); }
+
+/* the route on the hub: travelled part solid indigo with a soft glow (over a dark halo so it reads on a pale floor),
+   the rest faint; dashed where no camera saw the move */
+.ht-route { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.ht-route polyline { fill: none; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
+
+
+
+
+
+.ht-gap-tag { position: absolute; transform: translate(-50%, -150%); white-space: nowrap; padding: 3px 9px; border-radius: 8px; pointer-events: none;
+  background: rgba(15, 17, 23, 0.78); color: #c7cbd6; font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums;
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1); }
+/* the step's camera: a view cone onto the spot, under the camera's own button */
+.ht-cone { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; animation: ht-cone-in 300ms ease-out both; }
+.ht-cone polygon { stroke: rgba(165, 180, 252, 0.55); stroke-width: 1px; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+@keyframes ht-cone-in { from { opacity: 0; } }
+/* the carton's short trail while it moves */
+.ht-trail { position: absolute; z-index: 3; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; pointer-events: none;
+  background: #e2bf8c; box-shadow: 0 0 8px rgba(226, 191, 140, 0.8); }
+/* the story clock, top left */
+.ht-clock { position: absolute; z-index: 5; left: 14px; top: 14px; display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px 0 10px; border-radius: 16px;
+  background: rgba(15, 17, 23, 0.72); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); color: #fff; pointer-events: none;
+  font: 650 14px/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); }
+.ht-clock svg { width: 15px; height: 15px; fill: none; stroke: #a5b4fc; stroke-width: 2; stroke-linecap: round; }
+/* the ending: only the store and the carton keep their colour; the route and the other pins step back */
+
+.ht-end { position: absolute; z-index: 5; left: 50%; top: 16px; transform: translateX(-50%); display: grid; justify-items: center; gap: 2px; padding: 9px 18px 10px;
+  border-radius: 14px; background: rgba(15, 17, 23, 0.8); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); text-align: center;
+  box-shadow: inset 0 0 0 1px rgba(129, 140, 248, 0.35), 0 10px 30px rgba(0, 0, 0, 0.35); animation: ht-end-in 400ms var(--ht-ease) 200ms both; }
+.ht-end b { color: #fff; font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+.ht-end small { color: #c7cbd6; font-size: 12.5px; }
+@keyframes ht-end-in { from { opacity: 0; transform: translate(-50%, -6px); } }
+/* the rail's last stop: the answer */
+.ht-step-end .ht-step-n { --c: #6366f1; }
+.ht-step-end .ht-step-n svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
+a.ht-btn-main { text-decoration: none; display: grid; place-items: center; }
+@media (max-width: 700px) {
+  .ht-clock { left: 8px; top: 8px; height: 26px; font-size: 12px; padding: 0 9px 0 8px; }
+  .ht-end { top: 8px; padding: 6px 12px; } .ht-end b { font-size: 14px; } .ht-end small { display: none; }
+  .ht-gap-tag { display: none; }
+}
+
+
+/* the route, as a pen stroke on the surface the carton travels: travelled 5.5 px indigo with a soft glow over a thin
+   dark edge, the rest 3 px at 30 %, dashed where no camera saw the move. Legs a jump passes over unroll in 700 ms
+   (HubTour's pen); while flying a leg simply grows with the carton. */
+.ht-r-next { stroke: rgba(129, 140, 248, 0.3); stroke-width: 3px; }
+.ht-r-halo { stroke: rgba(12, 13, 20, 0.55); stroke-width: 8px; }
+.ht-r-done { stroke: #6366f1; stroke-width: 5.5px; filter: drop-shadow(0 0 6px rgba(99, 102, 241, 0.75)); }
+.ht-route [data-gap] { stroke-dasharray: 1.5 9; }
+.ht-r-done[data-gap] { stroke-dasharray: 3 9; }
+/* the carton's light trail: a few soft points of light behind it on its surface */
+.ht-trail { background: radial-gradient(circle, #eef0ff 0 30%, rgba(129, 140, 248, 0.85) 31% 60%, rgba(129, 140, 248, 0) 61%); box-shadow: 0 0 10px rgba(129, 140, 248, 0.7); width: 12px; height: 12px; margin: -6px 0 0 -6px; }
+/* the cameras at this place: soft beams of light onto it, fading in on arrival and out when moving on */
+.ht-beams { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; animation: ht-beam-in 360ms ease-out both; transition: opacity 250ms ease-out; }
+.ht-beams[data-out] { opacity: 0; }
+.ht-beam { filter: blur(1.5px); transition: fill-opacity 200ms ease; }
+.ht-beam[data-best] { filter: blur(1px) drop-shadow(0 0 6px rgba(129, 140, 248, 0.6)); }
+@keyframes ht-beam-in { from { opacity: 0; } }
+/* pins spring in as the parcel reaches them; the ones still ahead wait smaller and quieter */
+.ht-pin .ht-pin-n { transition: transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 200ms ease-out, background-color 160ms ease, color 160ms ease; }
+.ht-pin:not([data-reached]) .ht-pin-n { transform: scale(0.8); opacity: 0.55; }
+@keyframes ht-tag { from { opacity: 0; translate: 0 8px; } }
+@keyframes ht-tag-l { from { opacity: 0; translate: 0 8px; } }
+/* the ending: the store's outline glows indigo and pulses once; the card rises from the foot of the stage */
+.ht-zone[data-glow] .ht-zone-floor { fill: rgba(99, 102, 241, 0.28); stroke: #a5b4fc; stroke-width: 2.5px; }
+.ht-zone[data-glow] .ht-zone-top { stroke: #c7d2fe; stroke-width: 2px; }
+.ht-zone[data-glow] { filter: drop-shadow(0 0 10px rgba(129, 140, 248, 0.85)); }
+.ht-end[data-foot] { top: auto; bottom: 70px; animation-name: ht-end-up; }
+@keyframes ht-end-up { from { opacity: 0; transform: translate(-50%, 12px); } }
+/* one primary control at a time: Fly the route, while nothing plays; a pressed toggle is outlined, not filled */
+.ht-play[data-primary] { background: #5048e5; box-shadow: 0 6px 18px rgba(80, 72, 229, 0.4); }
+.ht-play[data-primary]:hover { background: #4338ca; }
+.ht-ghost[aria-pressed="true"] { background: rgba(15, 17, 23, 0.78); box-shadow: inset 0 0 0 1.5px #818cf8, 0 6px 18px rgba(0, 0, 0, 0.35); }
+/* seen here by N cameras: every camera that recorded a step at this place, all in colour; the step's own is larger */
+.ht-seen { display: grid; gap: 6px; margin-top: 2px; }
+.ht-seen-h { font-size: 12px; font-weight: 650; color: var(--tb-ink-2); }
+.ht-seen-row { display: flex; align-items: flex-end; gap: 8px; }
+.ht-seen-cam { all: unset; display: grid; gap: 4px; cursor: pointer; width: 84px; }
+.ht-seen-cam[data-best] { width: 116px; }
+.ht-seen-cam img, .ht-seen-cam > span { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; display: block; background: #0d0e12; box-shadow: inset 0 0 0 1px var(--tb-line); }
+.ht-seen-cam[data-best] img { box-shadow: 0 0 0 2px #6366f1; }
+.ht-seen-cam small { font-size: 11.5px; color: var(--tb-mute); }
+.ht-seen-cam:hover small, .ht-seen-cam[data-best] small { color: var(--tb-ink); }
+.ht-seen-cam:focus-visible { outline: 2px solid #a5b4fc; outline-offset: 2px; border-radius: 6px; }
+@media (max-width: 700px) { .ht-end[data-foot] { bottom: 52px; } }
+@media (prefers-reduced-motion: reduce) { .ht-beams, .ht-end, .ht-cone { animation: none; } .ht-pin .ht-pin-n, .ht-beams { transition: none; } }

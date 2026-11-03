@@ -45,3 +45,19 @@ def from_proof(proof: dict) -> dict:
 def load(data_dir: Path) -> dict | None:
     p = Path(data_dir) / FILE
     return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
+
+
+def name_flagged(steps: list[dict], tri: dict | None) -> list[dict]:
+    """A stored run's triage step, with the cameras Glimmer flagged and the ones it swept named (the Cameras wall's
+    replay greys the rest). Runs that kept only the counts get the names from the triage file, but only when it is the
+    file the run used: the same cameras, flags and seconds. Steps are copied, never changed in the store."""
+    if not tri or not tri.get("flags"):
+        return steps
+    t = summary(tri)
+    out = []
+    for s in steps:
+        o = ((s.get("receipt") or {}).get("output") or {})
+        if s.get("tool") == "triage_clips" and "flagged" not in o and all(o.get(k) == t[k] for k in ("cameras_flagged", "cameras", "sent_s", "total_s")):
+            s = {**s, "receipt": {**s["receipt"], "output": {**o, "flagged": sorted(t["windows"]), "swept": sorted(tri["cameras"])}}}
+        out.append(s)
+    return out

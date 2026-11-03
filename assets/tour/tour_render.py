@@ -23,6 +23,7 @@ from mathutils import Vector
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import route_path  # noqa: E402  (the carton's way: belts while on them, walkways when carried)
+import carton  # noqa: E402  (the parcel as a real object: a marker of what the evidence says)
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--reel", required=True)
@@ -35,6 +36,8 @@ ap.add_argument("--from-frame", type=int, default=0, help="resume: skip frames a
 ap.add_argument("--table-only", action="store_true", help="write tour.json (with each frame's projection matrix), render nothing")
 ap.add_argument("--hub", default="frontend/src/data/hub.generated.json", help="the hub layout the carton's way is planned on")
 ap.add_argument("--every", type=int, default=1, help="render every Nth frame only (a preview of the moves)")
+ap.add_argument("--carton-scale", type=float, default=2.0,
+                help="the carton drawn this many times its measured size: at true size it is ~16 px from the drone (LIMITATIONS)")
 args = ap.parse_args(sys.argv[sys.argv.index("--") + 1:])
 
 OFFSET = Vector((-4.0, -11.0, 10.5))   # the drone sits south-west of the point, above it: north stays up, as on the plan
@@ -107,8 +110,43 @@ for i, p in enumerate(pts):
             f += m
     keys.append((f, i))
     f += round(fps * (HOLD if i == 0 or math.dist(pts[i - 1], p) > 0.5 else SAME_HOLD))
-total = f + round(fps * 0.5)
+# the ending (reviewer 01:05): from the last step the drone eases back to where the carton was left and settles a little
+# closer, then holds: the page's answer ("Most likely here") is drawn on these frames
+last = len(steps) - 1
+store = pts[held_at(last)]
+end_seg = None
+if math.dist(pts[last], store) > 0.5:
+    m = round(fps * 2.6)
+    end_seg = (f, f + m)
+    f += m
+END_K = 0.72                     # the drone's offset at the end, as a share of the usual one
+end_arrive = f
+f += round(fps * 2.0)
+total = f + round(fps * 0.3)
 V = lambda xy: Vector((xy[0], xy[1], 0))
+arrive_of = {i: k for k, i in keys}
+LEFT = max(i for i in range(len(steps)) if steps[i].get("tone") != "record")   # where it is left: it settles there
+SETTLE = round(fps * 0.7)
+yaw_now = [0.0]
+
+
+def carton_pose(frame):
+    """(x, y, z, support z, yaw) of the carton at this frame: along its way while moving, else where it rests"""
+    for f0, f1, a, b, kind, way in segs:
+        if f0 <= frame < f1 and kind != "held":
+            L = route_path.length(way)
+            sd = ease((frame - f0) / (f1 - f0)) * L
+            x, y, z, sup = route_path.pose_along(hub, way, kind, sd, route_path.rest_pose(hub, steps, held_at(a))[0],
+                                                 route_path.rest_pose(hub, steps, b)[0])
+            yaw_now[0] = carton.heading(route_path.at(way, max(0.0, sd - 0.15)), route_path.at(way, min(L, sd + 0.15)), yaw_now[0])
+            return x, y, z, sup, yaw_now[0]
+    cur = max((k for k in keys if k[0] <= frame), default=keys[0])[1]
+    h = held_at(cur)
+    z, sup = route_path.rest_pose(hub, steps, h)
+    if h == LEFT and frame - arrive_of[LEFT] < SETTLE:   # put down: from the hands to the floor
+        u = ease(max(0.0, (frame - arrive_of[LEFT]) / SETTLE))
+        z = route_path.CARRIED + (z - route_path.CARRIED) * u
+    return pts[h][0], pts[h][1], z, sup, yaw_now[0]
 
 
 def place(frame):
@@ -119,14 +157,19 @@ def place(frame):
         if f0 <= frame < f1:
             u = ease((frame - f0) / (f1 - f0))
             if kind == "held":
-                return V(pts[a]).lerp(V(pts[b]), u), V(way[0])
+                return V(pts[a]).lerp(V(pts[b]), u), V(way[0]), 1.0
             L = route_path.length(way)
             s = u * L
             w = min(3.0, s, L - s)
             look = sum((V(route_path.at(way, s + w * k / 4)) for k in range(-4, 5)), Vector()) / 9
-            return look, V(route_path.at(way, s))
-    last = max((k for k in keys if k[0] <= frame), default=keys[0])
-    return V(pts[last[1]]), V(pts[held_at(last[1])])
+            return look, V(route_path.at(way, s)), 1.0
+    if end_seg and end_seg[0] <= frame < end_seg[1]:
+        u = ease((frame - end_seg[0]) / (end_seg[1] - end_seg[0]))
+        return V(pts[last]).lerp(V(store), u), V(store), 1 + (END_K - 1) * u
+    if frame >= end_arrive:
+        return V(store), V(store), END_K
+    cur = max((k for k in keys if k[0] <= frame), default=keys[0])
+    return V(pts[cur[1]]), V(pts[held_at(cur[1])]), 1.0
 
 
 cam_data = bpy.data.cameras.new("tour_cam")
@@ -136,8 +179,8 @@ sc.collection.objects.link(cam)
 sc.camera = cam
 
 
-def aim(target):
-    loc = target + OFFSET
+def aim(target, k=1.0):
+    loc = target + OFFSET * k
     loc.x = min(57.0, max(4.0, loc.x))  # the drone stays inside the hall (the inbound doors are on the west wall)
     cam.location = loc
     look = Vector((target.x, target.y, LOOK_Z)) - cam.location
@@ -149,13 +192,17 @@ out = Path(args.out).resolve()
 (out / "frames").mkdir(parents=True, exist_ok=True)
 frames = [k[0] for k in keys if k[0] == min(kk[0] for kk in keys if math.dist(pts[kk[1]], pts[k[1]]) < 0.5)] if args.test else range(0, total, args.every)
 proj, marker, mats = [], [], []
+rig = carton.make()
 t0 = time.time()
 for fr in frames:
-    tgt, mk = place(fr)
-    aim(tgt)
+    tgt, mk, k_off = place(fr)
+    aim(tgt, k_off)
+    cx, cy, cz, csup, cyaw = carton_pose(fr)
+    carton.place(rig, cx, cy, cz, cyaw, csup, args.carton_scale)
     uv = lambda p: [round(v, 4) for v in world_to_camera_view(sc, cam, Vector((p[0], p[1], PIN_Z)))[:2]]
     proj.append([uv(p) for p in pts])
-    marker.append(uv(mk))
+    # the marker the page draws the carton's light trail from: where the carton touches its surface (belt or floor)
+    marker.append([round(v, 4) for v in world_to_camera_view(sc, cam, Vector((cx, cy, csup)))[:2]])
     P = cam.calc_matrix_camera(bpy.context.evaluated_depsgraph_get(), x=rx, y=ry) @ cam.matrix_world.inverted()
     mats.append([round(v, 5) for row in P for v in row])
     if args.table_only:
@@ -169,6 +216,6 @@ for fr in frames:
 
 meta = {"fps": fps, "frames": total, "size": [rx, ry], "test": args.test,
         "steps": [{"n": i + 1, "arrive": k, "title": steps[i]["title"], "tone": steps[i]["tone"]} for k, i in keys],
-        "pins": proj, "marker": marker, "P": mats}
+        "pins": proj, "marker": marker, "P": mats, "ending": {"arrive": end_arrive}}
 (out / ("tour_test.json" if args.test else "tour.json")).write_text(json.dumps(meta, separators=(",", ":")), encoding="utf-8")
 print(f"TOUR done {len(list(frames)) if args.test else total} frames in {time.time() - t0:.0f}s")

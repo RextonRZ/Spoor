@@ -290,7 +290,8 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
               <div className="iv-relay" onMouseLeave={() => setPeek(null)}>
                 <ul className="iv-lanes-who" aria-hidden="true" style={{ paddingTop: 22 }}>
                   {lanes.map((c) => (
-                    <li key={c.role} style={{ height: LANE }} data-fam={fam(c.model)} data-active={!done && cur?.role === c.role ? "" : undefined}>
+                    <li key={c.role} style={{ height: LANE }} data-fam={fam(c.model)} data-active={!done && cur?.role === c.role ? "" : undefined}
+                      data-idle={focus && focus.role !== c.role ? "" : undefined}>
                       <span className="iv-who">{c.who}</span>
                       <span className="iv-model">{c.model.replace(/\s*·.*$/, "")}</span>
                     </li>
@@ -314,6 +315,7 @@ export default function InvestigatePage({ params }: { params: Promise<{ caseId: 
                             <button type="button" className="iv-dot" data-fam={fam(s.model)} data-hollow={hollow ? "" : undefined}
                               data-on={focus?.seq === s.seq ? "" : undefined} aria-pressed={picked === s.seq}
                               data-dim={hoverPlace && !placesOf(s).includes(hoverPlace) ? "" : undefined}
+                              data-idle={focus && focus.role !== s.role ? "" : undefined}
                               aria-label={`Step ${i + 1}, ${runTime(s.t_s)}, ${lane?.who ?? s.who}: ${s.text}`}
                               onMouseEnter={() => setPeek(s.seq)} onFocus={() => setPeek(s.seq)} onBlur={() => setPeek(null)}
                               onClick={() => setPicked((p) => (p === s.seq ? null : s.seq))} />

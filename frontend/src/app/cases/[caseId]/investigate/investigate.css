@@ -228,3 +228,9 @@
   .iv-right { order: 5; width: 100%; flex: none; position: static; }
   .iv-foot { order: 9; }
 }
+
+/* story mode (reviewer 19:30): while a step is in focus (replaying, picked or under the pointer) the other agents'
+   lanes step back to 40 %, so the one at work reads first */
+.iv-lanes-who li, .iv-dot { transition: opacity 300ms ease-out; }
+.iv-lanes-who li[data-idle], .iv-dot[data-idle]:not([data-on]) { opacity: 0.4; }
+@media (prefers-reduced-motion: reduce) { .iv-lanes-who li, .iv-dot { transition: none; } }

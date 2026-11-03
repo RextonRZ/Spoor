@@ -641,9 +641,11 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
     @app.get("/v1/cases/{case_id}/run")
     def get_run(case_id: str, p: User) -> dict:
         from spoor.forensics.run import COLUMNS, CREW, OPTIONAL_TOOLS, TOOLS, latest_run
+        from spoor.forensics.triage import load as load_triage, name_flagged
 
         case_for(p, case_id)
-        return {"steps": latest_run(svc.store, case_id), "crew": [{"role": k, "who": v[0], "model": v[1], "tools": TOOLS[k]} for k, v in CREW.items()],
+        steps = name_flagged(latest_run(svc.store, case_id), load_triage(svc.settings.data_dir))
+        return {"steps": steps, "crew": [{"role": k, "who": v[0], "model": v[1], "tools": TOOLS[k]} for k, v in CREW.items()],
                 "optional_tools": sorted(OPTIONAL_TOOLS), "columns": COLUMNS}  # fmt: skip
 
     @app.get("/v1/jobs/{job_id}")

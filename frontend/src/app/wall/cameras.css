@@ -95,3 +95,28 @@
   .cm-grid .cf-meta { font-size: 9.5px; gap: 4px; }
   .cm-incase { right: 5px; bottom: 5px; padding: 1px 5px; font-size: 9.5px; }
 }
+
+/* Replay the search (story mode): the run told on the wall. Skipped feeds dim (still there, in colour: nothing is
+   hidden), flagged feeds get an indigo rim, the closely checked ones a stronger one, the one where it was found pulses
+   once. The sweep runs across the wall, one tile after another. Hover brings any tile back to full colour. */
+.cm-tabbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.cm-replay { all: unset; flex: none; display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px 0 10px; margin-right: 8px; border-radius: 16px; cursor: pointer;
+  font-size: 13px; font-weight: 650; color: var(--tb-ink); box-shadow: inset 0 0 0 1px var(--tb-line-2); transition: background-color 140ms ease, transform 120ms ease-out; }
+.cm-replay svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.cm-replay:hover { background: rgba(99, 102, 241, 0.14); }
+.cm-replay[aria-pressed="true"] { background: rgba(99, 102, 241, 0.18); box-shadow: inset 0 0 0 1px rgba(129, 140, 248, 0.6); }
+.cm-replay:active { transform: scale(0.97); }
+.cm-replay:focus-visible { outline: 2px solid #818cf8; outline-offset: 2px; }
+.cm-rp-cap { margin: 0; padding: 10px 14px 0; font-size: 13.5px; color: var(--tb-ink); animation: cm-cap-in 300ms ease-out both; }
+@keyframes cm-cap-in { from { opacity: 0; } }
+.cm-grid[data-rp] .cm-tile { transition: opacity 320ms ease-out, filter 320ms ease-out, border-color 320ms ease-out, box-shadow 320ms ease-out; transition-delay: calc(var(--i) * 60ms); }
+.cm-grid[data-rp] .cm-tile:is([data-rp="skip"], [data-rp="out"]) { opacity: 0.4; }   /* dimmed, never greyed (reviewer 01:05) */
+.cm-grid[data-rp] .cm-tile[data-rp="flagged"] { border-color: rgba(129, 140, 248, 0.75); }
+.cm-grid[data-rp] .cm-tile[data-rp="check"] { border-color: #818cf8; box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.55); transition-delay: 0ms; }
+.cm-grid[data-rp] .cm-tile[data-rp="found"] { border-color: #c7d2fe; box-shadow: 0 0 0 3px #6366f1; transition-delay: 0ms; animation: cm-found 1100ms ease-out 1; }
+@keyframes cm-found { from { box-shadow: 0 0 0 3px #6366f1, 0 0 0 0 rgba(99, 102, 241, 0.75); } to { box-shadow: 0 0 0 3px #6366f1, 0 0 0 22px rgba(99, 102, 241, 0); } }
+@media (hover: hover) and (pointer: fine) { .cm-grid[data-rp] .cm-tile:hover { opacity: 1; filter: none; transition-delay: 0ms; } }
+.cm-rp-tag { position: absolute; left: 8px; bottom: 8px; z-index: 2; padding: 3px 8px; border-radius: 5px; font-size: 11.5px; font-weight: 700; pointer-events: none;
+  color: #d4d7e0; background: rgba(10, 11, 16, 0.8); border: 1px solid rgba(255, 255, 255, 0.14); animation: cm-cap-in 300ms ease-out both; }
+.cm-rp-tag:is([data-k="check"], [data-k="found"]) { color: #fff; background: rgba(79, 70, 229, 0.92); border-color: rgba(165, 180, 252, 0.6); }
+@media (prefers-reduced-motion: reduce) { .cm-grid[data-rp] .cm-tile { transition: none; } .cm-grid[data-rp] .cm-tile[data-rp="found"], .cm-rp-cap, .cm-rp-tag { animation: none; } }

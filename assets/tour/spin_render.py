@@ -22,6 +22,10 @@ import bpy
 from bpy_extras.object_utils import world_to_camera_view
 from mathutils import Vector
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import carton  # noqa: E402
+import route_path  # noqa: E402
+
 ap = argparse.ArgumentParser()
 ap.add_argument("--reel", required=True)
 ap.add_argument("--out", required=True)
@@ -31,6 +35,9 @@ ap.add_argument("--n", type=int, default=36, help="frames per ring")
 ap.add_argument("--high", type=float, default=60.0, help="ring 1 elevation, degrees")
 ap.add_argument("--only", default="", help="comma list of ring names to render (p0..p6, ov)")
 ap.add_argument("--test", action="store_true", help="4 angles per ring at half size, to judge the look and speed")
+ap.add_argument("--carton", action="store_true", help="put the case's carton (carton.py) where the evidence leaves it at each place")
+ap.add_argument("--carton-scale", type=float, default=2.0, help="as tour_render.py: drawn this many times its measured size")
+ap.add_argument("--hub", default="frontend/src/data/hub.generated.json")
 ap.add_argument("--fmt", default="WEBP", help="WEBP for the page's rings; JPEG (q95) when the ring becomes a video")
 ap.add_argument("--limit", type=int, default=0, help="render only the first N frames of each ring (timing)")
 ap.add_argument("--table-only", action="store_true", help="write the tables (with each frame's projection matrix), render nothing")
@@ -132,9 +139,29 @@ if only and old.exists():
     meta["rings"] = json.loads(old.read_text(encoding="utf-8")).get("rings", {})
 t0 = time.time()
 done = 0
+rig = None
+if args.carton:
+    # the carton where the evidence leaves it at this place: after the place's last step (a record step leaves it where
+    # it was, so on the dock's ring it is at the store), facing the way it came in, as on the fly-through
+    hub = json.loads(Path(args.hub).read_text(encoding="utf-8"))
+    ways = {j: path for i, j, kind, path in route_path.legs(hub, steps) if kind != "held"}
+    rig = carton.make()
+
+
+def held(i):
+    while i > 0 and steps[i].get("tone") == "record":
+        i -= 1
+    return i
+
+
 for name, look, idx, rings in jobs:
     if only and name not in only:
         continue
+    if rig:
+        h = held(max(idx) if idx else len(steps) - 1)
+        way = ways.get(max((j for j in ways if j <= h), default=-1), [pts[h], pts[h]])
+        z, sup = route_path.rest_pose(hub, steps, h)
+        carton.place(rig, pts[h][0], pts[h][1], z, carton.heading(way[-2] if len(way) > 1 else way[-1], way[-1]), sup, args.carton_scale)
     meta["rings"][name] = {"steps": [i + 1 for i in idx], "look": [round(look.x, 2), round(look.y, 2)], "rings": []}
     for e, (elev, locs) in enumerate(rings):
         d = out / name / str(e)

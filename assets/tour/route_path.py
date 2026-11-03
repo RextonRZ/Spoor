@@ -8,7 +8,8 @@ way a parcel goes (Rexton 4 Nov: "not fly, follow the logic path"):
   - carried along the walkways otherwise (FloorPlan.walkRoute's rule: walkways that touch are joined);
   - a step that is only a record (the truck manifest) does not move the carton: it stays where it was last seen.
 
-  python assets/tour/route_path.py frontend/src/data/hub.generated.json assets/tour/reel.json   (prints each leg)
+  python assets/tour/route_path.py frontend/src/data/hub.generated.json assets/tour/reel.json [ways.json]
+  (prints each leg; with a third path, also writes the legs for the page, which draws the route on the 3D hub)
 """
 import heapq
 import json
@@ -166,6 +167,53 @@ def legs(hub, steps):
     return out
 
 
+HALF = 0.051      # half the carton's height (the tunnel measured 10.2 cm)
+CARRIED = 1.0     # its middle when carried by hand
+
+
+def belt_z(hub, p):
+    """(distance to the nearest belt, that belt's surface height) at p, from the layout's own heights"""
+    m = hub["machines"]
+    best = (1e9, 0.0)
+    for c in m["conveyors"]:
+        line = [tuple(q) for q in c["path"]]
+        d, i, t, _ = _proj(line, p)
+        hs = c.get("heights")
+        best = min(best, (d, hs[i] + (hs[i + 1] - hs[i]) * t if hs else c.get("height", 1.0)))
+    best = min(best, (_proj(_loop(m["loop"]), p)[0], m["loop"].get("deck_height", 1.5)))
+    for c in m["chutes"]:
+        best = min(best, (_proj([(c["x"], c["mouth_y"]), (c["x"], c["end_y"])], p)[0], c.get("lip_z", 1.0)))
+    return best
+
+
+def rest_pose(hub, steps, i):
+    """(z of the carton's middle, z of what it rests on) at step i: on a belt at the belt's height, otherwise carried;
+    the last step it is seen at, it is left there (on the floor)."""
+    xy = steps[i].get("xy")
+    last = max(k for k in range(len(steps)) if steps[k].get("tone") != "record")
+    if i == last:
+        return HALF, 0.0
+    d, z = belt_z(hub, tuple(xy)) if xy else (1e9, 0.0)
+    return (z + HALF, z) if d <= ON else (CARRIED, 0.0)
+
+
+def pose_along(hub, way, kind, s, z0, z1):
+    """(x, y, z, support z) s metres along a way: on a belt at its height; carried at hand height, easing from and to
+    the two ends' heights over the first and last 1.2 m"""
+    x, y = at(way, s)
+    if kind == "belt":
+        _, zb = belt_z(hub, (x, y))
+        return x, y, zb + HALF, zb
+    L, r = length(way), 1.2
+    ease = lambda u: u * u * (3 - 2 * u)
+    z = CARRIED
+    if s < r:
+        z = z0 + (CARRIED - z0) * ease(s / r)
+    elif L - s < r:
+        z = z1 + (CARRIED - z1) * ease(max(0.0, (L - s) / r))
+    return x, y, z, 0.0
+
+
 def length(path):
     return sum(math.dist(u, v) for u, v in zip(path, path[1:]))
 
@@ -186,5 +234,13 @@ def at(path, s):
 if __name__ == "__main__":
     hub = json.loads(open(sys.argv[1], encoding="utf-8").read())
     steps = [c for c in json.loads(open(sys.argv[2], encoding="utf-8").read())["chapters"] if c.get("tone") != "card"]
-    for i, j, kind, path in legs(hub, steps):
+    out = legs(hub, steps)
+    for i, j, kind, path in out:
         print(f"{i + 1}->{j + 1} {kind:5s} {length(path):5.1f} m  " + " ".join(f"({x:.1f},{y:.1f})" for x, y in path))
+    if len(sys.argv) > 3:
+        # each point with the height of what the carton rests on there (a belt's surface, else the floor), so the page
+        # draws the route on that surface, under the carton
+        clean = lambda path, kind: [[round(x, 3), round(y, 3), round(belt_z(hub, (x, y))[1] if kind == "belt" else 0.0, 3)]
+                                    for k, (x, y) in enumerate(path) if k == 0 or math.dist((x, y), path[k - 1]) > 0.01]
+        open(sys.argv[3], "w", encoding="utf-8").write(json.dumps({"legs": [{"from": i, "to": j, "kind": kind, "path": clean(path, kind)}
+                                                                           for i, j, kind, path in out]}, separators=(",", ":")))

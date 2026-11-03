@@ -168,7 +168,8 @@ def investigation_run(store: EvidenceStore, case_id: str, *, now: datetime, emit
                f"Glimmer, on the hub's own GPU, looked at {t['frames']} frames and flagged parcel handling in {t['sent_s']:.0f} s "
                f"of {t['total_s']:.0f} s of footage ({pct}%). Only those moments go to the cloud models: {100 - pct}% less footage.",
                receipt={"input": {"model": tri.get("model"), "frames": t["frames"], "every_s": tri["every_s"]},
-                        "output": {k: t[k] for k in ("sent_s", "total_s", "sent_share", "pad_s", "cameras_flagged", "cameras")},
+                        "output": {**{k: t[k] for k in ("sent_s", "total_s", "sent_share", "pad_s", "cameras_flagged", "cameras")},
+                                   "flagged": sorted(t["windows"]), "swept": sorted(tri["cameras"])},
                         "cost_usd": tri.get("usd")})  # fmt: skip
     else:
         r.step("triage", "triage_clips", "unavailable", "On-site triage has nothing for this window yet.")

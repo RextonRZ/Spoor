@@ -46,6 +46,19 @@ def test_triage_reports_seconds_sent_not_cameras(world):  # noqa: F811
     step = next(e for e in events if e.get("tool") == "triage_clips")
     assert step["status"] == "done" and "4 s of 180 s" in step["text"] and "98% less footage" in step["text"]
     assert step["cost_usd"] == 0 and step["receipt"]["cost_usd"] == 0.5  # on-site, over all footage: not this case's cost
+    assert step["receipt"]["output"]["flagged"] == ["cam_A"] and step["receipt"]["output"]["swept"] == ["cam_A", "cam_B"]
+
+
+def test_a_stored_run_names_the_flagged_cameras_only_from_its_own_triage_file():
+    from spoor.forensics.triage import name_flagged, summary
+
+    tri = {"every_s": 2.0, "seconds": 90.0, "cameras": ["cam_A", "cam_B"], "flags": {"cam_A": [10.0], "cam_B": []}}
+    t = summary(tri)
+    old = {"tool": "triage_clips", "receipt": {"output": {k: t[k] for k in ("cameras_flagged", "cameras", "sent_s", "total_s")}}}
+    named = name_flagged([old], tri)[0]["receipt"]["output"]
+    assert named["flagged"] == ["cam_A"] and named["swept"] == ["cam_A", "cam_B"] and "flagged" not in old["receipt"]["output"]
+    other = {**tri, "flags": {"cam_A": [10.0], "cam_B": [40.0]}}  # a different file: no names
+    assert "flagged" not in name_flagged([old], other)[0]["receipt"]["output"]
 
 
 def test_keyed_run_streams_the_agents_tool_calls_and_ends_on_the_verified_answer(world):  # noqa: F811

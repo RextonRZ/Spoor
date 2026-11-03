@@ -7,7 +7,16 @@
  * picture underneath is just the building.
  *
  * Navigation is one row of numbered steps (no free orbit to get lost in): the next step flies there, any other step
- * cross-fades to it; Play flies the whole route. The card beside it is the step's own camera frame and words.
+ * cross-fades to it; Play flies the whole route and ends on the answer. The card beside it is the step's own camera frame
+ * and words.
+ *
+ * Story mode, cinematic (reviewer 01:05, Rexton: no grey, light and motion instead). The hub keeps its colour. The
+ * carton is a real object in the render (assets/tour/carton.py) moving along the belts and walkways; here the route
+ * draws itself on the surface it travels (travelled part solid indigo, the rest faint, dashed where no camera saw the
+ * move: the journey's own observed spans), pins spring in as the parcel reaches them, the cameras at a place shine
+ * soft beams onto it (indigo for the step's own camera), a story clock runs, and the ending eases into the store, whose
+ * outline glows once. All of it is placed with each frame's own projection matrix, so it stays on the building while
+ * the place turns.
  *
  * At rest on a step the place can be turned around (Rexton 3 Nov, approved: "spin around at every step"): a Blender
  * turntable of the same place (assets/tour/spin_render.py) whose first frame is the fly-through's landing frame, so
@@ -17,13 +26,45 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { signedUrl, useResource } from "@/lib/api";
 import { SEEK_JOURNEY, type Chapter, type Reel } from "./JourneyReel";
 import { CameraSetup } from "./CameraSetup";
-import { loadRing, placeOf, project, ringReady, volume, type Spin, type UV } from "./spin";
+import { loadRing, onFrame, placeOf, project, ringReady, volume, type Spin, type UV } from "./spin";
 import { HUB } from "@/lib/hub";
 import "./hubtour.css";
 
 interface Tour { fps: number; frames: number; size: [number, number]; steps: { n: number; arrive: number; title: string; tone: string }[];
-  pins: [number, number][][]; marker: [number, number][]; P?: number[][] }
+  pins: [number, number][][]; marker: [number, number][]; P?: number[][]; ending?: { arrive: number } }
 interface SearchTasks { tasks: { places: { name: string; zone_id: string | null }[] }[] }
+/** the carton's way between two steps (assets/tour/route_path.py: belts, walkways, or held where it was last seen) */
+interface Way { from: number; to: number; kind: "belt" | "walk" | "held"; path: [number, number, number?][] }
+interface JourneyLite { objects: { segments: { kind: string; start: string; end: string }[] }[] }
+interface StateLite { answer?: { objects: { inside?: { place: string; carried_in_at?: string; came_out_empty?: string[]; until?: string } | null }[] } | null }
+type XY = [number, number];
+const MARK_Z = 0.8;   // the pins' and the carton's height in the render (tour_render.py PIN_Z)
+const isCam = (c: string) => /^(CAM|CHK)_/.test(c);
+/** the first share u (0..1) of a polyline, by its length on screen: how the route unrolls like a pen stroke */
+function prefix(q: XY[], u: number): XY[] {
+  const seg = q.slice(1).map((b, i) => Math.hypot(b[0] - q[i][0], (b[1] - q[i][1]) * 0.5625));
+  let left = u * seg.reduce((x, y) => x + y, 0);
+  const out: XY[] = [q[0]];
+  for (let i = 0; i < seg.length; i++) {
+    if (left >= seg[i]) { out.push(q[i + 1]); left -= seg[i]; continue; }
+    const f = seg[i] ? left / seg[i] : 0;
+    out.push([q[i][0] + (q[i + 1][0] - q[i][0]) * f, q[i][1] + (q[i + 1][1] - q[i][1]) * f]);
+    break;
+  }
+  return out;
+}
+/** where a screen point falls on a polyline (page fractions; y counted at the stage's 16:9) */
+function splitAt(pts: XY[], q: XY): [XY[], XY[]] {
+  let best = { d: Infinity, i: 0, p: pts[0] as XY };
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, ay] = pts[i], [bx, by] = pts[i + 1], dx = bx - ax, dy = (by - ay) * 0.5625, ll = dx * dx + dy * dy;
+    const u = ll ? Math.max(0, Math.min(1, ((q[0] - ax) * dx + (q[1] - ay) * 0.5625 * dy) / ll)) : 0;
+    const p: XY = [ax + (bx - ax) * u, ay + (by - ay) * u], d = Math.hypot(p[0] - q[0], (p[1] - q[1]) * 0.5625);
+    if (d < best.d) best = { d, i, p };
+  }
+  return [[...pts.slice(0, best.i + 1), best.p], [best.p, ...pts.slice(best.i + 1)]];
+}
+const pts = (q: XY[]) => q.map(([x, y]) => `${x.toFixed(4)},${y.toFixed(4)}`).join(" ");
 const ZONES = (HUB as unknown as { zones: { id: string; polygons: number[][][] }[] }).zones;
 
 const hms = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { timeZone: "Asia/Kuala_Lumpur", hour12: false });
@@ -43,6 +84,8 @@ export function HubTour({ caseId }: { caseId: string }) {
   const reel = useResource<Reel>(`/v1/cases/${caseId}/journey-reel`);
   // where Spoor says to search first (the search task's first place): drawn as a soft volume on the hub
   const search = useResource<SearchTasks>(`/v1/cases/${caseId}/search-tasks`);
+  const jr = useResource<JourneyLite>(`/v1/cases/${caseId}/journey`);
+  const state = useResource<StateLite>(`/v1/cases/${caseId}/state`);
   const first = search.data?.tasks.at(-1)?.places[0];
   const answer = first?.zone_id ? ZONES.find((z) => z.id === first.zone_id!.replace(/^zone_/, "")) : undefined;
   const steps: Chapter[] = useMemo(() => (reel.data?.chapters ?? []).filter((c) => c.tone !== "card"), [reel.data]);
@@ -55,6 +98,27 @@ export function HubTour({ caseId }: { caseId: string }) {
   const [fading, setFading] = useState(false);
   const [ov, setOv] = useState(false);
   const [evAt, setEvAt] = useState<number | null>(null);   // the step whose own clip is open (another step closes it)
+  const [endOv, setEnding] = useState(false);              // older tours without an ending: the answer on the whole hub
+  const [hoverCam, setHoverCam] = useState<string | null>(null);
+  // legs a jump has just travelled, unrolling like a pen stroke (u 0..1, ease-in-out over 700 ms)
+  const [pen, setPen] = useState<{ upTo: number; from: number; u: number } | null>(null);
+  const penRaf = useRef(0);
+  const unroll = (from: number, upTo: number) => {
+    cancelAnimationFrame(penRaf.current);
+    if (upTo <= from || REDUCED()) { setPen(null); return; }
+    let t0 = -1;
+    const ease = (x: number) => (x < 0.5 ? 4 * x ** 3 : 1 - (-2 * x + 2) ** 3 / 2);
+    const tick = (now: number) => {
+      if (t0 < 0) t0 = now;
+      const x = Math.min(1, (now - t0) / 700);
+      setPen(x < 1 ? { from, upTo, u: ease(x) } : null);
+      if (x < 1) penRaf.current = requestAnimationFrame(tick);
+    };
+    setPen({ from, upTo, u: 0 });
+    penRaf.current = requestAnimationFrame(tick);
+  };
+  const [ways, setWays] = useState<Way[]>([]);
+  const [camAt, setCamAt] = useState<Record<string, [number, number, number]>>({});
   const stopAt = useRef<number | null>(null);
   const base = `/tour/${caseId}/spin`;
 
@@ -74,10 +138,17 @@ export function HubTour({ caseId }: { caseId: string }) {
     let live = true;
     fetch(`/tour/${caseId}/tour.json`).then((r) => r.ok ? r.json() : "none").then((j) => { if (live) setTour(j); }).catch(() => live && setTour("none"));
     fetch(`/tour/${caseId}/spin/spin.json`).then((r) => r.ok ? r.json() : null).then((j) => { if (live && j && !j.test) setSpin(j); }).catch(() => {});
+    fetch(`/tour/${caseId}/ways.json`).then((r) => r.ok ? r.json() : null).then((j) => { if (live && j) setWays(j.legs); }).catch(() => {});
+    fetch("/tour/hub/cameras3d.json").then((r) => r.ok ? r.json() : null)
+      .then((j: { cameras: { id: string; at: [number, number, number] }[] } | null) => { if (live && j) setCamAt(Object.fromEntries(j.cameras.map((c) => [c.id, c.at]))); }).catch(() => {});
     return () => { live = false; };
   }, [caseId]);
   const t = tour && tour !== "none" ? tour : null;
   const n = spin?.n ?? 36;
+  // the answer: the render's ending (the drone eases back into the store and holds), reached by playing on or by the
+  // rail's Answer stop
+  const endAt = t?.ending?.arrive;
+  const ending = endAt != null ? !ov && frame >= endAt - 1 : endOv;
 
   // steps that share a place share one pin ("8-10"); the pin shows the step you are on when it is one of them
   const groups = useMemo(() => {
@@ -113,7 +184,7 @@ export function HubTour({ caseId }: { caseId: string }) {
   const frames = place ? ringReady(base, place, e) : null;
   const spun = ov || k !== 0 || e !== 0;
   const showTurn = resting && spun && !!frames;
-  const ring = resting && spin && place ? spin.rings[place]?.rings[e] : null;
+  const ring = resting && !ending && spin && place ? spin.rings[place]?.rings[e] : null;
 
   // load this place's rings (low first), the next place's low ring and the Overview, so a turn never waits
   useEffect(() => {
@@ -187,14 +258,15 @@ export function HubTour({ caseId }: { caseId: string }) {
     const v = video.current; if (!v || !t) return;
     v.pause(); stopAt.current = null; setPlaying(null);
     const target = t.steps[k2].arrive / t.fps + 0.01;
-    if (REDUCED()) { setOv(false); resetTurn(); setOn(k2); v.currentTime = target; then?.(); return; }
+    if (REDUCED()) { setOv(false); setEnding(false); resetTurn(); setOn(k2); v.currentTime = target; then?.(); return; }
     setFading(true);
-    window.setTimeout(() => { setOv(false); resetTurn(); setOn(k2); v.currentTime = target; then?.(); }, 120);
+    window.setTimeout(() => { setOv(false); setEnding(false); resetTurn(); setOn(k2); v.currentTime = target; then?.(); }, 120);
+    window.setTimeout(() => unroll(on, k2), 600);   // once the picture is back: the legs this jump passed over draw in
     window.setTimeout(() => setFading(false), 600);   // a seek to the frame it is on may not fire "seeked"
   };
   const goTo = async (k2: number) => {
     const v = video.current; if (!v || !t || k2 < 0 || k2 >= t.steps.length || busy) return;
-    if (k2 === on + 1 && !ov && !REDUCED()) {  // the next step: turn back to the landing frame, then fly there
+    if (k2 === on + 1 && !ov && !ending && !REDUCED()) {  // the next step: turn back to the landing frame, then fly there
       setBusy(true); await rewind(); setBusy(false);
       setOn(k2); stopAt.current = t.steps[k2].arrive; setPlaying("to"); void v.play();
       return;
@@ -204,23 +276,46 @@ export function HubTour({ caseId }: { caseId: string }) {
   const playAll = async () => {
     const v = video.current; if (!v || !t || busy) return;
     if (playing) { v.pause(); setPlaying(null); stopAt.current = null; return; }
-    if (ov) { crossTo(on, () => { stopAt.current = null; setPlaying("all"); void v.play(); }); return; }
+    if (ov || ending) { crossTo(0, () => { v.currentTime = 0; stopAt.current = null; setPlaying("all"); void v.play(); }); return; }
     setBusy(true); await rewind(); setBusy(false);
     if (v.ended || frame >= t.frames - 2) v.currentTime = 0;
     stopAt.current = null; setPlaying("all"); void v.play();
   };
   const toggleOv = () => {
     if (ov) { crossTo(on); return; }
+    setEnding(false);
     const v = video.current; v?.pause(); stopAt.current = null; setPlaying(null); stopAnim();
     if (REDUCED()) { setOv(true); setA(0); setE(0); return; }
     setFading(true);
     window.setTimeout(() => { setOv(true); setA(0); setE(0); setFading(false); }, 140);
   };
   const higher = () => { markTurned(); setE(e ? 0 : 1); };
+  // the answer: the whole hub, everything grey but the store Spoor names and the carton in it
+  const goAnswer = async () => {
+    const v = video.current; if (!v || !t || busy) return;
+    if (endAt != null) {
+      const last = steps.length - 1;
+      if (on === last && !ov && !ending && !REDUCED()) {   // from the last step: fly on into the ending
+        setBusy(true); await rewind(); setBusy(false);
+        stopAt.current = null; setPlaying("to"); void v.play();
+        return;
+      }
+      v.pause(); stopAt.current = null; setPlaying(null);
+      const go = () => { setOv(false); resetTurn(); setOn(last); v.currentTime = endAt / t.fps + 0.01; };
+      if (REDUCED()) { go(); return; }
+      setFading(true); window.setTimeout(go, 120); window.setTimeout(() => setFading(false), 600);
+      return;
+    }
+    v.pause(); stopAt.current = null; setPlaying(null); stopAnim();
+    const show = () => { setOv(true); setEnding(true); setOn(steps.length - 1); setA(0); setE(0); };
+    if (REDUCED()) { show(); return; }
+    setFading(true);
+    window.setTimeout(() => { show(); setFading(false); }, 140);
+  };
 
   // drag to turn: 1:1 with the pointer (half a turn across the picture), a flick carries on; up/down changes height
   const drag = useRef<{ x: number; y: number; a0: number; e0: number; id: number; moved: boolean; hist: { t: number; a: number }[] } | null>(null);
-  const canTurn = resting && !!spin && !!place && !!ringReady(base, place, 0) && !busy;
+  const canTurn = resting && !ending && !!spin && !!place && !!ringReady(base, place, 0) && !busy;
   const onDown = (ev: React.PointerEvent) => {
     // a drag may start anywhere on the picture, pins included (the step's pin sits in the middle); only the controls are out
     if (ev.button !== 0 || (ev.target as Element).closest(".ht-ctl, .ht-ev")) return;
@@ -274,7 +369,7 @@ export function HubTour({ caseId }: { caseId: string }) {
   // at rest the marks come from the turntable's table (its first frame is the video's), while flying from the video's
   const pins: UV[] = ring ? ring.pins[k] : t?.pins[Math.min(frame, t.pins.length - 1)] ?? [];
   // the carton stays where it was last seen: a step that is only a record (the truck's manifest) does not move it
-  let held = on; while (held > 0 && steps[held]?.tone === "record") held -= 1;
+  let held = ending ? steps.length - 1 : on; while (held > 0 && steps[held]?.tone === "record") held -= 1;
   const mk: UV | undefined = ring ? ring.pins[k][held] : t?.marker[Math.min(frame, t.marker.length - 1)];
   const camUV = ring && !ov && cur ? ring.cams[k]?.[cur.camera] : null;
   const pinUV = pins[on];
@@ -287,6 +382,58 @@ export function HubTour({ caseId }: { caseId: string }) {
   const inAnswer = (i: number) => { const xy = steps[i]?.xy, r = answer?.polygons[0]; if (!xy || !r) return false;
     const xs = r.map((q) => q[0]), ys = r.map((q) => q[1]); return xy[0] >= Math.min(...xs) && xy[0] <= Math.max(...xs) && xy[1] >= Math.min(...ys) && xy[1] <= Math.max(...ys); };
 
+  // story mode. The table's points are y-up (Blender's camera view); the page draws y-down
+  const flat = (q: UV | undefined | null): XY | null => q ? [q[0], 1 - q[1]] : null;
+  const proj = (x: number, y: number, z = MARK_Z): XY | null => Pm ? onFrame(Pm, x, y, z) : null;
+  const tms = steps.map((c) => Date.parse(c.t));
+  const arrive = t?.steps.map((x) => x.arrive) ?? [];
+  // a move was seen only where the journey has an observed span over most of it (being carried to the store, here)
+  const observed = (jr.data?.objects[0]?.segments ?? []).filter((x) => x.kind === "observed").map((x) => [Date.parse(x.start), Date.parse(x.end)]);
+  const seenMove = (i: number, j: number) => { const a0 = tms[i], a1 = tms[j]; if (!(a1 > a0)) return false;
+    return observed.reduce((sum, [b0, b1]) => sum + Math.max(0, Math.min(a1, b1) - Math.max(a0, b0)), 0) / (a1 - a0) >= 0.5; };
+  const flying = playing ? ways.find((w) => w.kind !== "held" && frame >= arrive[w.from] && frame < arrive[w.to]) : undefined;
+  const mkTop = flat(mk);
+  const route = t && !fading ? ways.filter((w) => w.kind !== "held").map((w) => {
+    const line = w.path.map(([x, y, z]) => proj(x, y, z ?? 0)).filter((q): q is XY => !!q);
+    const unrolling = pen && w.from >= pen.from && w.to <= pen.upTo && line.length > 1;
+    const [done, rest]: [XY[], XY[]] = unrolling ? [prefix(line, pen.u), line]
+      : ending || (w !== flying && w.to <= on) ? [line, []]
+      : w === flying && mkTop && line.length > 1 ? splitAt(line, mkTop) : [[], line];
+    const gap = !seenMove(w.from, w.to), mins = Math.round((tms[w.to] - tms[w.from]) / 60000);
+    return { w, done, rest, gap, tag: gap && mins >= 1 && line.length > 1 ? { at: line[Math.floor(line.length / 2)], text: `No camera · ${mins} min` } : null };
+  }) : [];
+  // the cameras that recorded a step at this place, as soft beams onto it: the step's own camera indigo, the others
+  // faint (a camera is only drawn for a step it recorded: nothing is claimed for the rest)
+  const group = groups.find((g) => g.includes(on)) ?? [on];
+  const placeCams = [...new Set(group.map((i) => steps[i]?.camera).filter((c): c is string => !!c && isCam(c)))];
+  const beam = (cid: string) => {
+    const cA = camAt[cid], xy = steps[group.find((i) => steps[i].camera === cid) ?? on]?.xy;
+    if (!cA || !xy) return null;
+    const [sx, sy] = xy; let dx = sx - cA[0], dy = sy - cA[1]; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
+    const c = proj(cA[0], cA[1], cA[2]), p1 = proj(sx - dy * 1.1, sy + dx * 1.1, 0.4), p2 = proj(sx + dy * 1.1, sy - dx * 1.1, 0.4);
+    return c && p1 && p2 && inView(c) ? { cid, c, p1, p2, best: hoverCam ? cid === hoverCam : cid === cur?.camera } : null;
+  };
+  const beams = !ov && !ending && cur ? placeCams.map(beam).filter((b): b is NonNullable<ReturnType<typeof beam>> => !!b) : [];
+  // the step the parcel has reached: its pin springs in as it gets there
+  const reached = ending ? steps.length - 1 : playing ? arrive.reduce((b, f, j) => (f <= frame ? j : b), 0) : on;
+  const carton3d = !!t?.ending;   // a tour rendered with the carton in the scene: no drawn carton on top
+  const trail = playing && t && mkTop ? [4, 8, 12, 16, 20].map((d) => flat(t.marker[Math.max(0, frame - d)]))
+    .filter((q): q is XY => !!q && Math.hypot(q[0] - mkTop[0], q[1] - mkTop[1]) > 0.006) : [];
+  // the story clock: the step's time at rest; while flying it runs from one step's time to the next's (a wait in place
+  // runs it too), so eleven minutes in a cage pass as a fast count
+  const near = (i: number) => { const p = steps[i - 1]?.xy, q = steps[i]?.xy; return !!p && !!q && Math.hypot(p[0] - q[0], p[1] - q[1]) < 0.5; };
+  let clock = tms[on];
+  if (playing && t && arrive.length) {
+    const i = arrive.reduce((b, f, j) => (f <= frame ? j : b), 0);
+    clock = tms[i];
+    if (i < steps.length - 1) {
+      const f0 = near(i + 1) ? arrive[i] : arrive[i] + Math.round(t.fps * (i === 0 || !near(i) ? 1.0 : 0.7));
+      clock = tms[i] + (tms[i + 1] - tms[i]) * Math.min(1, Math.max(0, (frame - f0) / Math.max(1, arrive[i + 1] - f0)));
+    }
+  }
+  const inside = state.data?.answer?.objects.find((o) => o.inside)?.inside ?? null;
+  const placeName = (inside?.place ?? first?.name ?? "").replace(/^Z\d+ /, "").replace(/\s*\(Z\d+\)$/, "");
+
   return (
     <div className="ht" onKeyDown={(ev) => { if (ev.key === "ArrowRight") void goTo(on + 1); if (ev.key === "ArrowLeft") void goTo(on - 1); }}>
       {modes}
@@ -296,21 +443,42 @@ export function HubTour({ caseId }: { caseId: string }) {
           onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onDoubleClick={(ev) => { if (!(ev.target as Element).closest("button, .ht-ev") && canTurn) void rewind(); }}
           aria-label={canTurn ? "The hub around this step. Drag, or use the arrow keys, to turn it; up and down to look from higher or lower." : undefined}>
           {t && <video ref={video} className="ht-video" src={`/tour/${caseId}/tour.mp4`} muted playsInline preload="auto"
-            onSeeked={() => setFading(false)} aria-label="Fly-through of the hub model along the parcel's route" />}
+            onSeeked={() => setFading(false)} onEnded={() => { if (playing === "all" && endAt == null) window.setTimeout(() => void goAnswer(), 700); }}
+            aria-label="Fly-through of the hub model along the parcel's route" />}
           <canvas ref={canvas} key={`cut${cut}`} className="ht-turn" data-on={showTurn ? "" : undefined} data-cut={cut ? "" : undefined} aria-hidden />
           {ovWait && <span className="ht-wait" />}
+          <span className="ht-vignette" aria-hidden />
           {t && !ovWait && (
-            <div className="ht-marks" aria-hidden>
+            <div className="ht-marks" data-ending={ending ? "" : undefined} aria-hidden>
               {vol && (
-                <svg className="ht-zone" viewBox="0 0 1 1" preserveAspectRatio="none" key={inAnswer(on) && resting ? `z${on}` : "z"} data-pulse={inAnswer(on) && resting ? "" : undefined}>
+                <svg className="ht-zone" viewBox="0 0 1 1" preserveAspectRatio="none" key={ending ? "zend" : inAnswer(on) && resting ? `z${on}` : "z"}
+                  data-pulse={(inAnswer(on) && resting) || ending ? "" : undefined} data-glow={ending ? "" : undefined}>
                   {vol.walls.map((w, i) => <polygon key={i} className="ht-zone-wall" points={w} />)}
                   {vol.floor && <polygon className="ht-zone-floor" points={vol.floor} />}
                   {vol.top && <polygon className="ht-zone-top" points={vol.top} />}
                 </svg>
               )}
-              {inView(camUV) && inView(pinUV) && (
-                <svg className="ht-sight">
-                  <line x1={`${camUV[0] * 100}%`} y1={`${(1 - camUV[1]) * 100}%`} x2={`${pinUV[0] * 100}%`} y2={`${(1 - pinUV[1]) * 100}%`} />
+              {route.length > 0 && (
+                <svg className="ht-route" viewBox="0 0 1 1" preserveAspectRatio="none">
+                  {route.map(({ w, rest, gap }) => rest.length > 1 && <polyline key={`r${w.to}`} className="ht-r-next" data-gap={gap ? "" : undefined} points={pts(rest)} />)}
+                  {route.map(({ w, done }) => done.length > 1 && <polyline key={`h${w.to}`} className="ht-r-halo" points={pts(done)} />)}
+                  {route.map(({ w, done, gap }) => done.length > 1 && <polyline key={`d${w.to}`} className="ht-r-done" data-gap={gap ? "" : undefined} points={pts(done)} />)}
+                </svg>
+              )}
+              {route.map(({ w, tag }) => tag && inView(tag.at) && !ending && (
+                <span key={`g${w.to}`} className="ht-gap-tag" style={{ left: `${tag.at[0] * 100}%`, top: `${tag.at[1] * 100}%` }}>{tag.text}</span>
+              ))}
+              {beams.length > 0 && (
+                <svg className="ht-beams" viewBox="0 0 1 1" preserveAspectRatio="none" key={`b${group[0]}`} data-out={!resting ? "" : undefined}>
+                  <defs>
+                    {beams.map((b) => (
+                      <linearGradient key={b.cid} id={`ht-beam-${b.cid}`} gradientUnits="userSpaceOnUse" x1={b.c[0]} y1={b.c[1]} x2={(b.p1[0] + b.p2[0]) / 2} y2={(b.p1[1] + b.p2[1]) / 2}>
+                        <stop offset="0" stopColor={b.best ? "#a5b4fc" : "#ffffff"} stopOpacity={b.best ? 0.5 : 0.25} />
+                        <stop offset="1" stopColor={b.best ? "#818cf8" : "#ffffff"} stopOpacity={b.best ? 0.32 : 0.12} />
+                      </linearGradient>
+                    ))}
+                  </defs>
+                  {beams.map((b) => <polygon key={b.cid} className="ht-beam" data-best={b.best ? "" : undefined} points={pts([b.c, b.p1, b.p2])} fill={`url(#ht-beam-${b.cid})`} />)}
                 </svg>
               )}
               {inView(camUV) && (
@@ -322,23 +490,40 @@ export function HubTour({ caseId }: { caseId: string }) {
               )}
               {groups.map((g) => {
                 const p = pins[g[0]]; if (!inView(p)) return null;
-                const here = g.includes(on), c = steps[here ? on : g[0]];
-                // the tag hangs right of its pin, unless another pin is there: then it hangs left, so no pin is hidden
-                const flip = here && groups.some((o) => o !== g && inView(pins[o[0]]) && pins[o[0]]![0] - p[0] > 0 && pins[o[0]]![0] - p[0] < 0.27 && Math.abs(pins[o[0]]![1] - p[1]) < 0.07);
+                const here = g.includes(on) && !ending, c = steps[here ? on : g[0]];
+                // the tag hangs right of its pin, unless another pin or the step's camera is there: then it hangs left
+                const under = (q: UV | undefined) => inView(q) && q[0] - p[0] > 0 && q[0] - p[0] < 0.27 && Math.abs(q[1] - p[1]) < 0.07;
+                const flip = here && (groups.some((o) => o !== g && under(pins[o[0]])) || under(camUV));
                 const label = g.length > 1 ? `${g[0] + 1}–${g.at(-1)! + 1}` : `${g[0] + 1}`;
                 return (
                   <button key={g[0]} type="button" tabIndex={-1} className="ht-pin" data-tone={c.tone} data-on={here ? "" : undefined} data-flip={flip ? "" : undefined}
+                    data-reached={g[0] <= reached ? "" : undefined}
                     style={{ left: `${p[0] * 100}%`, top: `${(1 - p[1]) * 100}%` }} onClick={() => void goTo(here ? on : g[0])}>
                     <span className="ht-pin-n">{here ? on + 1 : label}</span>
                     {here && <span className="ht-pin-tag"><b>{c.title}</b><small>{hms(c.t)}</small></span>}
                   </button>
                 );
               })}
-              {inView(mk) && (
+              {trail.map((q, i) => (
+                <span key={i} className="ht-trail" style={{ left: `${q[0] * 100}%`, top: `${q[1] * 100}%`, opacity: 0.55 - i * 0.1, scale: `${1 - i * 0.12}` }} />
+              ))}
+              {inView(mk) && !carton3d && (
                 <span className="ht-carton" style={{ left: `${mk[0] * 100}%`, top: `${(1 - mk[1]) * 100}%` }}>
                   <svg viewBox="0 0 32 32"><path className="ht-c-top" d="M16 4 28 10 16 16 4 10z" /><path className="ht-c-l" d="M4 10 16 16v13L4 23z" /><path className="ht-c-r" d="M28 10 16 16v13l12-6z" /><path className="ht-c-tape" d="M10 7 22 13v3" /></svg>
                 </span>
               )}
+            </div>
+          )}
+          {t && !ending && Number.isFinite(clock) && (
+            <span className="ht-clock" aria-hidden>
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></svg>
+              {new Date(clock).toLocaleTimeString("en-GB", { timeZone: "Asia/Kuala_Lumpur", hour12: false })}
+            </span>
+          )}
+          {ending && !fading && (
+            <div className="ht-end" role="status" data-foot={endAt != null ? "" : undefined}>
+              <b>Most likely here</b>
+              {inside && <small>{placeName}{inside.carried_in_at ? ` · carried in at ${inside.carried_in_at}, not seen coming out` : ""}</small>}
             </div>
           )}
           {!t && <span className="ht-wait" />}
@@ -358,7 +543,7 @@ export function HubTour({ caseId }: { caseId: string }) {
             </span>
           )}
           <div className="ht-ctl">
-            <button type="button" className="ht-play" onClick={() => void playAll()} disabled={!t}>
+            <button type="button" className="ht-play" data-primary={!playing ? "" : undefined} onClick={() => void playAll()} disabled={!t}>
               {playing === "all" ? <svg viewBox="0 0 24 24" aria-hidden><rect x="6.5" y="5" width="4" height="14" rx="1.3" /><rect x="13.5" y="5" width="4" height="14" rx="1.3" /></svg>
                 : <svg viewBox="0 0 24 24" aria-hidden><path d="M8 5.6v12.8a1 1 0 0 0 1.5.86l10.4-6.4a1 1 0 0 0 0-1.72L9.5 4.74A1 1 0 0 0 8 5.6Z" /></svg>}
               {playing === "all" ? "Pause" : "Fly the route"}
@@ -381,16 +566,48 @@ export function HubTour({ caseId }: { caseId: string }) {
         </div>
         <ol className="ht-rail" aria-label="Steps">
           {steps.map((c, i) => (
-            <li key={i} data-done={i <= on ? "" : undefined}>
-              <button type="button" className="ht-step" data-tone={c.tone} aria-current={on === i ? "step" : undefined} onClick={() => void goTo(i)}>
+            <li key={i} data-done={i <= on || ending ? "" : undefined}>
+              <button type="button" className="ht-step" data-tone={c.tone} aria-current={on === i && !ending ? "step" : undefined} onClick={() => void goTo(i)}>
                 <span className="ht-step-n">{i + 1}</span><span className="ht-step-t">{hms(c.t).slice(0, 5)}</span>
               </button>
             </li>
           ))}
+          {answer && (
+            <li data-done={ending ? "" : undefined}>
+              <button type="button" className="ht-step ht-step-end" aria-current={ending ? "step" : undefined} onClick={() => void goAnswer()}>
+                <span className="ht-step-n"><svg viewBox="0 0 24 24" aria-hidden><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z" /><circle cx="12" cy="10" r="2.3" /></svg></span>
+                <span className="ht-step-t">Answer</span>
+              </button>
+            </li>
+          )}
         </ol>
       </div>
 
-      {cur && (
+      {ending && (
+        <aside className="ht-card" aria-live="polite">
+          <figure className="ht-frame">
+            {/* eslint-disable-next-line @next/next/no-img-element -- the last step at the store, cut from its camera by the API */}
+            {steps[held]?.thumb_url ? <img src={signedUrl(steps[held].thumb_url!)} alt={`${steps[held].title}, ${camWords(steps[held].camera)}`} /> : <span className="ht-frame-none">No camera saw this step</span>}
+          </figure>
+          <div className="ht-card-top"><span className="ht-n">The answer</span><span className="ht-chip" data-tone="seen">Most likely</span></div>
+          <h3 className="ht-title">In the {placeName || "place Spoor names"}</h3>
+          {inside && (
+            <p className="ht-sub">
+              {inside.carried_in_at && `Carried in at ${inside.carried_in_at}. `}
+              {inside.came_out_empty?.[0] && `Came out without it at ${inside.came_out_empty[0]}. `}
+              {inside.until && `Not seen coming out until the recording ends at ${inside.until}.`}
+            </p>
+          )}
+          <p className="ht-meta">No camera sees inside; the door is the only way in (site plan)</p>
+          <div className="ht-acts">
+            <button type="button" className="ht-btn" onClick={() => void goTo(steps.length - 1)} aria-label="Back to the last step">
+              <svg viewBox="0 0 24 24" aria-hidden><path d="M15 5l-7 7 7 7" /></svg></button>
+            <a className="ht-btn ht-btn-main" href={`/cases/${caseId}/search`}>Go look</a>
+            <span />
+          </div>
+        </aside>
+      )}
+      {cur && !ending && (
         <aside className="ht-card" aria-live="polite">
           <figure className="ht-frame">
             {cur.thumb_url
@@ -402,6 +619,24 @@ export function HubTour({ caseId }: { caseId: string }) {
           <div className="ht-card-top"><span className="ht-n">Step {on + 1} of {steps.length}</span><span className="ht-chip" data-tone={cur.tone}>{cur.last_scan ? "Last scan" : CHIP[cur.tone]}</span></div>
           <h3 className="ht-title">{cur.title}</h3>
           {cur.sub && <p className="ht-sub">{cur.sub}</p>}
+          {placeCams.length > 1 && (
+            <div className="ht-seen" onMouseLeave={() => setHoverCam(null)}>
+              <span className="ht-seen-h">Seen here by {placeCams.length} cameras</span>
+              <div className="ht-seen-row">
+                {[...placeCams].sort((x, y) => Number(y === cur.camera) - Number(x === cur.camera)).map((cid) => {
+                  const i = group.find((j) => steps[j].camera === cid) ?? on, own = cid === cur.camera;
+                  return (
+                    <button key={cid} type="button" className="ht-seen-cam" data-best={own ? "" : undefined} onMouseEnter={() => setHoverCam(cid)} onFocus={() => setHoverCam(cid)}
+                      onBlur={() => setHoverCam(null)} onClick={() => (own ? setEvAt(on) : void goTo(i))} aria-label={`${camWords(cid)}, step ${i + 1}`}>
+                      {/* eslint-disable-next-line @next/next/no-img-element -- the step's own frame from that camera */}
+                      {steps[i].thumb_url ? <img src={signedUrl(steps[i].thumb_url!)} alt="" /> : <span />}
+                      <small>{camShort(cid)}</small>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <p className="ht-meta">{hms(cur.t)} · {camWords(cur.camera)}</p>
           <div className="ht-acts">
             <button type="button" className="ht-btn" onClick={() => void goTo(on - 1)} disabled={on === 0} aria-label="Previous step">
