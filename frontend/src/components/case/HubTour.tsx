@@ -501,7 +501,8 @@ export function HubTour({ caseId }: { caseId: string }) {
                   {route.map(({ w, done, gap }) => done.length > 1 && <polyline key={`d${w.to}`} className="ht-r-done" data-gap={gap ? "" : undefined} points={pts(done)} />)}
                 </svg>
               )}
-              {route.map(({ w, tag }) => tag && inView(tag.at) && !ending && (
+              {/* a gap's words only while it matters: flying that leg, or resting on either end of it */}
+              {route.map(({ w, tag }) => tag && inView(tag.at) && !ending && (w === flying || (!playing && (on === w.from || on === w.to))) && (
                 <span key={`g${w.to}`} className="ht-gap-tag" style={{ left: `${tag.at[0] * 100}%`, top: `${tag.at[1] * 100}%` }}>{tag.text}</span>
               ))}
               {beams.length > 0 && (
