@@ -401,3 +401,4 @@ a.ht-btn-main { text-decoration: none; display: grid; place-items: center; }
 @keyframes ht-ping { 0% { opacity: 0; scale: 1.8; } 55% { opacity: 1; scale: 0.92; } 100% { opacity: 1; scale: 1; } }
 @media (prefers-reduced-motion: reduce) { .ht-ping { animation: none; } }
 .tc-key-t { width: 12px; height: 12px; margin-left: 8px; border-radius: 50%; box-shadow: inset 0 0 0 2px #facc15; display: inline-block; }
+.ht-key-dash i { width: 18px; height: 0; border-radius: 0; background: none; box-shadow: none; border-top: 3px dotted #818cf8; }

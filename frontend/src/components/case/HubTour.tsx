@@ -704,6 +704,7 @@ export function HubTour({ caseId }: { caseId: string }) {
       )}
       <p className="ht-note">
         {answer && <span className="ht-key"><i aria-hidden />Where Spoor says to search first{first ? `: the ${first.name.replace(/^Z\d+ /, "").replace(/\s*\(Z\d+\)$/, "")}` : ""}.</span>}
+        <span className="ht-key ht-key-dash"><i aria-hidden />Dashed: no camera saw that move.</span>
         The hub model, rendered in Blender. The pins and the carton are placed from the cameras and scans; the moves between steps are drawn, not filmed.
       </p>
     </div>
