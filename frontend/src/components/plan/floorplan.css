@@ -35,7 +35,8 @@
 .fp-stop[data-on] circle { fill: var(--fp-accent); stroke: var(--fp-accent); }
 .fp-stop[data-on] text { fill: #fff; }
 .fp-stop[role="button"] { cursor: pointer; }
-.fp-stop:focus-visible { outline: none; }
+/* no outline on a clicked stop: an SVG outline is drawn in the drawing's units and becomes a thick black ring */
+.fp-stop:focus, .fp-stop:focus-visible { outline: none; }
 .fp-stop:focus-visible circle { stroke: var(--fp-accent); stroke-width: 0.5; }
 .fp-you-halo { fill: rgba(79, 70, 229, 0.18); animation: fp-pulse 2.4s ease-out infinite; transform-box: fill-box; transform-origin: center; }
 .fp-you-dot { fill: var(--fp-accent); stroke: #fff; }

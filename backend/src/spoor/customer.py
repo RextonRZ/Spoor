@@ -61,6 +61,16 @@ def email(greeting: str, paragraphs: list[str], lang: str) -> str:
     return "\n\n".join([greeting.strip(), *(p.strip() for p in paragraphs if p.strip()), SIGN.get(lang, SIGN["en"])])
 
 
+# the hub's own Malay signage names (the store door reads STOR PENGECUALIAN); places without a sign keep the English name
+_TEMPAT = {"exception store": "stor pengecualian"}
+_BULAN = ["Jan", "Feb", "Mac", "Apr", "Mei", "Jun", "Jul", "Ogo", "Sep", "Okt", "Nov", "Dis"]
+
+
+def _dm(at: datetime) -> str:
+    """the day and month as a Malay reader writes them (28 Okt, not 28 Oct)"""
+    return f"{at.day} {_BULAN[at.month - 1]}"
+
+
 def _found(store: EvidenceStore, case_id: str):
     from spoor.contracts import SearchOutcome
 
@@ -77,7 +87,7 @@ def facts_for(case: Case, answer: dict | None, tz: str = "Asia/Kuala_Lumpur", *,
     if found is not None:
         at = found.recorded_at.astimezone(zone)
         return ([f"{'Nombor penjejakan' if ms else 'Tracking number'} {waybill}.",
-                 (f"Pasukan hab menemui bungkusan ini di hab pengisihan pada {at:%d %b} jam {at:%H:%M}." if ms else
+                 (f"Pasukan hab menemui bungkusan ini di hab pengisihan pada {_dm(at)} jam {at:%H:%M}." if ms else
                   f"Hub staff found it at the sorting hub on {at:%d %b} at {at:%H:%M}."),
                  ("Ia sedang dihantar semula; tarikh penghantaran baharu akan dimaklumkan sebaik sahaja ditempah." if ms else
                   "It is being sent on; the new delivery date follows as soon as it is booked.")],
@@ -91,7 +101,7 @@ def facts_for(case: Case, answer: dict | None, tz: str = "Asia/Kuala_Lumpur", *,
             ref = {"kind": "camera", "at": f["iso"]["carried_in_at"], "label": f"Carried in {at:%H:%M} (store door camera)"}
             if ms:
                 return ([f"Nombor penjejakan {waybill}.",
-                         f"Ia berada di hab pengisihan: pada {at:%d %b} jam {at:%H:%M} ia dibawa masuk ke {place} hab, dan belum keluar sejak itu.",
+                         f"Ia berada di hab pengisihan: pada {_dm(at)} jam {at:%H:%M} ia dibawa masuk ke {_TEMPAT.get(place, place)} hab, dan belum keluar sejak itu.",
                          "Kemas kini penjejakan sebelum ini menyatakan ia dimuatkan ke trak; kemas kini itu salah.",
                          "Seorang ahli pasukan hab sedang memeriksa tempat itu supaya ia dapat dihantar."],
                         [None, ref, {"kind": "record", "label": "Truck record checked against the cameras"}, None])
@@ -106,7 +116,7 @@ def facts_for(case: Case, answer: dict | None, tz: str = "Asia/Kuala_Lumpur", *,
             ref = {"kind": "camera", "at": s["at"], "label": f"Last scan {at:%H:%M}, seen on camera"}
             if ms:
                 return ([f"Nombor penjejakan {waybill}.",
-                         f"Imbasan terakhirnya di hab pengisihan ialah pada {at:%d %b} jam {at:%H:%M}, dan kamera hab mengesahkan ia berada di situ.",
+                         f"Imbasan terakhirnya di hab pengisihan ialah pada {_dm(at)} jam {at:%H:%M}, dan kamera hab mengesahkan ia berada di situ.",
                          "Seorang ahli pasukan hab sedang memeriksa tempat itu supaya ia dapat dihantar."], [None, ref, None])
             return ([f"Tracking number {waybill}.",
                      (f"Its last scan at the sorting hub was on {at:%d %b} at {at:%H:%M}, and the hub's cameras confirm "

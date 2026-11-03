@@ -98,3 +98,10 @@
 .gs[data-narrow] .gs-body { align-items: stretch; }
 .gs-phone-h a { color: var(--tb-ink-2); }
 .gs-queue li[data-state="skip"] .gs-qt, .gs-queue li[data-state="skip"] .gs-qs { color: var(--tb-mute); }
+/* the phone stays true size (Rexton: a squeezed phone looks wrong) and pins right under the 56 px top bar: at 1440x900
+   one scroll down shows the whole phone, dock and home bar included. The label floats above it (not part of the pinned
+   height) and the body has no bottom padding, so the pin holds to the end of the page. */
+.gs:not([data-narrow]) .gs-body { padding-top: 48px; padding-bottom: 0; }
+.gs-phonewrap { top: 56px; }
+.gs-phonewrap .gs-phone-h { position: absolute; bottom: 100%; margin-bottom: 10px; white-space: nowrap; }
+.gs:not([data-narrow]) .gs-task { position: sticky; top: 80px; }

@@ -347,7 +347,7 @@
 @media (prefers-reduced-transparency: reduce) { .fa-tabs { background: #fff; -webkit-backdrop-filter: none; backdrop-filter: none; } }
 
 /* the task's "where to walk": one row that opens the walking directions (Map tab) */
-.fa-walkcard { all: unset; box-sizing: border-box; display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 12px; padding: 14px 14px 14px 16px; cursor: pointer;
+.fa-walkcard { all: unset; box-sizing: border-box; display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 10px; padding: 14px 12px 14px 14px; cursor: pointer;
   background: var(--fa-surface); border-radius: var(--fa-r); box-shadow: 0 1px 2px rgba(15, 18, 34, 0.05), 0 6px 20px rgba(15, 18, 34, 0.05); transition: transform 140ms var(--fa-out); }
 .fa-walkcard:active:not(:disabled) { transform: scale(0.98); }
 .fa-walkcard:disabled { cursor: default; }
@@ -355,7 +355,7 @@
 .fa-walk-ic { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: var(--fa-accent-tint); color: var(--fa-accent); }
 .fa-walk-ic svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .fa-walk-t { display: grid; gap: 2px; min-width: 0; }
-.fa-walk-t b { font-size: 16.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fa-walk-t b { font-size: 16.5px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fa-walk-t small { font-size: 13.5px; color: var(--fa-mute); }
 .fa-walk-go { height: 36px; padding: 0 14px; border-radius: 18px; display: grid; place-items: center; background: var(--fa-accent); color: #fff; font-size: 14px; font-weight: 700; }
 .fa-order li { min-height: 46px; }

@@ -19,6 +19,7 @@ import type { Journey, MissingMoment, XY } from "@/lib/journey";
 import type { Reel } from "@/components/case/JourneyReel";
 import { toWav16k } from "@/lib/wav";
 import { HUB } from "@/lib/hub";
+import { ZONE_NAMES } from "@/lib/zones";
 import FloorPlan, { centroid, walkRoute } from "@/components/plan/FloorPlan";
 import { WalkNav } from "./WalkNav";
 import "./floor.css";
@@ -41,6 +42,9 @@ const buzz = (ms = 12) => { try { navigator.vibrate?.(ms); } catch { /* not on t
 
 /** "Exception store (Z11)" -> name + zone; "Z10 Cage staging (...)" -> "Cage staging" */
 function placeName(p: Place): string {
+  // zone rows read from the app's one zone list, as the supervisor's side names them ("Office", not "Supervisor office")
+  const zone = /^Z\d+ /.test(p.name) && p.zone_id ? ZONE_NAMES[p.zone_id.replace(/^zone_/, "")] : undefined;
+  if (zone) return zone;
   return /^Z\d+ /.test(p.name) ? p.name.replace(/^Z\d+ /, "").replace(/\s*[(,;].*$/, "") : p.name.replace(/\s*\(Z\d+\)$/, "");
 }
 function zoneOf(p: Place) {
@@ -284,8 +288,8 @@ export function FloorApp({ caseId, waybill, waited, framed = true, center }: { c
               <button type="button" className="fa-card fa-walkcard" onClick={() => { buzz(); go("map", "tab"); }} disabled={here}>
                 <span className="fa-walk-ic" aria-hidden><svg viewBox="0 0 24 24"><path d="M13 4a1.5 1.5 0 1 0 0-.01M10 21l2-6 3 3v5M8 12l3-3 3 2 2 3M11 9l-2 6" /></svg></span>
                 <span className="fa-walk-t">
-                  <b>{here ? "You are here" : `About ${walkMin} min walk`}</b>
-                  <small>{here ? `Search the ${placeName(place).toLowerCase()}` : `${Math.round(metres / 5) * 5} m from the office`}</small>
+                  <b>{here ? "You are here" : `${walkMin} min walk`}</b>
+                  <small>{here ? `Search the ${placeName(place).toLowerCase()}` : `About ${Math.round(metres / 5) * 5} m from the office`}</small>
                 </span>
                 {!here && <span className="fa-walk-go">Directions</span>}
               </button>

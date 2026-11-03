@@ -78,6 +78,7 @@ export default function FloorPlan(p: Props) {
   const showLabel = (id: string) => p.labels === "all" || ((p.labels ?? "major") === "major" && (MAJOR.has(id) || id === p.highlight))
     || !!p.labelIds?.includes(id);
   const fs = (p.labelSize ?? 1.2) * k; // label size in metres of the drawing (1.2 ≈ 10-11 px on a desktop-width plan)
+  const placedStops = fanned(p.stops ?? [], 2.6 * k);
 
   return (
     <figure className="fp" aria-label={p.label} data-dim={p.dim ? "" : undefined}>
@@ -124,7 +125,8 @@ export default function FloorPlan(p: Props) {
           const seg = d.wall === "W" || d.wall === "E" ? [[cx, cy - h], [cx, cy + h]] : [[cx - h, cy], [cx + h, cy]];
           return <line key={d.id} x1={X(seg[0][0])} y1={Y(seg[0][1])} x2={X(seg[1][0])} y2={Y(seg[1][1])} className="fp-door" strokeWidth={0.5 * k} />;
         })}
-        {/* labels */}
+        {/* labels: at the zone's middle, or the first spot inside it that no stop or route leg covers (a name under a pin
+            reads as neither); a label with no clear spot is left out, except the highlighted zone's */}
         {hub.zones.filter((z) => SHORT[z.id] && showLabel(z.id)).map((z) => {
           const [cx0, cy0] = centroid(z.polygons[0]);
           const half = SHORT[z.id].length * fs * 0.29; // keep the whole label inside the frame
@@ -133,10 +135,27 @@ export default function FloorPlan(p: Props) {
           const xs = z.polygons[0].map((q) => q[0]), ys = z.polygons[0].map((q) => q[1]);
           const left = Math.max(Math.min(...xs), box.x0) + 0.8 * k;
           const out = corner && left + half * 2 > box.x1 - 0.4 * k; // would run off the frame: sit just left of the zone instead
-          const cx = !corner ? Math.min(Math.max(cx0, box.x0 + half + 0.4 * k), box.x1 - half - 0.4 * k) : out ? Math.min(...xs) - 0.8 * k : left;
-          const cy = corner ? Math.min(Math.max(...ys), box.y1) - fs * 0.9 : cy0;
-          return <text key={z.id} x={X(cx)} y={Y(cy)} fontSize={fs} className={`fp-label${z.id === p.highlight ? " fp-label-hl" : ""}`}
-            textAnchor={!corner ? "middle" : out ? "end" : "start"} dominantBaseline="middle">{SHORT[z.id]}</text>;
+          if (corner) {
+            const cx = out ? Math.min(...xs) - 0.8 * k : left, cy = Math.min(Math.max(...ys), box.y1) - fs * 0.9;
+            return <text key={z.id} x={X(cx)} y={Y(cy)} fontSize={fs} className={`fp-label${z.id === p.highlight ? " fp-label-hl" : ""}`}
+              textAnchor={out ? "end" : "start"} dominantBaseline="middle">{SHORT[z.id]}</text>;
+          }
+          const clampX = (x: number) => Math.min(Math.max(x, box.x0 + half + 0.4 * k), box.x1 - half - 0.4 * k);
+          const [zx0, zx1, zy0, zy1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+          const inX = Math.max(zx0 + half + 0.4 * k, Math.min(zx1 - half - 0.4 * k, cx0)), dy = fs * 0.9;
+          const tries: XY[] = [[cx0, cy0], [inX, zy1 - dy], [inX, zy0 + dy], [zx0 + half + 0.5 * k, zy1 - dy], [zx1 - half - 0.5 * k, zy1 - dy],
+            [zx0 + half + 0.5 * k, zy0 + dy], [zx1 - half - 0.5 * k, zy0 + dy]].map(([x, y]) => [clampX(x), y]);
+          const hits = ([x, y]: XY) => {
+            const bx0 = x - half - 0.3 * k, bx1 = x + half + 0.3 * k, by0 = y - fs * 0.6, by1 = y + fs * 0.6;
+            const inBox = (q: XY, r: number) => Math.hypot(Math.max(bx0 - q[0], 0, q[0] - bx1), Math.max(by0 - q[1], 0, q[1] - by1)) < r;
+            let n = placedStops.filter((s) => inBox(s.xy, 1.5 * k)).length;
+            for (const g of p.legs ?? []) for (let t = 0; t <= 1; t += 0.05) if (inBox([g.from[0] + (g.to[0] - g.from[0]) * t, g.from[1] + (g.to[1] - g.from[1]) * t], 0.3 * k)) { n += 0.2; break; }
+            return n;
+          };
+          const best = tries.reduce((a, q) => (hits(q) < hits(a) ? q : a), tries[0]);
+          if (hits(best) >= 1 && z.id !== p.highlight) return null;
+          return <text key={z.id} x={X(best[0])} y={Y(best[1])} fontSize={fs} className={`fp-label${z.id === p.highlight ? " fp-label-hl" : ""}`}
+            textAnchor="middle" dominantBaseline="middle">{SHORT[z.id]}</text>;
         })}
         {/* the route */}
         {p.legs?.map((g, i) => (
@@ -156,7 +175,7 @@ export default function FloorPlan(p: Props) {
             </g>
           );
         })}
-        {fanned(p.stops ?? [], 2.6 * k).map((s) => (
+        {placedStops.map((s) => (
           <g key={String(s.n)} className="fp-stop" data-tone={s.tone ?? "none"} data-on={s.on ? "" : undefined}
             role={p.onStop ? "button" : undefined} tabIndex={p.onStop ? 0 : undefined} onClick={() => p.onStop?.(s.n)}
             onKeyDown={(e) => e.key === "Enter" && p.onStop?.(s.n)}>
