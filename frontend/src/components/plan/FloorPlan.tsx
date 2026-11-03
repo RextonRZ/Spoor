@@ -240,6 +240,11 @@ export function walkRoute(from: XY, to: XY): XY[] {
     out.push(horizontal ? [j[0], last[1]] : [last[0], j[1]], j);
     void mid;
   }
-  out.push(clampTo(ws[chain[chain.length - 1]], to), to);
+  const end = clampTo(ws[chain[chain.length - 1]], to);
+  // the blind corner sits behind 3 m sack racks; its way in is the gap facing south (hub_spec: x 13.4 to 15.2)
+  const bc = (HUB as unknown as { blind_corner?: { polygon: number[][] } }).blind_corner?.polygon;
+  const inCorner = bc && to[0] >= bc[0][0] && to[0] <= bc[1][0] && to[1] >= bc[0][1] && to[1] <= bc[2][1];
+  if (inCorner) out.push([out[out.length - 1][0], end[1]], [(13.4 + 15.2) / 2, bc[0][1] + 1], to);
+  else out.push(end, to);
   return out.filter((p, i) => i === 0 || Math.hypot(p[0] - out[i - 1][0], p[1] - out[i - 1][1]) > 0.2);
 }

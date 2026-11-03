@@ -20,6 +20,7 @@ import type { Reel } from "@/components/case/JourneyReel";
 import { toWav16k } from "@/lib/wav";
 import { HUB } from "@/lib/hub";
 import FloorPlan, { centroid, walkRoute } from "@/components/plan/FloorPlan";
+import { WalkNav } from "./WalkNav";
 import "./floor.css";
 
 interface Place { area_id: string; name: string; zone_id: string | null; centroid_xy: XY; why: string[] }
@@ -76,7 +77,6 @@ export function FloorApp({ caseId, waybill, waited, framed = true, center }: { c
 
   // the office (where the supervisor hands out tasks) to the place, along the hub's walkways
   const zone = place ? zoneOf(place) : undefined;
-  const target: XY = place ? (zone ? centroid(zone.polygons[0]) : place.centroid_xy) : YOU;
   const you = YOU;
   const route = walkRoute(YOU, place?.centroid_xy ?? YOU);
   const metres = route.reduce((a, p, i) => i ? a + Math.hypot(p[0] - route[i - 1][0], p[1] - route[i - 1][1]) : 0, 0);
@@ -109,7 +109,8 @@ export function FloorApp({ caseId, waybill, waited, framed = true, center }: { c
   const back = () => go(screen === "task" ? "tasks" : screen === "search" ? "task" : screen === "scan" ? (scanFromTab ? "tasks" : "search") : "tasks", "back");
   const root = ROOTS.includes(screen);
   const swipe = useSwipeBack(!root && screen !== "next" && screen !== "found", back);
-  const tab: Tab | null = screen === "done" ? "tasks" : screen === "tasks" || screen === "map" || screen === "me" ? screen : null;
+  const [nav, setNav] = useState(false);   // walking directions on: the tab bar steps aside, as in a maps app
+  const tab: Tab | null = nav && screen === "map" ? null : screen === "done" ? "tasks" : screen === "tasks" || screen === "map" || screen === "me" ? screen : null;
   const onTab = (t: Tab) => {
     buzz(8);
     if (t === "scan") { setScanFromTab(true); go("scan"); return; }
@@ -182,6 +183,23 @@ export function FloorApp({ caseId, waybill, waited, framed = true, center }: { c
                 </button>
               ) : <div className="fa-empty"><span className="fa-empty-ring"><Mark /></span></div>}
               {task && place && <button type="button" className="fa-primary" onClick={() => { buzz(); go("task"); }}>Open the task</button>}
+              {task && place && places.length > 1 && (
+                <section className="fa-group" aria-label="Where to look, in order">
+                  <h2 className="fa-k">Where to look, in order</h2>
+                  <ol className="fa-card fa-rows fa-order">
+                    {places.map((p, i) => {
+                      const st = done.has(p.area_id) ? "ruled" : p.area_id === place.area_id ? "now" : "next";
+                      return (
+                        <li key={p.area_id} data-state={st}>
+                          <span className="fa-order-n">{i + 1}</span>
+                          <span className="fa-row-t">{placeName(p)}</span>
+                          {st === "now" ? <span className="fa-chip" data-tone="lang">Now</span> : st === "ruled" ? <span className="fa-chip" data-tone="mute">Not here</span> : null}
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </section>
+              )}
               {!!task?.outcomes.length && (
                 <section className="fa-group" aria-label="Checked today">
                   <h2 className="fa-k">Checked today</h2>
@@ -201,7 +219,11 @@ export function FloorApp({ caseId, waybill, waited, framed = true, center }: { c
             </div>
           )}
 
-          {screen === "map" && (
+          {screen === "map" && place && (
+            <WalkNav walkKey={place.area_id} route={route} dest={placeName(place)} destZone={zone?.id} onSearch={() => go("search")} onNavigating={setNav}
+              destPoly={place.area_id === BLIND?.id ? BLIND.polygon : zone?.polygons[0]} />
+          )}
+          {screen === "map" && !place && (
             <div className="fa-pad fa-scroll fa-root">
               <h1 className="fa-root-t">Map</h1>
               <p className="fa-lead">{place ? here ? `You are at the ${placeName(place).toLowerCase()}` : `The office to the ${placeName(place).toLowerCase()}, about ${walkMin} min` : "The hub floor"}</p>
@@ -227,6 +249,7 @@ export function FloorApp({ caseId, waybill, waited, framed = true, center }: { c
               </section>
               <ul className="fa-card fa-rows">
                 <li><span className="fa-row-t">Connection</span><span className="fa-row-v" data-tone={offline ? "bad" : "ok"}>{offline ? "Offline" : "Online"}</span></li>
+                <li><span className="fa-row-t">Position</span><span className="fa-row-v">Last scan · the office</span></li>
                 <li><span className="fa-row-t">Answers waiting to send</span><span className="fa-row-v">{queued}</span></li>
                 <li><span className="fa-row-t">Places checked today</span><span className="fa-row-v">{task?.outcomes.length ?? 0}</span></li>
                 <li><span className="fa-row-t">Voice notes</span><span className="fa-row-v">English or Malay</span></li>
@@ -257,11 +280,15 @@ export function FloorApp({ caseId, waybill, waited, framed = true, center }: { c
                   <span className="fa-look-sub">Brown carton, label photo from the scan tunnel</span>
                 </div>
               </section>
-              <section className="fa-card fa-map" aria-label="Where to walk">
-                <div className="fa-map-head"><span className="fa-k">{here ? "You are here" : "Walk to"}</span><span>{here ? `Search the ${placeName(place).toLowerCase()}` : `${placeName(place)} · about ${walkMin} min`}</span></div>
-                <FloorPlan label={`Walking route to the ${placeName(place)}`} fit={[you, target, ...route]} margin={here ? 24 : 4} highlight={zone?.id}
-                  route={here ? undefined : route} you={you} labels="none" labelIds={["Z13", zone?.id ?? "", "Z05"]} labelSize={2.3} dim />
-              </section>
+              {/* where to walk: the Map tab gives the directions (a plan squeezed into this card was too small to read) */}
+              <button type="button" className="fa-card fa-walkcard" onClick={() => { buzz(); go("map", "tab"); }} disabled={here}>
+                <span className="fa-walk-ic" aria-hidden><svg viewBox="0 0 24 24"><path d="M13 4a1.5 1.5 0 1 0 0-.01M10 21l2-6 3 3v5M8 12l3-3 3 2 2 3M11 9l-2 6" /></svg></span>
+                <span className="fa-walk-t">
+                  <b>{here ? "You are here" : `About ${walkMin} min walk`}</b>
+                  <small>{here ? `Search the ${placeName(place).toLowerCase()}` : `${Math.round(metres / 5) * 5} m from the office`}</small>
+                </span>
+                {!here && <span className="fa-walk-go">Directions</span>}
+              </button>
             </div>
           )}
 
@@ -399,6 +426,8 @@ function TabBar({ tab, onTab, badge, scanOff }: { tab: Tab | null; onTab: (t: Ta
 /** the office (where the supervisor hands out tasks): the worker starts there */
 const OFFICE = (HUB as unknown as { zones: { id: string; polygons: number[][][] }[] }).zones.find((z) => z.id === "Z13");
 const YOU: XY = OFFICE ? centroid(OFFICE.polygons[0]) : [57, 3];
+/** the blind corner of the Exception store (behind its sack racks): its own shape, smaller than the whole store */
+const BLIND = (HUB as unknown as { blind_corner?: { id: string; polygon: number[][] } }).blind_corner;
 function onlineSub(f: () => void) {
   window.addEventListener("online", f); window.addEventListener("offline", f);
   return () => { window.removeEventListener("online", f); window.removeEventListener("offline", f); };

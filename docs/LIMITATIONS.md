@@ -38,6 +38,14 @@ Current as of Mon 2 Nov 2026. The deadline is Thu 5 Nov, 10:00 MYT.
   place and time, never an identity".
 - **Live alert covers open containers only** (cages, pallets, gaylords): a carton inside a closed bag cannot be seen
   leaving as a carton.
+- **The 3D hub is the Blender model, not footage.** The route fly-through and the drag-to-spin views are renders of
+  the hub model with people, moving cartons and the roof hidden; the pins, the carton marker, the cameras and the
+  search zone are drawn from the case's evidence positions over that picture. The moves between steps are drawn, not
+  filmed.
+- **Walking directions in Spoor Floor are simulated in the demo.** Indoors there is no GPS: a real phone would place
+  the worker from their last scan (the office desk) and from QR or BLE markers on the pillars. The demo has neither,
+  so the walk plays along the planned route at a set pace, and the "Position: marker P…" line names the nearest pillar
+  on that route, not a reading.
 - **Jobs run in the API process.** Long SAM jobs slow the API while they run; restarting loses in-flight jobs (results
   already stored are kept). Auth is a token file, not an identity provider.
 
