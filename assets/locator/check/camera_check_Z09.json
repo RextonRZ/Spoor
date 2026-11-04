@@ -1,0 +1,147 @@
+{
+  "zone_id": "Z09",
+  "three_version": "180",
+  "model_path": "/frontend/public/hub.glb",
+  "camera": {
+    "quaternion": [
+      -0.18730329757420963,
+      0.8029647738960052,
+      0.3244188356418522,
+      0.4635919171866021
+    ],
+    "position": [
+      28.870422363281243,
+      19.31368064880371,
+      -13.34995079040528
+    ],
+    "target": [
+      11.550000190734865,
+      0,
+      -3.3499999046325684
+    ],
+    "fov_deg": 29.839371711429724,
+    "aspect": 1.7777777777777777
+  },
+  "polygon_pixels_three": [
+    [
+      [
+        812.7900024021843,
+        206.7129702555493
+      ],
+      [
+        417.867514972193,
+        614.8480479266168
+      ],
+      [
+        781.8132699985787,
+        792.2349393275063
+      ],
+      [
+        1117.327932957577,
+        310.306163680358
+      ]
+    ]
+  ],
+  "max_polygon_pixel_error": 0.0003174445766329633,
+  "anchors": [
+    {
+      "name": "cage_empty_00",
+      "glb_world": [
+        17,
+        0,
+        -34
+      ],
+      "error_metres": 0,
+      "pixel_error": 0.0002749776063112152,
+      "visible": false
+    },
+    {
+      "name": "cage_empty_05",
+      "glb_world": [
+        21.75,
+        0,
+        -34
+      ],
+      "error_metres": 0,
+      "pixel_error": 0.0006383869817670007,
+      "visible": false
+    },
+    {
+      "name": "cage_empty_12",
+      "glb_world": [
+        17,
+        0,
+        -37.20000076293945
+      ],
+      "error_metres": 0,
+      "pixel_error": 0.0010083162874350358,
+      "visible": false
+    }
+  ],
+  "max_anchor_pixel_error": 0,
+  "mesh_count": 646,
+  "render_size": [
+    1600,
+    900
+  ],
+  "hidden_objects": [
+    "roof",
+    "roof_lights",
+    "structure",
+    "roof_services",
+    "highbay_fixtures",
+    "src_tool_cart",
+    "tool_cart",
+    "src_plastic_monobloc_chair_01",
+    "plastic_monobloc_chair_01",
+    "src_drawer_cabinet",
+    "drawer_cabinet",
+    "drawer_cabinet_drawer_01",
+    "drawer_cabinet_drawer_02",
+    "drawer_cabinet_drawer_03",
+    "drawer_cabinet_drawer_04",
+    "src_compost_bags",
+    "compost_bags_floor",
+    "compost_bags_floorstacked",
+    "compost_bags_leaning",
+    "compost_bags_standing",
+    "src_steel_frame_shelves_01",
+    "steel_frame_shelves_01",
+    "src_steel_frame_shelves_02",
+    "steel_frame_shelves_02",
+    "src_metal_office_desk",
+    "metal_office_desk",
+    "metal_office_desk_drawer_01",
+    "metal_office_desk_drawer_02",
+    "metal_office_desk_drawer_03",
+    "metal_office_desk_drawer_04",
+    "metal_office_desk_drawer_05",
+    "metal_office_desk_drawer_06",
+    "metal_office_desk_tray_01",
+    "metal_office_desk_tray_02",
+    "src_mounted_fluorescent_lights",
+    "mounted_fluorescent_lights_a",
+    "mounted_fluorescent_lights_b",
+    "mounted_fluorescent_lights_c",
+    "mounted_fluorescent_lights_d",
+    "mounted_fluorescent_lights_e",
+    "mounted_fluorescent_lights_f",
+    "mounted_fluorescent_lights_g",
+    "mounted_fluorescent_lights_96",
+    "mounted_fluorescent_lights_a.001",
+    "mounted_fluorescent_lights_b.001",
+    "mounted_fluorescent_lights_c.001",
+    "mounted_fluorescent_lights_d.001",
+    "mounted_fluorescent_lights_e.001",
+    "mounted_fluorescent_lights_f.001",
+    "mounted_fluorescent_lights_g.001",
+    "src_korean_fire_extinguisher_01",
+    "korean_fire_extinguisher_01",
+    "src_concrete_road_barrier",
+    "concrete_road_barrier",
+    "led_rows"
+  ],
+  "passed": true,
+  "page_errors": [],
+  "browser_console": []
+}

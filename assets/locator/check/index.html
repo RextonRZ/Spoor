@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spoor locator camera check</title>
+<link rel="icon" href="data:,">
+<style>
+  * { box-sizing: border-box; } body { margin:0; background:#151922; color:#fff; font:15px 'Segoe UI',sans-serif; overflow:hidden; }
+  #view { width:100vw; height:100vh; } canvas { display:block; }
+  #label { position:absolute; left:28px; top:28px; padding:15px 22px; border-radius:16px; border:1px solid #ffffff22; background:#10141feb; pointer-events:none; }
+  #label strong { font-size:30px; display:block; } #label small { display:block; color:#bac1d1; margin-top:7px; }
+  #status { position:absolute; right:28px; bottom:28px; padding:11px 16px; background:#10141feb; border:1px solid #ffffff22; border-radius:10px; pointer-events:none; }
+</style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}
+</script>
+<div id="view"></div>
+<div id="label"><strong>Loading locator...</strong><small>Saved camera from locators.json</small></div>
+<div id="status">Loading hub.glb</div>
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {DRACOLoader} from 'three/addons/loaders/DRACOLoader.js';
+import {Line2} from 'three/addons/lines/Line2.js';
+import {LineGeometry} from 'three/addons/lines/LineGeometry.js';
+import {LineMaterial} from 'three/addons/lines/LineMaterial.js';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+try {
+  const zoneId = new URLSearchParams(location.search).get('zone') || 'Z11';
+  const data = await fetch('../out/locators.json').then(r => { if(!r.ok) throw Error(r.status); return r.json(); });
+  const entry = data[zoneId]; const z = entry?.map; if (!z) throw Error(`No locator for ${zoneId}`);
+  const width = innerWidth, height = innerHeight;
+  const renderer = new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+  renderer.setPixelRatio(1); renderer.setSize(width,height);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1;
+  document.querySelector('#view').append(renderer.domElement);
+  const scene = new THREE.Scene(); scene.background = new THREE.Color('#252b34');
+  const c = z.three_camera;
+  const camera = new THREE.PerspectiveCamera(c.fov_deg, width/height, .1, 500);
+  camera.position.fromArray(c.position); camera.up.set(0,1,0);
+  camera.lookAt(new THREE.Vector3(...c.target)); camera.updateMatrixWorld(true);
+  const controls = new OrbitControls(camera,renderer.domElement);
+  controls.target.fromArray(c.target); if(z.three_controls)Object.assign(controls,z.three_controls); controls.enableDamping = false; controls.update(); camera.updateMatrixWorld(true);
+  controls.addEventListener('change', () => renderer.render(scene,camera));
+  const hemi = new THREE.HemisphereLight('#e8edf2','#2a2f35',1.6); scene.add(hemi);
+  const sun = new THREE.DirectionalLight('#ffffff',1.4); sun.position.set(30,60,20); scene.add(sun);
+  const draco = new DRACOLoader(); draco.setDecoderPath('/frontend/public/draco/'); draco.setWorkerLimit(1);
+  const loader = new GLTFLoader(); loader.setDRACOLoader(draco);
+  // Load the exact app asset at its existing path. No model copy, rotation or scaling.
+  const gltf = await loader.loadAsync('/frontend/public/hub.glb');
+  const hidden = new Set(z.render_profile.hidden_objects);
+  const hiddenPattern = new RegExp(z.render_profile.hidden_name_regex,'i');
+  const objects = new Map(); let meshCount = 0;
+  gltf.scene.updateMatrixWorld(true);
+  const cutouts=z.render_profile.ceiling_cutouts || [];
+  gltf.scene.traverse(o => {
+    const id = o.userData.spoor_id || o.name; objects.set(id,o);
+    if (hidden.has(id) || hiddenPattern.test(id)) o.visible = false;
+    if(o.isMesh) {
+      meshCount++;
+      for(const cut of cutouts) {
+        let ancestor=o,belongs=false;
+        while(ancestor){if((ancestor.userData.spoor_id||ancestor.name)===cut.object)belongs=true;ancestor=ancestor.parent;}
+        if(!belongs)continue;
+        const old=o.geometry,attr=old.getAttribute('position'),index=old.index;
+        const count=index?index.count:attr.count;
+        const groups=old.groups.length?old.groups:[{start:0,count,materialIndex:0}];
+        const ids=[],newGroups=[]; const [x0,z0,x1,z1]=cut.bounds_xz_three;
+        for(const group of groups){
+          const start=ids.length;
+          for(let i=group.start;i<group.start+group.count;i+=3){
+            const tri=[0,1,2].map(k=>index?index.getX(i+k):i+k);
+            const above=tri.every(k=>{const p=new THREE.Vector3().fromBufferAttribute(attr,k).applyMatrix4(o.matrixWorld);
+              return p.y>=cut.min_y_three-.001&&p.x>=x0-.001&&p.x<=x1+.001&&p.z>=z0-.001&&p.z<=z1+.001;});
+            if(!above)ids.push(...tri);
+          }
+          newGroups.push({start,count:ids.length-start,materialIndex:group.materialIndex});
+        }
+        const geometry=old.clone(); geometry.setIndex(ids); geometry.clearGroups();
+        for(const group of newGroups)geometry.addGroup(group.start,group.count,group.materialIndex);
+        o.geometry=geometry;
+      }
+
+      if (/^(floor_slab|ground|yard_)/.test(id)) {
+        o.material = new THREE.MeshStandardMaterial({color:id==='floor_slab'?'#5d6268':'#3a3e43',roughness:.95});
+      }
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      for(const mat of mats) if(mat.emissive) mat.emissiveIntensity = Math.min(mat.emissiveIntensity || 0,.2);
+    }
+  });
+  scene.add(gltf.scene); scene.updateMatrixWorld(true);
+  for (const poly of z.zone_polygon_parts_three) {
+    const contour = poly.map(p=>new THREE.Vector2(p[0],p[2]));
+    const triangles = THREE.ShapeUtils.triangulateShape(contour,[]);
+    const vertices = triangles.flatMap(t=>t.flatMap(i=>poly[i]));
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
+    const fill = new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:z.floor_highlight.color,opacity:.35,transparent:true,depthWrite:false,side:THREE.DoubleSide}));
+    fill.renderOrder = 2; scene.add(fill);
+    const lineGeo = new LineGeometry(); lineGeo.setPositions([...poly,poly[0]].flat());
+    const lineMat = new LineMaterial({color:z.floor_highlight.edge_color,linewidth:2.5,resolution:new THREE.Vector2(width,height),depthWrite:false});
+    const edge = new Line2(lineGeo,lineMat); edge.renderOrder = 3; scene.add(edge);
+  }
+  if (z.blind_corner) {
+    const poly=z.blind_corner.polygon_three;
+    const triangles=THREE.ShapeUtils.triangulateShape(poly.map(p=>new THREE.Vector2(p[0],p[2])),[]);
+    const verts=triangles.flatMap(t=>t.flatMap(i=>poly[i]));
+    const uv=triangles.flatMap(t=>t.flatMap(i=>[poly[i][0]/.7,poly[i][2]/.7]));
+    const geo=new THREE.BufferGeometry(); geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+    geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+    const canvas=document.createElement('canvas'); canvas.width=canvas.height=64;
+    const ctx=canvas.getContext('2d'); ctx.strokeStyle='#d5d5ff'; ctx.lineWidth=4;
+    for(let x=-64;x<128;x+=64){ctx.beginPath();ctx.moveTo(x,64);ctx.lineTo(x+64,0);ctx.stroke();}
+    const tex=new THREE.CanvasTexture(canvas); tex.wrapS=tex.wrapT=THREE.RepeatWrapping;
+    const hatch=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({map:tex,transparent:true,opacity:.4,depthWrite:false,side:THREE.DoubleSide}));
+    hatch.renderOrder=4; scene.add(hatch);
+  }
+  renderer.render(scene,camera); camera.updateMatrixWorld(true);
+  const screen = p => {const v=new THREE.Vector3(...p).project(camera); return [(v.x+1)*width/2,(1-v.y)*height/2];};
+  const pixelErrors = [];
+  const polygonPixels = z.zone_polygon_parts_three.map((poly,pi)=>poly.map((p,i)=>{
+    const xy=screen(p), b=z.proof.polygon_pixels_blender[pi][i];
+    pixelErrors.push(Math.hypot(xy[0]-b[0],xy[1]-b[1])); return xy;
+  }));
+  const anchors = z.proof.anchors.map(a=>{
+    const obj=objects.get(a.name); if(!obj) throw Error(`Missing GLB anchor ${a.name}`);
+    const pos=obj.getWorldPosition(new THREE.Vector3()); const xy=screen(pos.toArray());
+    const error=pos.distanceTo(new THREE.Vector3(...a.three_expected));
+    const pixelError=Math.hypot(xy[0]-a.blender_pixel[0],xy[1]-a.blender_pixel[1]);
+    const ndc=pos.clone().project(camera); const visible=Math.abs(ndc.x)<=1&&Math.abs(ndc.y)<=1&&ndc.z>=-1&&ndc.z<=1;
+    return {name:a.name,glb_world:pos.toArray(),error_metres:error,pixel_error:pixelError,visible};
+  });
+  window.__locatorCheck = {zone_id:zoneId,three_version:THREE.REVISION,model_path:'/frontend/public/hub.glb',
+    camera:{quaternion:camera.quaternion.toArray(),position:camera.position.toArray(),target:controls.target.toArray(),fov_deg:camera.fov,aspect:camera.aspect},
+    polygon_pixels_three:polygonPixels,max_polygon_pixel_error:Math.max(...pixelErrors),anchors,
+    max_anchor_pixel_error:Math.max(0,...anchors.filter(a=>a.visible).map(a=>a.pixel_error)),mesh_count:meshCount,
+    render_size:[width,height],hidden_objects:[...hidden],passed:Math.max(...pixelErrors)<.05&&anchors.every(a=>a.error_metres<.001&&(!a.visible||a.pixel_error<.05))};
+  document.querySelector('#label strong').textContent = z.label;
+  document.querySelector('#label small').textContent = `${zoneId} / three.js GLB / exact saved camera`;
+  document.querySelector('#status').textContent = 'Demo hub (3D model)';
+  renderer.render(scene,camera);
+  await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+  window.__locatorReady = true;
+} catch(error) {
+  document.querySelector('#status').textContent = String(error);
+  window.__locatorError = String(error); console.error(error);
+}
+</script>
+</html>

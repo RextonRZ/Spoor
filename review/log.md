@@ -578,3 +578,7 @@
   - 00:45 motion skills: not fetched or installed; the principles were already in the render (ease-in-out cubic on every move, >= 0.7 s hold per step, camera smoothed through corners, ending eases in). 'Anticipation before a turn' needs another full re-render: skipped, as the note allows.
   - Rexton's staff-ID idea: advised against (identity is never claimed); not built.
   - Demo path at 1440 clicked through again: green (two stale text checks in the local script updated).
+2026-11-04 02:37 · reviewer-night · check: carton ring-of-light on the ending (456e233), turntables with real carton live, demo path green. 3D story done.
+2026-11-04 03:10 · reviewer-night · check: ground-truth clip live (2a106e5), dashed-route key, prod rebuilt and demo path green (bffaa94).
+2026-11-04 03:42 · reviewer-night · check: no commits since 02:52; agent likely finished its list (READY summary written). Next: morning summary at 07:50.
+2026-11-04 07:52 · reviewer · morning summary sent

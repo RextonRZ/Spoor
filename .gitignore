@@ -93,3 +93,30 @@ assets/realtest/*/sam/
 assets/realtest/*/sec/
 assets/realtest/*/bsec/
 assets/realtest/*/look/
+
+# Local deliverables, scratch and logs (kept on disk, not in the repo)
+Claude outputs/
+frontend/undefined/
+*.log
+
+# Rendered frame sequences and their intermediates: regenerable from the scripts next to them
+assets/tour/opener/
+assets/tour/opener2/
+assets/tour/closer/
+assets/tour/truth/
+assets/tour/walk/
+assets/tour/walk_test/
+assets/tour/xpost/
+assets/places/out/
+assets/locator/out/
+assets/locator/out_before_zone_repairs/
+assets/locator/runtime/
+assets/locator/check/*.png
+assets/realtest/raw/
+
+# Internal QA screenshots, review videos and the design review pack (kept locally)
+review/shots/
+review/video/
+frontend/review_pack/
+assets/realtest/pexels_853905/
+assets/realtest/pexels_1169852/

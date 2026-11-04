@@ -1,0 +1,22 @@
+{
+  "assets\\hub\\build\\hub_lineAb_dressed_lit.blend": {
+    "sha256": "f78c2cb29f8dff5fcc2b2319aa1a4f3509e43ac925dfb213b2938eea23e1685e",
+    "size": 24464239,
+    "mtime_ns": 1793442985906279300
+  },
+  "assets\\hub\\hub_spec.json": {
+    "sha256": "b0cdc660dc18ccc84cb3514e84183dac9e2587e63c727e51365bc217f743f84f",
+    "size": 142353,
+    "mtime_ns": 1793436568147437100
+  },
+  "frontend\\public\\hub.glb": {
+    "sha256": "ab4cbd7659b895654b4d968e5e3ac3f4af2562ae9e2e93345eb8cdffe06ec93e",
+    "size": 3933440,
+    "mtime_ns": 1793301204341694200
+  },
+  "frontend\\scripts\\export_hub_glb.py": {
+    "sha256": "ceafaab1f7a5b34eee65dfbb90d4fbb9eda787f9f56c50b6afd877debdcc54ce",
+    "size": 8705,
+    "mtime_ns": 1793301174862495300
+  }
+}

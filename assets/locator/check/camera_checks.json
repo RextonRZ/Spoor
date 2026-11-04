@@ -1,0 +1,2078 @@
+{
+  "Z01": {
+    "zone_id": "Z01",
+    "three_version": "180",
+    "model_path": "/frontend/public/hub.glb",
+    "camera": {
+      "quaternion": [
+        -0.2961981572159233,
+        0.4698462962501874,
+        0.17101008123444103,
+        0.8137976785897476
+      ],
+      "position": [
+        26.538076400756843,
+        22.90314292907715,
+        -3.3525495529174805
+      ],
+      "target": [
+        2.9000000953674316,
+        0,
+        -17
+      ],
+      "fov_deg": 29.839371711429724,
+      "aspect": 1.7777777777777777
+    },
+    "polygon_pixels_three": [
+      [
+        [
+          143.18908113068068,
+          587.9588817959335
+        ],
+        [
+          219.720769656311,
+          781.1439496689062
+        ],
+        [
+          1348.8651948025697,
+          332.38009481330164
+        ],
+        [
+          1194.8672599476602,
+          222.5268246119637
+        ]
+      ]
+    ],
+    "max_polygon_pixel_error": 7.685111304470387e-05,
+    "anchors": [
+      {
+        "name": "cage_empty_00",
+        "glb_world": [
+          17,
+          0,
+          -34
+        ],
+        "error_metres": 0,
+        "pixel_error": 9.866212225061732e-05,
+        "visible": false
+      },
+      {
+        "name": "cage_empty_05",
+        "glb_world": [
+          21.75,
+          0,
+          -34
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.00015189437351053987,
+        "visible": false
+      },
+      {
+        "name": "cage_empty_12",
+        "glb_world": [
+          17,
+          0,
+          -37.20000076293945
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.00028885784488710554,
+        "visible": false
+      }
+    ],
+    "max_anchor_pixel_error": 0,
+    "mesh_count": 646,
+    "render_size": [
+      1600,
+      900
+    ],
+    "hidden_objects": [
+      "roof",
+      "roof_lights",
+      "structure",
+      "roof_services",
+      "highbay_fixtures",
+      "src_tool_cart",
+      "tool_cart",
+      "src_plastic_monobloc_chair_01",
+      "plastic_monobloc_chair_01",
+      "src_drawer_cabinet",
+      "drawer_cabinet",
+      "drawer_cabinet_drawer_01",
+      "drawer_cabinet_drawer_02",
+      "drawer_cabinet_drawer_03",
+      "drawer_cabinet_drawer_04",
+      "src_compost_bags",
+      "compost_bags_floor",
+      "compost_bags_floorstacked",
+      "compost_bags_leaning",
+      "compost_bags_standing",
+      "src_steel_frame_shelves_01",
+      "steel_frame_shelves_01",
+      "src_steel_frame_shelves_02",
+      "steel_frame_shelves_02",
+      "src_metal_office_desk",
+      "metal_office_desk",
+      "metal_office_desk_drawer_01",
+      "metal_office_desk_drawer_02",
+      "metal_office_desk_drawer_03",
+      "metal_office_desk_drawer_04",
+      "metal_office_desk_drawer_05",
+      "metal_office_desk_drawer_06",
+      "metal_office_desk_tray_01",
+      "metal_office_desk_tray_02",
+      "src_mounted_fluorescent_lights",
+      "mounted_fluorescent_lights_a",
+      "mounted_fluorescent_lights_b",
+      "mounted_fluorescent_lights_c",
+      "mounted_fluorescent_lights_d",
+      "mounted_fluorescent_lights_e",
+      "mounted_fluorescent_lights_f",
+      "mounted_fluorescent_lights_g",
+      "mounted_fluorescent_lights_96",
+      "mounted_fluorescent_lights_a.001",
+      "mounted_fluorescent_lights_b.001",
+      "mounted_fluorescent_lights_c.001",
+      "mounted_fluorescent_lights_d.001",
+      "mounted_fluorescent_lights_e.001",
+      "mounted_fluorescent_lights_f.001",
+      "mounted_fluorescent_lights_g.001",
+      "src_korean_fire_extinguisher_01",
+      "korean_fire_extinguisher_01",
+      "src_concrete_road_barrier",
+      "concrete_road_barrier",
+      "led_rows"
+    ],
+    "passed": true,
+    "page_errors": [],
+    "browser_console": []
+  },
+  "Z02": {
+    "zone_id": "Z02",
+    "three_version": "180",
+    "model_path": "/frontend/public/hub.glb",
+    "camera": {
+      "quaternion": [
+        -0.17101009067883755,
+        0.8137976552091192,
+        0.2961981314695061,
+        0.4698463495400689
+      ],
+      "position": [
+        25.7679786682129,
+        15.955968856811516,
+        -32.507789611816406
+      ],
+      "target": [
+        9.300000190734863,
+        0,
+        -23.000000000000004
+      ],
+      "fov_deg": 29.839371711429724,
+      "aspect": 1.7777777777777777
+    },
+    "polygon_pixels_three": [
+      [
+        [
+          608.776974580077,
+          220.56258315383576
+        ],
+        [
+          317.11866139016183,
+          457.1619528789674
+        ],
+        [
+          1081.890066886608,
+          783.7061307615481
+        ],
+        [
+          1276.8253263372299,
+          439.29908530806665
+        ]
+      ]
+    ],
+    "max_polygon_pixel_error": 0.0003475938977434119,
+    "anchors": [
+      {
+        "name": "cage_empty_00",
+        "glb_world": [
+          17,
+          0,
+          -34
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.0001704366349598721,
+        "visible": false
+      },
+      {
+        "name": "cage_empty_05",
+        "glb_world": [
+          21.75,
+          0,
+          -34
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.00048370516761451435,
+        "visible": false
+      },
+      {
+        "name": "cage_empty_12",
+        "glb_world": [
+          17,
+          0,
+          -37.20000076293945
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.0003310114117298948,
+        "visible": false
+      }
+    ],
+    "max_anchor_pixel_error": 0,
+    "mesh_count": 646,
+    "render_size": [
+      1600,
+      900
+    ],
+    "hidden_objects": [
+      "roof",
+      "roof_lights",
+      "structure",
+      "roof_services",
+      "highbay_fixtures",
+      "src_tool_cart",
+      "tool_cart",
+      "src_plastic_monobloc_chair_01",
+      "plastic_monobloc_chair_01",
+      "src_drawer_cabinet",
+      "drawer_cabinet",
+      "drawer_cabinet_drawer_01",
+      "drawer_cabinet_drawer_02",
+      "drawer_cabinet_drawer_03",
+      "drawer_cabinet_drawer_04",
+      "src_compost_bags",
+      "compost_bags_floor",
+      "compost_bags_floorstacked",
+      "compost_bags_leaning",
+      "compost_bags_standing",
+      "src_steel_frame_shelves_01",
+      "steel_frame_shelves_01",
+      "src_steel_frame_shelves_02",
+      "steel_frame_shelves_02",
+      "src_metal_office_desk",
+      "metal_office_desk",
+      "metal_office_desk_drawer_01",
+      "metal_office_desk_drawer_02",
+      "metal_office_desk_drawer_03",
+      "metal_office_desk_drawer_04",
+      "metal_office_desk_drawer_05",
+      "metal_office_desk_drawer_06",
+      "metal_office_desk_tray_01",
+      "metal_office_desk_tray_02",
+      "src_mounted_fluorescent_lights",
+      "mounted_fluorescent_lights_a",
+      "mounted_fluorescent_lights_b",
+      "mounted_fluorescent_lights_c",
+      "mounted_fluorescent_lights_d",
+      "mounted_fluorescent_lights_e",
+      "mounted_fluorescent_lights_f",
+      "mounted_fluorescent_lights_g",
+      "mounted_fluorescent_lights_96",
+      "mounted_fluorescent_lights_a.001",
+      "mounted_fluorescent_lights_b.001",
+      "mounted_fluorescent_lights_c.001",
+      "mounted_fluorescent_lights_d.001",
+      "mounted_fluorescent_lights_e.001",
+      "mounted_fluorescent_lights_f.001",
+      "mounted_fluorescent_lights_g.001",
+      "src_korean_fire_extinguisher_01",
+      "korean_fire_extinguisher_01",
+      "src_concrete_road_barrier",
+      "concrete_road_barrier",
+      "led_rows"
+    ],
+    "passed": true,
+    "page_errors": [],
+    "browser_console": []
+  },
+  "Z03": {
+    "zone_id": "Z03",
+    "three_version": "180",
+    "model_path": "/frontend/public/hub.glb",
+    "camera": {
+      "quaternion": [
+        0.08852133210299039,
+        0.9076733640196085,
+        0.33036610963786495,
+        -0.24321034438276148
+      ],
+      "position": [
+        2.587819099426273,
+        15.040327072143558,
+        -25.022953033447262
+      ],
+      "target": [
+        11.550000190734862,
+        0,
+        -9.499999999999998
+      ],
+      "fov_deg": 29.839371711429724,
+      "aspect": 1.7777777777777777
+    },
+    "polygon_pixels_three": [
+      [
+        [
+          1286.6701362441802,
+          465.7621193246559
+        ],
+        [
+          576.8425394996373,
+          229.514366645432
+        ],
+        [
+          325.2058458466514,
+          430.7956027024649
+        ],
+        [
+          1122.8817295947472,
+          764.2760647140294
+        ]
+      ]
+    ],
+    "max_polygon_pixel_error": 0.0005672252195289889,
+    "anchors": [
+      {
+        "name": "cage_empty_00",
+        "glb_world": [
+          17,
+          0,
+          -34
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.003149061513403769,
+        "visible": false
+      },
+      {
+        "name": "cage_empty_05",
+        "glb_world": [
+          21.75,
+          0,
+          -34
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.0025645620096199787,
+        "visible": false
+      },
+      {
+        "name": "cage_empty_12",
+        "glb_world": [
+          17,
+          0,
+          -37.20000076293945
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.006368298783601803,
+        "visible": false
+      }
+    ],
+    "max_anchor_pixel_error": 0,
+    "mesh_count": 646,
+    "render_size": [
+      1600,
+      900
+    ],
+    "hidden_objects": [
+      "roof",
+      "roof_lights",
+      "structure",
+      "roof_services",
+      "highbay_fixtures",
+      "src_tool_cart",
+      "tool_cart",
+      "src_plastic_monobloc_chair_01",
+      "plastic_monobloc_chair_01",
+      "src_drawer_cabinet",
+      "drawer_cabinet",
+      "drawer_cabinet_drawer_01",
+      "drawer_cabinet_drawer_02",
+      "drawer_cabinet_drawer_03",
+      "drawer_cabinet_drawer_04",
+      "src_compost_bags",
+      "compost_bags_floor",
+      "compost_bags_floorstacked",
+      "compost_bags_leaning",
+      "compost_bags_standing",
+      "src_steel_frame_shelves_01",
+      "steel_frame_shelves_01",
+      "src_steel_frame_shelves_02",
+      "steel_frame_shelves_02",
+      "src_metal_office_desk",
+      "metal_office_desk",
+      "metal_office_desk_drawer_01",
+      "metal_office_desk_drawer_02",
+      "metal_office_desk_drawer_03",
+      "metal_office_desk_drawer_04",
+      "metal_office_desk_drawer_05",
+      "metal_office_desk_drawer_06",
+      "metal_office_desk_tray_01",
+      "metal_office_desk_tray_02",
+      "src_mounted_fluorescent_lights",
+      "mounted_fluorescent_lights_a",
+      "mounted_fluorescent_lights_b",
+      "mounted_fluorescent_lights_c",
+      "mounted_fluorescent_lights_d",
+      "mounted_fluorescent_lights_e",
+      "mounted_fluorescent_lights_f",
+      "mounted_fluorescent_lights_g",
+      "mounted_fluorescent_lights_96",
+      "mounted_fluorescent_lights_a.001",
+      "mounted_fluorescent_lights_b.001",
+      "mounted_fluorescent_lights_c.001",
+      "mounted_fluorescent_lights_d.001",
+      "mounted_fluorescent_lights_e.001",
+      "mounted_fluorescent_lights_f.001",
+      "mounted_fluorescent_lights_g.001",
+      "src_korean_fire_extinguisher_01",
+      "korean_fire_extinguisher_01",
+      "src_concrete_road_barrier",
+      "concrete_road_barrier",
+      "led_rows"
+    ],
+    "passed": true,
+    "page_errors": [],
+    "browser_console": []
+  },
+  "Z04": {
+    "zone_id": "Z04",
+    "three_version": "180",
+    "model_path": "/frontend/public/hub.glb",
+    "camera": {
+      "quaternion": [
+        0.08852133867811598,
+        0.9076733597745088,
+        0.33036610404814876,
+        -0.24321036542535984
+      ],
+      "position": [
+        12.937850952148438,
+        12.27124309539795,
+        -22.165012359619137
+      ],
+      "target": [
+        20.25,
+        0,
+        -9.5
+      ],
+      "fov_deg": 29.839371711429724,
+      "aspect": 1.7777777777777777
+    },
+    "polygon_pixels_three": [
+      [
+        [
+          1095.273975486071,
+          427.61855519238117
+        ],
+        [
+          691.2120254053784,
+          290.6267353720822
+        ],
+        [
+          496.13183929562956,
+          468.21429742587
+        ],
+        [
+          939.8198617111101,
+          649.4078073362842
+        ]
+      ]
+    ],
+    "max_polygon_pixel_error": 0.00016496508462967546,
+    "anchors": [
+      {
+        "name": "cage_empty_00",
+        "glb_world": [
+          17,
+          0,
+          -34
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.04409969472100221,
+        "visible": false
+      },
+      {
+        "name": "cage_empty_05",
+        "glb_world": [
+          21.75,
+          0,
+          -34
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.008755717431650451,
+        "visible": false
+      },
+      {
+        "name": "cage_empty_12",
+        "glb_world": [
+          17,
+          0,
+          -37.20000076293945
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.4670007567538352,
+        "visible": false
+      }
+    ],
+    "max_anchor_pixel_error": 0,
+    "mesh_count": 646,
+    "render_size": [
+      1600,
+      900
+    ],
+    "hidden_objects": [
+      "roof",
+      "roof_lights",
+      "structure",
+      "roof_services",
+      "highbay_fixtures",
+      "src_tool_cart",
+      "tool_cart",
+      "src_plastic_monobloc_chair_01",
+      "plastic_monobloc_chair_01",
+      "src_drawer_cabinet",
+      "drawer_cabinet",
+      "drawer_cabinet_drawer_01",
+      "drawer_cabinet_drawer_02",
+      "drawer_cabinet_drawer_03",
+      "drawer_cabinet_drawer_04",
+      "src_compost_bags",
+      "compost_bags_floor",
+      "compost_bags_floorstacked",
+      "compost_bags_leaning",
+      "compost_bags_standing",
+      "src_steel_frame_shelves_01",
+      "steel_frame_shelves_01",
+      "src_steel_frame_shelves_02",
+      "steel_frame_shelves_02",
+      "src_metal_office_desk",
+      "metal_office_desk",
+      "metal_office_desk_drawer_01",
+      "metal_office_desk_drawer_02",
+      "metal_office_desk_drawer_03",
+      "metal_office_desk_drawer_04",
+      "metal_office_desk_drawer_05",
+      "metal_office_desk_drawer_06",
+      "metal_office_desk_tray_01",
+      "metal_office_desk_tray_02",
+      "src_mounted_fluorescent_lights",
+      "mounted_fluorescent_lights_a",
+      "mounted_fluorescent_lights_b",
+      "mounted_fluorescent_lights_c",
+      "mounted_fluorescent_lights_d",
+      "mounted_fluorescent_lights_e",
+      "mounted_fluorescent_lights_f",
+      "mounted_fluorescent_lights_g",
+      "mounted_fluorescent_lights_96",
+      "mounted_fluorescent_lights_a.001",
+      "mounted_fluorescent_lights_b.001",
+      "mounted_fluorescent_lights_c.001",
+      "mounted_fluorescent_lights_d.001",
+      "mounted_fluorescent_lights_e.001",
+      "mounted_fluorescent_lights_f.001",
+      "mounted_fluorescent_lights_g.001",
+      "src_korean_fire_extinguisher_01",
+      "korean_fire_extinguisher_01",
+      "src_concrete_road_barrier",
+      "concrete_road_barrier",
+      "led_rows"
+    ],
+    "passed": true,
+    "page_errors": [],
+    "browser_console": []
+  },
+  "Z05": {
+    "zone_id": "Z05",
+    "three_version": "180",
+    "model_path": "/frontend/public/hub.glb",
+    "camera": {
+      "quaternion": [
+        -0.09695533290692518,
+        0.8955908195448811,
+        0.36184219551078517,
+        0.23997285870650129
+      ],
+      "position": [
+        57.20294189453125,
+        35.54302978515625,
+        -44.87482833862306
+      ],
+      "target": [
+        38.79999923706055,
+        0,
+        -13
+      ],
+      "fov_deg": 29.839371711429724,
+      "aspect": 1.7777777777777777
+    },
+    "polygon_pixels_three": [
+      [
+        [
+          1089.459036007106,
+          188.55896906541983
+        ],
+        [
+          222.35446672861966,
+          502.95316835810326
+        ],
+        [
+          374.4845448873857,
+          832.274261348745
+        ],
+        [
+          1341.8869527648496,
+          398.71346465008605
+        ]
+      ]
+    ],
+    "max_polygon_pixel_error": 0.00013264859267969755,
+    "anchors": [
+      {
+        "name": "cage_empty_00",
+        "glb_world": [
+          17,
+          0,
+          -34
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.00013562978413862007,
+        "visible": false
+      },
+      {
+        "name": "cage_empty_05",
+        "glb_world": [
+          21.75,
+          0,
+          -34
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.00020261892152715998,
+        "visible": false
+      },
+      {
+        "name": "cage_empty_12",
+        "glb_world": [
+          17,
+          0,
+          -37.20000076293945
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.00017635499927068894,
+        "visible": false
+      }
+    ],
+    "max_anchor_pixel_error": 0,
+    "mesh_count": 646,
+    "render_size": [
+      1600,
+      900
+    ],
+    "hidden_objects": [
+      "roof",
+      "roof_lights",
+      "structure",
+      "roof_services",
+      "highbay_fixtures",
+      "src_tool_cart",
+      "tool_cart",
+      "src_plastic_monobloc_chair_01",
+      "plastic_monobloc_chair_01",
+      "src_drawer_cabinet",
+      "drawer_cabinet",
+      "drawer_cabinet_drawer_01",
+      "drawer_cabinet_drawer_02",
+      "drawer_cabinet_drawer_03",
+      "drawer_cabinet_drawer_04",
+      "src_compost_bags",
+      "compost_bags_floor",
+      "compost_bags_floorstacked",
+      "compost_bags_leaning",
+      "compost_bags_standing",
+      "src_steel_frame_shelves_01",
+      "steel_frame_shelves_01",
+      "src_steel_frame_shelves_02",
+      "steel_frame_shelves_02",
+      "src_metal_office_desk",
+      "metal_office_desk",
+      "metal_office_desk_drawer_01",
+      "metal_office_desk_drawer_02",
+      "metal_office_desk_drawer_03",
+      "metal_office_desk_drawer_04",
+      "metal_office_desk_drawer_05",
+      "metal_office_desk_drawer_06",
+      "metal_office_desk_tray_01",
+      "metal_office_desk_tray_02",
+      "src_mounted_fluorescent_lights",
+      "mounted_fluorescent_lights_a",
+      "mounted_fluorescent_lights_b",
+      "mounted_fluorescent_lights_c",
+      "mounted_fluorescent_lights_d",
+      "mounted_fluorescent_lights_e",
+      "mounted_fluorescent_lights_f",
+      "mounted_fluorescent_lights_g",
+      "mounted_fluorescent_lights_96",
+      "mounted_fluorescent_lights_a.001",
+      "mounted_fluorescent_lights_b.001",
+      "mounted_fluorescent_lights_c.001",
+      "mounted_fluorescent_lights_d.001",
+      "mounted_fluorescent_lights_e.001",
+      "mounted_fluorescent_lights_f.001",
+      "mounted_fluorescent_lights_g.001",
+      "src_korean_fire_extinguisher_01",
+      "korean_fire_extinguisher_01",
+      "src_concrete_road_barrier",
+      "concrete_road_barrier",
+      "led_rows"
+    ],
+    "passed": true,
+    "page_errors": [],
+    "browser_console": []
+  },
+  "Z06": {
+    "zone_id": "Z06",
+    "three_version": "180",
+    "model_path": "/frontend/public/hub.glb",
+    "camera": {
+      "quaternion": [
+        0.09695533625009324,
+        0.8955908172014159,
+        0.3618421952130295,
+        -0.23997286655067346
+      ],
+      "position": [
+        29.329925537109382,
+        20.221664428710938,
+        -40.184696197509766
+      ],
+      "target": [
+        39.79999923706055,
+        0,
+        -22.049999237060547
+      ],
+      "fov_deg": 29.839371711429724,
+      "aspect": 1.7777777777777777
+    },
+    "polygon_pixels_three": [
+      [
+        [
+          1407.262890174793,
+          564.7455460103506
+        ],
+        [
+          443.84154112416195,
+          204.9050930823322
+        ],
+        [
+          268.53987562255065,
+          346.83649854194226
+        ],
+        [
+          1308.0948405634902,
+          796.1044937814053
+        ]
+      ]
+    ],
+    "max_polygon_pixel_error": 0.0005825632836876063,
+    "anchors": [
+      {
+        "name": "cage_empty_00",
+        "glb_world": [
+          17,
+          0,
+          -34
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.0010695346545010246,
+        "visible": false
+      },
+      {
+        "name": "cage_empty_05",
+        "glb_world": [
+          21.75,
+          0,
+          -34
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.0008355010630440591,
+        "visible": false
+      },
+      {
+        "name": "cage_empty_12",
+        "glb_world": [
+          17,
+          0,
+          -37.20000076293945
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.0014484348234803674,
+        "visible": false
+      }
+    ],
+    "max_anchor_pixel_error": 0,
+    "mesh_count": 646,
+    "render_size": [
+      1600,
+      900
+    ],
+    "hidden_objects": [
+      "roof",
+      "roof_lights",
+      "structure",
+      "roof_services",
+      "highbay_fixtures",
+      "src_tool_cart",
+      "tool_cart",
+      "src_plastic_monobloc_chair_01",
+      "plastic_monobloc_chair_01",
+      "src_drawer_cabinet",
+      "drawer_cabinet",
+      "drawer_cabinet_drawer_01",
+      "drawer_cabinet_drawer_02",
+      "drawer_cabinet_drawer_03",
+      "drawer_cabinet_drawer_04",
+      "src_compost_bags",
+      "compost_bags_floor",
+      "compost_bags_floorstacked",
+      "compost_bags_leaning",
+      "compost_bags_standing",
+      "src_steel_frame_shelves_01",
+      "steel_frame_shelves_01",
+      "src_steel_frame_shelves_02",
+      "steel_frame_shelves_02",
+      "src_metal_office_desk",
+      "metal_office_desk",
+      "metal_office_desk_drawer_01",
+      "metal_office_desk_drawer_02",
+      "metal_office_desk_drawer_03",
+      "metal_office_desk_drawer_04",
+      "metal_office_desk_drawer_05",
+      "metal_office_desk_drawer_06",
+      "metal_office_desk_tray_01",
+      "metal_office_desk_tray_02",
+      "src_mounted_fluorescent_lights",
+      "mounted_fluorescent_lights_a",
+      "mounted_fluorescent_lights_b",
+      "mounted_fluorescent_lights_c",
+      "mounted_fluorescent_lights_d",
+      "mounted_fluorescent_lights_e",
+      "mounted_fluorescent_lights_f",
+      "mounted_fluorescent_lights_g",
+      "mounted_fluorescent_lights_96",
+      "mounted_fluorescent_lights_a.001",
+      "mounted_fluorescent_lights_b.001",
+      "mounted_fluorescent_lights_c.001",
+      "mounted_fluorescent_lights_d.001",
+      "mounted_fluorescent_lights_e.001",
+      "mounted_fluorescent_lights_f.001",
+      "mounted_fluorescent_lights_g.001",
+      "src_korean_fire_extinguisher_01",
+      "korean_fire_extinguisher_01",
+      "src_concrete_road_barrier",
+      "concrete_road_barrier",
+      "led_rows"
+    ],
+    "passed": true,
+    "page_errors": [],
+    "browser_console": []
+  },
+  "Z07": {
+    "zone_id": "Z07",
+    "three_version": "180",
+    "model_path": "/frontend/public/hub.glb",
+    "camera": {
+      "quaternion": [
+        -0.08852131984660233,
+        0.9076733726064559,
+        0.33036611572576347,
+        0.24321030852763806
+      ],
+      "position": [
+        35.60760879516602,
+        10.585428237915039,
+        -31.875102996826165
+      ],
+      "target": [
+        29.299999237060547,
+        0,
+        -20.950000762939457
+      ],
+      "fov_deg": 29.839371711429724,
+      "aspect": 1.7777777777777777
+    },
+    "polygon_pixels_three": [
+      [
+        [
+          788.6503514176212,
+          348.8171259133245
+        ],
+        [
+          668.8233823347983,
+          389.9890946117085
+        ],
+        [
+          813.184502484656,
+          561.5906641913433
+        ],
+        [
+          942.7326155503008,
+          509.5481748150663
+        ]
+      ]
+    ],
+    "max_polygon_pixel_error": 0.0005210705559951706,
+    "anchors": [
+      {
+        "name": "cage_empty_00",
+        "glb_world": [
+          17,
+          0,
+          -34
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.0010562497478962506,
+        "visible": false
+      },
+      {
+        "name": "cage_empty_05",
+        "glb_world": [
+          21.75,
+          0,
+          -34
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.0011623160905363278,
+        "visible": false
+      },
+      {
+        "name": "cage_empty_12",
+        "glb_world": [
+          17,
+          0,
+          -37.20000076293945
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.0015380380628473485,
+        "visible": false
+      }
+    ],
+    "max_anchor_pixel_error": 0,
+    "mesh_count": 646,
+    "render_size": [
+      1600,
+      900
+    ],
+    "hidden_objects": [
+      "roof",
+      "roof_lights",
+      "structure",
+      "roof_services",
+      "highbay_fixtures",
+      "src_tool_cart",
+      "tool_cart",
+      "src_plastic_monobloc_chair_01",
+      "plastic_monobloc_chair_01",
+      "src_drawer_cabinet",
+      "drawer_cabinet",
+      "drawer_cabinet_drawer_01",
+      "drawer_cabinet_drawer_02",
+      "drawer_cabinet_drawer_03",
+      "drawer_cabinet_drawer_04",
+      "src_compost_bags",
+      "compost_bags_floor",
+      "compost_bags_floorstacked",
+      "compost_bags_leaning",
+      "compost_bags_standing",
+      "src_steel_frame_shelves_01",
+      "steel_frame_shelves_01",
+      "src_steel_frame_shelves_02",
+      "steel_frame_shelves_02",
+      "src_metal_office_desk",
+      "metal_office_desk",
+      "metal_office_desk_drawer_01",
+      "metal_office_desk_drawer_02",
+      "metal_office_desk_drawer_03",
+      "metal_office_desk_drawer_04",
+      "metal_office_desk_drawer_05",
+      "metal_office_desk_drawer_06",
+      "metal_office_desk_tray_01",
+      "metal_office_desk_tray_02",
+      "src_mounted_fluorescent_lights",
+      "mounted_fluorescent_lights_a",
+      "mounted_fluorescent_lights_b",
+      "mounted_fluorescent_lights_c",
+      "mounted_fluorescent_lights_d",
+      "mounted_fluorescent_lights_e",
+      "mounted_fluorescent_lights_f",
+      "mounted_fluorescent_lights_g",
+      "mounted_fluorescent_lights_96",
+      "mounted_fluorescent_lights_a.001",
+      "mounted_fluorescent_lights_b.001",
+      "mounted_fluorescent_lights_c.001",
+      "mounted_fluorescent_lights_d.001",
+      "mounted_fluorescent_lights_e.001",
+      "mounted_fluorescent_lights_f.001",
+      "mounted_fluorescent_lights_g.001",
+      "src_korean_fire_extinguisher_01",
+      "korean_fire_extinguisher_01",
+      "src_concrete_road_barrier",
+      "concrete_road_barrier",
+      "led_rows"
+    ],
+    "passed": true,
+    "page_errors": [],
+    "browser_console": []
+  },
+  "Z08": {
+    "zone_id": "Z08",
+    "three_version": "180",
+    "model_path": "/frontend/public/hub.glb",
+    "camera": {
+      "quaternion": [
+        -0.08852134744352123,
+        0.9076733520644096,
+        0.330366109781775,
+        0.24321038322118987
+      ],
+      "position": [
+        33.302715301513665,
+        12.591052055358885,
+        -35.295082092285156
+      ],
+      "target": [
+        25.799999237060547,
+        0,
+        -22.299999237060547
+      ],
+      "fov_deg": 29.839371711429724,
+      "aspect": 1.7777777777777777
+    },
+    "polygon_pixels_three": [
+      [
+        [
+          897.1446188306505,
+          281.8232551336353
+        ],
+        [
+          498.40982875342377,
+          415.6427953833643
+        ],
+        [
+          673.102686955447,
+          664.3471373327063
+        ],
+        [
+          1115.8989988001856,
+          481.2489037827534
+        ]
+      ]
+    ],
+    "max_polygon_pixel_error": 0.0002731912806878609,
+    "anchors": [
+      {
+        "name": "cage_empty_00",
+        "glb_world": [
+          17,
+          0,
+          -34
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.0003405137056261479,
+        "visible": false
+      },
+      {
+        "name": "cage_empty_05",
+        "glb_world": [
+          21.75,
+          0,
+          -34
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.00024295338093701237,
+        "visible": false
+      },
+      {
+        "name": "cage_empty_12",
+        "glb_world": [
+          17,
+          0,
+          -37.20000076293945
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.00028034810620318934,
+        "visible": false
+      }
+    ],
+    "max_anchor_pixel_error": 0,
+    "mesh_count": 646,
+    "render_size": [
+      1600,
+      900
+    ],
+    "hidden_objects": [
+      "roof",
+      "roof_lights",
+      "structure",
+      "roof_services",
+      "highbay_fixtures",
+      "src_tool_cart",
+      "tool_cart",
+      "src_plastic_monobloc_chair_01",
+      "plastic_monobloc_chair_01",
+      "src_drawer_cabinet",
+      "drawer_cabinet",
+      "drawer_cabinet_drawer_01",
+      "drawer_cabinet_drawer_02",
+      "drawer_cabinet_drawer_03",
+      "drawer_cabinet_drawer_04",
+      "src_compost_bags",
+      "compost_bags_floor",
+      "compost_bags_floorstacked",
+      "compost_bags_leaning",
+      "compost_bags_standing",
+      "src_steel_frame_shelves_01",
+      "steel_frame_shelves_01",
+      "src_steel_frame_shelves_02",
+      "steel_frame_shelves_02",
+      "src_metal_office_desk",
+      "metal_office_desk",
+      "metal_office_desk_drawer_01",
+      "metal_office_desk_drawer_02",
+      "metal_office_desk_drawer_03",
+      "metal_office_desk_drawer_04",
+      "metal_office_desk_drawer_05",
+      "metal_office_desk_drawer_06",
+      "metal_office_desk_tray_01",
+      "metal_office_desk_tray_02",
+      "src_mounted_fluorescent_lights",
+      "mounted_fluorescent_lights_a",
+      "mounted_fluorescent_lights_b",
+      "mounted_fluorescent_lights_c",
+      "mounted_fluorescent_lights_d",
+      "mounted_fluorescent_lights_e",
+      "mounted_fluorescent_lights_f",
+      "mounted_fluorescent_lights_g",
+      "mounted_fluorescent_lights_96",
+      "mounted_fluorescent_lights_a.001",
+      "mounted_fluorescent_lights_b.001",
+      "mounted_fluorescent_lights_c.001",
+      "mounted_fluorescent_lights_d.001",
+      "mounted_fluorescent_lights_e.001",
+      "mounted_fluorescent_lights_f.001",
+      "mounted_fluorescent_lights_g.001",
+      "src_korean_fire_extinguisher_01",
+      "korean_fire_extinguisher_01",
+      "src_concrete_road_barrier",
+      "concrete_road_barrier",
+      "led_rows"
+    ],
+    "passed": true,
+    "page_errors": [],
+    "browser_console": []
+  },
+  "Z09": {
+    "zone_id": "Z09",
+    "three_version": "180",
+    "model_path": "/frontend/public/hub.glb",
+    "camera": {
+      "quaternion": [
+        -0.18730329757420963,
+        0.8029647738960052,
+        0.3244188356418522,
+        0.4635919171866021
+      ],
+      "position": [
+        28.870422363281243,
+        19.31368064880371,
+        -13.34995079040528
+      ],
+      "target": [
+        11.550000190734865,
+        0,
+        -3.3499999046325684
+      ],
+      "fov_deg": 29.839371711429724,
+      "aspect": 1.7777777777777777
+    },
+    "polygon_pixels_three": [
+      [
+        [
+          812.7900024021843,
+          206.7129702555493
+        ],
+        [
+          417.867514972193,
+          614.8480479266168
+        ],
+        [
+          781.8132699985787,
+          792.2349393275063
+        ],
+        [
+          1117.327932957577,
+          310.306163680358
+        ]
+      ]
+    ],
+    "max_polygon_pixel_error": 0.0003174445766329633,
+    "anchors": [
+      {
+        "name": "cage_empty_00",
+        "glb_world": [
+          17,
+          0,
+          -34
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.0002749776063112152,
+        "visible": false
+      },
+      {
+        "name": "cage_empty_05",
+        "glb_world": [
+          21.75,
+          0,
+          -34
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.0006383869817670007,
+        "visible": false
+      },
+      {
+        "name": "cage_empty_12",
+        "glb_world": [
+          17,
+          0,
+          -37.20000076293945
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.0010083162874350358,
+        "visible": false
+      }
+    ],
+    "max_anchor_pixel_error": 0,
+    "mesh_count": 646,
+    "render_size": [
+      1600,
+      900
+    ],
+    "hidden_objects": [
+      "roof",
+      "roof_lights",
+      "structure",
+      "roof_services",
+      "highbay_fixtures",
+      "src_tool_cart",
+      "tool_cart",
+      "src_plastic_monobloc_chair_01",
+      "plastic_monobloc_chair_01",
+      "src_drawer_cabinet",
+      "drawer_cabinet",
+      "drawer_cabinet_drawer_01",
+      "drawer_cabinet_drawer_02",
+      "drawer_cabinet_drawer_03",
+      "drawer_cabinet_drawer_04",
+      "src_compost_bags",
+      "compost_bags_floor",
+      "compost_bags_floorstacked",
+      "compost_bags_leaning",
+      "compost_bags_standing",
+      "src_steel_frame_shelves_01",
+      "steel_frame_shelves_01",
+      "src_steel_frame_shelves_02",
+      "steel_frame_shelves_02",
+      "src_metal_office_desk",
+      "metal_office_desk",
+      "metal_office_desk_drawer_01",
+      "metal_office_desk_drawer_02",
+      "metal_office_desk_drawer_03",
+      "metal_office_desk_drawer_04",
+      "metal_office_desk_drawer_05",
+      "metal_office_desk_drawer_06",
+      "metal_office_desk_tray_01",
+      "metal_office_desk_tray_02",
+      "src_mounted_fluorescent_lights",
+      "mounted_fluorescent_lights_a",
+      "mounted_fluorescent_lights_b",
+      "mounted_fluorescent_lights_c",
+      "mounted_fluorescent_lights_d",
+      "mounted_fluorescent_lights_e",
+      "mounted_fluorescent_lights_f",
+      "mounted_fluorescent_lights_g",
+      "mounted_fluorescent_lights_96",
+      "mounted_fluorescent_lights_a.001",
+      "mounted_fluorescent_lights_b.001",
+      "mounted_fluorescent_lights_c.001",
+      "mounted_fluorescent_lights_d.001",
+      "mounted_fluorescent_lights_e.001",
+      "mounted_fluorescent_lights_f.001",
+      "mounted_fluorescent_lights_g.001",
+      "src_korean_fire_extinguisher_01",
+      "korean_fire_extinguisher_01",
+      "src_concrete_road_barrier",
+      "concrete_road_barrier",
+      "led_rows"
+    ],
+    "passed": true,
+    "page_errors": [],
+    "browser_console": []
+  },
+  "Z10": {
+    "zone_id": "Z10",
+    "three_version": "180",
+    "model_path": "/frontend/public/hub.glb",
+    "camera": {
+      "quaternion": [
+        -0.3746066060573399,
+        0,
+        0,
+        0.9271838494593191
+      ],
+      "position": [
+        38.5,
+        27.472385406494144,
+        -0.3515129089355504
+      ],
+      "target": [
+        38.5,
+        0,
+        -28.79999923706055
+      ],
+      "fov_deg": 29.839371711429724,
+      "aspect": 1.7777777777777777
+    },
+    "polygon_pixels_three": [
+      [
+        [
+          136.95747886503779,
+          563.2016054785172
+        ],
+        [
+          1463.042521134962,
+          563.2016054785172
+        ],
+        [
+          1381.4992657041553,
+          348.700917925917
+        ],
+        [
+          218.50073429584472,
+          348.700917925917
+        ]
+      ]
+    ],
+    "max_polygon_pixel_error": 8.254955798979475e-05,
+    "anchors": [
+      {
+        "name": "cage_empty_00",
+        "glb_world": [
+          17,
+          0,
+          -34
+        ],
+        "error_metres": 0,
+        "pixel_error": 5.0793974308088466e-05,
+        "visible": false
+      },
+      {
+        "name": "cage_empty_05",
+        "glb_world": [
+          21.75,
+          0,
+          -34
+        ],
+        "error_metres": 0,
+        "pixel_error": 5.003763625028739e-05,
+        "visible": true
+      },
+      {
+        "name": "cage_empty_12",
+        "glb_world": [
+          17,
+          0,
+          -37.20000076293945
+        ],
+        "error_metres": 0,
+        "pixel_error": 6.160204740931432e-05,
+        "visible": true
+      }
+    ],
+    "max_anchor_pixel_error": 6.160204740931432e-05,
+    "mesh_count": 646,
+    "render_size": [
+      1600,
+      900
+    ],
+    "hidden_objects": [
+      "roof",
+      "roof_lights",
+      "structure",
+      "roof_services",
+      "highbay_fixtures",
+      "src_tool_cart",
+      "tool_cart",
+      "src_plastic_monobloc_chair_01",
+      "plastic_monobloc_chair_01",
+      "src_drawer_cabinet",
+      "drawer_cabinet",
+      "drawer_cabinet_drawer_01",
+      "drawer_cabinet_drawer_02",
+      "drawer_cabinet_drawer_03",
+      "drawer_cabinet_drawer_04",
+      "src_compost_bags",
+      "compost_bags_floor",
+      "compost_bags_floorstacked",
+      "compost_bags_leaning",
+      "compost_bags_standing",
+      "src_steel_frame_shelves_01",
+      "steel_frame_shelves_01",
+      "src_steel_frame_shelves_02",
+      "steel_frame_shelves_02",
+      "src_metal_office_desk",
+      "metal_office_desk",
+      "metal_office_desk_drawer_01",
+      "metal_office_desk_drawer_02",
+      "metal_office_desk_drawer_03",
+      "metal_office_desk_drawer_04",
+      "metal_office_desk_drawer_05",
+      "metal_office_desk_drawer_06",
+      "metal_office_desk_tray_01",
+      "metal_office_desk_tray_02",
+      "src_mounted_fluorescent_lights",
+      "mounted_fluorescent_lights_a",
+      "mounted_fluorescent_lights_b",
+      "mounted_fluorescent_lights_c",
+      "mounted_fluorescent_lights_d",
+      "mounted_fluorescent_lights_e",
+      "mounted_fluorescent_lights_f",
+      "mounted_fluorescent_lights_g",
+      "mounted_fluorescent_lights_96",
+      "mounted_fluorescent_lights_a.001",
+      "mounted_fluorescent_lights_b.001",
+      "mounted_fluorescent_lights_c.001",
+      "mounted_fluorescent_lights_d.001",
+      "mounted_fluorescent_lights_e.001",
+      "mounted_fluorescent_lights_f.001",
+      "mounted_fluorescent_lights_g.001",
+      "src_korean_fire_extinguisher_01",
+      "korean_fire_extinguisher_01",
+      "src_concrete_road_barrier",
+      "concrete_road_barrier",
+      "led_rows"
+    ],
+    "passed": true,
+    "page_errors": [],
+    "browser_console": []
+  },
+  "Z11": {
+    "zone_id": "Z11",
+    "three_version": "180",
+    "model_path": "/frontend/public/hub.glb",
+    "camera": {
+      "quaternion": [
+        -0.3714017886114767,
+        0.12102176844562265,
+        0.04889596927398069,
+        0.9192516669374323
+      ],
+      "position": [
+        18.543783187866214,
+        24.042625427246094,
+        -10.851474761962898
+      ],
+      "target": [
+        12.100000381469728,
+        0,
+        -34.900001525878906
+      ],
+      "fov_deg": 29.839371711429724,
+      "aspect": 1.7777777777777777
+    },
+    "polygon_pixels_three": [
+      [
+        [
+          154.59291061311058,
+          506.7976767153829
+        ],
+        [
+          1396.249472916323,
+          764.9765612788311
+        ],
+        [
+          1402.501989769167,
+          394.6010813652088
+        ],
+        [
+          370.44128379428764,
+          220.9649948930936
+        ]
+      ]
+    ],
+    "max_polygon_pixel_error": 0.0002831316144894448,
+    "anchors": [
+      {
+        "name": "cage_empty_00",
+        "glb_world": [
+          17,
+          0,
+          -34
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.0002458574964590515,
+        "visible": true
+      },
+      {
+        "name": "cage_empty_05",
+        "glb_world": [
+          21.75,
+          0,
+          -34
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.0002447205245067481,
+        "visible": true
+      },
+      {
+        "name": "cage_empty_12",
+        "glb_world": [
+          17,
+          0,
+          -37.20000076293945
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.00019215057971739608,
+        "visible": true
+      }
+    ],
+    "max_anchor_pixel_error": 0.0002458574964590515,
+    "mesh_count": 646,
+    "render_size": [
+      1600,
+      900
+    ],
+    "hidden_objects": [
+      "roof",
+      "roof_lights",
+      "structure",
+      "roof_services",
+      "highbay_fixtures",
+      "src_tool_cart",
+      "tool_cart",
+      "src_plastic_monobloc_chair_01",
+      "plastic_monobloc_chair_01",
+      "src_drawer_cabinet",
+      "drawer_cabinet",
+      "drawer_cabinet_drawer_01",
+      "drawer_cabinet_drawer_02",
+      "drawer_cabinet_drawer_03",
+      "drawer_cabinet_drawer_04",
+      "src_compost_bags",
+      "compost_bags_floor",
+      "compost_bags_floorstacked",
+      "compost_bags_leaning",
+      "compost_bags_standing",
+      "src_steel_frame_shelves_01",
+      "steel_frame_shelves_01",
+      "src_steel_frame_shelves_02",
+      "steel_frame_shelves_02",
+      "src_metal_office_desk",
+      "metal_office_desk",
+      "metal_office_desk_drawer_01",
+      "metal_office_desk_drawer_02",
+      "metal_office_desk_drawer_03",
+      "metal_office_desk_drawer_04",
+      "metal_office_desk_drawer_05",
+      "metal_office_desk_drawer_06",
+      "metal_office_desk_tray_01",
+      "metal_office_desk_tray_02",
+      "src_mounted_fluorescent_lights",
+      "mounted_fluorescent_lights_a",
+      "mounted_fluorescent_lights_b",
+      "mounted_fluorescent_lights_c",
+      "mounted_fluorescent_lights_d",
+      "mounted_fluorescent_lights_e",
+      "mounted_fluorescent_lights_f",
+      "mounted_fluorescent_lights_g",
+      "mounted_fluorescent_lights_96",
+      "mounted_fluorescent_lights_a.001",
+      "mounted_fluorescent_lights_b.001",
+      "mounted_fluorescent_lights_c.001",
+      "mounted_fluorescent_lights_d.001",
+      "mounted_fluorescent_lights_e.001",
+      "mounted_fluorescent_lights_f.001",
+      "mounted_fluorescent_lights_g.001",
+      "src_korean_fire_extinguisher_01",
+      "korean_fire_extinguisher_01",
+      "src_concrete_road_barrier",
+      "concrete_road_barrier",
+      "led_rows"
+    ],
+    "passed": true,
+    "page_errors": [],
+    "browser_console": []
+  },
+  "Z12": {
+    "zone_id": "Z12",
+    "three_version": "180",
+    "model_path": "/frontend/public/hub.glb",
+    "camera": {
+      "quaternion": [
+        -0.37460660635600695,
+        0,
+        0,
+        0.9271838493386495
+      ],
+      "position": [
+        39,
+        28.286157608032223,
+        -6.8088264465332
+      ],
+      "target": [
+        39,
+        0,
+        -36.099998474121094
+      ],
+      "fov_deg": 29.839371711429724,
+      "aspect": 1.7777777777777777
+    },
+    "polygon_pixels_three": [
+      [
+        [
+          133.92321186587085,
+          563.0136079996574
+        ],
+        [
+          1466.0767881341292,
+          563.0136079996574
+        ],
+        [
+          1384.299405852019,
+          348.9000762296681
+        ],
+        [
+          215.70059414798104,
+          348.9000762296681
+        ]
+      ]
+    ],
+    "max_polygon_pixel_error": 7.7480282119414e-05,
+    "anchors": [
+      {
+        "name": "cage_empty_00",
+        "glb_world": [
+          17,
+          0,
+          -34
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.00011046994776255458,
+        "visible": false
+      },
+      {
+        "name": "cage_empty_05",
+        "glb_world": [
+          21.75,
+          0,
+          -34
+        ],
+        "error_metres": 0,
+        "pixel_error": 8.595196089990143e-05,
+        "visible": true
+      },
+      {
+        "name": "cage_empty_12",
+        "glb_world": [
+          17,
+          0,
+          -37.20000076293945
+        ],
+        "error_metres": 0,
+        "pixel_error": 3.0640941737980835e-05,
+        "visible": false
+      }
+    ],
+    "max_anchor_pixel_error": 8.595196089990143e-05,
+    "mesh_count": 646,
+    "render_size": [
+      1600,
+      900
+    ],
+    "hidden_objects": [
+      "roof",
+      "roof_lights",
+      "structure",
+      "roof_services",
+      "highbay_fixtures",
+      "src_tool_cart",
+      "tool_cart",
+      "src_plastic_monobloc_chair_01",
+      "plastic_monobloc_chair_01",
+      "src_drawer_cabinet",
+      "drawer_cabinet",
+      "drawer_cabinet_drawer_01",
+      "drawer_cabinet_drawer_02",
+      "drawer_cabinet_drawer_03",
+      "drawer_cabinet_drawer_04",
+      "src_compost_bags",
+      "compost_bags_floor",
+      "compost_bags_floorstacked",
+      "compost_bags_leaning",
+      "compost_bags_standing",
+      "src_steel_frame_shelves_01",
+      "steel_frame_shelves_01",
+      "src_steel_frame_shelves_02",
+      "steel_frame_shelves_02",
+      "src_metal_office_desk",
+      "metal_office_desk",
+      "metal_office_desk_drawer_01",
+      "metal_office_desk_drawer_02",
+      "metal_office_desk_drawer_03",
+      "metal_office_desk_drawer_04",
+      "metal_office_desk_drawer_05",
+      "metal_office_desk_drawer_06",
+      "metal_office_desk_tray_01",
+      "metal_office_desk_tray_02",
+      "src_mounted_fluorescent_lights",
+      "mounted_fluorescent_lights_a",
+      "mounted_fluorescent_lights_b",
+      "mounted_fluorescent_lights_c",
+      "mounted_fluorescent_lights_d",
+      "mounted_fluorescent_lights_e",
+      "mounted_fluorescent_lights_f",
+      "mounted_fluorescent_lights_g",
+      "mounted_fluorescent_lights_96",
+      "mounted_fluorescent_lights_a.001",
+      "mounted_fluorescent_lights_b.001",
+      "mounted_fluorescent_lights_c.001",
+      "mounted_fluorescent_lights_d.001",
+      "mounted_fluorescent_lights_e.001",
+      "mounted_fluorescent_lights_f.001",
+      "mounted_fluorescent_lights_g.001",
+      "src_korean_fire_extinguisher_01",
+      "korean_fire_extinguisher_01",
+      "src_concrete_road_barrier",
+      "concrete_road_barrier",
+      "led_rows"
+    ],
+    "passed": true,
+    "page_errors": [],
+    "browser_console": []
+  },
+  "Z13": {
+    "zone_id": "Z13",
+    "three_version": "180",
+    "model_path": "/frontend/public/hub.glb",
+    "camera": {
+      "quaternion": [
+        0.1873033101628846,
+        0.8029647518894532,
+        0.32441881565039343,
+        -0.4635919642068133
+      ],
+      "position": [
+        44.124855041503906,
+        14.579850196838372,
+        -10.648937225341793
+      ],
+      "target": [
+        57.20000076293945,
+        0,
+        -3.0999999046325684
+      ],
+      "fov_deg": 29.839371711429724,
+      "aspect": 1.7777777777777777
+    },
+    "polygon_pixels_three": [
+      [
+        [
+          1115.739789292422,
+          494.046301950015
+        ],
+        [
+          886.5979124968352,
+          264.3934977444965
+        ],
+        [
+          501.1655903835047,
+          404.36416761010753
+        ],
+        [
+          688.2031463165013,
+          684.9692170754037
+        ]
+      ]
+    ],
+    "max_polygon_pixel_error": 0.0003919275036263275,
+    "anchors": [
+      {
+        "name": "cage_empty_00",
+        "glb_world": [
+          17,
+          0,
+          -34
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.000751014270908135,
+        "visible": false
+      },
+      {
+        "name": "cage_empty_05",
+        "glb_world": [
+          21.75,
+          0,
+          -34
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.0006881360127555234,
+        "visible": false
+      },
+      {
+        "name": "cage_empty_12",
+        "glb_world": [
+          17,
+          0,
+          -37.20000076293945
+        ],
+        "error_metres": 0,
+        "pixel_error": 0.0004631868190134967,
+        "visible": false
+      }
+    ],
+    "max_anchor_pixel_error": 0,
+    "mesh_count": 646,
+    "render_size": [
+      1600,
+      900
+    ],
+    "hidden_objects": [
+      "roof",
+      "roof_lights",
+      "structure",
+      "roof_services",
+      "highbay_fixtures",
+      "src_tool_cart",
+      "tool_cart",
+      "src_plastic_monobloc_chair_01",
+      "plastic_monobloc_chair_01",
+      "src_drawer_cabinet",
+      "drawer_cabinet",
+      "drawer_cabinet_drawer_01",
+      "drawer_cabinet_drawer_02",
+      "drawer_cabinet_drawer_03",
+      "drawer_cabinet_drawer_04",
+      "src_compost_bags",
+      "compost_bags_floor",
+      "compost_bags_floorstacked",
+      "compost_bags_leaning",
+      "compost_bags_standing",
+      "src_steel_frame_shelves_01",
+      "steel_frame_shelves_01",
+      "src_steel_frame_shelves_02",
+      "steel_frame_shelves_02",
+      "src_metal_office_desk",
+      "metal_office_desk",
+      "metal_office_desk_drawer_01",
+      "metal_office_desk_drawer_02",
+      "metal_office_desk_drawer_03",
+      "metal_office_desk_drawer_04",
+      "metal_office_desk_drawer_05",
+      "metal_office_desk_drawer_06",
+      "metal_office_desk_tray_01",
+      "metal_office_desk_tray_02",
+      "src_mounted_fluorescent_lights",
+      "mounted_fluorescent_lights_a",
+      "mounted_fluorescent_lights_b",
+      "mounted_fluorescent_lights_c",
+      "mounted_fluorescent_lights_d",
+      "mounted_fluorescent_lights_e",
+      "mounted_fluorescent_lights_f",
+      "mounted_fluorescent_lights_g",
+      "mounted_fluorescent_lights_96",
+      "mounted_fluorescent_lights_a.001",
+      "mounted_fluorescent_lights_b.001",
+      "mounted_fluorescent_lights_c.001",
+      "mounted_fluorescent_lights_d.001",
+      "mounted_fluorescent_lights_e.001",
+      "mounted_fluorescent_lights_f.001",
+      "mounted_fluorescent_lights_g.001",
+      "src_korean_fire_extinguisher_01",
+      "korean_fire_extinguisher_01",
+      "src_concrete_road_barrier",
+      "concrete_road_barrier",
+      "led_rows"
+    ],
+    "passed": true,
+    "page_errors": [],
+    "browser_console": []
+  },
+  "Z14": {
+    "zone_id": "Z14",
+    "three_version": "180",
+    "model_path": "/frontend/public/hub.glb",
+    "camera": {
+      "quaternion": [
+        0.09695533391359987,
+        0.8955908137408632,
+        0.36184221956544155,
+        -0.23997284368993824
+      ],
+      "position": [
+        -31.48412513732906,
+        93.38075256347658,
+        -119.11688232421874
+      ],
+      "target": [
+        17.486486434936523,
+        -1.2000000476837158,
+        -34.297298431396484
+      ],
+      "fov_deg": 29.839371711429724,
+      "aspect": 1.7777777777777777
+    },
+    "polygon_pixels_three": [
+      [
+        [
+          1358.7227557715182,
+          352.7660161857904
+        ],
+        [
+          1160.6867475520328,
+          287.0988954113452
+        ],
+        [
+          998.6308596113279,
+          526.2386686612069
+        ],
+        [
+          1222.1251273807375,
+          615.694117824172
+        ]
+      ],
+      [
+        [
+          736.3811893386544,
+          482.0428004651681
+        ],
+        [
+          346.9158777498041,
+          320.24328468358067
+        ],
+        [
+          198.50832913370385,
+          443.42499006191576
+        ],
+        [
+          606.2295939160198,
+          634.5576944267458
+        ]
+      ]
+    ],
+    "max_polygon_pixel_error": 7.925819374192885e-05,
+    "anchors": [
+      {
+        "name": "cage_empty_00",
+        "glb_world": [
+          17,
+          0,
+          -34
+        ],
+        "error_metres": 0,
+        "pixel_error": 5.889851712895604e-05,
+        "visible": true
+      },
+      {
+        "name": "cage_empty_05",
+        "glb_world": [
+          21.75,
+          0,
+          -34
+        ],
+        "error_metres": 0,
+        "pixel_error": 5.0783158849258086e-05,
+        "visible": true
+      },
+      {
+        "name": "cage_empty_12",
+        "glb_world": [
+          17,
+          0,
+          -37.20000076293945
+        ],
+        "error_metres": 0,
+        "pixel_error": 6.759388027366092e-05,
+        "visible": true
+      }
+    ],
+    "max_anchor_pixel_error": 6.759388027366092e-05,
+    "mesh_count": 646,
+    "render_size": [
+      1600,
+      900
+    ],
+    "hidden_objects": [
+      "roof",
+      "roof_lights",
+      "structure",
+      "roof_services",
+      "highbay_fixtures",
+      "src_tool_cart",
+      "tool_cart",
+      "src_plastic_monobloc_chair_01",
+      "plastic_monobloc_chair_01",
+      "src_drawer_cabinet",
+      "drawer_cabinet",
+      "drawer_cabinet_drawer_01",
+      "drawer_cabinet_drawer_02",
+      "drawer_cabinet_drawer_03",
+      "drawer_cabinet_drawer_04",
+      "src_compost_bags",
+      "compost_bags_floor",
+      "compost_bags_floorstacked",
+      "compost_bags_leaning",
+      "compost_bags_standing",
+      "src_steel_frame_shelves_01",
+      "steel_frame_shelves_01",
+      "src_steel_frame_shelves_02",
+      "steel_frame_shelves_02",
+      "src_metal_office_desk",
+      "metal_office_desk",
+      "metal_office_desk_drawer_01",
+      "metal_office_desk_drawer_02",
+      "metal_office_desk_drawer_03",
+      "metal_office_desk_drawer_04",
+      "metal_office_desk_drawer_05",
+      "metal_office_desk_drawer_06",
+      "metal_office_desk_tray_01",
+      "metal_office_desk_tray_02",
+      "src_mounted_fluorescent_lights",
+      "mounted_fluorescent_lights_a",
+      "mounted_fluorescent_lights_b",
+      "mounted_fluorescent_lights_c",
+      "mounted_fluorescent_lights_d",
+      "mounted_fluorescent_lights_e",
+      "mounted_fluorescent_lights_f",
+      "mounted_fluorescent_lights_g",
+      "mounted_fluorescent_lights_96",
+      "mounted_fluorescent_lights_a.001",
+      "mounted_fluorescent_lights_b.001",
+      "mounted_fluorescent_lights_c.001",
+      "mounted_fluorescent_lights_d.001",
+      "mounted_fluorescent_lights_e.001",
+      "mounted_fluorescent_lights_f.001",
+      "mounted_fluorescent_lights_g.001",
+      "src_korean_fire_extinguisher_01",
+      "korean_fire_extinguisher_01",
+      "src_concrete_road_barrier",
+      "concrete_road_barrier",
+      "led_rows"
+    ],
+    "passed": true,
+    "page_errors": [],
+    "browser_console": []
+  }
+}
