@@ -29,6 +29,7 @@ ap.add_argument("--from-arc", type=float, default=-102.0, help="degrees round th
 ap.add_argument("--to-arc", type=float, default=-66.0)
 ap.add_argument("--push", type=float, default=0.9, help="distance at the end as a share of the start")
 ap.add_argument("--fill", type=float, default=0.8, help="share of the free sorter carriers given a parcel")
+ap.add_argument("--hold", type=float, default=0.0, help="seconds after the turn with the camera at rest and the hub still running")
 ap.add_argument("--test", action="store_true", help="first, middle and last frame only")
 ap.add_argument("--from-frame", type=int, default=0, help="skip frames already on disk before this")
 args = ap.parse_args(sys.argv[sys.argv.index("--") + 1:])
@@ -101,6 +102,14 @@ for pts, v in BELTS:
         belt_riders.append((ob, pts, cum, v, s, rnd.uniform(-0.2, 0.2)))
         s += rnd.uniform(1.3, 2.4)
 print(f"OPENER traffic: {riders} on carriers ({len(busy)} busy skipped), {len(belt_riders)} on belts", flush=True)
+# the hold comes after the turn; its own busy carriers are only reported, so the turn's frames keep the same riders
+clash = set()
+for k in range(n_frames, n_frames + round(args.hold * args.fps), 6):
+    sim = args.sim_start + k * 10.0 * args.speed / args.fps
+    sc.frame_set(int(sim), subframe=sim - int(sim))
+    held = [o.matrix_world.translation.copy() for o in flows if o.matrix_world.translation.z > 1.3]
+    clash |= {o.name for o in traffic.objects if o.parent and any((o.parent.matrix_world.translation.xy - h.xy).length < 0.6 for h in held)}
+print(f"OPENER hold: riders sharing a carrier with a simulated parcel: {sorted(clash) or 'none'}", flush=True)
 
 
 def place_belt(t):
@@ -125,16 +134,17 @@ def ease(u):
     return 0.5 - 0.5 * math.cos(math.pi * u)
 
 
-n = round(args.seconds * args.fps)
+n = round(args.seconds * args.fps)   # the turn
+total = n + round(args.hold * args.fps)
 out = Path(args.out).resolve()
 (out / "frames").mkdir(parents=True, exist_ok=True)
-keep = [0, n // 2, n - 1] if args.test else range(n)
+keep = [0, n // 2, n - 1] if args.test else range(total)
 t0 = time.time()
 for i in keep:
     path = out / "frames" / f"f{i:04d}.jpg"
     if i < args.from_frame and path.exists():
         continue
-    u = ease(i / (n - 1))
+    u = ease(min(i / (n - 1), 1.0))
     a = math.radians(args.from_arc + (args.to_arc - args.from_arc) * u)
     s = 1 + (args.push - 1) * u
     cam.location = LOOK + Vector((R0 * s * math.cos(a), R0 * s * math.sin(a), H0 * s))
@@ -142,8 +152,13 @@ for i in keep:
     sim = args.sim_start + i * 10.0 * args.speed / args.fps
     sc.frame_set(int(sim), subframe=sim - int(sim))
     place_belt(sim / 10.0)
+    if i >= n:   # in the hold, an added parcel steps aside while a simulated one shares its carrier
+        held = [o.matrix_world.translation.copy() for o in flows if o.matrix_world.translation.z > 1.3]
+        for o in traffic.objects:
+            if o.name in clash:
+                o.hide_render = any((o.parent.matrix_world.translation.xy - h.xy).length < 0.6 for h in held)
     sc.render.filepath = str(path)
     bpy.ops.render.render(write_still=True)
     if i % 30 == 0:
-        print(f"OPENER frame {i}/{n} {time.time() - t0:.0f}s", flush=True)
+        print(f"OPENER frame {i}/{total} {time.time() - t0:.0f}s", flush=True)
 print(f"OPENER done in {time.time() - t0:.0f}s")
